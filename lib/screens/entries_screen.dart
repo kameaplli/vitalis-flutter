@@ -1,0 +1,340 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../providers/nutrition_provider.dart';
+import '../providers/selected_person_provider.dart';
+import '../core/api_client.dart';
+import '../core/constants.dart';
+import '../models/nutrition_log.dart';
+import '../models/food_item.dart';
+
+class EntriesScreen extends ConsumerStatefulWidget {
+  const EntriesScreen({super.key});
+  @override
+  ConsumerState<EntriesScreen> createState() => _EntriesScreenState();
+}
+
+class _EntriesScreenState extends ConsumerState<EntriesScreen> {
+  String? _startDate = DateTime.now()
+      .subtract(const Duration(days: 7))
+      .toIso8601String()
+      .substring(0, 10);
+  String? _endDate = DateTime.now().toIso8601String().substring(0, 10);
+
+  String get _key {
+    final person = ref.read(selectedPersonProvider);
+    return '$person|${_startDate ?? ''}|${_endDate ?? ''}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(selectedPersonProvider); // rebuild when person switches
+    final entriesAsync = ref.watch(nutritionEntriesProvider(_key));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Nutrition Entries'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () => _showFilterDialog(context),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_startDate != null || _endDate != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                    '${_startDate ?? '...'} → ${_endDate ?? '...'}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      setState(() { _startDate = null; _endDate = null; }),
+                  child: const Text('Clear'),
+                ),
+              ]),
+            ),
+          // Swipe hint
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            child: Row(children: [
+              Icon(Icons.swipe, size: 13, color: Colors.grey.shade400),
+              const SizedBox(width: 4),
+              Text('Swipe right to edit · Swipe left to delete',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade400)),
+            ]),
+          ),
+          Expanded(
+            child: entriesAsync.when(
+              skipLoadingOnReload: true,
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (entries) {
+                if (entries.isEmpty) {
+                  return const Center(child: Text('No entries found'));
+                }
+                final grouped = <String, List<NutritionEntry>>{};
+                for (final e in entries) {
+                  grouped.putIfAbsent(e.date, () => []).add(e);
+                }
+                final dates = grouped.keys.toList()
+                  ..sort((a, b) => b.compareTo(a));
+
+                return ListView.builder(
+                  itemCount: dates.length,
+                  itemBuilder: (ctx, i) {
+                    final date = dates[i];
+                    final dayEntries = grouped[date]!;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Text(
+                            _formatDate(date),
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary,
+                                ),
+                          ),
+                        ),
+                        ...dayEntries.map((entry) => Dismissible(
+                              key: Key(entry.id),
+                              direction: DismissDirection.horizontal,
+                              // Right swipe → edit (blue)
+                              background: Container(
+                                color: Colors.blue,
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.only(left: 16),
+                                child: const Icon(Icons.edit,
+                                    color: Colors.white),
+                              ),
+                              // Left swipe → delete (red)
+                              secondaryBackground: Container(
+                                color: Colors.red,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 16),
+                                child: const Icon(Icons.delete,
+                                    color: Colors.white),
+                              ),
+                              confirmDismiss: (dir) async {
+                                if (dir ==
+                                    DismissDirection.startToEnd) {
+                                  _openNutritionEdit(ctx, entry);
+                                  return false;
+                                }
+                                return _confirmDelete(ctx);
+                              },
+                              onDismissed: (dir) async {
+                                if (dir ==
+                                    DismissDirection.endToStart) {
+                                  await apiClient.dio.delete(
+                                      '${ApiConstants.nutritionLog}/${entry.id}');
+                                  ref.invalidate(
+                                      nutritionEntriesProvider);
+                                }
+                              },
+                              child: ListTile(
+                                leading: Icon(
+                                  _mealIcon(entry.meal),
+                                  color: _mealColor(entry.meal),
+                                ),
+                                title: Text(
+                                  entry.description.isEmpty
+                                      ? entry.meal ?? 'Meal'
+                                      : entry.description,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                    '${entry.person} • ${entry.time}'),
+                                trailing: Text(
+                                  '${entry.calories.toStringAsFixed(0)} kcal',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                          fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            )),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Edit — navigate to NutritionScreen with pre-filled data ─────────────
+
+  Future<void> _openNutritionEdit(BuildContext context, NutritionEntry entry) async {
+    // Parse time
+    final timeParts = (entry.time ?? '12:00').split(':');
+    final time = TimeOfDay(
+      hour: int.tryParse(timeParts[0]) ?? 12,
+      minute: int.tryParse(timeParts.length > 1 ? timeParts[1] : '0') ?? 0,
+    );
+
+    // Set up edit state
+    ref.read(nutritionProvider.notifier).initForEdit(
+      entry.id,
+      entry.meal ?? 'lunch',
+      time,
+    );
+
+    // Load food items from the API
+    try {
+      final res = await apiClient.dio.get('${ApiConstants.nutritionLog}/${entry.id}');
+      final items = List<dynamic>.from(res.data['items'] ?? []);
+      final foods = items.map((item) {
+        final food = FoodItem(
+          id: item['food_id'] as String? ?? '',
+          name: item['food_name'] as String? ?? 'Unknown',
+          cal: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          servingSize: 100,
+        );
+        // quantity in the API is in servings; convert to grams
+        final servings = (item['quantity'] as num?)?.toDouble() ?? 1.0;
+        final grams = servings * (food.servingSize ?? 100);
+        return SelectedFood(food: food, grams: grams);
+      }).toList();
+      ref.read(nutritionProvider.notifier).setEditFoods(foods);
+    } catch (_) {
+      // Navigate anyway with empty foods — user can add items
+    }
+
+    if (mounted) context.push('/nutrition');
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+
+  String _formatDate(String iso) {
+    try {
+      return DateFormat('EEEE, MMMM d').format(DateTime.parse(iso));
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  IconData _mealIcon(String? meal) {
+    switch (meal) {
+      case 'breakfast':
+        return Icons.free_breakfast_outlined;
+      case 'lunch':
+        return Icons.lunch_dining_outlined;
+      case 'dinner':
+        return Icons.dinner_dining_outlined;
+      default:
+        return Icons.restaurant_outlined;
+    }
+  }
+
+  Color _mealColor(String? meal) {
+    switch (meal) {
+      case 'breakfast':
+        return Colors.orange;
+      case 'lunch':
+        return Colors.green;
+      case 'dinner':
+        return Colors.indigo;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete entry?'),
+            content: const Text('This cannot be undone.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Delete')),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  void _showFilterDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Filter Entries'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(_startDate ?? 'Start date (any)'),
+              leading: const Icon(Icons.calendar_today),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now().subtract(
+                      const Duration(days: 7)),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (d != null) {
+                  setState(() => _startDate =
+                      d.toIso8601String().substring(0, 10));
+                }
+              },
+            ),
+            ListTile(
+              title: Text(_endDate ?? 'End date (any)'),
+              leading: const Icon(Icons.calendar_today_outlined),
+              onTap: () async {
+                Navigator.pop(ctx);
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (d != null) {
+                  setState(() => _endDate =
+                      d.toIso8601String().substring(0, 10));
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+}
+

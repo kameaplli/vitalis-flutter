@@ -1,0 +1,45 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/api_client.dart';
+import '../core/constants.dart';
+import '../models/hydration_log.dart';
+
+/// Key: 'person:days:date' (date is client's local YYYY-MM-DD, optional)
+final hydrationHistoryProvider =
+    FutureProvider.family<List<HydrationLog>, String>((ref, key) async {
+  ref.keepAlive(); // keep cached between navigations
+  final parts = key.split(':');
+  final person = parts[0];
+  final days = int.tryParse(parts.length > 1 ? parts[1] : '7') ?? 7;
+  final today = DateTime.now().toIso8601String().substring(0, 10);
+  final date = parts.length > 2 && parts[2].isNotEmpty ? parts[2] : today;
+  final res = await apiClient.dio.get(
+    ApiConstants.hydrationHistory,
+    queryParameters: {
+      'person': person,
+      'days': days,
+      'date': date,
+    },
+  );
+  return (res.data['entries'] as List<dynamic>)
+      .map((e) => HydrationLog.fromJson(e))
+      .toList();
+});
+
+/// Today's total for a specific person ('self' or family_member_id).
+final todayHydrationProvider =
+    FutureProvider.family<double, String>((ref, person) async {
+  final today = DateTime.now().toIso8601String().substring(0, 10);
+  final logs = await ref.watch(hydrationHistoryProvider('$person:1:$today').future);
+  double total = 0.0;
+  for (final l in logs.where((l) => l.date == today)) {
+    total += l.quantity;
+  }
+  return total;
+});
+
+final beveragePresetsProvider = FutureProvider<List<BeveragePreset>>((ref) async {
+  final res = await apiClient.dio.get(ApiConstants.beveragePresets);
+  return (res.data['presets'] as List<dynamic>)
+      .map((p) => BeveragePreset.fromJson(p))
+      .toList();
+});

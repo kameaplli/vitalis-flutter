@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 500" width="440" height="500">
+  <defs>
+    <style>
+      .region { fill: #ffffff; stroke: #9e9e9e; stroke-width: 1.2; }
+      .title  { font-family: Arial, sans-serif; font-size: 10px; fill: #555; text-anchor: middle; font-weight: bold; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="440" height="500" fill="#eeeeee"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!--  FRONT VIEW  (left half, centred at x=110)                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <text x="110" y="10" class="title">FRONT</text>
+
+  <!-- Head -->
+  <ellipse id="f_head"     class="region" cx="110" cy="38"  rx="22" ry="26"/>
+
+  <!-- Neck -->
+  <rect  id="f_neck"      class="region" x="102" y="63"  width="16" height="12" rx="2"/>
+
+  <!-- Shoulders -->
+  <ellipse id="f_shoulder_r" class="region" cx="82"  cy="80"  rx="13" ry="8"/>
+  <ellipse id="f_shoulder_l" class="region" cx="138" cy="80"  rx="13" ry="8"/>
+
+  <!-- Upper chest L / R -->
+  <path id="f_chest_r"  class="region" d="M103,75 L118,75 L118,105 L103,105 Z"/>
+  <path id="f_chest_l"  class="region" d="M118,75 L133,75 L133,105 L118,105 Z"/>
+
+  <!-- Abdomen R / L -->
+  <path id="f_abdomen_r" class="region" d="M104,105 L118,105 L118,138 L106,138 Z"/>
+  <path id="f_abdomen_l" class="region" d="M118,105 L132,105 L130,138 L118,138 Z"/>
+
+  <!-- Lower abdomen / groin -->
+  <path id="f_lower_abd" class="region" d="M106,138 L130,138 L128,155 L108,155 Z"/>
+
+  <!-- Upper arm R / L -->
+  <path id="f_upper_arm_r" class="region" d="M70,76 L83,76 L85,120 L69,118 Z"/>
+  <path id="f_upper_arm_l" class="region" d="M137,76 L150,76 L151,118 L135,120 Z"/>
+
+  <!-- Elbow R / L -->
+  <ellipse id="f_elbow_r" class="region" cx="77"  cy="122" rx="8"  ry="6"/>
+  <ellipse id="f_elbow_l" class="region" cx="143" cy="122" rx="8"  ry="6"/>
+
+  <!-- Forearm R / L -->
+  <path id="f_forearm_r" class="region" d="M69,127 L85,127 L87,168 L67,165 Z"/>
+  <path id="f_forearm_l" class="region" d="M135,127 L151,127 L153,165 L133,168 Z"/>
+
+  <!-- Wrist / Hand R / L -->
+  <rect id="f_hand_r" class="region" x="63" y="168" width="24" height="20" rx="3"/>
+  <rect id="f_hand_l" class="region" x="133" y="168" width="24" height="20" rx="3"/>
+
+  <!-- Upper thigh R / L -->
+  <path id="f_thigh_r" class="region" d="M106,155 L118,155 L117,200 L104,200 Z"/>
+  <path id="f_thigh_l" class="region" d="M118,155 L130,155 L132,200 L119,200 Z"/>
+
+  <!-- Knee R / L -->
+  <ellipse id="f_knee_r" class="region" cx="110" cy="206" rx="8"  ry="8"/>
+  <ellipse id="f_knee_l" class="region" cx="126" cy="206" rx="8"  ry="8"/>
+
+  <!-- Shin / Lower leg R / L -->
+  <path id="f_shin_r" class="region" d="M102,214 L118,214 L116,260 L103,258 Z"/>
+  <path id="f_shin_l" class="region" d="M118,214 L134,214 L133,258 L120,260 Z"/>
+
+  <!-- Ankle / Foot R / L -->
+  <rect id="f_foot_r" class="region" x="100" y="261" width="18" height="14" rx="3"/>
+  <rect id="f_foot_l" class="region" x="120" y="261" width="18" height="14" rx="3"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!--  BACK VIEW  (right half, centred at x=330)                  -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <text x="330" y="10" class="title">BACK</text>
+
+  <!-- Scalp / Head back -->
+  <ellipse id="b_head"     class="region" cx="330" cy="38"  rx="22" ry="26"/>
+
+  <!-- Back of neck -->
+  <rect  id="b_neck"      class="region" x="322" y="63"  width="16" height="12" rx="2"/>
+
+  <!-- Shoulders back -->
+  <ellipse id="b_shoulder_r" class="region" cx="302" cy="80"  rx="13" ry="8"/>
+  <ellipse id="b_shoulder_l" class="region" cx="358" cy="80"  rx="13" ry="8"/>
+
+  <!-- Upper back R / L -->
+  <path id="b_upper_back_r" class="region" d="M323,75 L338,75 L338,108 L323,108 Z"/>
+  <path id="b_upper_back_l" class="region" d="M338,75 L353,75 L353,108 L338,108 Z"/>
+
+  <!-- Mid back R / L -->
+  <path id="b_mid_back_r"  class="region" d="M323,108 L338,108 L338,138 L324,138 Z"/>
+  <path id="b_mid_back_l"  class="region" d="M338,108 L353,108 L352,138 L338,138 Z"/>
+
+  <!-- Lower back -->
+  <path id="b_lower_back"  class="region" d="M324,138 L352,138 L350,155 L326,155 Z"/>
+
+  <!-- Buttocks R / L -->
+  <path id="b_buttock_r"  class="region" d="M325,155 L338,155 L337,185 L323,183 Z"/>
+  <path id="b_buttock_l"  class="region" d="M338,155 L351,155 L353,183 L339,185 Z"/>
+
+  <!-- Back upper arm R / L -->
+  <path id="b_upper_arm_r" class="region" d="M290,76 L303,76 L305,120 L289,118 Z"/>
+  <path id="b_upper_arm_l" class="region" d="M357,76 L370,76 L371,118 L355,120 Z"/>
+
+  <!-- Back elbow R / L -->
+  <ellipse id="b_elbow_r" class="region" cx="297" cy="122" rx="8"  ry="6"/>
+  <ellipse id="b_elbow_l" class="region" cx="363" cy="122" rx="8"  ry="6"/>
+
+  <!-- Back forearm R / L -->
+  <path id="b_forearm_r" class="region" d="M289,127 L305,127 L307,168 L287,165 Z"/>
+  <path id="b_forearm_l" class="region" d="M355,127 L371,127 L373,165 L353,168 Z"/>
+
+  <!-- Back hand R / L -->
+  <rect id="b_hand_r" class="region" x="283" y="168" width="24" height="20" rx="3"/>
+  <rect id="b_hand_l" class="region" x="353" y="168" width="24" height="20" rx="3"/>
+
+  <!-- Back thigh R / L -->
+  <path id="b_thigh_r"  class="region" d="M325,185 L338,185 L337,218 L323,218 Z"/>
+  <path id="b_thigh_l"  class="region" d="M338,185 L351,185 L353,218 L339,218 Z"/>
+
+  <!-- Back of knee R / L -->
+  <ellipse id="b_knee_r" class="region" cx="330" cy="224" rx="8"  ry="8"/>
+  <ellipse id="b_knee_l" class="region" cx="346" cy="224" rx="8"  ry="8"/>
+
+  <!-- Calf R / L -->
+  <path id="b_calf_r"   class="region" d="M322,232 L338,232 L336,272 L323,270 Z"/>
+  <path id="b_calf_l"   class="region" d="M338,232 L354,232 L353,270 L340,272 Z"/>
+
+  <!-- Back foot R / L -->
+  <rect id="b_foot_r" class="region" x="320" y="273" width="18" height="14" rx="3"/>
+  <rect id="b_foot_l" class="region" x="340" y="273" width="18" height="14" rx="3"/>
+
+  <!-- Divider line -->
+  <line x1="220" y1="5" x2="220" y2="495" stroke="#ccc" stroke-width="1" stroke-dasharray="4,4"/>
+</svg>
