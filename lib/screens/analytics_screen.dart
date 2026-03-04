@@ -264,7 +264,23 @@ class _AnalyticsBody extends ConsumerWidget {
 
         const SizedBox(height: 12),
 
-        // ── 5. Top Foods with macro mini-bars ────────────────────────────────
+        // ── 5. Meal Timing timeline (Phase 3) ────────────────────────────────
+        if (data.mealTimings.isNotEmpty)
+          _MealTimelineCard(
+            timings: data.mealTimings,
+            avgWindowHours: data.avgEatingWindowHours,
+            avgFrontLoadPct: data.avgFrontLoadPct,
+          ),
+
+        const SizedBox(height: 12),
+
+        // ── 6. Nutrition-Health Correlations (Phase 3) ───────────────────────
+        if (data.correlations.isNotEmpty)
+          _CorrelationSection(correlations: data.correlations),
+
+        const SizedBox(height: 12),
+
+        // ── 7. Top Foods with macro mini-bars ────────────────────────────────
         if (data.topFoods.isNotEmpty)
           _TopFoodsCard(topFoods: data.topFoods),
       ],
@@ -933,6 +949,387 @@ class _TopFoodsCard extends StatelessWidget {
     return Expanded(
       flex: (pct * 100).round().clamp(1, 100),
       child: Container(color: color),
+    );
+  }
+}
+
+// ── Meal Timing Timeline (Phase 3) ─────────────────────────────────────────────
+// Timeline axis: 6:00 AM (360 min) to 11:00 PM (1380 min)
+
+class _MealTimelineCard extends StatelessWidget {
+  final List<MealTimingDay> timings;
+  final double avgWindowHours;
+  final double avgFrontLoadPct;
+
+  const _MealTimelineCard({
+    required this.timings,
+    required this.avgWindowHours,
+    required this.avgFrontLoadPct,
+  });
+
+  static const _startMin = 360;   // 6 AM
+  static const _endMin   = 1380;  // 11 PM
+  static const _spanMin  = _endMin - _startMin; // 1020
+
+  Color _colorFor(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast': return _bfastColor;
+      case 'lunch':     return _lunchColor;
+      case 'dinner':    return _dinnerColor;
+      default:          return _snackColor;
+    }
+  }
+
+  double _fraction(int timeMinutes) =>
+      ((timeMinutes - _startMin) / _spanMin).clamp(0.0, 1.0);
+
+  double _bubbleRadius(double calories) =>
+      (calories / 300 * 12).clamp(5.0, 18.0);
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = timings.length > 7
+        ? timings.sublist(timings.length - 7)
+        : timings;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Meal Timing',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 2),
+            Text('Bubble size = calories  |  6 AM → 11 PM',
+                style: TextStyle(
+                    fontSize: 11, color: Colors.grey.shade500)),
+            const SizedBox(height: 8),
+            // Stats row
+            Row(
+              children: [
+                _statChip(Icons.schedule,
+                    'Eating window: ${avgWindowHours.toStringAsFixed(1)} hrs'),
+                const SizedBox(width: 10),
+                _statChip(Icons.wb_sunny_outlined,
+                    'Before 3 PM: ${avgFrontLoadPct.toStringAsFixed(0)}%'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Legend
+            Wrap(
+              spacing: 10,
+              children: [
+                _dot(_bfastColor, 'Breakfast'),
+                _dot(_lunchColor, 'Lunch'),
+                _dot(_dinnerColor, 'Dinner'),
+                _dot(_snackColor, 'Snack'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Axis labels
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text('6 AM', style: TextStyle(fontSize: 9)),
+                Text('12 PM', style: TextStyle(fontSize: 9)),
+                Text('6 PM', style: TextStyle(fontSize: 9)),
+                Text('11 PM', style: TextStyle(fontSize: 9)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Timeline rows
+            ...recent.map((day) {
+              final parts = day.date.split('-');
+              final label = parts.length >= 3
+                  ? '${parts[2]}/${parts[1]}'
+                  : day.date;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 36,
+                      child: Text(label,
+                          style: const TextStyle(fontSize: 9),
+                          textAlign: TextAlign.right),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (_, constraints) {
+                          final w = constraints.maxWidth;
+                          return SizedBox(
+                            height: 36,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                // Axis line
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: 17,
+                                  child: Container(
+                                    height: 1,
+                                    color: Colors.grey.shade200,
+                                  ),
+                                ),
+                                // Noon marker
+                                Positioned(
+                                  left: _fraction(720) * w - 0.5,
+                                  top: 10,
+                                  child: Container(
+                                      width: 1,
+                                      height: 14,
+                                      color: Colors.grey.shade300),
+                                ),
+                                // Meal bubbles
+                                for (final meal in day.meals)
+                                  Builder(builder: (_) {
+                                    final r = _bubbleRadius(meal.calories);
+                                    final x = _fraction(meal.timeMinutes) * w;
+                                    final color = _colorFor(meal.mealType);
+                                    return Positioned(
+                                      left: x - r,
+                                      top: 18 - r,
+                                      child: Tooltip(
+                                        message:
+                                            '${meal.mealType} ${meal.time}\n${meal.calories.round()} kcal',
+                                        child: Container(
+                                          width: r * 2,
+                                          height: r * 2,
+                                          decoration: BoxDecoration(
+                                            color: color.withValues(
+                                                alpha: 0.85),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                                color: color, width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statChip(IconData icon, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.grey.shade600),
+          const SizedBox(width: 3),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10, color: Colors.grey.shade700)),
+        ],
+      );
+
+  Widget _dot(Color color, String label) => Row(
+        children: [
+          Container(
+              width: 9,
+              height: 9,
+              decoration:
+                  BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 3),
+          Text(label, style: const TextStyle(fontSize: 10)),
+        ],
+      );
+}
+
+// ── Nutrition-Health Correlation cards (Phase 3) ───────────────────────────────
+
+class _CorrelationSection extends StatelessWidget {
+  final List<NutritionCorrelation> correlations;
+
+  const _CorrelationSection({required this.correlations});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Health Insights',
+                  style: Theme.of(context).textTheme.titleSmall),
+              Text('Nutrition patterns vs health metrics',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500)),
+            ],
+          ),
+        ),
+        ...correlations.map((c) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CorrelationCard(correlation: c),
+            )),
+      ],
+    );
+  }
+}
+
+class _CorrelationCard extends StatelessWidget {
+  final NutritionCorrelation correlation;
+
+  const _CorrelationCard({required this.correlation});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = correlation;
+    final cs = Theme.of(context).colorScheme;
+    final highIsBetter = c.betterWhenHigh;
+    final diff = (c.highValue - c.lowValue).abs();
+    final diffStr = diff.toStringAsFixed(1);
+
+    // The "better" group
+    final betterVal   = highIsBetter ? c.highValue : c.lowValue;
+    final betterLabel = highIsBetter ? c.highLabel  : c.lowLabel;
+    final worseVal    = highIsBetter ? c.lowValue   : c.highValue;
+    final worseLabel  = highIsBetter ? c.lowLabel   : c.highLabel;
+
+    final accentColor = highIsBetter ? Colors.green.shade600 : Colors.red.shade400;
+    final insight =
+        '${betterLabel.split('(').first.trim()} days average ${betterVal.toStringAsFixed(1)}${c.unit} ${c.metricLabel} — '
+        '${diffStr} points higher than ${worseLabel.split('(').first.trim().toLowerCase()} days.';
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Colour header strip
+          Container(
+            height: 4,
+            color: accentColor,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Text(c.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 10),
+                // Two-column comparison
+                Row(
+                  children: [
+                    Expanded(
+                        child: _CompareColumn(
+                      label: betterLabel,
+                      value: betterVal,
+                      unit: c.unit,
+                      color: Colors.green.shade600,
+                      isBetter: true,
+                    )),
+                    Container(
+                        width: 1,
+                        height: 50,
+                        color: Colors.grey.shade200),
+                    Expanded(
+                        child: _CompareColumn(
+                      label: worseLabel,
+                      value: worseVal,
+                      unit: c.unit,
+                      color: Colors.red.shade400,
+                      isBetter: false,
+                    )),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Insight text
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lightbulb_outline,
+                          size: 13, color: accentColor),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          insight,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                              height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompareColumn extends StatelessWidget {
+  final String label;
+  final double value;
+  final String unit;
+  final Color color;
+  final bool isBetter;
+
+  const _CompareColumn({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+    required this.isBetter,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${value.toStringAsFixed(1)}$unit',
+          style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: color),
+        ),
+        const SizedBox(height: 2),
+        Icon(
+          isBetter ? Icons.arrow_upward : Icons.arrow_downward,
+          size: 12,
+          color: color,
+        ),
+        const SizedBox(height: 2),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
     );
   }
 }
