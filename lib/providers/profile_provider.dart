@@ -51,7 +51,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
     return avatarUrl;
   }
 
-  Future<bool> addChild({required String name, int? age, String? gender, String? allergies, double? height}) async {
+  Future<bool> addChild({required String name, int? age, String? gender, String? allergies, double? height, String? email}) async {
     try {
       await apiClient.dio.post(ApiConstants.profileChild, data: {
         'name': name,
@@ -59,6 +59,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
         'gender': gender,
         'allergies': allergies,
         'height': height,
+        if (email != null && email.isNotEmpty) 'email': email,
       });
       // Refresh user from server
       final res = await apiClient.dio.get(ApiConstants.user);
@@ -78,6 +79,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
     String? gender,
     String? allergies,
     double? height,
+    String? email,
   }) async {
     try {
       await apiClient.dio.put('${ApiConstants.profileChild}/$childId', data: {
@@ -86,6 +88,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
         if (gender != null) 'gender': gender,
         if (allergies != null) 'allergies': allergies,
         if (height != null) 'height': height,
+        if (email != null) 'email': email,
       });
       final res = await apiClient.dio.get(ApiConstants.user);
       final user = AppUser.fromJson(res.data);

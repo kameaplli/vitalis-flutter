@@ -45,6 +45,10 @@ dependencies:
   # Biometric authentication (fingerprint / Face ID)
   local_auth: ^2.3.0
 
+  # Local push notifications
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+
   # SVG rendering
   flutter_svg: ^2.0.10+1
 

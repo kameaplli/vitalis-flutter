@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/food_provider.dart';
 import '../providers/selected_person_provider.dart';
@@ -198,9 +199,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
           ? (isEdit ? 'Entry updated!' : 'Meal logged!')
           : 'Failed to save')),
     );
-    if (ok && isEdit && mounted) {
+    if (ok && mounted) {
+      // Always refresh entries list and dashboard after any successful log/edit
       ref.invalidate(nutritionEntriesProvider);
-      context.pop();
+      ref.invalidate(dashboardProvider(personId));
+      if (isEdit) context.pop();
     }
   }
 

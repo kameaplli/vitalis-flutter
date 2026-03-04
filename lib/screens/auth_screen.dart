@@ -100,22 +100,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
   Future<void> _offerBiometrics(String email, String password, String name) async {
     final available = await BiometricService.isAvailable();
     if (!available) return;
-    final prompted = await SecureStorage.getBiometricsPrompted();
-    if (prompted) return;
-    // Mark as prompted immediately — never ask again even if dismissed
-    await SecureStorage.setBiometricsPrompted(true);
+    // Skip if already enabled
+    final alreadyEnabled = await SecureStorage.getBiometricsEnabled();
+    if (alreadyEnabled) return;
+    // Skip only if user explicitly tapped "Not now" before
+    final declined = await SecureStorage.getBiometricsPrompted();
+    if (declined) return;
     if (!mounted) return;
     final enable = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const _BiometricOfferDialog(),
     );
-    if (enable != true) return;
-    // Ask user to verify biometric before storing credentials
+    if (enable != true) {
+      // User explicitly declined — set prompted so we never ask again
+      await SecureStorage.setBiometricsPrompted(true);
+      return;
+    }
+    // User wants to enable — confirm with biometric
     final confirmed = await BiometricService.authenticate(reason: 'Confirm to enable biometric login');
-    if (!confirmed) return;
+    if (!confirmed) {
+      // Do NOT set prompted here — user wanted to enable but something went wrong.
+      // They'll be offered again next login or can enable via Profile.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric setup skipped — enable it anytime in Profile')),
+        );
+      }
+      return;
+    }
     await SecureStorage.saveBioCredentials(email: email, password: password, name: name);
     await SecureStorage.setBiometricsEnabled(true);
+    await SecureStorage.setBiometricsPrompted(true);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Biometric login enabled ✓')),

@@ -5,12 +5,14 @@ class BiometricService {
   static final _auth = LocalAuthentication();
 
   /// True when the device supports biometrics AND at least one method is enrolled.
+  /// Uses canCheckBiometrics which is more reliable than getAvailableBiometrics
+  /// on Android (especially Samsung and some Pixel devices).
   static Future<bool> isAvailable() async {
     try {
-      final supported = await _auth.isDeviceSupported();
-      if (!supported) return false;
-      final methods = await _auth.getAvailableBiometrics();
-      return methods.isNotEmpty;
+      final canCheck = await _auth.canCheckBiometrics;
+      if (canCheck) return true;
+      // Fall back: device supported but may not have biometrics enrolled yet
+      return await _auth.isDeviceSupported();
     } catch (_) {
       return false;
     }
