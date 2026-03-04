@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/user.dart';
+import '../services/notification_service.dart';
 
 enum AuthStatus { loading, authenticated, unauthenticated }
 
@@ -32,6 +33,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final res = await apiClient.dio.get(ApiConstants.user);
       final user = AppUser.fromJson(res.data);
       state = AuthState(status: AuthStatus.authenticated, user: user);
+      NotificationService.scheduleHydrationReminders();
     } catch (_) {
       await apiClient.clearToken();
       state = const AuthState(status: AuthStatus.unauthenticated);
@@ -48,6 +50,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await apiClient.saveToken(res.data['access_token']);
       final user = AppUser.fromJson(res.data['user']);
       state = AuthState(status: AuthStatus.authenticated, user: user);
+      NotificationService.scheduleHydrationReminders();
       return true;
     } on DioException catch (e) {
       final msg = e.response?.data?['detail'] ?? 'Login failed';
@@ -85,6 +88,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await apiClient.dio.post(ApiConstants.logout);
     } catch (_) {}
     await apiClient.clearToken();
+    NotificationService.cancelAll();
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 

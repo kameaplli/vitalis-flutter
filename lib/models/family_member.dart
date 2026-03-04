@@ -6,6 +6,7 @@ class FamilyMember {
   final String? allergies;
   final double? height;
   final String? avatarUrl;
+  final String? email;
 
   FamilyMember({
     required this.id,
@@ -15,6 +16,7 @@ class FamilyMember {
     this.allergies,
     this.height,
     this.avatarUrl,
+    this.email,
   });
 
   factory FamilyMember.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class FamilyMember {
       allergies: json['allergies'],
       height: (json['height'] as num?)?.toDouble(),
       avatarUrl: json['avatar_url'],
+      email: json['email'],
     );
   }
 
@@ -37,5 +40,6 @@ class FamilyMember {
     'allergies': allergies,
     'height': height,
     'avatar_url': avatarUrl,
+    'email': email,
   };
 }

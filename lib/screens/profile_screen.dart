@@ -9,6 +9,7 @@ import '../providers/profile_provider.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
+import '../services/notification_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -23,6 +24,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _editing = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
+  bool _notificationsEnabled = false;
 
   @override
   void initState() {
@@ -32,12 +34,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _ageCtrl.text = user?.age?.toString() ?? '';
     _gender = user?.gender;
     _loadBiometricState();
+    _loadNotificationState();
   }
 
   Future<void> _loadBiometricState() async {
     final available = await BiometricService.isAvailable();
     final enabled = await SecureStorage.getBiometricsEnabled();
     if (mounted) setState(() { _biometricAvailable = available; _biometricEnabled = enabled; });
+  }
+
+  Future<void> _loadNotificationState() async {
+    final enabled = await SecureStorage.getNotificationsEnabled();
+    if (mounted) setState(() => _notificationsEnabled = enabled);
+  }
+
+  Future<void> _toggleNotifications(bool enable) async {
+    await SecureStorage.setNotificationsEnabled(enable);
+    if (enable) {
+      await NotificationService.scheduleHydrationReminders();
+    } else {
+      await NotificationService.cancelAll();
+    }
+    if (mounted) setState(() => _notificationsEnabled = enable);
   }
 
   Future<void> _toggleBiometric(bool enable) async {
@@ -218,6 +236,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 value: _biometricEnabled,
                 onChanged: _toggleBiometric,
               ),
+            SwitchListTile(
+              secondary: const Icon(Icons.notifications_outlined),
+              title: const Text('Hydration reminders'),
+              subtitle: const Text('Hourly notifications 8 AM – 10 PM'),
+              value: _notificationsEnabled,
+              onChanged: _toggleNotifications,
+            ),
             const Divider(height: 32),
             // Children section
             Row(
@@ -326,6 +351,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final ageCtrl = TextEditingController();
     final heightCtrl = TextEditingController();
     final allergiesCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
     String? gender;
     showDialog(
       context: context,
@@ -357,6 +383,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 8),
               TextField(controller: allergiesCtrl, decoration: const InputDecoration(labelText: 'Allergies (optional)')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email (for reminders)',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
             ],
           )),
         ),
@@ -371,6 +406,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 gender: gender,
                 allergies: allergiesCtrl.text.trim().isEmpty ? null : allergiesCtrl.text.trim(),
                 height: double.tryParse(heightCtrl.text),
+                email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
               );
             },
             child: const Text('Add'),
@@ -385,6 +421,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final ageCtrl = TextEditingController(text: child.age?.toString() ?? '');
     final heightCtrl = TextEditingController(text: child.height?.toStringAsFixed(0) ?? '');
     final allergiesCtrl = TextEditingController(text: child.allergies ?? '');
+    final emailCtrl = TextEditingController(text: child.email ?? '');
     String? gender = child.gender;
     String? pendingImagePath;
 
@@ -468,6 +505,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 8),
               TextField(controller: allergiesCtrl, decoration: const InputDecoration(labelText: 'Allergies (optional)')),
+              const SizedBox(height: 8),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email (for reminders)',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
             ],
           )),
         ),
@@ -497,6 +543,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 gender: gender,
                 allergies: allergiesCtrl.text.trim().isEmpty ? null : allergiesCtrl.text.trim(),
                 height: double.tryParse(heightCtrl.text),
+                email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
               );
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated!')));

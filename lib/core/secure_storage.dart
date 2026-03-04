@@ -62,4 +62,15 @@ class SecureStorage {
         _storage.delete(key: 'biometrics_user_name'),
         _storage.write(key: 'biometrics_enabled', value: 'false'),
       ]);
+
+  // ── Notification preferences ──────────────────────────────────────────────
+
+  static Future<bool> getNotificationsEnabled() async {
+    final v = await _storage.read(key: 'notifications_enabled');
+    return v == 'true';
+  }
+
+  static Future<void> setNotificationsEnabled(bool enabled) async {
+    await _storage.write(key: 'notifications_enabled', value: enabled ? 'true' : 'false');
+  }
 }
