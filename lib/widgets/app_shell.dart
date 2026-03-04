@@ -260,15 +260,14 @@ class _AvatarBar extends ConsumerWidget {
             Expanded(
               flex: 3,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   for (final p in otherPersons)
-                    GestureDetector(
-                      onTap: () => ref
-                          .read(selectedPersonProvider.notifier)
-                          .state = p['id']!,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => ref
+                            .read(selectedPersonProvider.notifier)
+                            .state = p['id']!,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -283,13 +282,14 @@ class _AvatarBar extends ConsumerWidget {
                                   fontSize: 9,
                                   color: colorScheme.onSurfaceVariant),
                               overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
                       ),
                     ),
                   SizedBox(
-                    width: 32,
+                    width: 36,
                     child: IconButton(
                       icon: const Icon(Icons.person_add_alt_1_outlined,
                           size: 16),
