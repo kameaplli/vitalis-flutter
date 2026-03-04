@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/secure_storage.dart';
 import '../models/user.dart';
 import '../services/notification_service.dart';
 
@@ -34,6 +35,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = AppUser.fromJson(res.data);
       state = AuthState(status: AuthStatus.authenticated, user: user);
       NotificationService.scheduleHydrationReminders();
+      SecureStorage.setNotificationsEnabled(true);
     } catch (_) {
       await apiClient.clearToken();
       state = const AuthState(status: AuthStatus.unauthenticated);
@@ -51,6 +53,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = AppUser.fromJson(res.data['user']);
       state = AuthState(status: AuthStatus.authenticated, user: user);
       NotificationService.scheduleHydrationReminders();
+      SecureStorage.setNotificationsEnabled(true);
       return true;
     } on DioException catch (e) {
       final msg = e.response?.data?['detail'] ?? 'Login failed';
@@ -89,6 +92,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {}
     await apiClient.clearToken();
     NotificationService.cancelAll();
+    SecureStorage.setNotificationsEnabled(false);
+    // If biometrics were never successfully enabled, reset the "prompted" flag
+    // so the offer appears again on next login (covers the case where the user
+    // tapped Enable but the OS prompt failed, or the app was reinstalled).
+    final bioEnabled = await SecureStorage.getBiometricsEnabled();
+    if (!bioEnabled) {
+      await SecureStorage.setBiometricsPrompted(false);
+    }
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 

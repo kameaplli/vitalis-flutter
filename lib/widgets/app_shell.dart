@@ -4,11 +4,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants.dart';
 import '../models/dashboard_data.dart';
+import '../providers/analytics_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/selected_person_provider.dart';
+
+// ── Ring design constants ──────────────────────────────────────────────────────
+const _kAvatarRadius = 22.0;
+const _kStroke       = 2.5;
+const _kRingGap      = 2.0;
+// Ring box sizes: each adds 2*(gap+stroke) to previous
+const _kRing1Box = _kAvatarRadius * 2 + 2 * (_kRingGap + _kStroke); // ~53
+const _kRing2Box = _kRing1Box     + 2 * (_kRingGap + _kStroke);     // ~62
+const _kRing3Box = _kRing2Box     + 2 * (_kRingGap + _kStroke);     // ~71
+
+const _kSmallAvatarRadius = 16.0;
+const _kSmallRingStroke   = 2.5;
+const _kSmallRingGap      = 2.0;
+const _kSmallRingBox = _kSmallAvatarRadius * 2 + 2 * (_kSmallRingGap + _kSmallRingStroke); // ~41
+
+// Ring colours
+const _kCalColor  = Color(0xFFF97316); // orange
+const _kWaterColor = Color(0xFF3B82F6); // blue
+const _kMoodColor  = Color(0xFF22C55E); // green
+
+// ── Main shell ─────────────────────────────────────────────────────────────────
 
 class AppShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -208,26 +230,21 @@ class _AvatarBar extends ConsumerWidget {
     final currentPerson = currentIndex >= 0 ? persons[currentIndex] : persons.first;
     final otherPersons = persons.where((p) => p['id'] != selected).toList();
 
-    // ── Background prefetch for ALL family members (#5, #6, #7) ──────────────
-    // Pre-warm dashboards + hydration for every person so switching is instant.
+    // ── Pre-warm caches for all family members ────────────────────────────────
     final today = DateTime.now().toIso8601String().substring(0, 10);
     final sevenDaysAgo = DateTime.now()
         .subtract(const Duration(days: 7))
         .toIso8601String()
         .substring(0, 10);
+
+    final Map<String, AsyncValue<DashboardData>> allDash = {};
     for (final p in persons) {
       final pid = p['id']!;
-      ref.watch(dashboardProvider(pid));          // warms dashboard cache
-      ref.watch(todayHydrationProvider(pid));     // warms hydration total
+      allDash[pid] = ref.watch(dashboardProvider(pid));
+      ref.watch(todayHydrationProvider(pid));
+      ref.watch(nutritionEntriesProvider('$pid|$sevenDaysAgo|$today'));
+      ref.watch(analyticsProvider('$pid:7'));   // Phase 3 pre-fetch
     }
-    // Pre-fetch last 7 days of nutrition entries for ALL family members
-    // so Entries page opens instantly when switching between persons.
-    for (final p in persons) {
-      ref.watch(nutritionEntriesProvider('${p['id']!}|$sevenDaysAgo|$today'));
-    }
-
-    // Dashboard data for today's stats on the card
-    final dashAsync = ref.watch(dashboardProvider(selected));
 
     void goTo(int index) {
       if (persons.isEmpty) return;
@@ -243,132 +260,176 @@ class _AvatarBar extends ConsumerWidget {
       },
       child: Container(
         color: colorScheme.surface,
-        padding: const EdgeInsets.fromLTRB(8, 9, 4, 9),
-        child: Row(
-          children: [
-            // ── Current person: business card ──────────────────────────────
-            Expanded(
-              flex: 5,
-              child: _PersonCard(
-                person: currentPerson,
-                dashAsync: dashAsync,
-                colorScheme: colorScheme,
+        padding: const EdgeInsets.fromLTRB(8, 7, 6, 7),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // ── Selected person: ring avatar card ─────────────────────────
+              Expanded(
+                flex: 55,
+                child: _PersonCard(
+                  person: currentPerson,
+                  dashAsync: allDash[currentPerson['id']!] ??
+                      const AsyncValue.loading(),
+                  colorScheme: colorScheme,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            // ── Other (unselected) avatars ─────────────────────────────────
-            Expanded(
-              flex: 3,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (final p in otherPersons)
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => ref
-                            .read(selectedPersonProvider.notifier)
-                            .state = p['id']!,
+
+              // ── Vertical divider ──────────────────────────────────────────
+              Container(
+                width: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+
+              // ── Other (unselected) persons + add button ───────────────────
+              Expanded(
+                flex: 45,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      for (final p in otherPersons)
+                        Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 5),
+                          child: GestureDetector(
+                            onTap: () => ref
+                                .read(selectedPersonProvider.notifier)
+                                .state = p['id']!,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _SmallRingAvatar(
+                                  avatarUrl: p['avatarUrl'],
+                                  name: p['name'] ?? '',
+                                  dashAsync: allDash[p['id']!] ??
+                                      const AsyncValue.loading(),
+                                  colorScheme: colorScheme,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _short(p['name'] ?? ''),
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      color: colorScheme.onSurfaceVariant),
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // Add person
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _SmallAvatar(
-                                avatarUrl: p['avatarUrl'],
-                                name: p['name'] ?? '',
-                                colorScheme: colorScheme),
-                            const SizedBox(height: 2),
-                            Text(
-                              _short(p['name'] ?? ''),
-                              style: TextStyle(
-                                  fontSize: 9,
-                                  color: colorScheme.onSurfaceVariant),
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
+                            SizedBox(
+                              width: _kSmallRingBox,
+                              height: _kSmallRingBox,
+                              child: IconButton(
+                                icon: Icon(
+                                  Icons.person_add_alt_1_outlined,
+                                  size: 18,
+                                  color: colorScheme.primary,
+                                ),
+                                padding: EdgeInsets.zero,
+                                tooltip: 'Add family member',
+                                onPressed: () =>
+                                    context.go('/profile'),
+                              ),
                             ),
+                            const SizedBox(height: 3),
+                            Text('Add',
+                                style: TextStyle(
+                                    fontSize: 9,
+                                    color: colorScheme.primary)),
                           ],
                         ),
                       ),
-                    ),
-                  SizedBox(
-                    width: 36,
-                    child: IconButton(
-                      icon: const Icon(Icons.person_add_alt_1_outlined,
-                          size: 16),
-                      padding: EdgeInsets.zero,
-                      tooltip: 'Add family member',
-                      onPressed: () => context.go('/profile'),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   static String _short(String name) =>
-      name.length > 5 ? name.substring(0, 5) : name;
+      name.length > 6 ? name.substring(0, 6) : name;
 }
 
-// ── Business card for the selected person ─────────────────────────────────────
+// ── Selected person card with 3-ring activity avatar ──────────────────────────
 
 class _PersonCard extends StatelessWidget {
   final Map<String, String?> person;
   final AsyncValue<DashboardData> dashAsync;
   final ColorScheme colorScheme;
 
-  const _PersonCard(
-      {required this.person,
-      required this.dashAsync,
-      required this.colorScheme});
+  const _PersonCard({
+    required this.person,
+    required this.dashAsync,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
     final avatarUrl = person['avatarUrl'];
     final name = person['name'] ?? '';
     final firstName = name.split(' ').first;
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    return dashAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => _buildLayout(
+        context, avatarUrl, firstName, name,
+        calPct: 0, waterPct: 0, moodPct: 0, data: null,
+      ),
+      error: (_, __) => _buildLayout(
+        context, avatarUrl, firstName, name,
+        calPct: 0, waterPct: 0, moodPct: 0, data: null,
+      ),
+      data: (data) {
+        final calPct   = (data.todayCalories / 2000).clamp(0.0, 1.0);
+        final waterPct = (data.todayWater / 2500).clamp(0.0, 1.0);
+        final moodPct  = (data.healthScore.mood / 20).clamp(0.0, 1.0);
+        return _buildLayout(
+          context, avatarUrl, firstName, name,
+          calPct: calPct, waterPct: waterPct, moodPct: moodPct, data: data,
+        );
+      },
+    );
+  }
+
+  Widget _buildLayout(
+    BuildContext context,
+    String? avatarUrl,
+    String firstName,
+    String name, {
+    required double calPct,
+    required double waterPct,
+    required double moodPct,
+    required DashboardData? data,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
       child: Row(
         children: [
-          // Avatar with glow ring
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: colorScheme.primary, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.primary.withOpacity(0.45),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-                BoxShadow(
-                  color: colorScheme.primary.withOpacity(0.2),
-                  blurRadius: 16,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 28,
-              backgroundColor: colorScheme.primaryContainer,
-              backgroundImage: avatarUrl != null
-                  ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
-                  : null,
-              child: avatarUrl == null
-                  ? Text(initial,
-                      style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onPrimaryContainer))
-                  : null,
-            ),
+          _RingAvatar(
+            avatarUrl: avatarUrl,
+            name: name,
+            caloriesPct: calPct,
+            waterPct: waterPct,
+            moodPct: moodPct,
+            colorScheme: colorScheme,
           ),
-          const SizedBox(width: 8),
-          // Name + stats
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,37 +437,39 @@ class _PersonCard extends StatelessWidget {
               children: [
                 Text(
                   firstName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: colorScheme.onSurface,
-                  ),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
-                dashAsync.when(
-                  skipLoadingOnReload: true,
-                  loading: () => const SizedBox(
-                    height: 12,
-                    width: 12,
+                const SizedBox(height: 5),
+                if (data != null) ...[
+                  _RingStat(
+                    Icons.local_fire_department,
+                    '${data.todayCalories.round()}',
+                    'kcal',
+                    calPct,
+                    _kCalColor,
+                  ),
+                  _RingStat(
+                    Icons.water_drop,
+                    '${(data.todayWater / 1000).toStringAsFixed(1)}',
+                    'L',
+                    waterPct,
+                    _kWaterColor,
+                  ),
+                  _RingStat(
+                    Icons.mood,
+                    '${(data.healthScore.mood / 2).round()}',
+                    '/10',
+                    moodPct,
+                    _kMoodColor,
+                  ),
+                ] else
+                  const SizedBox(
+                    height: 14,
+                    width: 14,
                     child: CircularProgressIndicator(strokeWidth: 1.5),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (data) => Row(
-                    children: [
-                      _Stat(Icons.local_fire_department,
-                          '${data.todayCalories.round()}', Colors.orange),
-                      const SizedBox(width: 6),
-                      _Stat(Icons.water_drop,
-                          '${(data.todayWater / 1000).toStringAsFixed(1)}L',
-                          Colors.blue),
-                      const SizedBox(width: 6),
-                      _Stat(Icons.mood,
-                          '${(data.healthScore.mood / 2).round()}',
-                          Colors.amber),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -416,55 +479,225 @@ class _PersonCard extends StatelessWidget {
   }
 }
 
-// ── Small (unselected) avatar circle ──────────────────────────────────────────
+// ── 3-concentric-ring avatar (selected person) ────────────────────────────────
 
-class _SmallAvatar extends StatelessWidget {
+class _RingAvatar extends StatelessWidget {
   final String? avatarUrl;
   final String name;
+  final double caloriesPct;
+  final double waterPct;
+  final double moodPct;
   final ColorScheme colorScheme;
 
-  const _SmallAvatar(
-      {required this.avatarUrl,
-      required this.name,
-      required this.colorScheme});
+  const _RingAvatar({
+    required this.avatarUrl,
+    required this.name,
+    required this.caloriesPct,
+    required this.waterPct,
+    required this.moodPct,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: colorScheme.surfaceContainerHighest,
-      backgroundImage: avatarUrl != null
-          ? CachedNetworkImageProvider(avatarUrl!) as ImageProvider
-          : null,
-      child: avatarUrl == null
-          ? Text(initial,
-              style: TextStyle(
-                  fontSize: 12, color: colorScheme.onSurfaceVariant))
-          : null,
+    return SizedBox(
+      width: _kRing3Box,
+      height: _kRing3Box,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer ring — Calories
+          _AnimatedRing(
+            value: caloriesPct,
+            boxSize: _kRing3Box,
+            color: _kCalColor,
+            duration: const Duration(milliseconds: 1200),
+          ),
+          // Middle ring — Water
+          _AnimatedRing(
+            value: waterPct,
+            boxSize: _kRing2Box,
+            color: _kWaterColor,
+            duration: const Duration(milliseconds: 1000),
+          ),
+          // Inner ring — Mood
+          _AnimatedRing(
+            value: moodPct,
+            boxSize: _kRing1Box,
+            color: _kMoodColor,
+            duration: const Duration(milliseconds: 800),
+          ),
+          // Avatar
+          CircleAvatar(
+            radius: _kAvatarRadius,
+            backgroundColor: colorScheme.primaryContainer,
+            backgroundImage: avatarUrl != null
+                ? CachedNetworkImageProvider(avatarUrl!) as ImageProvider
+                : null,
+            child: avatarUrl == null
+                ? Text(
+                    initial,
+                    style: TextStyle(
+                      fontSize: _kAvatarRadius * 0.72,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  )
+                : null,
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Compact stat (icon + value) ───────────────────────────────────────────────
+// ── Single-ring avatar (unselected family member) ─────────────────────────────
 
-class _Stat extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final Color color;
+class _SmallRingAvatar extends StatelessWidget {
+  final String? avatarUrl;
+  final String name;
+  final AsyncValue<DashboardData> dashAsync;
+  final ColorScheme colorScheme;
 
-  const _Stat(this.icon, this.value, this.color);
+  const _SmallRingAvatar({
+    required this.avatarUrl,
+    required this.name,
+    required this.dashAsync,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 11, color: color),
-        const SizedBox(width: 2),
-        Text(value,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
-      ],
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    final vitalityPct = dashAsync.whenOrNull(data: (data) {
+      final cal   = (data.todayCalories / 2000).clamp(0.0, 1.0);
+      final water = (data.todayWater / 2500).clamp(0.0, 1.0);
+      final mood  = (data.healthScore.mood / 20).clamp(0.0, 1.0);
+      return (cal + water + mood) / 3;
+    }) ?? 0.0;
+
+    final ringColor = vitalityPct >= 0.75
+        ? _kMoodColor
+        : vitalityPct >= 0.4
+            ? _kCalColor
+            : Colors.red.shade400;
+
+    return SizedBox(
+      width: _kSmallRingBox,
+      height: _kSmallRingBox,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          _AnimatedRing(
+            value: vitalityPct,
+            boxSize: _kSmallRingBox,
+            color: ringColor,
+            strokeWidth: _kSmallRingStroke,
+            duration: const Duration(milliseconds: 900),
+          ),
+          CircleAvatar(
+            radius: _kSmallAvatarRadius,
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            backgroundImage: avatarUrl != null
+                ? CachedNetworkImageProvider(avatarUrl!) as ImageProvider
+                : null,
+            child: avatarUrl == null
+                ? Text(
+                    initial,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant),
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Animated circular progress ring ───────────────────────────────────────────
+
+class _AnimatedRing extends StatelessWidget {
+  final double value;
+  final double boxSize;
+  final Color color;
+  final double strokeWidth;
+  final Duration duration;
+
+  const _AnimatedRing({
+    required this.value,
+    required this.boxSize,
+    required this.color,
+    this.strokeWidth = _kStroke,
+    required this.duration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (_, v, __) => SizedBox(
+        width: boxSize,
+        height: boxSize,
+        child: CircularProgressIndicator(
+          value: v,
+          strokeWidth: strokeWidth,
+          color: color,
+          backgroundColor: color.withValues(alpha: 0.15),
+          strokeCap: StrokeCap.round,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Compact stat row with mini progress bar ────────────────────────────────────
+
+class _RingStat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String unit;
+  final double pct;
+  final Color color;
+
+  const _RingStat(this.icon, this.value, this.unit, this.pct, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            '$value $unit',
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                width: 30,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: pct,
+                    color: pct >= 1.0 ? Colors.red.shade400 : color,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    minHeight: 3,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -49,21 +49,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _toggleNotifications(bool enable) async {
-    await SecureStorage.setNotificationsEnabled(enable);
     if (enable) {
-      await NotificationService.scheduleHydrationReminders();
+      try {
+        await NotificationService.init(); // re-request permission if denied
+        await NotificationService.scheduleHydrationReminders();
+        await SecureStorage.setNotificationsEnabled(true);
+        if (mounted) setState(() => _notificationsEnabled = true);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not enable notifications — allow notification permission in device Settings.'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
     } else {
       await NotificationService.cancelAll();
+      await SecureStorage.setNotificationsEnabled(false);
+      if (mounted) setState(() => _notificationsEnabled = false);
     }
-    if (mounted) setState(() => _notificationsEnabled = enable);
   }
 
   Future<void> _toggleBiometric(bool enable) async {
     if (enable) {
-      // Re-run the full offer flow: authenticate then store credentials
       final ok = await BiometricService.authenticate(reason: 'Confirm to enable biometric login');
-      if (!ok || !mounted) return;
-      // We don't have the password here — ask user to re-enter it
+      if (!ok) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Fingerprint not recognized. Make sure fingerprint or face is enrolled in Settings → Security.'),
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
       final password = await _askPassword();
       if (password == null || !mounted) return;
       final user = ref.read(authProvider).user;
