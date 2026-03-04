@@ -220,9 +220,11 @@ class _AvatarBar extends ConsumerWidget {
       ref.watch(dashboardProvider(pid));          // warms dashboard cache
       ref.watch(todayHydrationProvider(pid));     // warms hydration total
     }
-    // Pre-fetch last 7 days of nutrition entries for the selected person
-    // so Entries page opens instantly. keepAlive keeps it cached.
-    ref.watch(nutritionEntriesProvider('$selected|$sevenDaysAgo|$today'));
+    // Pre-fetch last 7 days of nutrition entries for ALL family members
+    // so Entries page opens instantly when switching between persons.
+    for (final p in persons) {
+      ref.watch(nutritionEntriesProvider('${p['id']!}|$sevenDaysAgo|$today'));
+    }
 
     // Dashboard data for today's stats on the card
     final dashAsync = ref.watch(dashboardProvider(selected));

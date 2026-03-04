@@ -7,6 +7,8 @@ import 'package:image_cropper/image_cropper.dart';
 import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 import '../core/constants.dart';
+import '../core/secure_storage.dart';
+import '../services/biometric_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -19,6 +21,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _ageCtrl = TextEditingController();
   String? _gender;
   bool _editing = false;
+  bool _biometricEnabled = false;
+  bool _biometricAvailable = false;
 
   @override
   void initState() {
@@ -27,6 +31,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameCtrl.text = user?.name ?? '';
     _ageCtrl.text = user?.age?.toString() ?? '';
     _gender = user?.gender;
+    _loadBiometricState();
+  }
+
+  Future<void> _loadBiometricState() async {
+    final available = await BiometricService.isAvailable();
+    final enabled = await SecureStorage.getBiometricsEnabled();
+    if (mounted) setState(() { _biometricAvailable = available; _biometricEnabled = enabled; });
+  }
+
+  Future<void> _toggleBiometric(bool enable) async {
+    if (enable) {
+      // Re-run the full offer flow: authenticate then store credentials
+      final ok = await BiometricService.authenticate(reason: 'Confirm to enable biometric login');
+      if (!ok || !mounted) return;
+      // We don't have the password here — ask user to re-enter it
+      final password = await _askPassword();
+      if (password == null || !mounted) return;
+      final user = ref.read(authProvider).user;
+      await SecureStorage.saveBioCredentials(
+        email: user?.email ?? '',
+        password: password,
+        name: user?.name ?? '',
+      );
+      await SecureStorage.setBiometricsEnabled(true);
+      await SecureStorage.setBiometricsPrompted(true);
+      if (!mounted) return;
+      setState(() => _biometricEnabled = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Biometric login enabled ✓')),
+      );
+    } else {
+      await SecureStorage.clearBioCredentials();
+      if (mounted) setState(() => _biometricEnabled = false);
+    }
+  }
+
+  Future<String?> _askPassword() {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm password'),
+        content: TextField(
+          controller: ctrl,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Your password'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('Confirm')),
+        ],
+      ),
+    ).then((result) {
+      ctrl.dispose();
+      return (result?.isEmpty == true) ? null : result;
+    });
   }
 
   @override
@@ -145,6 +206,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   trailing: Text(user.gender!),
                 ),
             ],
+            const Divider(height: 32),
+            // Biometric login toggle
+            if (_biometricAvailable)
+              SwitchListTile(
+                secondary: const Icon(Icons.fingerprint),
+                title: const Text('Biometric login'),
+                subtitle: Text(_biometricEnabled
+                    ? 'Fingerprint / Face ID active'
+                    : 'Use fingerprint or face to sign in'),
+                value: _biometricEnabled,
+                onChanged: _toggleBiometric,
+              ),
             const Divider(height: 32),
             // Children section
             Row(
