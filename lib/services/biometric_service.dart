@@ -4,15 +4,13 @@ import 'package:local_auth/local_auth.dart';
 class BiometricService {
   static final _auth = LocalAuthentication();
 
-  /// True when the device supports biometrics AND at least one method is enrolled.
-  /// Uses canCheckBiometrics which is more reliable than getAvailableBiometrics
-  /// on Android (especially Samsung and some Pixel devices).
+  /// True only when the device supports biometrics AND at least one is enrolled.
+  /// canCheckBiometrics is true only when fingerprints/face are actually registered.
+  /// Never fall back to isDeviceSupported() — that returns true even with nothing
+  /// enrolled, causing the OS to show "register fingerprint" error prompts.
   static Future<bool> isAvailable() async {
     try {
-      final canCheck = await _auth.canCheckBiometrics;
-      if (canCheck) return true;
-      // Fall back: device supported but may not have biometrics enrolled yet
-      return await _auth.isDeviceSupported();
+      return await _auth.canCheckBiometrics;
     } catch (_) {
       return false;
     }
