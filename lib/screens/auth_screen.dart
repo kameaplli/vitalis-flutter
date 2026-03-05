@@ -54,6 +54,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     final available = await BiometricService.isAvailable();
     if (!enabled || !available) return;
     final creds = await SecureStorage.getBioCredentials();
+    // Credentials missing means biometrics were enabled (e.g. via Profile toggle
+    // on an old build) but the password was never stored.  Don't show the
+    // biometric screen — user must log in once with password to store them.
+    if (creds.email == null || creds.password == null) return;
     if (!mounted) return;
     setState(() {
       _showBiometricLogin = true;
@@ -71,26 +75,42 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     try {
       final ok = await BiometricService.authenticate(reason: 'Sign in to Vitalis');
       if (!ok) {
+        // User cancelled or scan failed — reset silently so they can retry
         if (mounted) setState(() => _bioLoading = false);
         return;
       }
       final creds = await SecureStorage.getBioCredentials();
       if (creds.email == null || creds.password == null) {
-        // Credentials missing — fall back
-        await SecureStorage.clearBioCredentials();
+        // Credentials missing — fall back without disabling biometrics
         if (mounted) setState(() { _showBiometricLogin = false; _bioLoading = false; });
         return;
       }
       final loginOk = await ref.read(authProvider.notifier).login(creds.email!, creds.password!);
       if (!mounted) return;
       if (!loginOk) {
-        // 401 or network error — clear stored creds and fall back to password form
-        await SecureStorage.clearBioCredentials();
-        if (!mounted) return;
-        setState(() { _showBiometricLogin = false; _bioLoading = false; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biometric login failed — please sign in with your password')),
-        );
+        final err = ref.read(authProvider).error ?? '';
+        // Only clear credentials on a 401 (wrong password). Network errors /
+        // Railway cold-starts return generic errors — keep creds so the user
+        // can retry without re-entering their password.
+        final is401 = err.toLowerCase().contains('invalid') ||
+                      err.toLowerCase().contains('incorrect') ||
+                      err.toLowerCase().contains('credential') ||
+                      err.toLowerCase().contains('password');
+        if (is401) {
+          await SecureStorage.clearBioCredentials();
+          if (!mounted) return;
+          setState(() { _showBiometricLogin = false; _bioLoading = false; });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Biometric login failed — please sign in with your password')),
+          );
+        } else {
+          // Network / server error — keep credentials, let user retry
+          if (!mounted) return;
+          setState(() => _bioLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Connection error — check your connection and try again')),
+          );
+        }
       }
       // On success: GoRouter redirect will take the user to /dashboard automatically
     } catch (_) {
