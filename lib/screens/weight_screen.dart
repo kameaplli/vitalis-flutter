@@ -9,13 +9,26 @@ import '../core/constants.dart';
 import '../models/weight_log.dart';
 import '../widgets/line_chart_widget.dart';
 
-class WeightScreen extends ConsumerStatefulWidget {
+/// Standalone route screen — wraps WeightContent in a Scaffold.
+class WeightScreen extends ConsumerWidget {
   const WeightScreen({super.key});
   @override
-  ConsumerState<WeightScreen> createState() => _WeightScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Weight Tracker')),
+      body: const WeightContent(),
+    );
+  }
 }
 
-class _WeightScreenState extends ConsumerState<WeightScreen> {
+/// Reusable widget used both by WeightScreen and the Weight tab in HealthScreen.
+class WeightContent extends ConsumerStatefulWidget {
+  const WeightContent({super.key});
+  @override
+  ConsumerState<WeightContent> createState() => _WeightContentState();
+}
+
+class _WeightContentState extends ConsumerState<WeightContent> {
   int _days = 30;
   final _weightCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -33,9 +46,7 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
     final person = ref.watch(selectedPersonProvider);
     final histAsync = ref.watch(weightHistoryProvider('$person:$_days'));
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Weight Tracker')),
-      body: SingleChildScrollView(
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,7 +256,6 @@ class _WeightScreenState extends ConsumerState<WeightScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 

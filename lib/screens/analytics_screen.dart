@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import '../core/nutrition_utils.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/auth_provider.dart';
@@ -53,12 +54,85 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
             const SizedBox(height: 20),
             analyticsAsync.when(
               skipLoadingOnReload: true,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              loading: () => const _AnalyticsShimmer(),
+              error: (e, _) => _AnalyticsError(
+                onRetry: () => ref.invalidate(analyticsProvider('$person:$_days')),
+              ),
               data: (data) => _AnalyticsBody(data: data, person: person),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Shimmer skeleton ──────────────────────────────────────────────────────────
+
+class _AnalyticsShimmer extends StatelessWidget {
+  const _AnalyticsShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final base      = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final highlight = Theme.of(context).colorScheme.surface;
+    return Shimmer.fromColors(
+      baseColor: base,
+      highlightColor: highlight,
+      child: Column(
+        children: [
+          _shimmerBox(height: 200),
+          const SizedBox(height: 16),
+          _shimmerBox(height: 160),
+          const SizedBox(height: 16),
+          _shimmerBox(height: 200),
+          const SizedBox(height: 16),
+          _shimmerBox(height: 140),
+        ],
+      ),
+    );
+  }
+
+  Widget _shimmerBox({required double height}) => Container(
+        height: height,
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+      );
+}
+
+// ── Error widget ──────────────────────────────────────────────────────────────
+
+class _AnalyticsError extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _AnalyticsError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bar_chart_outlined,
+              size: 48, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 16),
+          Text('Analytics unavailable',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text('Pull to refresh or tap Retry when connection is restored.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }

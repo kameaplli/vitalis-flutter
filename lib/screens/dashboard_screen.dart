@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
@@ -29,14 +30,113 @@ class DashboardScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(dashboardProvider(person)),
         child: dashAsync.when(
           skipLoadingOnReload: true,
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error loading dashboard: $e')),
+          loading: () => const _DashboardShimmer(),
+          error: (e, _) => _DashboardError(
+            error: e,
+            onRetry: () => ref.invalidate(dashboardProvider(person)),
+          ),
           data: (data) => _DashboardBody(data: data),
         ),
       ),
     );
   }
 }
+
+// ── Shimmer skeleton ──────────────────────────────────────────────────────────
+
+class _DashboardShimmer extends StatelessWidget {
+  const _DashboardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final base    = Theme.of(context).colorScheme.surfaceContainerHighest;
+    final highlight = Theme.of(context).colorScheme.surface;
+    return Shimmer.fromColors(
+      baseColor:      base,
+      highlightColor: highlight,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Quick buttons row
+            _shimmerBox(height: 44, width: double.infinity),
+            const SizedBox(height: 16),
+            // Summary cards row (2 tall cards)
+            Row(children: [
+              Expanded(child: _shimmerBox(height: 110)),
+              const SizedBox(width: 12),
+              Expanded(child: _shimmerBox(height: 110)),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _shimmerBox(height: 110)),
+              const SizedBox(width: 12),
+              Expanded(child: _shimmerBox(height: 110)),
+            ]),
+            const SizedBox(height: 16),
+            // Macros card
+            _shimmerBox(height: 140, width: double.infinity),
+            const SizedBox(height: 16),
+            // Chart placeholder
+            _shimmerBox(height: 180, width: double.infinity),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _shimmerBox({required double height, double? width}) => Container(
+        height: height,
+        width:  width,
+        decoration: BoxDecoration(
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+      );
+}
+
+// ── Error widget ──────────────────────────────────────────────────────────────
+
+class _DashboardError extends StatelessWidget {
+  final Object error;
+  final VoidCallback onRetry;
+  const _DashboardError({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_outlined,
+                size: 48, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 16),
+            Text('Couldn\'t load dashboard',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Check your connection and try again.\n'
+              'Your data will appear once reconnected.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Data body ─────────────────────────────────────────────────────────────────
 
 class _DashboardBody extends StatelessWidget {
   final DashboardData data;

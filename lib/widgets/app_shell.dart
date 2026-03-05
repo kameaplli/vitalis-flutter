@@ -164,8 +164,6 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             const Divider(height: 1),
             _drawerItem(context, Icons.person_outline, 'Profile', '/profile'),
-            _drawerItem(context, Icons.monitor_weight_outlined, 'Weight', '/weight'),
-            _drawerItem(context, Icons.list_alt_outlined, 'Entries', '/entries'),
             _drawerItem(context, Icons.healing_outlined, 'Eczema', '/eczema'),
             _drawerItem(context, Icons.bar_chart_outlined, 'Analytics', '/analytics'),
             _drawerItem(context, Icons.qr_code_scanner_outlined, 'Scanner', '/scanner'),

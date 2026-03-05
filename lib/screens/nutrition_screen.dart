@@ -10,6 +10,7 @@ import '../providers/food_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../models/food_item.dart';
 import '../core/timezone_util.dart';
+import 'entries_screen.dart' show NutritionHistoryContent;
 
 // ─── Daily intake lookup by age / gender ─────────────────────────────────────
 
@@ -37,8 +38,22 @@ class NutritionScreen extends ConsumerStatefulWidget {
   ConsumerState<NutritionScreen> createState() => _NutritionScreenState();
 }
 
-class _NutritionScreenState extends ConsumerState<NutritionScreen> {
+class _NutritionScreenState extends ConsumerState<NutritionScreen>
+    with SingleTickerProviderStateMixin {
   static const _mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+  late TabController _tab;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +76,19 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 : Text(isEditMode ? 'Update Meal' : 'Log Meal'),
           ),
         ],
+        bottom: TabBar(
+          controller: _tab,
+          tabs: const [
+            Tab(text: 'Log'),
+            Tab(text: 'History'),
+          ],
+        ),
       ),
-      body: SingleChildScrollView(
+      body: TabBarView(
+        controller: _tab,
+        children: [
+          // Tab 0: meal logging form
+          SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,6 +210,10 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
               _MacroBreakdownCard(nutrition: nutrition),
           ],
         ),
+          ),
+          // Tab 1: nutrition history
+          const NutritionHistoryContent(),
+        ],
       ),
     );
   }

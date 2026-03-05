@@ -9,13 +9,29 @@ import '../core/constants.dart';
 import '../models/nutrition_log.dart';
 import '../models/food_item.dart';
 
-class EntriesScreen extends ConsumerStatefulWidget {
+/// Standalone route screen — wraps NutritionHistoryContent in a Scaffold.
+class EntriesScreen extends ConsumerWidget {
   const EntriesScreen({super.key});
   @override
-  ConsumerState<EntriesScreen> createState() => _EntriesScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Nutrition History')),
+      body: const NutritionHistoryContent(),
+    );
+  }
 }
 
-class _EntriesScreenState extends ConsumerState<EntriesScreen> {
+/// Reusable widget used both by EntriesScreen and the History tab in
+/// NutritionScreen. Handles date filtering, grouped list, swipe-to-edit/delete.
+class NutritionHistoryContent extends ConsumerStatefulWidget {
+  const NutritionHistoryContent({super.key});
+  @override
+  ConsumerState<NutritionHistoryContent> createState() =>
+      _NutritionHistoryContentState();
+}
+
+class _NutritionHistoryContentState
+    extends ConsumerState<NutritionHistoryContent> {
   String? _startDate = DateTime.now()
       .subtract(const Duration(days: 7))
       .toIso8601String()
@@ -29,158 +45,132 @@ class _EntriesScreenState extends ConsumerState<EntriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(selectedPersonProvider); // rebuild when person switches
+    ref.watch(selectedPersonProvider);
     final entriesAsync = ref.watch(nutritionEntriesProvider(_key));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nutrition Entries'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (_startDate != null || _endDate != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(children: [
-                Expanded(
-                  child: Text(
-                    '${_startDate ?? '...'} → ${_endDate ?? '...'}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () =>
-                      setState(() { _startDate = null; _endDate = null; }),
-                  child: const Text('Clear'),
-                ),
-              ]),
+    return Column(
+      children: [
+        // Date range row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+          child: Row(children: [
+            Expanded(
+              child: Text(
+                '${_startDate ?? '...'} → ${_endDate ?? '...'}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-          // Swipe hint
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-            child: Row(children: [
-              Icon(Icons.swipe, size: 13, color: Colors.grey.shade400),
-              const SizedBox(width: 4),
-              Text('Swipe right to edit · Swipe left to delete',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade400)),
-            ]),
-          ),
-          Expanded(
-            child: entriesAsync.when(
-              skipLoadingOnReload: true,
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (entries) {
-                if (entries.isEmpty) {
-                  return const Center(child: Text('No entries found'));
-                }
-                final grouped = <String, List<NutritionEntry>>{};
-                for (final e in entries) {
-                  grouped.putIfAbsent(e.date, () => []).add(e);
-                }
-                final dates = grouped.keys.toList()
-                  ..sort((a, b) => b.compareTo(a));
+            IconButton(
+              icon: const Icon(Icons.filter_list, size: 20),
+              onPressed: () => _showFilterDialog(context),
+            ),
+            if (_startDate != null || _endDate != null)
+              TextButton(
+                onPressed: () =>
+                    setState(() { _startDate = null; _endDate = null; }),
+                child: const Text('Clear'),
+              ),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          child: Row(children: [
+            Icon(Icons.swipe, size: 13, color: Colors.grey.shade400),
+            const SizedBox(width: 4),
+            Text('Swipe right to edit · Swipe left to delete',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+          ]),
+        ),
+        Expanded(
+          child: entriesAsync.when(
+            skipLoadingOnReload: true,
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (entries) {
+              if (entries.isEmpty) {
+                return const Center(child: Text('No entries found'));
+              }
+              final grouped = <String, List<NutritionEntry>>{};
+              for (final e in entries) {
+                grouped.putIfAbsent(e.date, () => []).add(e);
+              }
+              final dates = grouped.keys.toList()
+                ..sort((a, b) => b.compareTo(a));
 
-                return ListView.builder(
-                  itemCount: dates.length,
-                  itemBuilder: (ctx, i) {
-                    final date = dates[i];
-                    final dayEntries = grouped[date]!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          child: Text(
-                            _formatDate(date),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary,
-                                ),
-                          ),
+              return ListView.builder(
+                itemCount: dates.length,
+                itemBuilder: (ctx, i) {
+                  final date = dates[i];
+                  final dayEntries = grouped[date]!;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Text(
+                          _formatDate(date),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary),
                         ),
-                        ...dayEntries.map((entry) => Dismissible(
-                              key: Key(entry.id),
-                              direction: DismissDirection.horizontal,
-                              // Right swipe → edit (blue)
-                              background: Container(
-                                color: Colors.blue,
-                                alignment: Alignment.centerLeft,
-                                padding: const EdgeInsets.only(left: 16),
-                                child: const Icon(Icons.edit,
-                                    color: Colors.white),
+                      ),
+                      ...dayEntries.map((entry) => Dismissible(
+                            key: Key(entry.id),
+                            direction: DismissDirection.horizontal,
+                            background: Container(
+                              color: Colors.blue,
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 16),
+                              child: const Icon(Icons.edit, color: Colors.white),
+                            ),
+                            secondaryBackground: Container(
+                              color: Colors.red,
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            confirmDismiss: (dir) async {
+                              if (dir == DismissDirection.startToEnd) {
+                                _openNutritionEdit(ctx, entry);
+                                return false;
+                              }
+                              return _confirmDelete(ctx);
+                            },
+                            onDismissed: (dir) async {
+                              if (dir == DismissDirection.endToStart) {
+                                await apiClient.dio.delete(
+                                    '${ApiConstants.nutritionLog}/${entry.id}');
+                                ref.invalidate(nutritionEntriesProvider);
+                              }
+                            },
+                            child: ListTile(
+                              leading: Icon(_mealIcon(entry.meal),
+                                  color: _mealColor(entry.meal)),
+                              title: Text(
+                                entry.description.isEmpty
+                                    ? entry.meal ?? 'Meal'
+                                    : entry.description,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              // Left swipe → delete (red)
-                              secondaryBackground: Container(
-                                color: Colors.red,
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 16),
-                                child: const Icon(Icons.delete,
-                                    color: Colors.white),
+                              subtitle: Text('${entry.person} • ${entry.time}'),
+                              trailing: Text(
+                                '${entry.calories.toStringAsFixed(0)} kcal',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
-                              confirmDismiss: (dir) async {
-                                if (dir ==
-                                    DismissDirection.startToEnd) {
-                                  _openNutritionEdit(ctx, entry);
-                                  return false;
-                                }
-                                return _confirmDelete(ctx);
-                              },
-                              onDismissed: (dir) async {
-                                if (dir ==
-                                    DismissDirection.endToStart) {
-                                  await apiClient.dio.delete(
-                                      '${ApiConstants.nutritionLog}/${entry.id}');
-                                  ref.invalidate(
-                                      nutritionEntriesProvider);
-                                }
-                              },
-                              child: ListTile(
-                                leading: Icon(
-                                  _mealIcon(entry.meal),
-                                  color: _mealColor(entry.meal),
-                                ),
-                                title: Text(
-                                  entry.description.isEmpty
-                                      ? entry.meal ?? 'Meal'
-                                      : entry.description,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                    '${entry.person} • ${entry.time}'),
-                                trailing: Text(
-                                  '${entry.calories.toStringAsFixed(0)} kcal',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                          fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            )),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
+                            ),
+                          )),
+                    ],
+                  );
+                },
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
