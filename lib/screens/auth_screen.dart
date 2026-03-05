@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../core/biometric_offer.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 
@@ -54,10 +53,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     final available = await BiometricService.isAvailable();
     if (!enabled || !available) return;
     final creds = await SecureStorage.getBioCredentials();
-    // Credentials missing means biometrics were enabled (e.g. via Profile toggle
-    // on an old build) but the password was never stored.  Don't show the
-    // biometric screen — user must log in once with password to store them.
-    if (creds.email == null || creds.password == null) return;
+    if (creds.email == null || creds.password == null) {
+      // Biometrics were enabled but credentials were never stored (e.g. from
+      // an old build that used the Profile toggle without saving the password).
+      // Reset the "prompted" flag so the offer re-appears on the next login.
+      await SecureStorage.setBiometricsPrompted(false);
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _showBiometricLogin = true;
@@ -120,19 +122,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
 
   Future<void> _login() async {
     if (!_loginFormKey.currentState!.validate()) return;
-    final email    = _loginEmail.text.trim();
-    final password = _loginPassword.text;
-    final ok = await ref.read(authProvider.notifier).login(email, password);
+    final ok = await ref.read(authProvider.notifier).login(
+      _loginEmail.text.trim(),
+      _loginPassword.text,
+    );
     if (!mounted) return;
-    if (ok) {
-      final user = ref.read(authProvider).user;
-      final name = user?.name ?? 'User';
-      await _postLoginBioSetup(email, password, name);
-    } else {
+    if (!ok) {
       final err = ref.read(authProvider).error;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(err ?? 'Login failed')));
     }
+    // On success: auth_provider sets showBioOffer if needed, then GoRouter
+    // redirects to /dashboard. AppShell picks up the offer from Riverpod state.
   }
 
   Future<void> _register() async {
@@ -143,40 +144,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
       _regPassword.text,
     );
     if (!mounted) return;
-    if (ok) {
-      final user = ref.read(authProvider).user;
-      await _postLoginBioSetup(
-        _regEmail.text.trim(),
-        _regPassword.text,
-        user?.name ?? _regName.text.trim(),
-      );
-    } else {
+    if (!ok) {
       final err = ref.read(authProvider).error;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(err ?? 'Registration failed')));
-    }
-  }
-
-  /// Called after a successful login or register.
-  /// - If biometrics are available but not yet enabled: queue an offer for
-  ///   AppShell to show after navigation (avoids the unmount race).
-  /// - If biometrics are already enabled but no credentials stored (user
-  ///   toggled ON from Profile): auto-save credentials silently now.
-  Future<void> _postLoginBioSetup(
-      String email, String password, String name) async {
-    final available = await BiometricService.isAvailable();
-    final enabled   = await SecureStorage.getBiometricsEnabled();
-
-    if (available && !enabled) {
-      // Queue for AppShell — cannot show dialog here because GoRouter will
-      // unmount AuthScreen on the next frame, causing !mounted to cancel it.
-      BiometricOffer.queue(email, password, name);
-    } else if (enabled) {
-      final existing = await SecureStorage.getBioCredentials();
-      if (existing.password == null || existing.password!.isEmpty) {
-        await SecureStorage.saveBioCredentials(
-            email: email, password: password, name: name);
-      }
     }
   }
 

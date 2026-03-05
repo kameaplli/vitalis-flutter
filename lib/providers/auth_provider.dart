@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../models/user.dart';
+import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 
 enum AuthStatus { loading, authenticated, unauthenticated }
@@ -12,11 +13,25 @@ class AuthState {
   final AuthStatus status;
   final AppUser? user;
   final String? error;
+  // Biometric offer — set when login/register succeeds and the user hasn't
+  // been offered biometrics yet.  AppShell reads these fields after mounting.
+  // Because they are set inside login()/register() BEFORE the authenticated
+  // state is published, AppShell is guaranteed to see them on first build.
+  final bool showBioOffer;
+  final String? bioOfferEmail;
+  final String? bioOfferPassword;
 
-  const AuthState({required this.status, this.user, this.error});
+  const AuthState({
+    required this.status,
+    this.user,
+    this.error,
+    this.showBioOffer = false,
+    this.bioOfferEmail,
+    this.bioOfferPassword,
+  });
 
   bool get isAuthenticated => status == AuthStatus.authenticated;
-  bool get isLoading => status == AuthStatus.loading;
+  bool get isLoading       => status == AuthStatus.loading;
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
@@ -51,16 +66,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       await apiClient.saveToken(res.data['access_token']);
       final user = AppUser.fromJson(res.data['user']);
-      state = AuthState(status: AuthStatus.authenticated, user: user);
       NotificationService.scheduleHydrationReminders();
       SecureStorage.setNotificationsEnabled(true);
+
+      // ── Biometric setup ───────────────────────────────────────────────────
+      // All async work is done HERE, before the authenticated state is set.
+      // GoRouter only redirects after the state changes, so when AppShell
+      // mounts it always sees the already-populated showBioOffer flag.
+      // This permanently eliminates the race condition from the old approach
+      // of queuing in BiometricOffer after login() returned.
+      final available = await BiometricService.isAvailable();
+      final enabled   = await SecureStorage.getBiometricsEnabled();
+      final prompted  = await SecureStorage.getBiometricsPrompted();
+
+      if (available && !enabled && !prompted) {
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          user: user,
+          showBioOffer: true,
+          bioOfferEmail: email,
+          bioOfferPassword: password,
+        );
+      } else {
+        if (enabled) {
+          // Biometrics already on — silently save credentials if missing
+          final creds = await SecureStorage.getBioCredentials();
+          if (creds.password == null || creds.password!.isEmpty) {
+            await SecureStorage.saveBioCredentials(
+                email: email, password: password, name: user.name);
+          }
+        }
+        state = AuthState(status: AuthStatus.authenticated, user: user);
+      }
       return true;
     } on DioException catch (e) {
       final msg = e.response?.data?['detail'] ?? 'Login failed';
       state = AuthState(status: AuthStatus.unauthenticated, error: msg);
       return false;
     } catch (e) {
-      state = AuthState(status: AuthStatus.unauthenticated, error: 'Login error: $e');
+      state = AuthState(
+          status: AuthStatus.unauthenticated, error: 'Login error: $e');
       return false;
     }
   }
@@ -74,15 +119,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       await apiClient.saveToken(res.data['access_token']);
       final user = AppUser.fromJson(res.data['user']);
-      state = AuthState(status: AuthStatus.authenticated, user: user);
+
+      final available = await BiometricService.isAvailable();
+      final prompted  = await SecureStorage.getBiometricsPrompted();
+
+      if (available && !prompted) {
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          user: user,
+          showBioOffer: true,
+          bioOfferEmail: email,
+          bioOfferPassword: password,
+        );
+      } else {
+        state = AuthState(status: AuthStatus.authenticated, user: user);
+      }
       return true;
     } on DioException catch (e) {
       final msg = e.response?.data?['detail'] ?? 'Registration failed';
       state = AuthState(status: AuthStatus.unauthenticated, error: msg);
       return false;
     } catch (e) {
-      state = AuthState(status: AuthStatus.unauthenticated, error: 'Registration error: $e');
+      state = AuthState(
+          status: AuthStatus.unauthenticated, error: 'Registration error: $e');
       return false;
+    }
+  }
+
+  /// Called by AppShell immediately after showing (or deciding to skip) the
+  /// biometric offer dialog, so the flag doesn't linger in state.
+  void clearBioOffer() {
+    if (state.showBioOffer) {
+      state = AuthState(status: state.status, user: state.user, error: state.error);
     }
   }
 
@@ -93,9 +161,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await apiClient.clearToken();
     NotificationService.cancelAll();
     SecureStorage.setNotificationsEnabled(false);
-    // If biometrics were never successfully enabled, reset the "prompted" flag
-    // so the offer appears again on next login (covers the case where the user
-    // tapped Enable but the OS prompt failed, or the app was reinstalled).
+    // Reset "prompted" if biometrics were never actually enabled, so the
+    // offer re-appears on the next explicit login.
     final bioEnabled = await SecureStorage.getBiometricsEnabled();
     if (!bioEnabled) {
       await SecureStorage.setBiometricsPrompted(false);

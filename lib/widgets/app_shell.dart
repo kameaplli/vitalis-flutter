@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/biometric_offer.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../models/dashboard_data.dart';
@@ -46,12 +45,21 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void initState() {
     super.initState();
+    // Check for a pending biometric offer on the first frame after mounting.
+    // auth_provider.login()/register() sets showBioOffer BEFORE publishing the
+    // authenticated state, so by the time AppShell mounts the offer is already
+    // present in Riverpod state — no race condition.
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleBiometricOffer());
   }
 
   Future<void> _handleBiometricOffer() async {
-    final offer = BiometricOffer.consume();
-    if (offer == null || !mounted) return;
+    final auth = ref.read(authProvider);
+    if (!auth.showBioOffer) return;
+    final email    = auth.bioOfferEmail;
+    final password = auth.bioOfferPassword;
+    // Clear flag immediately so it doesn't re-trigger on hot-reload / rebuild
+    ref.read(authProvider.notifier).clearBioOffer();
+    if (email == null || password == null || !mounted) return;
 
     final accepted = await showDialog<bool>(
       context: context,
@@ -62,7 +70,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     await SecureStorage.setBiometricsPrompted(true);
     if (accepted != true || !mounted) return;
 
-    final ok = await BiometricService.authenticate(reason: 'Enable biometric sign-in for Vitalis');
+    final ok = await BiometricService.authenticate(
+        reason: 'Enable biometric sign-in for Vitalis');
     if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -71,9 +80,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       return;
     }
 
+    final name = ref.read(authProvider).user?.name ?? '';
     await Future.wait([
       SecureStorage.saveBioCredentials(
-          email: offer.email, password: offer.password, name: offer.name),
+          email: email, password: password, name: name),
       SecureStorage.setBiometricsEnabled(true),
     ]);
 
