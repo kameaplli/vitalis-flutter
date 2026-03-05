@@ -4,11 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants.dart';
 import '../models/dashboard_data.dart';
-import '../providers/analytics_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
-import '../providers/hydration_provider.dart';
-import '../providers/nutrition_provider.dart';
 import '../providers/selected_person_provider.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -228,20 +225,20 @@ class _AvatarBar extends ConsumerWidget {
     final currentPerson = currentIndex >= 0 ? persons[currentIndex] : persons.first;
     final otherPersons = persons.where((p) => p['id'] != selected).toList();
 
-    // ── Pre-warm caches for all family members ────────────────────────────────
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final sevenDaysAgo = DateTime.now()
-        .subtract(const Duration(days: 7))
-        .toIso8601String()
-        .substring(0, 10);
-
+    // Only watch the current person's dashboard — watching all persons fired
+    // 12+ concurrent API calls on login to a cold Railway server, causing the
+    // 10-15 second blank screen. Other persons are pre-warmed lazily once the
+    // current person's data has loaded (ref.read kicks off fetch without subscribing).
     final Map<String, AsyncValue<DashboardData>> allDash = {};
-    for (final p in persons) {
-      final pid = p['id']!;
-      allDash[pid] = ref.watch(dashboardProvider(pid));
-      ref.watch(todayHydrationProvider(pid));
-      ref.watch(nutritionEntriesProvider('$pid|$sevenDaysAgo|$today'));
-      ref.watch(analyticsProvider('$pid:7'));   // Phase 3 pre-fetch
+    final currentPid = currentPerson['id']!;
+    allDash[currentPid] = ref.watch(dashboardProvider(currentPid));
+    for (final p in otherPersons) {
+      allDash[p['id']!] = const AsyncValue.loading();
+    }
+    if (allDash[currentPid] is AsyncData) {
+      for (final p in otherPersons) {
+        ref.read(dashboardProvider(p['id']!));
+      }
     }
 
     void goTo(int index) {

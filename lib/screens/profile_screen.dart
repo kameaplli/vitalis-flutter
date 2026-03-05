@@ -73,68 +73,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _toggleBiometric(bool enable) async {
-    if (enable) {
-      // User is already authenticated (they're on the Profile screen), so no
-      // biometric scan is needed to confirm identity here.
-      final existing = await SecureStorage.getBioCredentials();
-      final user = ref.read(authProvider).user;
-      final existingPw = existing.password ?? '';
-
-      if (existingPw.isEmpty) {
-        // No stored password yet — ask once so biometric login can work.
-        final password = await _askPassword();
-        if (password == null || !mounted) return;
-        await SecureStorage.saveBioCredentials(
-          email: user?.email ?? '',
-          password: password,
-          name: user?.name ?? '',
+    // No password dialog here — the Profile screen has no access to the user's
+    // password. Instead: set the enabled flag now; the next time the user logs
+    // in with their password, auth_screen.dart will auto-save the credentials
+    // and biometric login will become fully active from that point.
+    try {
+      if (enable) {
+        await SecureStorage.setBiometricsEnabled(true);
+        if (!mounted) return;
+        setState(() => _biometricEnabled = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Biometric login enabled — sign out and back in once to activate it.'),
+            duration: Duration(seconds: 4),
+          ),
         );
       } else {
-        // Credentials already stored — just refresh name/email in case they changed.
-        await SecureStorage.saveBioCredentials(
-          email: user?.email ?? existing.email ?? '',
-          password: existingPw,
-          name: user?.name ?? existing.name ?? '',
-        );
+        await SecureStorage.clearBioCredentials();
+        await SecureStorage.setBiometricsEnabled(false);
+        await SecureStorage.setBiometricsPrompted(false);
+        if (!mounted) return;
+        setState(() => _biometricEnabled = false);
       }
-
-      await SecureStorage.setBiometricsEnabled(true);
-      await SecureStorage.setBiometricsPrompted(true);
-      if (!mounted) return;
-      setState(() => _biometricEnabled = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biometric login enabled ✓')),
-      );
-    } else {
-      await SecureStorage.clearBioCredentials();
-      await SecureStorage.setBiometricsEnabled(false);
-      // Reset prompted so the offer dialog shows again on next login.
-      await SecureStorage.setBiometricsPrompted(false);
-      if (mounted) setState(() => _biometricEnabled = false);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
-  }
-
-  Future<String?> _askPassword() {
-    final ctrl = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirm password'),
-        content: TextField(
-          controller: ctrl,
-          obscureText: true,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Your password'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('Confirm')),
-        ],
-      ),
-    ).then((result) {
-      ctrl.dispose();
-      return (result?.isEmpty == true) ? null : result;
-    });
   }
 
   @override

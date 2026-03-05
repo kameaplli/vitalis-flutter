@@ -27,6 +27,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   bool  _uploading  = false;
   String? _pollStatus;
   GroceryReceipt? _doneReceipt;
+  String? _failureError;
   Timer? _pollTimer;
 
   @override
@@ -100,6 +101,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
           setState(() => _doneReceipt = receipt);
         } else if (receipt.status == 'failed') {
           _pollTimer?.cancel();
+          setState(() => _failureError = receipt.errorMessage);
         }
       } catch (_) {}
     });
@@ -117,8 +119,9 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
   void _retry() {
     setState(() {
-      _pollStatus  = null;
-      _doneReceipt = null;
+      _pollStatus   = null;
+      _doneReceipt  = null;
+      _failureError = null;
     });
   }
 
@@ -137,7 +140,10 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     if (_doneReceipt != null) return _DoneView(receipt: _doneReceipt!, onConfirm: _confirm);
 
     // After failed
-    if (_pollStatus == 'failed') return _FailedView(onRetry: _retry);
+    if (_pollStatus == 'failed') return _FailedView(
+      errorMessage: _failureError,
+      onRetry: _retry,
+    );
 
     // Processing spinner
     if (_pollStatus != null && _pollStatus != 'done') {
@@ -286,8 +292,9 @@ class _ProcessingView extends StatelessWidget {
 // ── Failed view ────────────────────────────────────────────────────────────────
 
 class _FailedView extends StatelessWidget {
+  final String? errorMessage;
   final VoidCallback onRetry;
-  const _FailedView({required this.onRetry});
+  const _FailedView({this.errorMessage, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -302,10 +309,15 @@ class _FailedView extends StatelessWidget {
             const Text('Processing failed',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text(
-              'The receipt could not be processed. '
-              'Make sure the image is clear and try again.',
+            Text(
+              errorMessage ?? 'The receipt could not be processed.',
               textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: errorMessage != null
+                    ? Colors.red.shade700
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(

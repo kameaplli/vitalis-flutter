@@ -49,8 +49,9 @@ class _DashboardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base    = Theme.of(context).colorScheme.surfaceContainerHighest;
-    final highlight = Theme.of(context).colorScheme.surface;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base      = isDark ? const Color(0xFF424242) : const Color(0xFFE0E0E0);
+    final highlight = isDark ? const Color(0xFF616161) : const Color(0xFFF5F5F5);
     return Shimmer.fromColors(
       baseColor:      base,
       highlightColor: highlight,
