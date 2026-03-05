@@ -8,7 +8,6 @@ import '../models/dashboard_data.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
-import '../services/biometric_service.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -70,16 +69,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     await SecureStorage.setBiometricsPrompted(true);
     if (accepted != true || !mounted) return;
 
-    final ok = await BiometricService.authenticate(
-        reason: 'Enable biometric sign-in for Vitalis');
-    if (!mounted) return;
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biometric check failed — biometrics not enabled')),
-      );
-      return;
-    }
-
+    // No authentication test here — just save and enable.
+    // The user's consent is enough; their fingerprint is verified on the
+    // first biometric login attempt. Requiring auth at enable-time causes
+    // failures on Samsung and other devices where the prompt behaves
+    // differently inside the offer dialog context.
     final name = ref.read(authProvider).user?.name ?? '';
     await Future.wait([
       SecureStorage.saveBioCredentials(
