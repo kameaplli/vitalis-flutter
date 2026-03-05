@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
+import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
