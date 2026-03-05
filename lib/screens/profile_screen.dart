@@ -74,27 +74,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _toggleBiometric(bool enable) async {
     if (enable) {
-      final ok = await BiometricService.authenticate(reason: 'Confirm to enable biometric login');
+      // Step 1: confirm it's the device owner via biometric scan
+      final ok = await BiometricService.authenticate(
+          reason: 'Confirm to enable biometric login');
       if (!ok) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Fingerprint not recognized. Make sure fingerprint or face is enrolled in Settings → Security.'),
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
+        // Silently return — user cancelled or scan failed.
+        // No snackbar: the OS already showed feedback.
         return;
       }
       if (!mounted) return;
-      final password = await _askPassword();
-      if (password == null || !mounted) return;
+
+      // Step 2: check if credentials already exist (e.g. from first-login offer).
+      // If they do, skip the password prompt entirely.
+      final existing = await SecureStorage.getBioCredentials();
       final user = ref.read(authProvider).user;
-      await SecureStorage.saveBioCredentials(
-        email: user?.email ?? '',
-        password: password,
-        name: user?.name ?? '',
-      );
+      final existingPw = existing.password ?? '';
+
+      if (existingPw.isEmpty) {
+        // No stored password — ask once so biometric login can re-authenticate
+        final password = await _askPassword();
+        if (password == null || !mounted) return;
+        await SecureStorage.saveBioCredentials(
+          email: user?.email ?? '',
+          password: password,
+          name: user?.name ?? '',
+        );
+      } else {
+        // Credentials already stored — just update name/email if needed
+        await SecureStorage.saveBioCredentials(
+          email: user?.email ?? existing.email ?? '',
+          password: existingPw,
+          name: user?.name ?? existing.name ?? '',
+        );
+      }
+
       await SecureStorage.setBiometricsEnabled(true);
       await SecureStorage.setBiometricsPrompted(true);
       if (!mounted) return;
@@ -104,6 +117,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     } else {
       await SecureStorage.clearBioCredentials();
+      await SecureStorage.setBiometricsEnabled(false);
       if (mounted) setState(() => _biometricEnabled = false);
     }
   }

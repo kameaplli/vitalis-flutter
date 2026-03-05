@@ -1,14 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
+import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../models/analytics_data.dart';
 
 // key = "person:days" e.g. "self:7"
-final analyticsProvider = FutureProvider.family<NutritionAnalytics, String>((ref, key) async {
-  final parts = key.split(':');
+final analyticsProvider =
+    FutureProvider.family<NutritionAnalytics, String>((ref, key) async {
+  final parts  = key.split(':');
   final person = parts[0];
-  final days = int.tryParse(parts.elementAtOrNull(1) ?? '7') ?? 7;
-  final res = await apiClient.dio.get(ApiConstants.analyticsNutrition,
-      queryParameters: {'person': person, 'days': days});
-  return NutritionAnalytics.fromJson(res.data);
+  final days   = int.tryParse(parts.elementAtOrNull(1) ?? '7') ?? 7;
+
+  // 1. Fresh cache hit
+  final cached = await AppCache.loadAnalytics(key);
+  if (cached != null) {
+    return NutritionAnalytics.fromJson(cached);
+  }
+
+  // 2. Fetch from network
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.analyticsNutrition,
+      queryParameters: {'person': person, 'days': days},
+    );
+    await AppCache.saveAnalytics(key, Map<String, dynamic>.from(res.data as Map));
+    return NutritionAnalytics.fromJson(res.data);
+  } catch (_) {
+    // 3. Network failed — try stale cache
+    final stale = await AppCache.loadAnalytics(key, stale: true);
+    if (stale != null) return NutritionAnalytics.fromJson(stale);
+    rethrow;
+  }
 });

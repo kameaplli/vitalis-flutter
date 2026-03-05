@@ -49,6 +49,9 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
 
+  # Shimmer skeleton loading
+  shimmer: ^3.0.0
+
   # SVG rendering
   flutter_svg: ^2.0.10+1
 

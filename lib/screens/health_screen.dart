@@ -5,6 +5,7 @@ import '../providers/selected_person_provider.dart';
 import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import 'weight_screen.dart' show WeightContent;
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -135,13 +136,14 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
     'Vitals',
     'Sleep',
     'Exercise',
-    'Mood'
+    'Mood',
+    'Weight',
   ];
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 6, vsync: this);
+    _tab = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -202,6 +204,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
           _SleepTab(key: ValueKey(key), personKey: key),
           _ExerciseTab(key: ValueKey(key), personKey: key),
           _MoodTab(key: ValueKey(key), personKey: key),
+          const WeightContent(),
         ],
       ),
     );
