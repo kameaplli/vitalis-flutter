@@ -8,7 +8,6 @@ import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
-import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -74,24 +73,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _toggleBiometric(bool enable) async {
     if (enable) {
-      // Step 1: confirm it's the device owner via biometric scan
-      final ok = await BiometricService.authenticate(
-          reason: 'Confirm to enable biometric login');
-      if (!ok) {
-        // Silently return — user cancelled or scan failed.
-        // No snackbar: the OS already showed feedback.
-        return;
-      }
-      if (!mounted) return;
-
-      // Step 2: check if credentials already exist (e.g. from first-login offer).
-      // If they do, skip the password prompt entirely.
+      // User is already authenticated (they're on the Profile screen), so no
+      // biometric scan is needed to confirm identity here.
       final existing = await SecureStorage.getBioCredentials();
       final user = ref.read(authProvider).user;
       final existingPw = existing.password ?? '';
 
       if (existingPw.isEmpty) {
-        // No stored password — ask once so biometric login can re-authenticate
+        // No stored password yet — ask once so biometric login can work.
         final password = await _askPassword();
         if (password == null || !mounted) return;
         await SecureStorage.saveBioCredentials(
@@ -100,7 +89,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           name: user?.name ?? '',
         );
       } else {
-        // Credentials already stored — just update name/email if needed
+        // Credentials already stored — just refresh name/email in case they changed.
         await SecureStorage.saveBioCredentials(
           email: user?.email ?? existing.email ?? '',
           password: existingPw,
@@ -118,6 +107,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } else {
       await SecureStorage.clearBioCredentials();
       await SecureStorage.setBiometricsEnabled(false);
+      // Reset prompted so the offer dialog shows again on next login.
+      await SecureStorage.setBiometricsPrompted(false);
       if (mounted) setState(() => _biometricEnabled = false);
     }
   }
