@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../core/biometric_offer.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 
@@ -97,42 +98,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     }
   }
 
-  Future<void> _offerBiometrics(String email, String password, String name) async {
-    final available = await BiometricService.isAvailable();
-    if (!available) return;
-    final alreadyEnabled = await SecureStorage.getBiometricsEnabled();
-    if (alreadyEnabled) return;
-    // No prompted-gate: always offer until the user enables biometrics.
-    // The prompted flag was causing the dialog to never show again after any
-    // prior interaction (including failed attempts from older app versions).
-    if (!mounted) return;
-    final enable = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _BiometricOfferDialog(),
-    );
-    if (enable != true) return; // "Not now" — will ask again next login
-    // User tapped Enable — confirm with biometric / device PIN
-    final confirmed = await BiometricService.authenticate(
-        reason: 'Confirm to enable biometric login');
-    if (!confirmed) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Biometric setup skipped — enable anytime in Profile')),
-        );
-      }
-      return;
-    }
-    await SecureStorage.saveBioCredentials(email: email, password: password, name: name);
-    await SecureStorage.setBiometricsEnabled(true);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Biometric login enabled ✓')),
-      );
-    }
-  }
-
   Future<void> _login() async {
     if (!_loginFormKey.currentState!.validate()) return;
     final email    = _loginEmail.text.trim();
@@ -142,22 +107,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     if (ok) {
       final user = ref.read(authProvider).user;
       final name = user?.name ?? 'User';
-      // If biometrics were enabled from Profile (toggle) but credentials were
-      // never stored (because Profile has no access to the password), save them
-      // now silently so biometric login activates from this point forward.
-      final bioEnabled = await SecureStorage.getBiometricsEnabled();
-      if (bioEnabled) {
-        final existing = await SecureStorage.getBioCredentials();
-        if (existing.password == null || existing.password!.isEmpty) {
-          await SecureStorage.saveBioCredentials(
-              email: email, password: password, name: name);
-        }
-      }
-      await _offerBiometrics(email, password, name);
+      await _postLoginBioSetup(email, password, name);
     } else {
       final err = ref.read(authProvider).error;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err ?? 'Login failed')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(err ?? 'Login failed')));
     }
   }
 
@@ -171,14 +125,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     if (!mounted) return;
     if (ok) {
       final user = ref.read(authProvider).user;
-      await _offerBiometrics(
+      await _postLoginBioSetup(
         _regEmail.text.trim(),
         _regPassword.text,
         user?.name ?? _regName.text.trim(),
       );
     } else {
       final err = ref.read(authProvider).error;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err ?? 'Registration failed')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(err ?? 'Registration failed')));
+    }
+  }
+
+  /// Called after a successful login or register.
+  /// - If biometrics are available but not yet enabled: queue an offer for
+  ///   AppShell to show after navigation (avoids the unmount race).
+  /// - If biometrics are already enabled but no credentials stored (user
+  ///   toggled ON from Profile): auto-save credentials silently now.
+  Future<void> _postLoginBioSetup(
+      String email, String password, String name) async {
+    final available = await BiometricService.isAvailable();
+    final enabled   = await SecureStorage.getBiometricsEnabled();
+
+    if (available && !enabled) {
+      // Queue for AppShell — cannot show dialog here because GoRouter will
+      // unmount AuthScreen on the next frame, causing !mounted to cancel it.
+      BiometricOffer.queue(email, password, name);
+    } else if (enabled) {
+      final existing = await SecureStorage.getBioCredentials();
+      if (existing.password == null || existing.password!.isEmpty) {
+        await SecureStorage.saveBioCredentials(
+            email: email, password: password, name: name);
+      }
     }
   }
 
@@ -308,44 +286,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           ),
         ),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Biometric offer dialog — shown once after a successful password login
-// ---------------------------------------------------------------------------
-
-class _BiometricOfferDialog extends StatelessWidget {
-  const _BiometricOfferDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AlertDialog(
-      title: const Text('Faster sign-ins'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.fingerprint, size: 64, color: cs.primary),
-          const SizedBox(height: 12),
-          const Text(
-            'Use your fingerprint or face to sign in next time. '
-            'Your password stays safe on this device.',
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Not now'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Enable'),
-        ),
-      ],
     );
   }
 }

@@ -2,11 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/biometric_offer.dart';
 import '../core/constants.dart';
+import '../core/secure_storage.dart';
 import '../models/dashboard_data.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../services/biometric_service.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -39,6 +42,47 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleBiometricOffer());
+  }
+
+  Future<void> _handleBiometricOffer() async {
+    final offer = BiometricOffer.consume();
+    if (offer == null || !mounted) return;
+
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _BioOfferDialog(),
+    );
+
+    await SecureStorage.setBiometricsPrompted(true);
+    if (accepted != true || !mounted) return;
+
+    final ok = await BiometricService.authenticate(reason: 'Enable biometric sign-in for Vitalis');
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Biometric check failed — biometrics not enabled')),
+      );
+      return;
+    }
+
+    await Future.wait([
+      SecureStorage.saveBioCredentials(
+          email: offer.email, password: offer.password, name: offer.name),
+      SecureStorage.setBiometricsEnabled(true),
+    ]);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Biometric sign-in enabled!')),
+      );
+    }
+  }
 
   static const _navRoutes = ['/dashboard', '/nutrition', '/hydration', '/health'];
 
@@ -647,6 +691,42 @@ class _AnimatedRing extends StatelessWidget {
           strokeCap: StrokeCap.round,
         ),
       ),
+    );
+  }
+}
+
+// ── Biometric offer dialog ─────────────────────────────────────────────────────
+
+class _BioOfferDialog extends StatelessWidget {
+  const _BioOfferDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Faster sign-ins'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.fingerprint, size: 64, color: cs.primary),
+          const SizedBox(height: 12),
+          const Text(
+            'Use your fingerprint or face to sign in next time. '
+            'Your password stays safe on this device.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Not now'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Enable'),
+        ),
+      ],
     );
   }
 }
