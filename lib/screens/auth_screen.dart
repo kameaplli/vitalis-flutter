@@ -77,8 +77,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     try {
       final ok = await BiometricService.authenticate(reason: 'Sign in to Vitalis');
       if (!ok) {
-        // User cancelled or scan failed — reset silently so they can retry
-        if (mounted) setState(() => _bioLoading = false);
+        if (mounted) {
+          setState(() => _bioLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Biometric authentication failed or was cancelled'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
         return;
       }
       final creds = await SecureStorage.getBioCredentials();
@@ -359,24 +366,27 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                 if (widget.loading)
                   const CircularProgressIndicator()
                 else
-                  ScaleTransition(
-                    scale: _scale,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: cs.primaryContainer,
-                        boxShadow: [
-                          BoxShadow(
-                            color: cs.primary.withValues(alpha: 0.35),
-                            blurRadius: 24,
-                            spreadRadius: 4,
-                          ),
-                        ],
+                  GestureDetector(
+                    onTap: widget.onBiometric,
+                    child: ScaleTransition(
+                      scale: _scale,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: cs.primaryContainer,
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.35),
+                              blurRadius: 24,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Icon(Icons.fingerprint,
+                            size: 56, color: cs.primary),
                       ),
-                      child: Icon(Icons.fingerprint,
-                          size: 56, color: cs.primary),
                     ),
                   ),
                 const SizedBox(height: 40),
