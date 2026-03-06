@@ -32,12 +32,8 @@ const _patchColors = [
 ];
 
 // ─── EczemaBodyMap ────────────────────────────────────────────────────────────
-// Renders body_map_clinical.png as background, then draws zone overlays,
-// drawn patches, and the in-progress stroke on top.
-// Supports pinch-to-zoom (always) and freehand drawing (when drawMode=true).
 
 class EczemaBodyMap extends StatefulWidget {
-  // view kept for API compat — ignored in display.
   final EczemaBodyView view;
   final Map<String, EasiRegionScore> regionScores;
   final Map<String, double>? heatData;
@@ -45,9 +41,8 @@ class EczemaBodyMap extends StatefulWidget {
   final void Function(BodyRegion)? onZoneTap;
   final bool readOnly;
   final bool showGroupBoundaries;
-  // ── Draw mode ─────────────────────────────────────────────────────────────
   final bool drawMode;
-  final int drawSeverity;             // 0-3: colour of new strokes
+  final int drawSeverity;
   final List<DrawnPatch> drawnPatches;
   final void Function(DrawnPatch, BodyRegion?)? onPatchDrawn;
 
@@ -72,35 +67,55 @@ class EczemaBodyMap extends StatefulWidget {
   State<EczemaBodyMap> createState() => _EczemaBodyMapState();
 }
 
-class _EczemaBodyMapState extends State<EczemaBodyMap> {
-  // ── InteractiveViewer handles zoom/pan ────────────────────────────────────
+class _EczemaBodyMapState extends State<EczemaBodyMap>
+    with SingleTickerProviderStateMixin {
   final _txController = TransformationController();
 
-  // ── Drawing ───────────────────────────────────────────────────────────────
-  // Pointer count tracked via Listener (bypasses gesture arena).
+  // Drawing state
   int _activePointers = 0;
-  // Stroke in image pixel space, collected via GestureDetector.onPan inside
-  // the InteractiveViewer content — guaranteed content-local coordinates.
   List<Offset> _stroke = [];
-
   Size _sz = Size.zero;
+
+  // Zone selection animation
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut),
+    );
+    _pulseCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(EczemaBodyMap old) {
+    super.didUpdateWidget(old);
+    if (widget.activeZoneId != null && widget.activeZoneId != old.activeZoneId) {
+      _pulseCtrl.forward(from: 0.0);
+    }
+  }
 
   @override
   void dispose() {
+    _pulseCtrl.dispose();
     _txController.dispose();
     super.dispose();
   }
 
   // Content-local → 1548×1134 image pixels.
-  // GestureDetector.onPan inside InteractiveViewer's Transform gives content-
-  // local coords directly — no need to invert the zoom/pan matrix.
   Offset _toImage(Offset local) {
     if (_sz.isEmpty) return Offset.zero;
     return Offset(local.dx * _kSvgW / _sz.width,
                   local.dy * _kSvgH / _sz.height);
   }
 
-  // ── Zone tap (zone mode) ──────────────────────────────────────────────────
+  // ── Zone tap ──────────────────────────────────────────────────────────────
   void _onTapUp(TapUpDetails d) {
     if (widget.readOnly || widget.onZoneTap == null) return;
     final imgPt = _toImage(d.localPosition);
@@ -109,11 +124,10 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
     }
   }
 
-  // ── Pointer tracking (via Listener — for multi-touch cancel only) ─────────
+  // ── Pointer tracking (Listener — multi-touch cancel only) ─────────────
   void _onPointerDown(PointerDownEvent e) {
     _activePointers++;
     if (_activePointers > 1 && _stroke.isNotEmpty) {
-      // Second finger → pinch zoom starting; cancel stroke.
       setState(() => _stroke = []);
     }
   }
@@ -127,9 +141,7 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
     if (_stroke.isNotEmpty) setState(() => _stroke = []);
   }
 
-  // ── Draw via GestureDetector.onPan (inside InteractiveViewer Transform) ───
-  // Using onPan instead of Listener.onPointerMove ensures that localPosition
-  // is correctly in content-local space after InteractiveViewer's Transform.
+  // ── Freehand draw via GestureDetector.onPan ───────────────────────────
   void _onPanStart(DragStartDetails d) {
     if (!widget.drawMode || _activePointers > 1) return;
     setState(() => _stroke = [_toImage(d.localPosition)]);
@@ -138,7 +150,6 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
   void _onPanUpdate(DragUpdateDetails d) {
     if (!widget.drawMode || _stroke.isEmpty || _activePointers > 1) return;
     final pt = _toImage(d.localPosition);
-    // Downsample: skip points within 4 image-pixels of the last stored point.
     if ((_stroke.last - pt).distance > 4) {
       setState(() => _stroke.add(pt));
     }
@@ -177,9 +188,6 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
       final h = w * _kAspect;
       _sz = Size(w, h);
 
-      // Content is inside InteractiveViewer's Transform.
-      // GestureDetector.onPan coordinates are content-local (correct).
-      // Listener only tracks pointer count for multi-touch cancel.
       final content = SizedBox(
         width: w,
         height: h,
@@ -209,6 +217,7 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
                       drawnPatches:  widget.drawnPatches,
                       currentStroke: _stroke,
                       drawSeverity:  widget.drawSeverity,
+                      pulseT:        _pulseAnim.value,
                     ),
                   ),
                 ),
@@ -218,21 +227,26 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
         ),
       );
 
-      // Body map is now outside any SingleChildScrollView (restructured in
-      // eczema_screen._buildLogTab), so no outer GestureDetector wrapper is
-      // needed to prevent scroll conflicts.
-      return SizedBox(
-        width: w,
-        height: h,
-        child: InteractiveViewer(
-          transformationController: _txController,
-          minScale: 1.0,
-          maxScale: 5.0,
-          // In draw mode, disable pan so the inner GestureDetector.onPan
-          // can claim the 1-finger drag for drawing.  Scale (pinch) always works.
-          panEnabled: !widget.drawMode,
-          clipBehavior: Clip.hardEdge,
-          child: content,
+      // ClipRect prevents the InteractiveViewer from rendering content
+      // outside its bounds when zoomed, avoiding the "canvas slides left/right"
+      // visual issue.
+      return ClipRect(
+        child: SizedBox(
+          width: w,
+          height: h,
+          child: InteractiveViewer(
+            transformationController: _txController,
+            minScale: 1.0,
+            maxScale: 5.0,
+            panEnabled: !widget.drawMode,
+            scaleEnabled: true,
+            // Boundary margin allows slight overscroll for a "springy" feel
+            // but keeps the image mostly locked in frame.
+            boundaryMargin: const EdgeInsets.all(20),
+            clipBehavior: Clip.hardEdge,
+            interactionEndFrictionCoefficient: 0.0001, // smooth deceleration
+            child: content,
+          ),
         ),
       );
     });
@@ -247,8 +261,9 @@ class _ZoneOverlayPainter extends CustomPainter {
   final Map<String, double>? heatData;
   final String? activeZoneId;
   final List<DrawnPatch> drawnPatches;
-  final List<Offset> currentStroke; // in image pixel space
+  final List<Offset> currentStroke;
   final int drawSeverity;
+  final double pulseT; // 0..1 animation progress for active zone
 
   const _ZoneOverlayPainter({
     required this.regions,
@@ -258,6 +273,7 @@ class _ZoneOverlayPainter extends CustomPainter {
     this.drawnPatches = const [],
     this.currentStroke = const [],
     this.drawSeverity = 1,
+    this.pulseT = 0.0,
   });
 
   @override
@@ -285,31 +301,36 @@ class _ZoneOverlayPainter extends CustomPainter {
       }
 
       if (fill != null) {
-        // Light fill so the underlying anatomy remains visible
+        // Smooth polygon fill following the actual zone shape
         _paintZone(canvas, region,
             Paint()..color = fill.withValues(alpha: 0.30), sw, sh);
-        // Bold outline so the zone boundary is clearly visible (not just a blob)
+        // Bold outline tracing the zone polygon
         _paintZone(canvas, region,
             Paint()..color = fill.withValues(alpha: 0.85)
                    ..style = PaintingStyle.stroke
-                   ..strokeWidth = 2.0, sw, sh);
+                   ..strokeWidth = 2.0
+                   ..strokeJoin = StrokeJoin.round, sw, sh);
       }
 
       if (isActive) {
         final outlineColor = fill ?? const Color(0xFF1565C0);
-        // Thick outer glow
+        // Animated pulse: outer glow expands and fades
+        final glowAlpha = 0.40 * (1.0 - pulseT * 0.6);
+        final glowWidth = 4.0 + pulseT * 4.0;
         _paintZone(canvas, region,
-            Paint()..color = outlineColor.withValues(alpha: 0.30)
+            Paint()..color = outlineColor.withValues(alpha: glowAlpha)
                    ..style = PaintingStyle.stroke
-                   ..strokeWidth = 6.0, sw, sh, inflate: 2.0);
+                   ..strokeWidth = glowWidth
+                   ..strokeJoin = StrokeJoin.round, sw, sh, inflate: 2.0);
         // Solid inner outline
         _paintZone(canvas, region,
             Paint()..color = outlineColor
                    ..style = PaintingStyle.stroke
-                   ..strokeWidth = 2.5, sw, sh);
-        // Very subtle fill for active zone
+                   ..strokeWidth = 2.5
+                   ..strokeJoin = StrokeJoin.round, sw, sh);
+        // Subtle fill
         _paintZone(canvas, region,
-            Paint()..color = outlineColor.withValues(alpha: 0.15), sw, sh);
+            Paint()..color = outlineColor.withValues(alpha: 0.18), sw, sh);
       }
     }
   }
@@ -333,7 +354,6 @@ class _ZoneOverlayPainter extends CustomPainter {
         path.lineTo(patch.points[i].dx * sw, patch.points[i].dy * sh);
       }
       canvas.drawPath(path, paint);
-      // Thin fill pass for closed areas
       canvas.drawPath(path, Paint()
         ..color = color.withValues(alpha: 0.18)
         ..style = PaintingStyle.stroke
@@ -362,28 +382,35 @@ class _ZoneOverlayPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
+  // Paint a zone shape (polygon or ellipse) with smooth joins.
   void _paintZone(
     Canvas canvas, BodyRegion region, Paint paint, double sw, double sh, {
     double inflate = 0,
   }) {
     if (region.isEllipse) {
-      final r      = region.ellipseRect;
+      final r = region.ellipseRect;
       final scaled = Rect.fromLTWH(r.left * sw, r.top * sh, r.width * sw, r.height * sh);
       canvas.drawOval(inflate > 0 ? scaled.inflate(inflate) : scaled, paint);
     } else {
       final poly = region.polyPoints;
-      if (poly.isEmpty) return;
+      if (poly.length < 3) return;
+
+      // Build a smooth path using the polygon vertices.
+      // For filled/stroked shapes with many points, this traces the actual
+      // body contour rather than a bounding rectangle.
       final path = Path();
       path.moveTo(poly[0].dx * sw, poly[0].dy * sh);
       for (int i = 1; i < poly.length; i++) {
         path.lineTo(poly[i].dx * sw, poly[i].dy * sh);
       }
       path.close();
+
       if (inflate > 0 && paint.style == PaintingStyle.stroke) {
         canvas.drawPath(path, Paint()
           ..color = paint.color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = paint.strokeWidth + inflate * 2);
+          ..strokeWidth = paint.strokeWidth + inflate * 2
+          ..strokeJoin = StrokeJoin.round);
       } else {
         canvas.drawPath(path, paint);
       }
@@ -431,7 +458,8 @@ class _ZoneOverlayPainter extends CustomPainter {
       old.activeZoneId != activeZoneId ||
       old.drawnPatches != drawnPatches ||
       old.currentStroke != currentStroke ||
-      old.drawSeverity != drawSeverity;
+      old.drawSeverity != drawSeverity ||
+      old.pulseT != pulseT;
 }
 
 // ─── Severity Legend ──────────────────────────────────────────────────────────
