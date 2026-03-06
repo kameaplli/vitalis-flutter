@@ -13,20 +13,18 @@ import '../providers/selected_person_provider.dart';
 const _kAvatarRadius = 22.0;
 const _kStroke       = 2.5;
 const _kRingGap      = 2.0;
-// Ring box sizes: each adds 2*(gap+stroke) to previous
-const _kRing1Box = _kAvatarRadius * 2 + 2 * (_kRingGap + _kStroke); // ~53
-const _kRing2Box = _kRing1Box     + 2 * (_kRingGap + _kStroke);     // ~62
-const _kRing3Box = _kRing2Box     + 2 * (_kRingGap + _kStroke);     // ~71
+const _kRing1Box = _kAvatarRadius * 2 + 2 * (_kRingGap + _kStroke);
+const _kRing2Box = _kRing1Box     + 2 * (_kRingGap + _kStroke);
+const _kRing3Box = _kRing2Box     + 2 * (_kRingGap + _kStroke);
 
 const _kSmallAvatarRadius = 16.0;
 const _kSmallRingStroke   = 2.5;
 const _kSmallRingGap      = 2.0;
-const _kSmallRingBox = _kSmallAvatarRadius * 2 + 2 * (_kSmallRingGap + _kSmallRingStroke); // ~41
+const _kSmallRingBox = _kSmallAvatarRadius * 2 + 2 * (_kSmallRingGap + _kSmallRingStroke);
 
-// Ring colours
-const _kCalColor  = Color(0xFFF97316); // orange
-const _kWaterColor = Color(0xFF3B82F6); // blue
-const _kMoodColor  = Color(0xFF22C55E); // green
+const _kCalColor   = Color(0xFFF97316);
+const _kWaterColor = Color(0xFF3B82F6);
+const _kMoodColor  = Color(0xFF22C55E);
 
 // ── Main shell ─────────────────────────────────────────────────────────────────
 
@@ -39,15 +37,9 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
-
   @override
   void initState() {
     super.initState();
-    // Check for a pending biometric offer on the first frame after mounting.
-    // auth_provider.login()/register() sets showBioOffer BEFORE publishing the
-    // authenticated state, so by the time AppShell mounts the offer is already
-    // present in Riverpod state — no race condition.
     WidgetsBinding.instance.addPostFrameCallback((_) => _handleBiometricOffer());
   }
 
@@ -56,7 +48,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (!auth.showBioOffer) return;
     final email    = auth.bioOfferEmail;
     final password = auth.bioOfferPassword;
-    // Clear flag immediately so it doesn't re-trigger on hot-reload / rebuild
     ref.read(authProvider.notifier).clearBioOffer();
     if (email == null || password == null || !mounted) return;
 
@@ -69,11 +60,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     await SecureStorage.setBiometricsPrompted(true);
     if (accepted != true || !mounted) return;
 
-    // No authentication test here — just save and enable.
-    // The user's consent is enough; their fingerprint is verified on the
-    // first biometric login attempt. Requiring auth at enable-time causes
-    // failures on Samsung and other devices where the prompt behaves
-    // differently inside the offer dialog context.
     final name = ref.read(authProvider).user?.name ?? '';
     await Future.wait([
       SecureStorage.saveBioCredentials(
@@ -88,38 +74,26 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  static const _navRoutes = ['/dashboard', '/nutrition', '/hydration', '/health'];
+  // ── Navigation ─────────────────────────────────────────────────────────────
 
-  static const _navItems = [
-    BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Dashboard'),
-    BottomNavigationBarItem(icon: Icon(Icons.restaurant_outlined), activeIcon: Icon(Icons.restaurant), label: 'Nutrition'),
-    BottomNavigationBarItem(icon: Icon(Icons.water_drop_outlined), activeIcon: Icon(Icons.water_drop), label: 'Hydration'),
-    BottomNavigationBarItem(icon: Icon(Icons.favorite_outline), activeIcon: Icon(Icons.favorite), label: 'Health'),
-    BottomNavigationBarItem(icon: Icon(Icons.menu), activeIcon: Icon(Icons.menu_open), label: 'More'),
-  ];
+  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/grocery'];
 
   int _indexForLocation(String location) {
     for (int i = 0; i < _navRoutes.length; i++) {
       if (location.startsWith(_navRoutes[i])) return i;
     }
-    return 4;
+    return 0;
   }
 
-  void _onNavTap(int index) {
-    if (index < 4) {
-      context.go(_navRoutes[index]);
-    } else {
-      _scaffoldKey.currentState?.openDrawer();
-    }
-  }
+  // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).matchedLocation;
+    final location     = GoRouterState.of(context).matchedLocation;
     final selectedIndex = _indexForLocation(location);
 
-    final auth = ref.watch(authProvider);
-    final user = auth.user;
+    final auth     = ref.watch(authProvider);
+    final user     = auth.user;
     final children = user?.profile.children ?? [];
 
     final persons = <String>[
@@ -135,13 +109,16 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     return Scaffold(
-      key: _scaffoldKey,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
+            // ── Top persistent bar: AvatarBar (family) or profile strip (solo) ─
             if (children.isNotEmpty)
-              _AvatarBar(user: user, children: children),
+              _AvatarBar(user: user, children: children)
+            else
+              _SoloTopBar(user: user),
+            // ── Screen content ───────────────────────────────────────────────
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -158,89 +135,90 @@ class _AppShellState extends ConsumerState<AppShell> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: selectedIndex,
-        onTap: _onNavTap,
-        items: _navItems,
-        type: BottomNavigationBarType.fixed,
+      // ── M3 NavigationBar (4 destinations) ──────────────────────────────────
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (i) => context.go(_navRoutes[i]),
+        destinations: const [
+          NavigationDestination(
+            icon:         Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label:        'Home',
+          ),
+          NavigationDestination(
+            icon:         Icon(Icons.restaurant_outlined),
+            selectedIcon: Icon(Icons.restaurant),
+            label:        'Nutrition',
+          ),
+          NavigationDestination(
+            icon:         Icon(Icons.favorite_outline),
+            selectedIcon: Icon(Icons.favorite),
+            label:        'Health',
+          ),
+          NavigationDestination(
+            icon:         Icon(Icons.shopping_cart_outlined),
+            selectedIcon: Icon(Icons.shopping_cart),
+            label:        'Grocery',
+          ),
+        ],
       ),
-      drawer: _buildDrawer(context),
-    );
-  }
-
-  Widget _buildDrawer(BuildContext context) {
-    final user = ref.read(authProvider).user;
-    final avatarUrl = user?.avatarUrl != null
-        ? ApiConstants.resolveUrl(user!.avatarUrl)
-        : null;
-    final cs = Theme.of(context).colorScheme;
-    return Drawer(
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(color: cs.surfaceContainerLow),
-              margin: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: cs.primaryContainer,
-                    backgroundImage: avatarUrl != null
-                        ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
-                        : null,
-                    child: avatarUrl == null
-                        ? Text(
-                            (user?.name ?? 'V').substring(0, 1).toUpperCase(),
-                            style: TextStyle(
-                                color: cs.onPrimaryContainer, fontSize: 26),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(user?.name ?? '',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  Text(user?.email ?? '',
-                      style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            _drawerItem(context, Icons.person_outline, 'Profile', '/profile'),
-            _drawerItem(context, Icons.healing_outlined, 'Eczema', '/eczema'),
-            _drawerItem(context, Icons.bar_chart_outlined, 'Analytics', '/analytics'),
-            _drawerItem(context, Icons.qr_code_scanner_outlined, 'Scanner', '/scanner'),
-            _drawerItem(context, Icons.shopping_cart_outlined, 'Grocery Intelligence', '/grocery'),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(authProvider.notifier).logout();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _drawerItem(BuildContext context, IconData icon, String label, String route) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      onTap: () {
-        Navigator.pop(context);
-        context.go(route);
-      },
     );
   }
 }
 
-// ── Avatar bar ─────────────────────────────────────────────────────────────────
+// ── Solo top bar (no family members) — persistent profile button ───────────────
+
+class _SoloTopBar extends ConsumerWidget {
+  final dynamic user;
+  const _SoloTopBar({required this.user});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final avatarUrl = user?.avatarUrl != null
+        ? ApiConstants.resolveUrl(user!.avatarUrl)
+        : null;
+
+    return Container(
+      color: cs.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          Text(
+            'Vitalis',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: cs.primary,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: cs.primaryContainer,
+              backgroundImage: avatarUrl != null
+                  ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+                  : null,
+              child: avatarUrl == null
+                  ? Text(
+                      (user?.name ?? 'V').substring(0, 1).toUpperCase(),
+                      style: TextStyle(
+                        color: cs.onPrimaryContainer,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Avatar bar (family mode) ───────────────────────────────────────────────────
 
 class _AvatarBar extends ConsumerWidget {
   final dynamic user;
@@ -250,7 +228,7 @@ class _AvatarBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(selectedPersonProvider);
+    final selected    = ref.watch(selectedPersonProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     final selfAvatarUrl = user?.avatarUrl != null
@@ -269,14 +247,10 @@ class _AvatarBar extends ConsumerWidget {
         },
     ];
 
-    final currentIndex = persons.indexWhere((p) => p['id'] == selected);
+    final currentIndex  = persons.indexWhere((p) => p['id'] == selected);
     final currentPerson = currentIndex >= 0 ? persons[currentIndex] : persons.first;
-    final otherPersons = persons.where((p) => p['id'] != selected).toList();
+    final otherPersons  = persons.where((p) => p['id'] != selected).toList();
 
-    // Only watch the current person's dashboard — watching all persons fired
-    // 12+ concurrent API calls on login to a cold Railway server, causing the
-    // 10-15 second blank screen. Other persons are pre-warmed lazily once the
-    // current person's data has loaded (ref.read kicks off fetch without subscribing).
     final Map<String, AsyncValue<DashboardData>> allDash = {};
     final currentPid = currentPerson['id']!;
     allDash[currentPid] = ref.watch(dashboardProvider(currentPid));
@@ -308,25 +282,26 @@ class _AvatarBar extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── Selected person: ring avatar card ─────────────────────────
+              // ── Selected person card ──────────────────────────────────────
               Expanded(
                 flex: 55,
-                child: _PersonCard(
-                  person: currentPerson,
-                  dashAsync: allDash[currentPerson['id']!] ??
-                      const AsyncValue.loading(),
-                  colorScheme: colorScheme,
+                child: GestureDetector(
+                  onTap: () => context.push('/profile'),
+                  child: _PersonCard(
+                    person: currentPerson,
+                    dashAsync: allDash[currentPerson['id']!] ??
+                        const AsyncValue.loading(),
+                    colorScheme: colorScheme,
+                  ),
                 ),
               ),
-
               // ── Vertical divider ──────────────────────────────────────────
               Container(
                 width: 1,
                 margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 color: colorScheme.outlineVariant.withValues(alpha: 0.4),
               ),
-
-              // ── Other (unselected) persons + add button ───────────────────
+              // ── Other persons + add button ────────────────────────────────
               Expanded(
                 flex: 45,
                 child: SingleChildScrollView(
@@ -336,8 +311,7 @@ class _AvatarBar extends ConsumerWidget {
                     children: [
                       for (final p in otherPersons)
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
                           child: GestureDetector(
                             onTap: () => ref
                                 .read(selectedPersonProvider.notifier)
@@ -365,7 +339,7 @@ class _AvatarBar extends ConsumerWidget {
                             ),
                           ),
                         ),
-                      // Add person
+                      // Add person button
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: Column(
@@ -382,8 +356,7 @@ class _AvatarBar extends ConsumerWidget {
                                 ),
                                 padding: EdgeInsets.zero,
                                 tooltip: 'Add family member',
-                                onPressed: () =>
-                                    context.go('/profile'),
+                                onPressed: () => context.push('/profile'),
                               ),
                             ),
                             const SizedBox(height: 3),
@@ -425,7 +398,7 @@ class _PersonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatarUrl = person['avatarUrl'];
-    final name = person['name'] ?? '';
+    final name      = person['name'] ?? '';
     final firstName = name.split(' ').first;
 
     return dashAsync.when(
@@ -465,12 +438,12 @@ class _PersonCard extends StatelessWidget {
       child: Row(
         children: [
           _RingAvatar(
-            avatarUrl: avatarUrl,
-            name: name,
-            caloriesPct: calPct,
-            waterPct: waterPct,
-            moodPct: moodPct,
-            colorScheme: colorScheme,
+            avatarUrl:    avatarUrl,
+            name:         name,
+            caloriesPct:  calPct,
+            waterPct:     waterPct,
+            moodPct:      moodPct,
+            colorScheme:  colorScheme,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -486,27 +459,15 @@ class _PersonCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 if (data != null) ...[
-                  _RingStat(
-                    Icons.local_fire_department,
-                    '${data.todayCalories.round()}',
-                    'kcal',
-                    calPct,
-                    _kCalColor,
-                  ),
-                  _RingStat(
-                    Icons.water_drop,
-                    '${(data.todayWater / 1000).toStringAsFixed(1)}',
-                    'L',
-                    waterPct,
-                    _kWaterColor,
-                  ),
-                  _RingStat(
-                    Icons.mood,
-                    '${(data.healthScore.mood / 2).round()}',
-                    '/10',
-                    moodPct,
-                    _kMoodColor,
-                  ),
+                  _RingStat(Icons.local_fire_department,
+                      '${data.todayCalories.round()}', 'kcal',
+                      calPct, _kCalColor),
+                  _RingStat(Icons.water_drop,
+                      '${(data.todayWater / 1000).toStringAsFixed(1)}', 'L',
+                      waterPct, _kWaterColor),
+                  _RingStat(Icons.mood,
+                      '${(data.healthScore.mood / 2).round()}', '/10',
+                      moodPct, _kMoodColor),
                 ] else
                   const SizedBox(
                     height: 14,
@@ -522,7 +483,7 @@ class _PersonCard extends StatelessWidget {
   }
 }
 
-// ── 3-concentric-ring avatar (selected person) ────────────────────────────────
+// ── 3-concentric-ring avatar ──────────────────────────────────────────────────
 
 class _RingAvatar extends StatelessWidget {
   final String? avatarUrl;
@@ -550,28 +511,12 @@ class _RingAvatar extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer ring — Calories
-          _AnimatedRing(
-            value: caloriesPct,
-            boxSize: _kRing3Box,
-            color: _kCalColor,
-            duration: const Duration(milliseconds: 1200),
-          ),
-          // Middle ring — Water
-          _AnimatedRing(
-            value: waterPct,
-            boxSize: _kRing2Box,
-            color: _kWaterColor,
-            duration: const Duration(milliseconds: 1000),
-          ),
-          // Inner ring — Mood
-          _AnimatedRing(
-            value: moodPct,
-            boxSize: _kRing1Box,
-            color: _kMoodColor,
-            duration: const Duration(milliseconds: 800),
-          ),
-          // Avatar
+          _AnimatedRing(value: caloriesPct, boxSize: _kRing3Box,
+              color: _kCalColor, duration: const Duration(milliseconds: 1200)),
+          _AnimatedRing(value: waterPct, boxSize: _kRing2Box,
+              color: _kWaterColor, duration: const Duration(milliseconds: 1000)),
+          _AnimatedRing(value: moodPct, boxSize: _kRing1Box,
+              color: _kMoodColor, duration: const Duration(milliseconds: 800)),
           CircleAvatar(
             radius: _kAvatarRadius,
             backgroundColor: colorScheme.primaryContainer,
@@ -647,12 +592,9 @@ class _SmallRingAvatar extends StatelessWidget {
                 ? CachedNetworkImageProvider(avatarUrl!) as ImageProvider
                 : null,
             child: avatarUrl == null
-                ? Text(
-                    initial,
+                ? Text(initial,
                     style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.onSurfaceVariant),
-                  )
+                        fontSize: 12, color: colorScheme.onSurfaceVariant))
                 : null,
           ),
         ],

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../core/api_client.dart';
+import '../core/constants.dart';
 import '../models/grocery_models.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/selected_person_provider.dart';
@@ -137,7 +139,10 @@ class _ReceiptsTab extends ConsumerWidget {
           child: ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: receipts.length,
-            itemBuilder: (ctx, i) => _ReceiptCard(receipt: receipts[i]),
+            itemBuilder: (ctx, i) => _DismissibleReceiptCard(
+              receipt: receipts[i],
+              person: person,
+            ),
           ),
         );
       },
@@ -145,99 +150,198 @@ class _ReceiptsTab extends ConsumerWidget {
   }
 }
 
+// ── Swipe-to-delete wrapper ────────────────────────────────────────────────────
+
+class _DismissibleReceiptCard extends ConsumerWidget {
+  final GroceryReceipt receipt;
+  final String person;
+  const _DismissibleReceiptCard(
+      {required this.receipt, required this.person});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Dismissible(
+      key: ValueKey(receipt.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.red.shade600,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, color: Colors.white, size: 24),
+            SizedBox(height: 4),
+            Text('Delete', style: TextStyle(color: Colors.white, fontSize: 11)),
+          ],
+        ),
+      ),
+      confirmDismiss: (_) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete receipt?'),
+            content: Text(
+              'Remove ${receipt.storeName ?? 'this receipt'} and all its items? This cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+      },
+      onDismissed: (_) async {
+        try {
+          await apiClient.dio.delete(
+              '${ApiConstants.groceryReceipts}/${receipt.id}');
+          ref.invalidate(groceryReceiptsProvider(person));
+          ref.invalidate(grocerySpendingProvider('$person:month'));
+          ref.invalidate(grocerySpendingProvider('$person:3month'));
+          ref.invalidate(grocerySpendingProvider('$person:year'));
+          ref.invalidate(groceryNutritionProvider('$person:month'));
+          ref.invalidate(groceryNutritionProvider('$person:3month'));
+          ref.invalidate(groceryNutritionProvider('$person:year'));
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to delete receipt')),
+            );
+          }
+        }
+      },
+      child: _ReceiptCard(receipt: receipt),
+    );
+  }
+}
+
+// ── Receipt card ───────────────────────────────────────────────────────────────
+
 class _ReceiptCard extends StatelessWidget {
   final GroceryReceipt receipt;
   const _ReceiptCard({required this.receipt});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final cs  = Theme.of(context).colorScheme;
     final fmt = NumberFormat.currency(symbol: '\$');
-
-    Widget statusChip;
-    switch (receipt.status) {
-      case 'done':
-        statusChip = Chip(
-          label: const Text('Done'),
-          avatar: const Icon(Icons.check_circle, size: 16, color: Colors.green),
-          padding: EdgeInsets.zero,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        );
-        break;
-      case 'failed':
-        statusChip = Chip(
-          label: const Text('Failed'),
-          avatar: const Icon(Icons.error_outline, size: 16, color: Colors.red),
-          padding: EdgeInsets.zero,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        );
-        break;
-      default:
-        statusChip = const SizedBox(
-          width: 20, height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        );
-    }
+    final isDone   = receipt.status == 'done';
+    final isFailed = receipt.status == 'failed';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: receipt.status == 'done'
-            ? () => _showItemsSheet(context, receipt)
-            : null,
+        onTap: isDone ? () => _openDetail(context) : null,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
+                  // Store icon
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: isDone
+                          ? cs.primaryContainer
+                          : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      isDone ? Icons.receipt_long : Icons.receipt_long_outlined,
+                      size: 20,
+                      color: isDone ? cs.primary : cs.outline,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      receipt.storeName ?? 'Unknown Store',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          receipt.storeName ?? 'Unknown Store',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          receipt.receiptDate != null
+                              ? DateFormat('EEE, d MMM yyyy')
+                                  .format(receipt.receiptDate!)
+                              : DateFormat('EEE, d MMM yyyy')
+                                  .format(receipt.createdAt),
+                          style: TextStyle(fontSize: 12, color: cs.outline),
+                        ),
+                      ],
                     ),
                   ),
-                  statusChip,
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (receipt.totalAmount != null)
+                        Text(
+                          fmt.format(receipt.totalAmount),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: isDone ? cs.primary : cs.outline,
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      _StatusBadge(status: receipt.status),
+                    ],
+                  ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 13, color: cs.outline),
-                  const SizedBox(width: 4),
-                  Text(
-                    receipt.receiptDate != null
-                        ? DateFormat.yMMMd().format(receipt.receiptDate!)
-                        : DateFormat.yMMMd().format(receipt.createdAt),
-                    style: TextStyle(fontSize: 12, color: cs.outline),
-                  ),
-                  const Spacer(),
-                  if (receipt.totalAmount != null)
+              if (isDone) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _InfoChip(
+                      icon: Icons.shopping_cart_outlined,
+                      label: '${receipt.itemCount} items',
+                      color: cs.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    _InfoChip(
+                      icon: Icons.restaurant_outlined,
+                      label: '${receipt.foodItemCount} food',
+                      color: Colors.green,
+                    ),
+                    const Spacer(),
                     Text(
-                      fmt.format(receipt.totalAmount),
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold, color: cs.primary),
+                      'Food: ${fmt.format(receipt.totalFoodSpend ?? 0)}',
+                      style: TextStyle(fontSize: 11, color: cs.outline),
                     ),
-                ],
-              ),
-              if (receipt.status == 'done') ...[
-                const SizedBox(height: 6),
-                Text(
-                  '${receipt.itemCount} items · '
-                  '${receipt.foodItemCount} food · '
-                  '${fmt.format(receipt.totalFoodSpend ?? 0)} food spend',
-                  style: TextStyle(fontSize: 11, color: cs.outline),
+                    const SizedBox(width: 4),
+                    Icon(Icons.chevron_right,
+                        size: 16, color: cs.outline),
+                  ],
                 ),
               ],
-              if (receipt.status == 'failed' && receipt.errorMessage != null) ...[
-                const SizedBox(height: 6),
+              if (isFailed && receipt.errorMessage != null) ...[
+                const SizedBox(height: 8),
                 Text(
                   receipt.errorMessage!,
-                  style: const TextStyle(fontSize: 11, color: Colors.red),
+                  style: TextStyle(fontSize: 11, color: cs.error),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -249,86 +353,310 @@ class _ReceiptCard extends StatelessWidget {
     );
   }
 
-  void _showItemsSheet(BuildContext context, GroceryReceipt receipt) {
+  void _openDetail(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
         expand: false,
-        initialChildSize: 0.6,
-        maxChildSize: 0.92,
-        builder: (_, ctrl) => _ItemsSheet(receipt: receipt, scrollController: ctrl),
+        builder: (ctx, ctrl) =>
+            _ReceiptDetailSheet(receiptId: receipt.id, scrollController: ctrl),
       ),
     );
   }
 }
 
-class _ItemsSheet extends StatelessWidget {
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    switch (status) {
+      case 'done':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle, size: 12, color: Colors.green),
+              SizedBox(width: 3),
+              Text('Done', style: TextStyle(fontSize: 11, color: Colors.green,
+                  fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+      case 'failed':
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 12, color: Colors.red),
+              SizedBox(width: 3),
+              Text('Failed', style: TextStyle(fontSize: 11, color: Colors.red,
+                  fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+      default:
+        return const SizedBox(
+          width: 16, height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+    }
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _InfoChip({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 12, color: color.withOpacity(0.8)),
+      const SizedBox(width: 3),
+      Text(label, style: TextStyle(fontSize: 11, color: color.withOpacity(0.8),
+          fontWeight: FontWeight.w500)),
+    ],
+  );
+}
+
+// ── Receipt detail sheet (fetches items from API) ─────────────────────────────
+
+class _ReceiptDetailSheet extends ConsumerWidget {
+  final String receiptId;
+  final ScrollController scrollController;
+  const _ReceiptDetailSheet(
+      {required this.receiptId, required this.scrollController});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(groceryReceiptDetailProvider(receiptId));
+    final cs    = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Could not load receipt: $e')),
+        data: (receipt) => _ReceiptDetailContent(
+          receipt: receipt,
+          scrollController: scrollController,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReceiptDetailContent extends StatelessWidget {
   final GroceryReceipt receipt;
   final ScrollController scrollController;
-
-  const _ItemsSheet({required this.receipt, required this.scrollController});
+  const _ReceiptDetailContent(
+      {required this.receipt, required this.scrollController});
 
   @override
   Widget build(BuildContext context) {
     final items = receipt.items ?? [];
-    final fmt = NumberFormat.currency(symbol: '\$');
-    final cs  = Theme.of(context).colorScheme;
+    final fmt   = NumberFormat.currency(symbol: '\$');
+    final cs    = Theme.of(context).colorScheme;
+
+    // Group items by category
+    final Map<String, List<GroceryItem>> grouped = {};
+    for (final item in items) {
+      (grouped[item.category] ??= []).add(item);
+    }
+    // Sort categories by total spend descending
+    final categories = grouped.keys.toList()
+      ..sort((a, b) {
+        final sa = grouped[a]!.fold(0.0, (s, i) => s + (i.totalPrice ?? 0));
+        final sb = grouped[b]!.fold(0.0, (s, i) => s + (i.totalPrice ?? 0));
+        return sb.compareTo(sa);
+      });
+
+    final foodSpend = items
+        .where((i) => i.isFoodItem)
+        .fold(0.0, (s, i) => s + (i.totalPrice ?? 0));
+    final nonFoodSpend = items
+        .where((i) => !i.isFoodItem)
+        .fold(0.0, (s, i) => s + (i.totalPrice ?? 0));
 
     return Column(
       children: [
-        const SizedBox(height: 8),
+        // Pull handle
+        const SizedBox(height: 12),
         Container(
           width: 40, height: 4,
           decoration: BoxDecoration(
-            color: cs.outline.withOpacity(0.4),
+            color: cs.outlineVariant,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
+        const SizedBox(height: 16),
+
+        // Header
         Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(receipt.storeName ?? 'Receipt Items',
-                    style: Theme.of(context).textTheme.titleLarge),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          receipt.storeName ?? 'Receipt',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          receipt.receiptDate != null
+                              ? DateFormat('EEEE, d MMMM yyyy')
+                                  .format(receipt.receiptDate!)
+                              : DateFormat('EEEE, d MMMM yyyy')
+                                  .format(receipt.createdAt),
+                          style: TextStyle(
+                              fontSize: 13, color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        fmt.format(receipt.totalAmount ?? 0),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: cs.primary),
+                      ),
+                      Text('Total',
+                          style: TextStyle(
+                              fontSize: 11, color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ],
               ),
-              if (receipt.totalAmount != null)
-                Text(fmt.format(receipt.totalAmount),
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: cs.primary,
-                        fontSize: 16)),
+              const SizedBox(height: 14),
+              // Spend summary row
+              Row(
+                children: [
+                  Expanded(
+                    child: _SummaryTile(
+                      label: 'Food',
+                      value: fmt.format(foodSpend),
+                      icon: Icons.restaurant_outlined,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _SummaryTile(
+                      label: 'Non-food',
+                      value: fmt.format(nonFoodSpend),
+                      icon: Icons.home_outlined,
+                      color: Colors.blueGrey,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _SummaryTile(
+                      label: 'Items',
+                      value: '${items.length}',
+                      icon: Icons.shopping_cart_outlined,
+                      color: cs.primary,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-        const Divider(height: 1),
+        const SizedBox(height: 16),
+        Divider(height: 1, color: cs.outlineVariant),
+
+        // Items list grouped by category
         Expanded(
           child: ListView.builder(
             controller: scrollController,
-            itemCount: items.length,
-            itemBuilder: (ctx, i) {
-              final item = items[i];
-              return ListTile(
-                leading: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: _catColor(item.category).withOpacity(0.15),
-                  child: Icon(_catIcon(item.category),
-                      size: 15, color: _catColor(item.category)),
-                ),
-                title: Text(item.normalizedName ?? item.rawText ?? ''),
-                subtitle: Text(
-                  '${_catLabel(item.category)}'
-                  '${item.brand != null && item.brand!.isNotEmpty ? ' · ${item.brand}' : ''}'
-                  '${item.estCalories != null ? ' · ${item.estCalories!.round()} kcal est.' : ''}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-                trailing: item.totalPrice != null
-                    ? Text(fmt.format(item.totalPrice),
-                        style: const TextStyle(fontWeight: FontWeight.w500))
-                    : null,
+            padding: const EdgeInsets.only(bottom: 24),
+            itemCount: categories.length,
+            itemBuilder: (ctx, ci) {
+              final cat   = categories[ci];
+              final catItems = grouped[cat]!;
+              final catTotal =
+                  catItems.fold(0.0, (s, i) => s + (i.totalPrice ?? 0));
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Category header
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _catColor(cat).withOpacity(0.08),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 28, height: 28,
+                          decoration: BoxDecoration(
+                            color: _catColor(cat).withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(_catIcon(cat),
+                              size: 15, color: _catColor(cat)),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _catLabel(cat),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: _catColor(cat),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${catItems.length} item${catItems.length != 1 ? 's' : ''}'
+                          ' · ${fmt.format(catTotal)}',
+                          style: TextStyle(
+                              fontSize: 11, color: cs.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Items in this category
+                  ...catItems.map((item) => _ItemRow(item: item, fmt: fmt)),
+                ],
               );
             },
           ),
@@ -336,23 +664,153 @@ class _ItemsSheet extends StatelessWidget {
       ],
     );
   }
+}
 
-  IconData _catIcon(String cat) {
-    const icons = {
-      'produce':       Icons.eco_outlined,
-      'dairy':         Icons.water_drop_outlined,
-      'meat':          Icons.set_meal_outlined,
-      'seafood':       Icons.set_meal_outlined,
-      'bakery':        Icons.bakery_dining_outlined,
-      'frozen':        Icons.ac_unit_outlined,
-      'beverages':     Icons.local_drink_outlined,
-      'snacks':        Icons.cookie_outlined,
-      'pantry':        Icons.kitchen_outlined,
-      'household':     Icons.cleaning_services_outlined,
-      'personal_care': Icons.soap_outlined,
-    };
-    return icons[cat] ?? Icons.shopping_basket_outlined;
+class _SummaryTile extends StatelessWidget {
+  final String label, value;
+  final IconData icon;
+  final Color color;
+  const _SummaryTile(
+      {required this.label, required this.value, required this.icon,
+       required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 4),
+          Text(value,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+          Text(label,
+              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+        ],
+      ),
+    );
   }
+}
+
+class _ItemRow extends StatelessWidget {
+  final GroceryItem item;
+  final NumberFormat fmt;
+  const _ItemRow({required this.item, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Quantity badge
+          Container(
+            width: 28, height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              item.quantity == item.quantity.roundToDouble()
+                  ? '×${item.quantity.round()}'
+                  : '×${item.quantity.toStringAsFixed(1)}',
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.normalizedName ?? item.rawText ?? '',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w500, fontSize: 13),
+                ),
+                if (item.brand != null && item.brand!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Text(
+                      item.brand!,
+                      style: TextStyle(
+                          fontSize: 11, color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                if (item.estCalories != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '~${item.estCalories!.round()} kcal',
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (item.totalPrice != null)
+                Text(
+                  fmt.format(item.totalPrice),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              if (item.unitPrice != null &&
+                  item.totalPrice != null &&
+                  item.unitPrice != item.totalPrice)
+                Text(
+                  '${fmt.format(item.unitPrice)} ea',
+                  style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _catIcon(String cat) {
+  const icons = {
+    'produce':       Icons.eco_outlined,
+    'dairy':         Icons.water_drop_outlined,
+    'meat':          Icons.set_meal_outlined,
+    'seafood':       Icons.set_meal_outlined,
+    'bakery':        Icons.bakery_dining_outlined,
+    'frozen':        Icons.ac_unit_outlined,
+    'beverages':     Icons.local_drink_outlined,
+    'snacks':        Icons.cookie_outlined,
+    'pantry':        Icons.kitchen_outlined,
+    'household':     Icons.cleaning_services_outlined,
+    'personal_care': Icons.soap_outlined,
+  };
+  return icons[cat] ?? Icons.shopping_basket_outlined;
 }
 
 // ── Analytics tab ──────────────────────────────────────────────────────────────

@@ -26,6 +26,7 @@ class ApiConstants {
   static const String register = '/api/register';
   static const String logout = '/api/logout';
   static const String user = '/api/user';
+  static const String tokenRefresh = '/api/token/refresh';
 
   // Dashboard
   static const String dashboard = '/api/dashboard';

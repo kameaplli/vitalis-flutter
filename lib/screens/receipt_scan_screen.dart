@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/grocery_models.dart';
@@ -111,8 +113,15 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
   void _confirm() {
     final person = ref.read(selectedPersonProvider);
+    // Invalidate all grocery providers so the list and analytics refresh
     ref.invalidate(groceryReceiptsProvider(person));
-    Navigator.of(context).pop();
+    ref.invalidate(grocerySpendingProvider('$person:month'));
+    ref.invalidate(grocerySpendingProvider('$person:3month'));
+    ref.invalidate(grocerySpendingProvider('$person:year'));
+    ref.invalidate(groceryNutritionProvider('$person:month'));
+    ref.invalidate(groceryNutritionProvider('$person:3month'));
+    ref.invalidate(groceryNutritionProvider('$person:year'));
+    context.go('/grocery');
   }
 
   // ── Retry ──────────────────────────────────────────────────────────────────

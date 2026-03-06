@@ -9,7 +9,6 @@ import '../screens/hydration_screen.dart';
 import '../screens/health_screen.dart';
 import '../screens/weight_screen.dart';
 import '../screens/eczema_screen.dart';
-import '../screens/analytics_screen.dart';
 import '../screens/entries_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/scanner_screen.dart';
@@ -25,11 +24,10 @@ class _LoadingScreen extends StatelessWidget {
       );
 }
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+final _rootNavigatorKey  = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-/// ChangeNotifier that fires whenever authProvider state changes,
-/// allowing GoRouter to re-evaluate its redirect without being recreated.
+/// Fires whenever authProvider changes — triggers GoRouter redirect re-evaluation.
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
@@ -45,10 +43,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/loading',
     refreshListenable: notifier,
     redirect: (context, state) {
-      final authState = ref.read(authProvider);
-      final isLoading = authState.isLoading;
+      final authState     = ref.read(authProvider);
+      final isLoading     = authState.isLoading;
       final isAuthenticated = authState.isAuthenticated;
-      final loc = state.matchedLocation;
+      final loc           = state.matchedLocation;
 
       if (isLoading) return loc == '/loading' ? null : '/loading';
       if (!isAuthenticated) return '/auth';
@@ -68,18 +66,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/dashboard', builder: (_, __) => const DashboardScreen()),
-          GoRoute(path: '/nutrition', builder: (_, __) => const NutritionScreen()),
-          GoRoute(path: '/hydration', builder: (_, __) => const HydrationScreen()),
-          GoRoute(path: '/health', builder: (_, __) => const HealthScreen()),
-          GoRoute(path: '/more', builder: (_, __) => const DashboardScreen()),
-          GoRoute(path: '/weight', builder: (_, __) => const WeightScreen()),
-          GoRoute(path: '/eczema', builder: (_, __) => const EczemaScreen()),
-          GoRoute(path: '/analytics', builder: (_, __) => const AnalyticsScreen()),
-          GoRoute(path: '/entries', builder: (_, __) => const EntriesScreen()),
-          GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
-          GoRoute(path: '/scanner', builder: (_, __) => const ScannerScreen()),
-          GoRoute(path: '/grocery', builder: (_, __) => const GroceryScreen()),
+          // ── 4 primary tabs ──────────────────────────────────────────────
+          GoRoute(path: '/dashboard',  builder: (_, __) => const DashboardScreen()),
+          GoRoute(path: '/nutrition',  builder: (_, __) => const NutritionScreen()),
+          GoRoute(path: '/health',     builder: (_, __) => const HealthScreen()),
+          GoRoute(path: '/grocery',    builder: (_, __) => const GroceryScreen()),
+
+          // ── Health sub-screens (pushed from Health card grid) ───────────
+          GoRoute(path: '/health/symptoms',    builder: (_, __) => const HealthSubScreen(category: 'symptoms')),
+          GoRoute(path: '/health/medications', builder: (_, __) => const HealthSubScreen(category: 'medications')),
+          GoRoute(path: '/health/vitals',      builder: (_, __) => const HealthSubScreen(category: 'vitals')),
+          GoRoute(path: '/health/sleep',       builder: (_, __) => const HealthSubScreen(category: 'sleep')),
+          GoRoute(path: '/health/exercise',    builder: (_, __) => const HealthSubScreen(category: 'exercise')),
+          GoRoute(path: '/health/mood',        builder: (_, __) => const HealthSubScreen(category: 'mood')),
+          GoRoute(path: '/health/weight',      builder: (_, __) => const WeightScreen()),
+          GoRoute(path: '/health/eczema',      builder: (_, __) => const EczemaScreen()),
+
+          // ── Secondary / deep-link routes ────────────────────────────────
+          GoRoute(path: '/hydration',  builder: (_, __) => const HydrationScreen()),
+          GoRoute(path: '/weight',     builder: (_, __) => const WeightScreen()),
+          GoRoute(path: '/eczema',     builder: (_, __) => const EczemaScreen()),
+          GoRoute(path: '/entries',    builder: (_, __) => const EntriesScreen()),
+          GoRoute(path: '/profile',    builder: (_, __) => const ProfileScreen()),
+          GoRoute(path: '/scanner',    builder: (_, __) => const ScannerScreen()),
           GoRoute(path: '/grocery/scan', builder: (_, __) => const ReceiptScanScreen()),
         ],
       ),

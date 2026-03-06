@@ -58,6 +58,9 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.6
 
+  # Google Fonts (Plus Jakarta Sans)
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

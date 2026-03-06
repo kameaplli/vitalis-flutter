@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/health_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
-import 'weight_screen.dart' show WeightContent;
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -125,87 +125,163 @@ class HealthScreen extends ConsumerStatefulWidget {
   ConsumerState<HealthScreen> createState() => _HealthScreenState();
 }
 
-class _HealthScreenState extends ConsumerState<HealthScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
+class _HealthScreenState extends ConsumerState<HealthScreen> {
   int _days = 30;
-
-  static const _tabLabels = [
-    'Symptoms',
-    'Medications',
-    'Vitals',
-    'Sleep',
-    'Exercise',
-    'Mood',
-    'Weight',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tab = TabController(length: 7, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
-    final key = '$person:$_days';
+    final key    = '$person:$_days';
+
+    // Card definitions: (route-category, label, icon, color, provider)
+    final cards = [
+      _CardDef('symptoms',    'Symptoms',    Icons.sick_outlined,            Colors.red,
+          ref.watch(symptomsProvider(key))),
+      _CardDef('medications', 'Medications', Icons.medication_outlined,      Colors.blue,
+          ref.watch(medicationsProvider('$person:7'))),
+      _CardDef('vitals',      'Vitals',      Icons.monitor_heart_outlined,   Colors.pink,
+          ref.watch(vitalsProvider(key))),
+      _CardDef('sleep',       'Sleep',       Icons.bedtime_outlined,         Colors.indigo,
+          ref.watch(sleepProvider(key))),
+      _CardDef('exercise',    'Exercise',    Icons.fitness_center_outlined,  Colors.orange,
+          ref.watch(exerciseProvider(key))),
+      _CardDef('mood',        'Mood',        Icons.mood_outlined,            Colors.green,
+          ref.watch(moodProvider(key))),
+      _CardDef('weight',      'Weight',      Icons.monitor_weight_outlined,  Colors.purple,
+          const AsyncValue.data([])),
+      _CardDef('eczema',      'Eczema',      Icons.healing_outlined,         Colors.teal,
+          const AsyncValue.data([])),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Health'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(88),
-          child: Column(
-            children: [
-              // Days selector only (person comes from global avatar bar)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                child: Row(children: [
-                  const Spacer(),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 7, label: Text('7d')),
-                      ButtonSegment(value: 30, label: Text('30d')),
-                      ButtonSegment(value: 90, label: Text('90d')),
-                    ],
-                    selected: {_days},
-                    onSelectionChanged: (s) =>
-                        setState(() => _days = s.first),
-                    style: ButtonStyle(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(horizontal: 6)),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ]),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 7,  label: Text('7d')),
+                ButtonSegment(value: 30, label: Text('30d')),
+                ButtonSegment(value: 90, label: Text('90d')),
+              ],
+              selected: {_days},
+              onSelectionChanged: (s) => setState(() => _days = s.first),
+              style: ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 6)),
+                visualDensity: VisualDensity.compact,
               ),
-              TabBar(
-                controller: _tab,
-                isScrollable: true,
-                tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
-              ),
-            ],
+            ),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: GridView.builder(
+          itemCount: cards.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.25,
+          ),
+          itemBuilder: (context, i) => _HealthCard(
+            def: cards[i],
+            onTap: () {
+              final route = cards[i].category == 'weight'
+                  ? '/health/weight'
+                  : cards[i].category == 'eczema'
+                      ? '/health/eczema'
+                      : '/health/${cards[i].category}';
+              context.push(route);
+            },
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tab,
-        children: [
-          _SymptomsTab(key: ValueKey(key), personKey: key),
-          _MedicationsTab(key: ValueKey(key), personKey: key),
-          _VitalsTab(key: ValueKey(key), personKey: key),
-          _SleepTab(key: ValueKey(key), personKey: key),
-          _ExerciseTab(key: ValueKey(key), personKey: key),
-          _MoodTab(key: ValueKey(key), personKey: key),
-          const WeightContent(),
-        ],
+    );
+  }
+}
+
+// ─── Card definition ──────────────────────────────────────────────────────────
+
+class _CardDef {
+  final String category;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final AsyncValue<List<Map<String, dynamic>>> logsAsync;
+
+  const _CardDef(this.category, this.label, this.icon, this.color, this.logsAsync);
+}
+
+// ─── Health category card ──────────────────────────────────────────────────────
+
+class _HealthCard extends StatelessWidget {
+  final _CardDef def;
+  final VoidCallback onTap;
+  const _HealthCard({required this.def, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    final entryCount = def.logsAsync.whenOrNull(data: (list) => list.length);
+    final subtitle   = entryCount != null
+        ? (entryCount == 0 ? 'No entries' : '$entryCount entr${entryCount == 1 ? 'y' : 'ies'}')
+        : null;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: def.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(def.icon, color: def.color, size: 22),
+                  ),
+                  const Spacer(),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      size: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                def.label,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 12,
+                  width: 12,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 1.5, color: def.color),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -935,6 +1011,77 @@ class _MoodTab extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Health sub-screen — wraps individual category tab in a full Scaffold ───────
+// Used by /health/* routes pushed from the Health card grid (Sprint 4).
+
+class HealthSubScreen extends ConsumerStatefulWidget {
+  final String category;
+  const HealthSubScreen({super.key, required this.category});
+
+  @override
+  ConsumerState<HealthSubScreen> createState() => _HealthSubScreenState();
+}
+
+class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
+  int _days = 30;
+
+  String get _title {
+    switch (widget.category) {
+      case 'symptoms':    return 'Symptoms';
+      case 'medications': return 'Medications';
+      case 'vitals':      return 'Vitals';
+      case 'sleep':       return 'Sleep';
+      case 'exercise':    return 'Exercise';
+      case 'mood':        return 'Mood';
+      default:            return widget.category;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final person = ref.watch(selectedPersonProvider);
+    final key    = '$person:$_days';
+
+    Widget body;
+    switch (widget.category) {
+      case 'symptoms':    body = _SymptomsTab(key: ValueKey(key), personKey: key); break;
+      case 'medications': body = _MedicationsTab(key: ValueKey(key), personKey: key); break;
+      case 'vitals':      body = _VitalsTab(key: ValueKey(key), personKey: key); break;
+      case 'sleep':       body = _SleepTab(key: ValueKey(key), personKey: key); break;
+      case 'exercise':    body = _ExerciseTab(key: ValueKey(key), personKey: key); break;
+      case 'mood':        body = _MoodTab(key: ValueKey(key), personKey: key); break;
+      default:            body = Center(child: Text('Unknown: ${widget.category}')); break;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_title),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 7,  label: Text('7d')),
+                ButtonSegment(value: 30, label: Text('30d')),
+                ButtonSegment(value: 90, label: Text('90d')),
+              ],
+              selected: {_days},
+              onSelectionChanged: (s) => setState(() => _days = s.first),
+              style: ButtonStyle(
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 4)),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: body,
     );
   }
 }

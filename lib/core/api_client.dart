@@ -32,7 +32,29 @@ class ApiClient {
       },
       onError: (DioException e, handler) async {
         if (e.response?.statusCode == 401) {
-          await clearToken();
+          // Attempt silent token refresh before giving up
+          final refreshToken = await SecureStorage.getRefreshToken();
+          if (refreshToken != null) {
+            try {
+              final refreshDio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
+              final res = await refreshDio.post(
+                ApiConstants.tokenRefresh,
+                data: {'refresh_token': refreshToken},
+              );
+              final newToken = res.data['access_token'] as String;
+              await SecureStorage.saveToken(newToken);
+              // Retry the original request with the new token
+              final opts = e.requestOptions;
+              opts.headers['Authorization'] = 'Bearer $newToken';
+              final response = await dio.fetch(opts);
+              return handler.resolve(response);
+            } catch (_) {
+              await SecureStorage.clearToken();
+              await SecureStorage.clearRefreshToken();
+            }
+          } else {
+            await clearToken();
+          }
         }
         return handler.next(e);
       },
