@@ -76,7 +76,6 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ── Form state ───────────────────────────────────────────────────────────
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
-  EczemaBodyView _bodyView = EczemaBodyView.front;
   final Map<String, EasiRegionScore> _regionScores = {};
   String? _activeZoneId;
 
@@ -199,7 +198,6 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _notesCtrl.clear();
       _date = DateTime.now();
       _time = TimeOfDay.now();
-      _bodyView = EczemaBodyView.front;
     });
   }
 
@@ -372,35 +370,21 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           ]),
           const SizedBox(height: 12),
 
-          // Body view toggle
-          Center(
-            child: SegmentedButton<EczemaBodyView>(
-              segments: const [
-                ButtonSegment(value: EczemaBodyView.front, label: Text('Front')),
-                ButtonSegment(value: EczemaBodyView.back, label: Text('Back')),
-              ],
-              selected: {_bodyView},
-              onSelectionChanged: (s) => setState(() => _bodyView = s.first),
-            ),
-          ),
-          const SizedBox(height: 6),
-
           // Instruction
           Row(children: [
             Icon(Icons.touch_app_outlined, size: 14, color: cs.onSurfaceVariant),
             const SizedBox(width: 4),
-            Text('Tap body zone → score EASI attributes',
+            Text('Tap any body zone to score EASI attributes',
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
           ]),
           const SizedBox(height: 4),
 
-          // Body map
+          // Body map — front and back shown side by side.
           Card(
             clipBehavior: Clip.hardEdge,
             child: Padding(
               padding: const EdgeInsets.all(8),
               child: EczemaBodyMap(
-                view: _bodyView,
                 regionScores: _regionScores,
                 activeZoneId: _activeZoneId,
                 onZoneTap: _onZoneTap,
@@ -1054,23 +1038,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: SegmentedButton<EczemaBodyView>(
-                        segments: const [
-                          ButtonSegment(value: EczemaBodyView.front, label: Text('Front')),
-                          ButtonSegment(value: EczemaBodyView.back, label: Text('Back')),
-                        ],
-                        selected: {_bodyView},
-                        onSelectionChanged: (s) => setState(() => _bodyView = s.first),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     Card(
                       clipBehavior: Clip.hardEdge,
                       child: Padding(
                         padding: const EdgeInsets.all(8),
                         child: EczemaBodyMap(
-                          view: _bodyView,
                           heatData: data.regionIntensity,
                           readOnly: true,
                         ),

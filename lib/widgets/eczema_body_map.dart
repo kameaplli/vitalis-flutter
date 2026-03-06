@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/easi_models.dart';
 
-// ─── Canvas dimensions ────────────────────────────────────────────────────────
-const double _kW = 220.0;
-const double _kH = 500.0;
-const double _kAspect = _kH / _kW; // ≈ 2.273
+// ─── Canvas dimensions ─────────────────────────────────────────────────────
+// Matches the body_map.svg viewBox: 440 wide (front left, back right), 500 tall.
+const double _kSvgW = 440.0;
+const double _kSvgH = 500.0;
+const double _kAspect = _kSvgH / _kSvgW; // ≈ 1.136
 
+// Kept for API compatibility with eczema_screen callers.
+// The view parameter is no longer used for display — both front and back
+// zones are always shown simultaneously on the full body diagram.
 enum EczemaBodyView { front, back }
-
-// ─── Clinical colour palette ──────────────────────────────────────────────────
-const Color _kSkinFill   = Color(0xFFFDF9F5); // warm near-white
-const Color _kBodyStroke = Color(0xFF37474F); // dark blue-grey (pencil on form)
-const Color _kSepLine    = Color(0xFF90A4AE); // subtle anatomical boundary
-const Color _kNumColor   = Color(0xFF455A64); // zone number label (unstyled)
 
 // ─── Severity colour ramp (0.0 = clear → 1.0 = very severe) ─────────────────
 Color severityColor(double t) {
@@ -28,19 +27,22 @@ Color severityColor(double t) {
 Color _levelColor(int level) => severityColor(level / 10.0);
 
 // ─── EczemaBodyMap ────────────────────────────────────────────────────────────
+// Renders the body_map.svg (front + back side-by-side) as the background,
+// then draws semi-transparent severity overlays and zone numbers on top.
 
 class EczemaBodyMap extends StatelessWidget {
+  // view kept for API compat but no longer controls display.
   final EczemaBodyView view;
   final Map<String, EasiRegionScore> regionScores;
-  final Map<String, double>? heatData;   // optional heat-map mode: 0.0–1.0
+  final Map<String, double>? heatData;
   final String? activeZoneId;
   final void Function(BodyRegion)? onZoneTap;
   final bool readOnly;
-  final bool showGroupBoundaries;        // reserved; kept for API compatibility
+  final bool showGroupBoundaries; // reserved for API compat
 
   const EczemaBodyMap({
     super.key,
-    required this.view,
+    this.view = EczemaBodyView.front,
     this.regionScores = const {},
     this.heatData,
     this.activeZoneId,
@@ -49,18 +51,18 @@ class EczemaBodyMap extends StatelessWidget {
     this.showGroupBoundaries = false,
   });
 
-  List<BodyRegion> get _regions =>
-      view == EczemaBodyView.front ? kFrontRegions : kBackRegions;
+  // All 50 zones always visible.
+  static final _allRegions = [...kFrontRegions, ...kBackRegions];
 
   void _handleTap(Offset local, Size size) {
     if (readOnly || onZoneTap == null) return;
-    // Convert widget-local coordinates → 220×500 canvas space.
+    // Convert widget-local → SVG canvas coordinates.
     final svgPt = Offset(
-      local.dx * _kW / size.width,
-      local.dy * _kH / size.height,
+      local.dx * _kSvgW / size.width,
+      local.dy * _kSvgH / size.height,
     );
     // Iterate in reverse so zones drawn last (topmost) are hit-tested first.
-    for (final r in _regions.reversed) {
+    for (final r in _allRegions.reversed) {
       if (r.contains(svgPt)) {
         onZoneTap!(r);
         return;
@@ -77,16 +79,30 @@ class EczemaBodyMap extends StatelessWidget {
         width: w,
         height: h,
         child: GestureDetector(
-          onTapDown: readOnly ? null : (d) => _handleTap(d.localPosition, Size(w, h)),
-          child: CustomPaint(
-            size: Size(w, h),
-            painter: _ClinicalBodyPainter(
-              regions: _regions,
-              regionScores: regionScores,
-              heatData: heatData,
-              activeZoneId: activeZoneId,
-              isFront: view == EczemaBodyView.front,
-            ),
+          onTapDown: readOnly
+              ? null
+              : (d) => _handleTap(d.localPosition, Size(w, h)),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Layer 1: actual medical diagram SVG.
+              SvgPicture.asset(
+                'assets/body_map.svg',
+                width: w,
+                height: h,
+                fit: BoxFit.fill,
+              ),
+              // Layer 2: severity colour overlays + zone number labels.
+              CustomPaint(
+                size: Size(w, h),
+                painter: _ZoneOverlayPainter(
+                  regions: _allRegions,
+                  regionScores: regionScores,
+                  heatData: heatData,
+                  activeZoneId: activeZoneId,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -94,291 +110,36 @@ class EczemaBodyMap extends StatelessWidget {
   }
 }
 
-// ─── Clinical Body Painter ────────────────────────────────────────────────────
+// ─── Zone Overlay Painter ─────────────────────────────────────────────────────
+// Draws only the coloured severity fills and zone numbers.
+// The silhouette / anatomy is supplied by the SVG background layer.
 
-class _ClinicalBodyPainter extends CustomPainter {
+class _ZoneOverlayPainter extends CustomPainter {
   final List<BodyRegion> regions;
   final Map<String, EasiRegionScore> regionScores;
   final Map<String, double>? heatData;
   final String? activeZoneId;
-  final bool isFront;
 
-  const _ClinicalBodyPainter({
+  const _ZoneOverlayPainter({
     required this.regions,
     required this.regionScores,
     this.heatData,
     this.activeZoneId,
-    required this.isFront,
   });
-
-  // ── Coordinate helpers ────────────────────────────────────────────────────
-
-  double _x(double v, double sw) => v * sw;
-  double _y(double v, double sh) => v * sh;
-
-  // ── Paint factories ───────────────────────────────────────────────────────
-
-  Paint get _fillPaint => Paint()
-    ..color = _kSkinFill
-    ..style = PaintingStyle.fill;
-
-  Paint get _strokePaint => Paint()
-    ..color = _kBodyStroke
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.1
-    ..strokeJoin = StrokeJoin.round
-    ..strokeCap = StrokeCap.round;
-
-  Paint get _sepPaint => Paint()
-    ..color = _kSepLine
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 0.7;
-
-  void _fill(Canvas c, Path p) {
-    c.drawPath(p, _fillPaint);
-    c.drawPath(p, _strokePaint);
-  }
-
-  void _fillOval(Canvas c, Rect r) {
-    c.drawOval(r, _fillPaint);
-    c.drawOval(r, _strokePaint);
-  }
-
-  // ── Main paint entry ──────────────────────────────────────────────────────
 
   @override
   void paint(Canvas canvas, Size size) {
-    final sw = size.width / _kW;
-    final sh = size.height / _kH;
-
-    // 1. Anatomical silhouette (skin fill + outline)
-    _drawClinicalSilhouette(canvas, sw, sh);
-
-    // 2. Coloured zone overlays (severity / heat)
-    _drawZoneOverlays(canvas, size, sw, sh);
-
-    // 3. Clinical zone numbers
+    _drawZoneOverlays(canvas, size);
     _drawZoneNumbers(canvas, size);
-
-    // 4. Thin separator lines at joint / zone boundaries
-    _drawAnatomicalSeparators(canvas, sw, sh);
   }
 
-  // ── Anatomical Silhouette ─────────────────────────────────────────────────
-  // Traced from the provided medical diagram on a 220×500 logical canvas.
-  // Arms spread outward (x=22–56 right, x=164–198 left); torso narrower at
-  // waist than at shoulders. Drawn back-to-front so joints overlap cleanly.
+  void _drawZoneOverlays(Canvas canvas, Size size) {
+    final sw = size.width / _kSvgW;
+    final sh = size.height / _kSvgH;
 
-  void _drawClinicalSilhouette(Canvas canvas, double sw, double sh) {
-    double x(double v) => _x(v, sw);
-    double y(double v) => _y(v, sh);
-
-    // ── FEET (drawn first — behind everything) ──────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(58), y(462))
-      ..lineTo(x(100), y(462))
-      ..lineTo(x(97), y(484))
-      ..quadraticBezierTo(x(80), y(492), x(55), y(480))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(162), y(462))
-      ..lineTo(x(120), y(462))
-      ..lineTo(x(123), y(484))
-      ..quadraticBezierTo(x(140), y(492), x(165), y(480))
-      ..close());
-
-    // ── LOWER LEGS ──────────────────────────────────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(73), y(392))
-      ..lineTo(x(100), y(392))
-      ..lineTo(x(97), y(462))
-      ..lineTo(x(74), y(462))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(147), y(392))
-      ..lineTo(x(120), y(392))
-      ..lineTo(x(123), y(462))
-      ..lineTo(x(146), y(462))
-      ..close());
-
-    // ── KNEES (ellipses) ────────────────────────────────────────────────────
-    _fillOval(canvas, Rect.fromLTWH(x(70), y(370), x(30), y(22)));
-    _fillOval(canvas, Rect.fromLTWH(x(120), y(370), x(30), y(22)));
-
-    // ── THIGHS ──────────────────────────────────────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(68), y(240))
-      ..lineTo(x(105), y(240))
-      ..quadraticBezierTo(x(103), y(305), x(101), y(370))
-      ..lineTo(x(70), y(370))
-      ..quadraticBezierTo(x(69), y(305), x(68), y(240))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(152), y(240))
-      ..lineTo(x(115), y(240))
-      ..quadraticBezierTo(x(117), y(305), x(119), y(370))
-      ..lineTo(x(150), y(370))
-      ..quadraticBezierTo(x(151), y(305), x(152), y(240))
-      ..close());
-
-    // ── HANDS ───────────────────────────────────────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(14), y(220))
-      ..lineTo(x(54), y(220))
-      ..lineTo(x(56), y(252))
-      ..lineTo(x(12), y(248))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(206), y(220))
-      ..lineTo(x(166), y(220))
-      ..lineTo(x(164), y(252))
-      ..lineTo(x(208), y(248))
-      ..close());
-
-    // ── FOREARMS ────────────────────────────────────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(20), y(168))
-      ..lineTo(x(54), y(168))
-      ..lineTo(x(52), y(220))
-      ..lineTo(x(18), y(220))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(200), y(168))
-      ..lineTo(x(166), y(168))
-      ..lineTo(x(168), y(220))
-      ..lineTo(x(202), y(220))
-      ..close());
-
-    // ── UPPER ARMS ──────────────────────────────────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(24), y(80))
-      ..lineTo(x(56), y(80))
-      ..lineTo(x(54), y(168))
-      ..lineTo(x(22), y(168))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(196), y(80))
-      ..lineTo(x(164), y(80))
-      ..lineTo(x(166), y(168))
-      ..lineTo(x(198), y(168))
-      ..close());
-
-    // ── TORSO ───────────────────────────────────────────────────────────────
-    // Wider at shoulders (x=58–162), narrows at waist (x=68–152),
-    // slight hip flare, ends at groin split (x=98–122 centre).
-    _fill(canvas, Path()
-      ..moveTo(x(58), y(76))
-      ..lineTo(x(99), y(76))
-      ..lineTo(x(121), y(76))
-      ..lineTo(x(162), y(76))
-      ..quadraticBezierTo(x(170), y(80), x(168), y(95))
-      ..quadraticBezierTo(x(164), y(110), x(156), y(122))
-      ..lineTo(x(152), y(168))
-      ..quadraticBezierTo(x(151), y(180), x(150), y(195))
-      ..quadraticBezierTo(x(150), y(210), x(153), y(220))
-      ..quadraticBezierTo(x(152), y(232), x(148), y(240))
-      ..lineTo(x(122), y(240))
-      ..quadraticBezierTo(x(116), y(242), x(110), y(242))
-      ..quadraticBezierTo(x(104), y(242), x(98), y(240))
-      ..lineTo(x(72), y(240))
-      ..quadraticBezierTo(x(68), y(232), x(67), y(220))
-      ..quadraticBezierTo(x(70), y(210), x(70), y(195))
-      ..quadraticBezierTo(x(69), y(180), x(68), y(168))
-      ..lineTo(x(64), y(122))
-      ..quadraticBezierTo(x(56), y(110), x(52), y(95))
-      ..quadraticBezierTo(x(50), y(80), x(58), y(76))
-      ..close());
-
-    // ── NECK ────────────────────────────────────────────────────────────────
-    _fill(canvas, Path()
-      ..moveTo(x(101), y(54))
-      ..lineTo(x(119), y(54))
-      ..lineTo(x(121), y(76))
-      ..lineTo(x(99), y(76))
-      ..close());
-
-    // ── HEAD ────────────────────────────────────────────────────────────────
-    _fillOval(canvas,
-        Rect.fromCenter(center: Offset(x(110), y(30)), width: x(46), height: y(52)));
-
-    // EARS
-    final earPaint = Paint()
-      ..color = _kBodyStroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    canvas.drawOval(
-        Rect.fromCenter(center: Offset(x(87), y(30)), width: x(5), height: y(10)),
-        earPaint);
-    canvas.drawOval(
-        Rect.fromCenter(center: Offset(x(133), y(30)), width: x(5), height: y(10)),
-        earPaint);
-
-    // CLAVICLE HINT (front view only)
-    if (isFront) {
-      final clav = Paint()
-        ..color = _kBodyStroke.withValues(alpha: 0.28)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8;
-      canvas.drawLine(Offset(x(99), y(76)),  Offset(x(64),  y(82)), clav);
-      canvas.drawLine(Offset(x(121), y(76)), Offset(x(156), y(82)), clav);
-    }
-  }
-
-  // ── Anatomical separator lines ─────────────────────────────────────────────
-
-  void _drawAnatomicalSeparators(Canvas canvas, double sw, double sh) {
-    double x(double v) => _x(v, sw);
-    double y(double v) => _y(v, sh);
-    final p = _sepPaint;
-
-    // Midline through torso
-    canvas.drawLine(Offset(x(110), y(54)), Offset(x(110), y(242)), p);
-
-    // Wrist
-    canvas.drawLine(Offset(x(14),  y(220)), Offset(x(54),  y(220)), p);
-    canvas.drawLine(Offset(x(166), y(220)), Offset(x(206), y(220)), p);
-
-    // Elbow
-    canvas.drawLine(Offset(x(20),  y(168)), Offset(x(54),  y(168)), p);
-    canvas.drawLine(Offset(x(166), y(168)), Offset(x(200), y(168)), p);
-
-    // Axilla
-    canvas.drawLine(Offset(x(24),  y(80)), Offset(x(56),  y(80)), p);
-    canvas.drawLine(Offset(x(164), y(80)), Offset(x(196), y(80)), p);
-
-    // Chest / upper-abd boundary
-    canvas.drawLine(Offset(x(64), y(122)), Offset(x(156), y(122)), p);
-
-    // Upper-abd / lower-abd boundary
-    canvas.drawLine(Offset(x(68), y(168)), Offset(x(152), y(168)), p);
-
-    if (isFront) {
-      // Lower-abd / groin boundary
-      canvas.drawLine(Offset(x(68), y(215)), Offset(x(152), y(215)), p);
-    } else {
-      // Lower-back / sacrum-buttock boundary
-      canvas.drawLine(Offset(x(68), y(215)), Offset(x(152), y(215)), p);
-    }
-
-    // Knee band
-    canvas.drawLine(Offset(x(70),  y(370)), Offset(x(100), y(370)), p);
-    canvas.drawLine(Offset(x(120), y(370)), Offset(x(150), y(370)), p);
-    canvas.drawLine(Offset(x(70),  y(392)), Offset(x(100), y(392)), p);
-    canvas.drawLine(Offset(x(120), y(392)), Offset(x(150), y(392)), p);
-
-    // Ankle / foot
-    canvas.drawLine(Offset(x(74),  y(462)), Offset(x(97),  y(462)), p);
-    canvas.drawLine(Offset(x(123), y(462)), Offset(x(146), y(462)), p);
-  }
-
-  // ── Zone overlays ──────────────────────────────────────────────────────────
-  // Drawn on top of the silhouette, before the number labels.
-
-  void _drawZoneOverlays(Canvas canvas, Size size, double sw, double sh) {
     for (final region in regions) {
       final isActive = region.id == activeZoneId;
 
-      // Determine fill colour (heat-map takes priority over EASI scores).
       Color? fill;
       if (heatData != null) {
         final t = heatData![region.id];
@@ -388,13 +149,13 @@ class _ClinicalBodyPainter extends CustomPainter {
         if (s != null && s.attributeSum > 0) fill = _levelColor(s.level);
       }
 
-      // Severity fill
+      // Severity fill overlay.
       if (fill != null) {
-        final fp = Paint()..color = fill.withValues(alpha: 0.58);
+        final fp = Paint()..color = fill.withValues(alpha: 0.62);
         _paintZone(canvas, region, fp, sw, sh);
       }
 
-      // Active zone: solid outline + halo + light fill when unscored
+      // Active zone: outline + halo + light fill when unscored.
       if (isActive) {
         final outlineColor = fill ?? const Color(0xFF1565C0);
 
@@ -405,21 +166,20 @@ class _ClinicalBodyPainter extends CustomPainter {
         _paintZone(canvas, region, rp, sw, sh);
 
         final halo = Paint()
-          ..color = outlineColor.withValues(alpha: 0.22)
+          ..color = outlineColor.withValues(alpha: 0.25)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 4.5;
-        _paintZone(canvas, region, halo, sw, sh, inflate: 2.5);
+          ..strokeWidth = 4.0;
+        _paintZone(canvas, region, halo, sw, sh, inflate: 2.0);
 
         if (fill == null) {
           final activeFill = Paint()
-            ..color = const Color(0xFF1565C0).withValues(alpha: 0.12);
+            ..color = const Color(0xFF1565C0).withValues(alpha: 0.15);
           _paintZone(canvas, region, activeFill, sw, sh);
         }
       }
     }
   }
 
-  // Draw a single zone using either an ellipse or a polygon path.
   void _paintZone(
     Canvas canvas,
     BodyRegion region,
@@ -431,10 +191,7 @@ class _ClinicalBodyPainter extends CustomPainter {
     if (region.isEllipse) {
       final r = region.ellipseRect;
       final scaled = Rect.fromLTWH(
-        r.left * sw,
-        r.top * sh,
-        r.width * sw,
-        r.height * sh,
+        r.left * sw, r.top * sh, r.width * sw, r.height * sh,
       );
       canvas.drawOval(inflate > 0 ? scaled.inflate(inflate) : scaled, paint);
     } else {
@@ -446,18 +203,22 @@ class _ClinicalBodyPainter extends CustomPainter {
         path.lineTo(poly[i].dx * sw, poly[i].dy * sh);
       }
       path.close();
-      canvas.drawPath(path, paint);
+      if (inflate > 0 && paint.style == PaintingStyle.stroke) {
+        final inflated = Paint()
+          ..color = paint.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (paint.strokeWidth) + inflate * 2;
+        canvas.drawPath(path, inflated);
+      } else {
+        canvas.drawPath(path, paint);
+      }
     }
   }
 
-  // ── Zone number labels ─────────────────────────────────────────────────────
-  // Each zone shows its clinical number at its centroid.
-
   void _drawZoneNumbers(Canvas canvas, Size size) {
-    final sw = size.width / _kW;
-    final sh = size.height / _kH;
-    // Font size scales proportionally with the widget width.
-    final fontSize = size.width * 0.038;
+    final sw = size.width / _kSvgW;
+    final sh = size.height / _kSvgH;
+    final fontSize = (size.width * 0.020).clamp(5.5, 9.0);
 
     for (final region in regions) {
       final c = region.centroid;
@@ -465,23 +226,22 @@ class _ClinicalBodyPainter extends CustomPainter {
       final cy = c.dy * sh;
 
       final isActive  = region.id == activeZoneId;
-      final hasScore  = regionScores[region.id]?.attributeSum != null &&
-                        regionScores[region.id]!.attributeSum > 0;
-      final hasHeat   = heatData != null && (heatData![region.id] ?? 0) > 0.01;
+      final hasScore  = (regionScores[region.id]?.attributeSum ?? 0) > 0;
+      final hasHeat   = (heatData?[region.id] ?? 0) > 0.01;
       final highlighted = isActive || hasScore || hasHeat;
 
       final tp = TextPainter(
         text: TextSpan(
           text: '${region.number}',
           style: TextStyle(
-            color: highlighted ? Colors.white : _kNumColor,
+            color: highlighted ? Colors.white : const Color(0xFF37474F),
             fontSize: fontSize,
             fontWeight: FontWeight.w700,
             shadows: const [
               Shadow(
-                color: Colors.black26,
+                color: Colors.black45,
                 blurRadius: 2,
-                offset: Offset(0.5, 0.5),
+                offset: Offset(0.4, 0.4),
               ),
             ],
           ),
@@ -489,20 +249,16 @@ class _ClinicalBodyPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      tp.paint(
-        canvas,
-        Offset(cx - tp.width / 2, cy - tp.height / 2),
-      );
+      tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
     }
   }
 
   @override
-  bool shouldRepaint(_ClinicalBodyPainter old) =>
+  bool shouldRepaint(_ZoneOverlayPainter old) =>
       old.regions != regions ||
       old.regionScores != regionScores ||
       old.heatData != heatData ||
-      old.activeZoneId != activeZoneId ||
-      old.isFront != isFront;
+      old.activeZoneId != activeZoneId;
 }
 
 // ─── Severity Legend ──────────────────────────────────────────────────────────
@@ -550,8 +306,7 @@ class EczemaSeverityLegend extends StatelessWidget {
 
 // ─── Visit Comparison Widget ──────────────────────────────────────────────────
 
-class EczemaBodyComparison extends StatefulWidget {
-  final EczemaBodyView view;
+class EczemaBodyComparison extends StatelessWidget {
   final Map<String, EasiRegionScore> scoresA;
   final Map<String, EasiRegionScore> scoresB;
   final String labelA;
@@ -563,7 +318,6 @@ class EczemaBodyComparison extends StatefulWidget {
 
   const EczemaBodyComparison({
     super.key,
-    required this.view,
     required this.scoresA,
     required this.scoresB,
     required this.labelA,
@@ -572,20 +326,9 @@ class EczemaBodyComparison extends StatefulWidget {
     required this.easiB,
     required this.severityA,
     required this.severityB,
+    // view param kept for call-site compat but unused.
+    EczemaBodyView view = EczemaBodyView.front,
   });
-
-  @override
-  State<EczemaBodyComparison> createState() => _EczemaBodyComparisonState();
-}
-
-class _EczemaBodyComparisonState extends State<EczemaBodyComparison> {
-  late EczemaBodyView _view;
-
-  @override
-  void initState() {
-    super.initState();
-    _view = widget.view;
-  }
 
   Color _easiColor(double easi) {
     if (easi == 0)  return const Color(0xFF9E9E9E);
@@ -598,7 +341,7 @@ class _EczemaBodyComparisonState extends State<EczemaBodyComparison> {
 
   @override
   Widget build(BuildContext context) {
-    final delta = widget.easiB - widget.easiA;
+    final delta = easiB - easiA;
     final improved = delta < 0;
     final deltaColor =
         improved ? Colors.green : (delta > 0 ? Colors.red : Colors.grey);
@@ -606,33 +349,20 @@ class _EczemaBodyComparisonState extends State<EczemaBodyComparison> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // View toggle
-        Center(
-          child: SegmentedButton<EczemaBodyView>(
-            segments: const [
-              ButtonSegment(value: EczemaBodyView.front, label: Text('Front')),
-              ButtonSegment(value: EczemaBodyView.back,  label: Text('Back')),
-            ],
-            selected: {_view},
-            onSelectionChanged: (s) => setState(() => _view = s.first),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Side-by-side body maps
+        // Side-by-side body maps (both show full front + back diagram).
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildSide(widget.labelA, widget.easiA, widget.severityA, widget.scoresA, true),
+              _buildSide(labelA, easiA, severityA, scoresA, true),
               Container(width: 1, color: Colors.grey.shade300),
-              _buildSide(widget.labelB, widget.easiB, widget.severityB, widget.scoresB, false),
+              _buildSide(labelB, easiB, severityB, scoresB, false),
             ],
           ),
         ),
         const SizedBox(height: 10),
 
-        // Delta summary chip
+        // Delta summary chip.
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -704,7 +434,6 @@ class _EczemaBodyComparisonState extends State<EczemaBodyComparison> {
               right: isA ? 4 : 0,
             ),
             child: EczemaBodyMap(
-              view: _view,
               regionScores: scores,
               readOnly: true,
             ),
@@ -715,18 +444,17 @@ class _EczemaBodyComparisonState extends State<EczemaBodyComparison> {
   }
 
   Widget _buildDeltaTable() {
-    final allIds = {...widget.scoresA.keys, ...widget.scoresB.keys};
+    final allIds = {...scoresA.keys, ...scoresB.keys};
     final changes = <(String, double, double)>[];
 
     for (final id in allIds) {
-      final a = widget.scoresA[id];
-      final b = widget.scoresB[id];
-      final easiA = a?.easiContribution(groupForRegion(id)) ?? 0;
-      final easiB = b?.easiContribution(groupForRegion(id)) ?? 0;
-      if ((easiA - easiB).abs() > 0.01) changes.add((id, easiA, easiB));
+      final a = scoresA[id];
+      final b = scoresB[id];
+      final ea = a?.easiContribution(groupForRegion(id)) ?? 0;
+      final eb = b?.easiContribution(groupForRegion(id)) ?? 0;
+      if ((ea - eb).abs() > 0.01) changes.add((id, ea, eb));
     }
-    changes.sort(
-        (x, y) => (y.$2 - y.$3).abs().compareTo((x.$2 - x.$3).abs()));
+    changes.sort((x, y) => (y.$2 - y.$3).abs().compareTo((x.$2 - x.$3).abs()));
 
     if (changes.isEmpty) return const SizedBox.shrink();
 
@@ -747,8 +475,7 @@ class _EczemaBodyComparisonState extends State<EczemaBodyComparison> {
           final lbl = region?.label ?? c.$1;
           final delta = c.$3 - c.$2;
           final improved = delta < 0;
-          final color =
-              improved ? Colors.green.shade600 : Colors.red.shade600;
+          final color = improved ? Colors.green.shade600 : Colors.red.shade600;
           return Padding(
             padding: const EdgeInsets.only(bottom: 3),
             child: Row(children: [
