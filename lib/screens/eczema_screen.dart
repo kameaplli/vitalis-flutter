@@ -286,21 +286,29 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => _EasiPanel(
-        region: region,
-        initial: current,
-        allScores: _regionScores,
-        onConfirm: (score) => setState(() {
-          _regionScores[region.id] = score;
-          _activeZoneId = null;
-        }),
-        onRemove: () => setState(() {
-          _regionScores.remove(region.id);
-          _activeZoneId = null;
-        }),
-        onDismiss: () => setState(() => _activeZoneId = null),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => _EasiPanel(
+          region: region,
+          initial: current,
+          allScores: _regionScores,
+          scrollController: scrollController,
+          onConfirm: (score) => setState(() {
+            _regionScores[region.id] = score;
+            _activeZoneId = null;
+          }),
+          onRemove: () => setState(() {
+            _regionScores.remove(region.id);
+            _activeZoneId = null;
+          }),
+          onDismiss: () => setState(() => _activeZoneId = null),
+        ),
       ),
     );
   }
@@ -364,6 +372,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       ),
       body: TabBarView(
         controller: _tabs,
+        // Disable horizontal swipe to switch tabs — it conflicts with
+        // pinch-zoom and zone taps on the body map. Tabs switch via tap only.
+        physics: const NeverScrollableScrollPhysics(),
         children: [_buildLogTab(), _buildHistoryTab(), _buildCompareTab(), _buildHeatmapTab()],
       ),
     );
@@ -1184,6 +1195,7 @@ class _EasiPanel extends StatefulWidget {
   final BodyRegion region;
   final EasiRegionScore initial;
   final Map<String, EasiRegionScore> allScores;
+  final ScrollController? scrollController;
   final void Function(EasiRegionScore) onConfirm;
   final VoidCallback onRemove;
   final VoidCallback onDismiss;
@@ -1192,6 +1204,7 @@ class _EasiPanel extends StatefulWidget {
     required this.region,
     required this.initial,
     required this.allScores,
+    this.scrollController,
     required this.onConfirm,
     required this.onRemove,
     required this.onDismiss,
@@ -1246,14 +1259,25 @@ class _EasiPanelState extends State<_EasiPanel> {
     final total = _totalEasi;
     final groupColor = _easiColor(_regional * 2);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16, right: 16, top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Column(
+      children: [
+        // Drag handle
+        Container(
+          margin: const EdgeInsets.only(top: 10, bottom: 6),
+          width: 40, height: 4,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            controller: widget.scrollController,
+            padding: EdgeInsets.only(
+              left: 16, right: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            children: [
             // ── Header ──────────────────────────────────────────────────────
             Row(children: [
               Container(
@@ -1429,6 +1453,7 @@ class _EasiPanelState extends State<_EasiPanel> {
           ],
         ),
       ),
+    ],
     );
   }
 }
