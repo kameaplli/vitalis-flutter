@@ -93,11 +93,16 @@ class BodyRegion {
 
 class EasiRegionScore {
   final String regionId;
-  final int erythema;
-  final int papulation;
-  final int excoriation;
-  final int lichenification;
+  // ── EASI core (affect score) ─────────────────────────────────────────────
+  final int erythema;        // Redness
+  final int papulation;      // Bumps & Swelling
+  final int excoriation;     // Scratch Marks
+  final int lichenification; // Skin Thickening
   final int areaScore;
+  // ── Supplementary (stored, not in EASI calc) ─────────────────────────────
+  final int oozing;          // Weeping / Crusting            (SCORAD)
+  final int dryness;         // Dryness / Flaking             (POEM/SCORAD)
+  final int pigmentation;    // Skin Darkening / PIH          (research)
 
   const EasiRegionScore({
     required this.regionId,
@@ -106,8 +111,12 @@ class EasiRegionScore {
     this.excoriation = 0,
     this.lichenification = 0,
     this.areaScore = 1,
+    this.oozing = 0,
+    this.dryness = 0,
+    this.pigmentation = 0,
   });
 
+  // EASI uses only the 4 core attributes; oozing/dryness are supplementary.
   int get attributeSum => erythema + papulation + excoriation + lichenification;
   int get level => (attributeSum / 12.0 * 10).round();
   double easiContribution(EasiGroup group) =>
@@ -121,6 +130,9 @@ class EasiRegionScore {
     'lichenification': lichenification,
     'area_score': areaScore,
     'level': level,
+    'oozing': oozing,
+    'dryness': dryness,
+    'pigmentation': pigmentation,
   };
 
   factory EasiRegionScore.fromJson(Map<String, dynamic> json) {
@@ -131,6 +143,9 @@ class EasiRegionScore {
       excoriation: (json['excoriation'] as num?)?.toInt() ?? 0,
       lichenification: (json['lichenification'] as num?)?.toInt() ?? 0,
       areaScore: (json['area_score'] as num?)?.toInt() ?? 1,
+      oozing: (json['oozing'] as num?)?.toInt() ?? 0,
+      dryness: (json['dryness'] as num?)?.toInt() ?? 0,
+      pigmentation: (json['pigmentation'] as num?)?.toInt() ?? 0,
     );
   }
 }
