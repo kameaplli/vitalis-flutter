@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +6,7 @@ import '../providers/selected_person_provider.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/weight_log.dart';
-import '../widgets/line_chart_widget.dart';
+import '../widgets/weight_chart_widget.dart';
 
 /// Standalone route screen — wraps WeightContent in a Scaffold.
 class WeightScreen extends ConsumerWidget {
@@ -86,30 +85,69 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      height: 200,
-                      child: histAsync.when(
-                        skipLoadingOnReload: true,
-                        loading: () => const Center(
-                            child: CircularProgressIndicator()),
-                        error: (e, _) => Center(child: Text('$e')),
-                        data: (logs) {
-                          if (logs.isEmpty) {
-                            return const Center(
-                                child: Text('No weight entries yet'));
-                          }
-                          final spots = logs.asMap().entries.map((e) {
-                            return FlSpot(
-                                e.key.toDouble(), e.value.weight);
-                          }).toList();
-                          final dates =
-                              logs.map((l) => l.date).toList();
-                          return LineChartWidget(
-                              spots: spots,
-                              xDates: dates,
-                              yLabel: 'kg');
-                        },
+                    histAsync.when(
+                      skipLoadingOnReload: true,
+                      loading: () => const SizedBox(
+                        height: 200,
+                        child: Center(child: CircularProgressIndicator()),
                       ),
+                      error: (e, _) => SizedBox(
+                        height: 200,
+                        child: Center(child: Text('$e')),
+                      ),
+                      data: (history) {
+                        // BMI badge
+                        final latest = history.entries.isNotEmpty ? history.entries.last : null;
+                        final ideal = history.idealWeight;
+                        final idealMin = history.idealMin;
+                        final idealMax = history.idealMax;
+                        String? bmiLabel;
+                        if (latest != null && idealMin != null && idealMax != null) {
+                          final w = latest.weight;
+                          if (w < idealMin) {
+                            bmiLabel = '${(idealMin - w).toStringAsFixed(1)} kg below ideal';
+                          } else if (w > idealMax) {
+                            bmiLabel = '${(w - idealMax).toStringAsFixed(1)} kg above ideal';
+                          } else {
+                            bmiLabel = 'In healthy weight range';
+                          }
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            WeightChartWidget(history: history),
+                            if (bmiLabel != null) ...[
+                              const SizedBox(height: 8),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (latest!.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
+                                        ? Colors.green.withOpacity(0.12)
+                                        : Colors.orange.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
+                                          ? Colors.green.shade400
+                                          : Colors.orange.shade400,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    bmiLabel,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
+                                          ? Colors.green.shade700
+                                          : Colors.orange.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -168,8 +206,8 @@ class _WeightContentState extends ConsumerState<WeightContent> {
               skipLoadingOnReload: true,
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
-              data: (logs) {
-                if (logs.isEmpty) return const SizedBox.shrink();
+              data: (history) {
+                if (history.entries.isEmpty) return const SizedBox.shrink();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -188,11 +226,11 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                       child: ListView.separated(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: logs.length,
+                        itemCount: history.entries.length,
                         separatorBuilder: (_, __) => const Divider(
                             height: 1, indent: 16),
                         itemBuilder: (ctx, i) {
-                          final log = logs[i];
+                          final log = history.entries[i];
                           return Dismissible(
                             key: Key(log.id),
                             direction: DismissDirection.horizontal,

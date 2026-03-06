@@ -13,7 +13,18 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/grocery_models.dart';
 import '../providers/grocery_provider.dart';
-import '../providers/selected_person_provider.dart';
+
+// ── Bulk item state ────────────────────────────────────────────────────────────
+
+class _BulkItem {
+  final String path;
+  String status; // 'ready' | 'uploading' | 'done' | 'failed'
+  String? error;
+
+  _BulkItem({required this.path, this.status = 'ready', this.error});
+}
+
+// ── Screen ─────────────────────────────────────────────────────────────────────
 
 class ReceiptScanScreen extends ConsumerStatefulWidget {
   const ReceiptScanScreen({super.key});
@@ -31,6 +42,11 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   GroceryReceipt? _doneReceipt;
   String? _failureError;
   Timer? _pollTimer;
+
+  // Bulk upload state
+  List<_BulkItem> _bulkItems = [];
+  bool _bulkMode = false;
+  int _bulkDone = 0;
 
   @override
   void dispose() {
@@ -112,15 +128,13 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   // ── Confirm (done) ─────────────────────────────────────────────────────────
 
   void _confirm() {
-    final person = ref.read(selectedPersonProvider);
-    // Invalidate all grocery providers so the list and analytics refresh
-    ref.invalidate(groceryReceiptsProvider(person));
-    ref.invalidate(grocerySpendingProvider('$person:month'));
-    ref.invalidate(grocerySpendingProvider('$person:3month'));
-    ref.invalidate(grocerySpendingProvider('$person:year'));
-    ref.invalidate(groceryNutritionProvider('$person:month'));
-    ref.invalidate(groceryNutritionProvider('$person:3month'));
-    ref.invalidate(groceryNutritionProvider('$person:year'));
+    ref.invalidate(groceryReceiptsProvider('self'));
+    ref.invalidate(grocerySpendingProvider('self:month'));
+    ref.invalidate(grocerySpendingProvider('self:3month'));
+    ref.invalidate(grocerySpendingProvider('self:year'));
+    ref.invalidate(groceryNutritionProvider('self:month'));
+    ref.invalidate(groceryNutritionProvider('self:3month'));
+    ref.invalidate(groceryNutritionProvider('self:year'));
     context.go('/grocery');
   }
 
@@ -131,6 +145,53 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       _pollStatus   = null;
       _doneReceipt  = null;
       _failureError = null;
+    });
+  }
+
+  // ── Bulk upload ────────────────────────────────────────────────────────────
+
+  Future<void> _pickMultiple() async {
+    final files = await _picker.pickMultiImage(imageQuality: 85);
+    if (files.isEmpty) return;
+    setState(() {
+      _bulkItems = files.map((f) => _BulkItem(path: f.path)).toList();
+      _bulkMode  = true;
+      _bulkDone  = 0;
+    });
+  }
+
+  Future<void> _uploadAll() async {
+    for (int i = 0; i < _bulkItems.length; i++) {
+      if (!mounted) return;
+      setState(() => _bulkItems[i].status = 'uploading');
+      try {
+        final formData = FormData.fromMap({
+          'file': await MultipartFile.fromFile(
+              _bulkItems[i].path, filename: 'receipt.jpg'),
+        });
+        await apiClient.dio.post(ApiConstants.groceryReceipts, data: formData);
+        setState(() {
+          _bulkItems[i].status = 'done';
+          _bulkDone++;
+        });
+      } catch (e) {
+        setState(() {
+          _bulkItems[i].status = 'failed';
+          _bulkItems[i].error  = e.toString();
+        });
+      }
+    }
+    // Invalidate providers so list and analytics refresh
+    ref.invalidate(groceryReceiptsProvider('self'));
+    ref.invalidate(grocerySpendingProvider('self:month'));
+    ref.invalidate(groceryNutritionProvider('self:month'));
+  }
+
+  void _cancelBulk() {
+    setState(() {
+      _bulkMode  = false;
+      _bulkItems = [];
+      _bulkDone  = 0;
     });
   }
 
@@ -145,14 +206,28 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   }
 
   Widget _buildBody() {
+    // Bulk mode
+    if (_bulkMode) {
+      return _BulkView(
+        items:       _bulkItems,
+        uploading:   _bulkItems.any((i) => i.status == 'uploading'),
+        done:        _bulkDone,
+        onUploadAll: _uploadAll,
+        onCancel:    _cancelBulk,
+        onDone:      () => context.go('/grocery'),
+      );
+    }
+
     // After done — show parsed items for review
     if (_doneReceipt != null) return _DoneView(receipt: _doneReceipt!, onConfirm: _confirm);
 
     // After failed
-    if (_pollStatus == 'failed') return _FailedView(
-      errorMessage: _failureError,
-      onRetry: _retry,
-    );
+    if (_pollStatus == 'failed') {
+      return _FailedView(
+        errorMessage: _failureError,
+        onRetry: _retry,
+      );
+    }
 
     // Processing spinner
     if (_pollStatus != null && _pollStatus != 'done') {
@@ -161,11 +236,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
     // Initial / upload flow
     return _PickView(
-      image:     _image,
-      uploading: _uploading,
-      onCamera:  () => _pickImage(ImageSource.camera),
-      onGallery: () => _pickImage(ImageSource.gallery),
-      onUpload:  _upload,
+      image:           _image,
+      uploading:       _uploading,
+      onCamera:        () => _pickImage(ImageSource.camera),
+      onGallery:       () => _pickImage(ImageSource.gallery),
+      onUpload:        _upload,
+      onMultipleUpload: _pickMultiple,
     );
   }
 }
@@ -175,7 +251,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 class _PickView extends StatelessWidget {
   final File? image;
   final bool uploading;
-  final VoidCallback onCamera, onGallery, onUpload;
+  final VoidCallback onCamera, onGallery, onUpload, onMultipleUpload;
 
   const _PickView({
     required this.image,
@@ -183,6 +259,7 @@ class _PickView extends StatelessWidget {
     required this.onCamera,
     required this.onGallery,
     required this.onUpload,
+    required this.onMultipleUpload,
   });
 
   @override
@@ -221,6 +298,15 @@ class _PickView extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: onMultipleUpload,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Upload Multiple Bills'),
+                    ),
                   ),
                 ],
               ),
@@ -445,5 +531,115 @@ class _DoneView extends StatelessWidget {
       'personal_care': '🧴',
     };
     return emojis[cat] ?? '🛒';
+  }
+}
+
+// ── Bulk upload view ───────────────────────────────────────────────────────────
+
+class _BulkView extends StatelessWidget {
+  final List<_BulkItem> items;
+  final bool uploading;
+  final int done;
+  final VoidCallback onUploadAll;
+  final VoidCallback onCancel;
+  final VoidCallback onDone;
+
+  const _BulkView({
+    required this.items,
+    required this.uploading,
+    required this.done,
+    required this.onUploadAll,
+    required this.onCancel,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final allDone = items.every((i) => i.status == 'done' || i.status == 'failed');
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  allDone
+                      ? '$done of ${items.length} processed'
+                      : 'Upload Multiple Bills (${items.length})',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              TextButton(onPressed: onCancel, child: const Text('Cancel')),
+            ],
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: items.length,
+            itemBuilder: (ctx, i) {
+              final item = items[i];
+              Color badgeColor = Colors.grey;
+              IconData badgeIcon = Icons.hourglass_empty;
+              if (item.status == 'done')      { badgeColor = Colors.green;  badgeIcon = Icons.check_circle; }
+              if (item.status == 'failed')    { badgeColor = Colors.red;    badgeIcon = Icons.error; }
+              if (item.status == 'uploading') { badgeColor = cs.primary;    badgeIcon = Icons.upload; }
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(item.path),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Container(color: cs.surfaceContainerHighest),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4, right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                          color: Colors.white, shape: BoxShape.circle),
+                      child: Icon(badgeIcon, size: 16, color: badgeColor),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: allDone
+                ? FilledButton.icon(
+                    onPressed: onDone,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Done'),
+                  )
+                : FilledButton.icon(
+                    onPressed: uploading ? null : onUploadAll,
+                    icon: uploading
+                        ? const SizedBox(
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.cloud_upload_outlined),
+                    label: Text(uploading ? 'Uploading…' : 'Upload All'),
+                  ),
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -6,10 +6,7 @@ import '../models/grocery_models.dart';
 // Receipt list — keyed by person ID ('self' or family member UUID)
 final groceryReceiptsProvider =
     FutureProvider.family<List<GroceryReceipt>, String>((ref, person) async {
-  final res = await apiClient.dio.get(
-    ApiConstants.groceryReceipts,
-    queryParameters: person != 'self' ? {'person': person} : null,
-  );
+  final res = await apiClient.dio.get(ApiConstants.groceryReceipts);
   final data = res.data as Map<String, dynamic>;
   return (data['receipts'] as List)
       .map((e) => GroceryReceipt.fromJson(e as Map<String, dynamic>))
@@ -27,11 +24,10 @@ final groceryReceiptDetailProvider =
 final grocerySpendingProvider =
     FutureProvider.family<GrocerySpending, String>((ref, key) async {
   final parts  = key.split(':');
-  final person = parts[0];
   final period = parts.length > 1 ? parts[1] : 'month';
   final res = await apiClient.dio.get(
     ApiConstants.grocerySpending,
-    queryParameters: {'person': person, 'period': period},
+    queryParameters: {'period': period},
   );
   return GrocerySpending.fromJson(res.data as Map<String, dynamic>);
 });
@@ -40,11 +36,23 @@ final grocerySpendingProvider =
 final groceryNutritionProvider =
     FutureProvider.family<GroceryNutritionSpectrum, String>((ref, key) async {
   final parts  = key.split(':');
-  final person = parts[0];
   final period = parts.length > 1 ? parts[1] : 'month';
   final res = await apiClient.dio.get(
     ApiConstants.groceryNutrition,
-    queryParameters: {'person': person, 'period': period},
+    queryParameters: {'period': period},
   );
   return GroceryNutritionSpectrum.fromJson(res.data as Map<String, dynamic>);
+});
+
+// Category drill-down — keyed by "category:period"
+final groceryCategoryItemsProvider =
+    FutureProvider.family<GroceryCategoryItems, String>((ref, key) async {
+  final parts    = key.split(':');
+  final category = parts[0];
+  final period   = parts.length > 1 ? parts[1] : 'month';
+  final res = await apiClient.dio.get(
+    ApiConstants.groceryCategoryItems,
+    queryParameters: {'category': category, 'period': period},
+  );
+  return GroceryCategoryItems.fromJson(res.data as Map<String, dynamic>);
 });

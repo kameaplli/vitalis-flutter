@@ -8,7 +8,9 @@ import '../providers/dashboard_provider.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/food_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../providers/nutrition_analytics_provider.dart';
 import '../models/food_item.dart';
+import '../models/nutrition_analytics.dart';
 import '../core/timezone_util.dart';
 import 'entries_screen.dart' show NutritionHistoryContent;
 
@@ -46,7 +48,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
+    _tab = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -81,6 +83,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
           tabs: const [
             Tab(text: 'Log'),
             Tab(text: 'History'),
+            Tab(text: 'Analytics'),
           ],
         ),
       ),
@@ -213,6 +216,8 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
           ),
           // Tab 1: nutrition history
           const NutritionHistoryContent(),
+          // Tab 2: analytics
+          const _AnalyticsTab(),
         ],
       ),
     );
@@ -919,6 +924,439 @@ class _FoodList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ─── Analytics tab ────────────────────────────────────────────────────────────
+
+class _AnalyticsTab extends ConsumerStatefulWidget {
+  const _AnalyticsTab();
+  @override
+  ConsumerState<_AnalyticsTab> createState() => _AnalyticsTabState();
+}
+
+class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
+  int _days = 30;
+
+  @override
+  Widget build(BuildContext context) {
+    final person = ref.watch(selectedPersonProvider);
+    final key = '$person:$_days';
+    final async = ref.watch(nutritionAnalyticsProvider(key));
+
+    return Column(
+      children: [
+        // Period selector
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 7, label: Text('7d')),
+              ButtonSegment(value: 30, label: Text('30d')),
+              ButtonSegment(value: 90, label: Text('90d')),
+            ],
+            selected: {_days},
+            onSelectionChanged: (s) => setState(() => _days = s.first),
+          ),
+        ),
+        Expanded(
+          child: async.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (data) => _AnalyticsContent(data: data, days: _days),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnalyticsContent extends StatelessWidget {
+  final NutritionAnalyticsData data;
+  final int days;
+  const _AnalyticsContent({required this.data, required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _MacroDonut(data: data),
+        const SizedBox(height: 20),
+        Text('Meal Type Breakdown',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        ..._mealTypes.map((mt) => _MealTypeCard(
+              mealType: mt,
+              macros: data.byMealType[mt],
+              topFoods: data.mealFoods[mt] ?? [],
+              maxCalories: _maxMealCalories(data),
+            )),
+      ],
+    );
+  }
+
+  static const _mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+  double _maxMealCalories(NutritionAnalyticsData d) {
+    double max = 1;
+    for (final mt in _mealTypes) {
+      final c = d.byMealType[mt]?.calories ?? 0;
+      if (c > max) max = c;
+    }
+    return max;
+  }
+}
+
+// ─── Macro donut chart ────────────────────────────────────────────────────────
+
+class _MacroDonut extends StatefulWidget {
+  final NutritionAnalyticsData data;
+  const _MacroDonut({required this.data});
+  @override
+  State<_MacroDonut> createState() => _MacroDonutState();
+}
+
+class _MacroDonutState extends State<_MacroDonut> {
+  int? _touched;
+
+  void _showMacroSheet(BuildContext context, String macro, List<MacroFood> foods) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => _MacroFoodSheet(macro: macro, foods: foods),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.data.totals;
+    final total = t.protein + t.carbs + t.fat;
+    if (total <= 0) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: Text('No nutrition data for this period')),
+        ),
+      );
+    }
+    final sections = [
+      PieChartSectionData(
+        value: t.protein,
+        color: const Color(0xFF1565C0),
+        title: '${(t.protein / total * 100).toStringAsFixed(0)}%',
+        radius: _touched == 0 ? 60 : 50,
+        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+      PieChartSectionData(
+        value: t.carbs,
+        color: const Color(0xFF2E7D32),
+        title: '${(t.carbs / total * 100).toStringAsFixed(0)}%',
+        radius: _touched == 1 ? 60 : 50,
+        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+      PieChartSectionData(
+        value: t.fat,
+        color: const Color(0xFFE65100),
+        title: '${(t.fat / total * 100).toStringAsFixed(0)}%',
+        radius: _touched == 2 ? 60 : 50,
+        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+    ];
+    const macroKeys = ['protein', 'carbs', 'fat'];
+    const macroLabels = ['Protein', 'Carbs', 'Fat'];
+    const macroColors = [Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFFE65100)];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Macro Distribution',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text('Tap a segment to see top foods',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 180,
+              child: PieChart(
+                PieChartData(
+                  sections: sections,
+                  centerSpaceRadius: 40,
+                  pieTouchData: PieTouchData(
+                    touchCallback: (event, response) {
+                      if (event is FlTapUpEvent) {
+                        final idx = response?.touchedSection?.touchedSectionIndex;
+                        setState(() => _touched = idx);
+                        if (idx != null) {
+                          _showMacroSheet(
+                            context,
+                            macroLabels[idx],
+                            widget.data.macroFoods[macroKeys[idx]] ?? [],
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Legend
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (i) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(width: 10, height: 10,
+                      decoration: BoxDecoration(
+                          color: macroColors[i], shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Text(macroLabels[i], style: const TextStyle(fontSize: 12)),
+                ]),
+              )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Meal type card ───────────────────────────────────────────────────────────
+
+class _MealTypeCard extends StatelessWidget {
+  final String mealType;
+  final MealTypeMacros? macros;
+  final List<MacroFood> topFoods;
+  final double maxCalories;
+
+  const _MealTypeCard({
+    required this.mealType,
+    required this.macros,
+    required this.topFoods,
+    required this.maxCalories,
+  });
+
+  static const _icons = {
+    'breakfast': Icons.wb_sunny_outlined,
+    'lunch':     Icons.light_mode_outlined,
+    'dinner':    Icons.nights_stay_outlined,
+    'snack':     Icons.local_cafe_outlined,
+  };
+
+  void _showFoodSheet(BuildContext context) {
+    if (topFoods.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => _MealFoodSheet(mealType: mealType, foods: topFoods),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final m = macros;
+    if (m == null || m.calories == 0) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: ListTile(
+          leading: Icon(_icons[mealType] ?? Icons.restaurant_outlined,
+              color: Colors.grey),
+          title: Text(_capitalize(mealType)),
+          subtitle: const Text('No data'),
+          dense: true,
+        ),
+      );
+    }
+    final frac = (m.calories / maxCalories).clamp(0.0, 1.0);
+    final total = m.protein + m.carbs + m.fat;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => _showFoodSheet(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(_icons[mealType] ?? Icons.restaurant_outlined,
+                    size: 20, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(_capitalize(mealType),
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const Spacer(),
+                Text('${m.calories.toStringAsFixed(0)} kcal',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold)),
+                if (topFoods.isNotEmpty) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 16,
+                      color: Colors.grey.shade500),
+                ],
+              ]),
+              const SizedBox(height: 6),
+              // Calorie bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: frac,
+                  minHeight: 8,
+                  backgroundColor: Colors.grey.shade200,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Macro sub-bars (stacked horizontal)
+              if (total > 0)
+                Row(children: [
+                  _macroChip('P', m.protein, total, const Color(0xFF1565C0)),
+                  const SizedBox(width: 4),
+                  _macroChip('C', m.carbs, total, const Color(0xFF2E7D32)),
+                  const SizedBox(width: 4),
+                  _macroChip('F', m.fat, total, const Color(0xFFE65100)),
+                ]),
+              Text('${m.logCount} logs',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _macroChip(String label, double val, double total, Color color) {
+    return Expanded(
+      flex: (val / total * 100).round().clamp(1, 100),
+      child: Container(
+        height: 6,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+    );
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+// ─── Bottom sheet: top foods for a macro ─────────────────────────────────────
+
+class _MacroFoodSheet extends StatelessWidget {
+  final String macro;
+  final List<MacroFood> foods;
+  const _MacroFoodSheet({required this.macro, required this.foods});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.45,
+      minChildSize: 0.3,
+      maxChildSize: 0.8,
+      expand: false,
+      builder: (_, ctrl) => Column(children: [
+        const SizedBox(height: 8),
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2))),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text('Top $macro Sources',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
+        Expanded(
+          child: foods.isEmpty
+              ? const Center(child: Text('No data'))
+              : ListView.separated(
+                  controller: ctrl,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: foods.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final f = foods[i];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 14,
+                        child: Text('${i + 1}',
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                      title: Text(f.foodName, style: const TextStyle(fontSize: 14)),
+                      subtitle: Text('${f.occurrences}\u00d7 logged'),
+                      trailing: Text(
+                        '${f.total.toStringAsFixed(1)} g',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      dense: true,
+                    );
+                  },
+                ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Bottom sheet: top foods for a meal type ─────────────────────────────────
+
+class _MealFoodSheet extends StatelessWidget {
+  final String mealType;
+  final List<MacroFood> foods;
+  const _MealFoodSheet({required this.mealType, required this.foods});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = mealType.isEmpty
+        ? 'Top Foods'
+        : 'Top ${mealType[0].toUpperCase()}${mealType.substring(1)} Foods';
+    return DraggableScrollableSheet(
+      initialChildSize: 0.45,
+      minChildSize: 0.3,
+      maxChildSize: 0.8,
+      expand: false,
+      builder: (_, ctrl) => Column(children: [
+        const SizedBox(height: 8),
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2))),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ),
+        Expanded(
+          child: foods.isEmpty
+              ? const Center(child: Text('No data'))
+              : ListView.separated(
+                  controller: ctrl,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: foods.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final f = foods[i];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 14,
+                        child: Text('${i + 1}',
+                            style: const TextStyle(fontSize: 12)),
+                      ),
+                      title: Text(f.foodName, style: const TextStyle(fontSize: 14)),
+                      subtitle: Text('${f.occurrences}\u00d7 logged'),
+                      trailing: Text(
+                        '${f.total.toStringAsFixed(1)} kcal',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      dense: true,
+                    );
+                  },
+                ),
+        ),
+      ]),
     );
   }
 }

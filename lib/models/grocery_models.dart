@@ -220,3 +220,42 @@ class GroceryNutritionSpectrum {
             .toList(),
       );
 }
+
+class GroceryCategoryItemDetail {
+  final String name;
+  final double totalSpend;
+  final double quantity;
+  final int occurrences;
+  final double? caloriesEst;
+
+  const GroceryCategoryItemDetail({
+    required this.name,
+    required this.totalSpend,
+    required this.quantity,
+    required this.occurrences,
+    this.caloriesEst,
+  });
+
+  factory GroceryCategoryItemDetail.fromJson(Map<String, dynamic> j) =>
+      GroceryCategoryItemDetail(
+        name:        j['name'] as String? ?? '',
+        totalSpend:  (j['total_spend'] as num?)?.toDouble() ?? 0,
+        quantity:    (j['quantity'] as num?)?.toDouble() ?? 0,
+        occurrences: (j['occurrences'] as num?)?.toInt() ?? 0,
+        caloriesEst: (j['calories_est'] as num?)?.toDouble(),
+      );
+}
+
+class GroceryCategoryItems {
+  final String category;
+  final List<GroceryCategoryItemDetail> items;
+
+  const GroceryCategoryItems({required this.category, required this.items});
+
+  factory GroceryCategoryItems.fromJson(Map<String, dynamic> j) => GroceryCategoryItems(
+        category: j['category'] as String,
+        items: (j['items'] as List)
+            .map((e) => GroceryCategoryItemDetail.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}

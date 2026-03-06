@@ -17,12 +17,13 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
     state = AsyncValue.data(user);
   }
 
-  Future<void> updateProfile({String? name, int? age, String? gender}) async {
+  Future<void> updateProfile({String? name, int? age, String? gender, double? height}) async {
     try {
       final res = await apiClient.dio.put(ApiConstants.profile, data: {
         if (name != null) 'name': name,
         if (age != null) 'age': age,
         if (gender != null) 'gender': gender,
+        if (height != null) 'height': height,
       });
       final user = AppUser.fromJson(res.data);
       state = AsyncValue.data(user);

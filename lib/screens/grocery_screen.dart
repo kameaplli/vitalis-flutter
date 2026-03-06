@@ -826,11 +826,28 @@ class _AnalyticsTab extends ConsumerStatefulWidget {
 class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
   String _period = 'month';
 
+  void _showCategorySheet(BuildContext context, String category) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (ctx, ctrl) =>
+            _CategoryItemsSheet(category: category, period: _period),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final key         = '${widget.person}:$_period';
-    final spendAsync  = ref.watch(grocerySpendingProvider(key));
-    final nutriAsync  = ref.watch(groceryNutritionProvider(key));
+    final key        = '${widget.person}:$_period';
+    final spendAsync = ref.watch(grocerySpendingProvider(key));
+    final nutriAsync = ref.watch(groceryNutritionProvider(key));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -866,7 +883,11 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
                 ? const _EmptyAnalytics()
                 : Column(
                     children: [
-                      _SpendingDonut(spending: spending),
+                      _SpendingDonut(
+                        spending: spending,
+                        period:   _period,
+                        onTap:    (cat) => _showCategorySheet(context, cat),
+                      ),
                       const SizedBox(height: 12),
                       _Legend(
                         items: spending.byCategory
@@ -899,7 +920,10 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
                     children: [
                       _MacroSummary(spectrum: spectrum),
                       const SizedBox(height: 16),
-                      _CaloriesBarChart(spectrum: spectrum),
+                      _CaloriesBarChart(
+                        spectrum: spectrum,
+                        onTap:    (cat) => _showCategorySheet(context, cat),
+                      ),
                     ],
                   ),
           ),
@@ -923,20 +947,41 @@ class _EmptyAnalytics extends StatelessWidget {
       );
 }
 
-class _SpendingDonut extends StatelessWidget {
+// ── Spending donut chart (interactive) ────────────────────────────────────────
+
+class _SpendingDonut extends StatefulWidget {
   final GrocerySpending spending;
-  const _SpendingDonut({required this.spending});
+  final String period;
+  final void Function(String category) onTap;
+
+  const _SpendingDonut({
+    required this.spending,
+    required this.period,
+    required this.onTap,
+  });
+
+  @override
+  State<_SpendingDonut> createState() => _SpendingDonutState();
+}
+
+class _SpendingDonutState extends State<_SpendingDonut> {
+  int? _touchedIndex;
 
   @override
   Widget build(BuildContext context) {
-    final sections = spending.byCategory.map((c) {
+    final sections = widget.spending.byCategory.asMap().entries.map((entry) {
+      final i       = entry.key;
+      final c       = entry.value;
+      final isTouched = _touchedIndex == i;
       return PieChartSectionData(
-        value:     c.amount,
-        color:     _catColor(c.category),
-        radius:    50,
-        title:     c.percentage >= 8 ? '${c.percentage.toStringAsFixed(0)}%' : '',
-        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
-            color: Colors.white),
+        value:      c.amount,
+        color:      _catColor(c.category),
+        radius:     isTouched ? 60 : 50,
+        title:      c.percentage >= 8
+            ? '${c.percentage.toStringAsFixed(0)}%'
+            : '',
+        titleStyle: const TextStyle(
+            fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
       );
     }).toList();
 
@@ -946,22 +991,43 @@ class _SpendingDonut extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           PieChart(PieChartData(
-            sections:        sections,
+            sections:          sections,
             centerSpaceRadius: 60,
-            sectionsSpace:   2,
+            sectionsSpace:     2,
+            pieTouchData: PieTouchData(
+              touchCallback: (FlTouchEvent event, PieTouchResponse? resp) {
+                if (!event.isInterestedForInteractions ||
+                    resp == null ||
+                    resp.touchedSection == null) {
+                  setState(() => _touchedIndex = null);
+                  return;
+                }
+                final idx = resp.touchedSection!.touchedSectionIndex;
+                setState(() => _touchedIndex = idx);
+                if (event is FlTapUpEvent &&
+                    idx >= 0 &&
+                    idx < widget.spending.byCategory.length) {
+                  widget.onTap(widget.spending.byCategory[idx].category);
+                }
+              },
+            ),
           )),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('\$${spending.totalSpend.toStringAsFixed(2)}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              Text('Total spend',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.outline)),
+              Text(
+                '\$${widget.spending.totalSpend.toStringAsFixed(2)}',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Total spend',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).colorScheme.outline),
+              ),
             ],
           ),
         ],
@@ -1040,9 +1106,13 @@ class _MacroTile extends StatelessWidget {
   );
 }
 
+// ── Calories bar chart (interactive) ─────────────────────────────────────────
+
 class _CaloriesBarChart extends StatelessWidget {
   final GroceryNutritionSpectrum spectrum;
-  const _CaloriesBarChart({required this.spectrum});
+  final void Function(String category) onTap;
+
+  const _CaloriesBarChart({required this.spectrum, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1054,7 +1124,19 @@ class _CaloriesBarChart extends StatelessWidget {
       height: 200,
       child: BarChart(BarChartData(
         maxY: maxVal * 1.2,
-        barTouchData: BarTouchData(enabled: false),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchCallback: (FlTouchEvent event, BarTouchResponse? resp) {
+            if (event is FlTapUpEvent &&
+                resp != null &&
+                resp.spot != null) {
+              final idx = resp.spot!.touchedBarGroupIndex;
+              if (idx >= 0 && idx < cats.length) {
+                onTap(cats[idx].category);
+              }
+            }
+          },
+        ),
         titlesData: FlTitlesData(
           leftTitles:   AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles:    AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -1077,8 +1159,8 @@ class _CaloriesBarChart extends StatelessWidget {
             ),
           ),
         ),
-        gridData:    FlGridData(show: false),
-        borderData:  FlBorderData(show: false),
+        gridData:   FlGridData(show: false),
+        borderData: FlBorderData(show: false),
         barGroups: List.generate(cats.length, (i) {
           final cat = cats[i];
           return BarChartGroupData(x: i, barRods: [
@@ -1091,6 +1173,94 @@ class _CaloriesBarChart extends StatelessWidget {
           ]);
         }),
       )),
+    );
+  }
+}
+
+// ── Category items drill-down sheet ───────────────────────────────────────────
+
+class _CategoryItemsSheet extends ConsumerWidget {
+  final String category;
+  final String period;
+  const _CategoryItemsSheet({required this.category, required this.period});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final key   = '$category:$period';
+    final async = ref.watch(groceryCategoryItemsProvider(key));
+    final cs    = Theme.of(context).colorScheme;
+    final fmt   = NumberFormat.currency(symbol: '\$');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: cs.outlineVariant,
+                borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              Container(
+                width: 14, height: 14,
+                decoration: BoxDecoration(
+                    color: _catColor(category),
+                    borderRadius: BorderRadius.circular(3)),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _catLabel(category),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ]),
+          ),
+          Expanded(
+            child: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (data) {
+                if (data.items.isEmpty) {
+                  return const Center(child: Text('No items found'));
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: data.items.length,
+                  itemBuilder: (ctx, i) {
+                    final item = data.items[i];
+                    return ListTile(
+                      title: Text(
+                        item.name,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        '×${item.quantity.toStringAsFixed(0)} · ${item.occurrences} visit${item.occurrences != 1 ? 's' : ''}'
+                        '${item.caloriesEst != null ? ' · ~${item.caloriesEst!.round()} kcal' : ''}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      trailing: Text(
+                        fmt.format(item.totalSpend),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
