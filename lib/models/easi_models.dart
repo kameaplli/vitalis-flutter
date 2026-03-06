@@ -626,6 +626,42 @@ const kBackRegions = <BodyRegion>[
   ),
 ];
 
+// ─── Drawn Patch ──────────────────────────────────────────────────────────────
+// Represents one freehand stroke drawn on the body map.
+// Coordinates are in 1548×1134 image pixel space.
+
+class DrawnPatch {
+  final String zoneId;       // auto-detected zone this patch belongs to
+  final List<Offset> points; // stroke points in image pixel space
+  final int severity;        // 0-3
+
+  const DrawnPatch({
+    required this.zoneId,
+    required this.points,
+    required this.severity,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'zone_id': zoneId,
+    'severity': severity,
+    // Store as rounded int pairs to keep payload small
+    'pts': points.map((p) => [p.dx.round(), p.dy.round()]).toList(),
+  };
+
+  factory DrawnPatch.fromJson(Map<String, dynamic> json) {
+    return DrawnPatch(
+      zoneId: json['zone_id'] as String? ?? '',
+      severity: (json['severity'] as num?)?.toInt() ?? 1,
+      points: (json['pts'] as List? ?? []).expand((p) {
+        if (p is List && p.length >= 2) {
+          return [Offset((p[0] as num).toDouble(), (p[1] as num).toDouble())];
+        }
+        return <Offset>[];
+      }).toList(),
+    );
+  }
+}
+
 // ─── Convenience lookup ───────────────────────────────────────────────────────
 
 BodyRegion? findRegion(String id) {

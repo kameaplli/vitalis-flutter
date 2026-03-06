@@ -79,6 +79,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   final Map<String, EasiRegionScore> _regionScores = {};
   String? _activeZoneId;
 
+  // ── Draw mode ────────────────────────────────────────────────────────────
+  bool _drawMode = false;
+  int  _drawSeverity = 1;         // 0-3: current draw colour
+  final List<DrawnPatch> _drawnPatches = [];
+
   // EASI overall
   int _itchVas = 0;
   bool _sleepDisrupted = false;
@@ -126,12 +131,15 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     setState(() => _saving = true);
     try {
       final person = ref.read(selectedPersonProvider);
-      final areasJson = _regionScores.values.map((s) => s.toJson()).toList();
+      final areasPayload = {
+        'zones':   _regionScores.values.map((s) => s.toJson()).toList(),
+        'patches': _drawnPatches.map((p) => p.toJson()).toList(),
+      };
       final data = {
         'log_date': DateFormat('yyyy-MM-dd').format(_date),
         'log_time': _time.format(context),
         'itch_severity': _itchVas,
-        'affected_areas': jsonEncode(areasJson),
+        'affected_areas': jsonEncode(areasPayload),
         'sleep_disrupted': _sleepDisrupted,
         'sleep_hours_lost': _sleepDisrupted ? _sleepHoursLost : null,
         'new_detergent': _trigNewDetergent,
@@ -184,6 +192,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _editingId = null;
       _regionScores.clear();
       _activeZoneId = null;
+      _drawMode = false;
+      _drawSeverity = 1;
+      _drawnPatches.clear();
       _itchVas = 0;
       _sleepDisrupted = false;
       _sleepHoursLost = 0;
@@ -214,7 +225,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _sleepDisrupted = log.sleepDisrupted ?? false;
       _notesCtrl.text = log.notes ?? '';
       _regionScores..clear()..addAll(_logToScores(log));
+      _drawnPatches..clear()..addAll(log.parsedPatches);
       _activeZoneId = null;
+      _drawMode = false;
     });
     _tabs.animateTo(0);
   }
@@ -252,6 +265,15 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   void _onZoneTap(BodyRegion region) {
     setState(() => _activeZoneId = region.id);
     _showEasiPanel(region);
+  }
+
+  void _onPatchDrawn(DrawnPatch patch, BodyRegion? zone) {
+    setState(() => _drawnPatches.add(patch));
+    // Auto-open EASI scoring panel for newly-touched zone if not yet scored.
+    if (zone != null && !_regionScores.containsKey(zone.id)) {
+      setState(() => _activeZoneId = zone.id);
+      _showEasiPanel(zone);
+    }
   }
 
   void _showEasiPanel(BodyRegion region) {
@@ -370,16 +392,74 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           ]),
           const SizedBox(height: 12),
 
-          // Instruction
+          // ── Mode toggle + draw controls ───────────────────────────────────
           Row(children: [
-            Icon(Icons.touch_app_outlined, size: 14, color: cs.onSurfaceVariant),
-            const SizedBox(width: 4),
-            Text('Tap a body zone to describe how the skin looks there',
-                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+            // Zone / Draw toggle
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Zone'), icon: Icon(Icons.touch_app, size: 14)),
+                ButtonSegment(value: true,  label: Text('Draw'), icon: Icon(Icons.draw,      size: 14)),
+              ],
+              selected: {_drawMode},
+              onSelectionChanged: (s) => setState(() => _drawMode = s.first),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Draw severity colour selector (only in draw mode)
+            if (_drawMode) ...[
+              Text('Severity:', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+              const SizedBox(width: 6),
+              ...[1, 2, 3].map((sev) {
+                const colors = [
+                  Color(0xFFFF9800), Color(0xFFEF6C00), Color(0xFFB71C1C),
+                ];
+                const labels = ['Mild', 'Moderate', 'Severe'];
+                final selected = _drawSeverity == sev;
+                return GestureDetector(
+                  onTap: () => setState(() => _drawSeverity = sev),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: selected ? colors[sev - 1].withValues(alpha: 0.20) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: colors[sev - 1].withValues(alpha: selected ? 0.8 : 0.3),
+                        width: selected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Text(labels[sev - 1],
+                      style: TextStyle(fontSize: 10,
+                          color: selected ? colors[sev - 1] : cs.onSurfaceVariant,
+                          fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+                  ),
+                );
+              }),
+              const Spacer(),
+              // Clear last stroke
+              if (_drawnPatches.isNotEmpty)
+                TextButton.icon(
+                  icon: const Icon(Icons.undo, size: 14),
+                  label: const Text('Undo', style: TextStyle(fontSize: 11)),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  onPressed: () => setState(() => _drawnPatches.removeLast()),
+                ),
+            ] else ...[
+              Icon(Icons.touch_app_outlined, size: 13, color: cs.onSurfaceVariant),
+              const SizedBox(width: 3),
+              Text('Tap a zone to score  ·  Pinch to zoom',
+                  style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+            ],
           ]),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
 
-          // Body map — front and back shown side by side.
+          // Body map — zoomable, with optional freehand drawing.
           Card(
             clipBehavior: Clip.hardEdge,
             child: Padding(
@@ -387,7 +467,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               child: EczemaBodyMap(
                 regionScores: _regionScores,
                 activeZoneId: _activeZoneId,
-                onZoneTap: _onZoneTap,
+                onZoneTap: _drawMode ? null : _onZoneTap,
+                drawMode: _drawMode,
+                drawSeverity: _drawSeverity,
+                drawnPatches: _drawnPatches,
+                onPatchDrawn: _onPatchDrawn,
               ),
             ),
           ),
