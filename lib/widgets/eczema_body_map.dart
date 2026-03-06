@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../models/easi_models.dart';
 
 // ─── Canvas dimensions ─────────────────────────────────────────────────────
-// Matches the body_map.svg viewBox: 440 wide (front left, back right), 500 tall.
-const double _kSvgW = 440.0;
-const double _kSvgH = 500.0;
-const double _kAspect = _kSvgH / _kSvgW; // ≈ 1.136
+// Matches body_map_clinical.png: 1548 wide × 1134 tall (landscape, front+back).
+const double _kSvgW = 1548.0;
+const double _kSvgH = 1134.0;
+const double _kAspect = _kSvgH / _kSvgW; // ≈ 0.733
 
 // Kept for API compatibility with eczema_screen callers.
 // The view parameter is no longer used for display — both front and back
@@ -27,7 +26,7 @@ Color severityColor(double t) {
 Color _levelColor(int level) => severityColor(level / 10.0);
 
 // ─── EczemaBodyMap ────────────────────────────────────────────────────────────
-// Renders the body_map.svg (front + back side-by-side) as the background,
+// Renders body_map_clinical.png (front + back side-by-side) as the background,
 // then draws semi-transparent severity overlays and zone numbers on top.
 
 class EczemaBodyMap extends StatelessWidget {
@@ -85,9 +84,9 @@ class EczemaBodyMap extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Layer 1: actual medical diagram SVG.
-              SvgPicture.asset(
-                'assets/body_map.svg',
+              // Layer 1: clinical medical diagram PNG.
+              Image.asset(
+                'assets/body_map_clinical.png',
                 width: w,
                 height: h,
                 fit: BoxFit.fill,
@@ -218,7 +217,7 @@ class _ZoneOverlayPainter extends CustomPainter {
   void _drawZoneNumbers(Canvas canvas, Size size) {
     final sw = size.width / _kSvgW;
     final sh = size.height / _kSvgH;
-    final fontSize = (size.width * 0.020).clamp(5.5, 9.0);
+    final fontSize = (size.width * 0.013).clamp(5.0, 8.5);
 
     for (final region in regions) {
       final c = region.centroid;
