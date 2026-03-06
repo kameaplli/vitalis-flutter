@@ -374,7 +374,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           Row(children: [
             Icon(Icons.touch_app_outlined, size: 14, color: cs.onSurfaceVariant),
             const SizedBox(width: 4),
-            Text('Tap any body zone to score EASI attributes',
+            Text('Tap a body zone to describe how the skin looks there',
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
           ]),
           const SizedBox(height: 4),
@@ -429,7 +429,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Text('Pruritus (Itch) VAS',
+                  Text('Itch Intensity',
                       style: Theme.of(context).textTheme.titleSmall),
                   const Spacer(),
                   Container(
@@ -1097,6 +1097,7 @@ class _EasiPanel extends StatefulWidget {
 
 class _EasiPanelState extends State<_EasiPanel> {
   late int _erythema, _papulation, _excoriation, _lichenification, _areaScore;
+  late int _oozing, _dryness, _pigmentation;
 
   @override
   void initState() {
@@ -1106,6 +1107,9 @@ class _EasiPanelState extends State<_EasiPanel> {
     _excoriation = widget.initial.excoriation;
     _lichenification = widget.initial.lichenification;
     _areaScore = widget.initial.areaScore;
+    _oozing = widget.initial.oozing;
+    _dryness = widget.initial.dryness;
+    _pigmentation = widget.initial.pigmentation;
   }
 
   double get _regional {
@@ -1126,8 +1130,10 @@ class _EasiPanelState extends State<_EasiPanel> {
     return _computeEasi(updated);
   }
 
-  static const _areaLabels = ['<1%', '1–9%', '10–29%', '30–49%', '50–69%', '≥70%'];
-  static const _attrLabels = ['None', 'Slight', 'Moderate', 'Severe'];
+  static const _areaLabels = [
+    'Tiny\n<1%', 'Small\n1–9%', 'Some\n10–29%',
+    'Large\n30–49%', 'Mostly\n50–69%', 'All\n≥70%',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1142,7 +1148,7 @@ class _EasiPanelState extends State<_EasiPanel> {
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────────────────────
             Row(children: [
               Container(
                 width: 4, height: 40,
@@ -1152,7 +1158,7 @@ class _EasiPanelState extends State<_EasiPanel> {
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(widget.region.label,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('${widget.region.group.label}  ·  multiplier ×${widget.region.group.multiplier}',
+                Text(widget.region.group.label,
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               ])),
               IconButton(icon: const Icon(Icons.close), onPressed: () {
@@ -1162,36 +1168,115 @@ class _EasiPanelState extends State<_EasiPanel> {
             ]),
             const Divider(height: 16),
 
-            // Area affected
-            Text('Area Affected', style: Theme.of(context).textTheme.labelLarge),
+            // ── Skin appearance ─────────────────────────────────────────────
+            Text('How does the skin look?',
+                style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 10),
+
+            _SkinParamRow(
+              icon: '🔴', label: 'Redness',
+              question: 'How red or dark is the skin?',
+              value: _erythema,
+              onChanged: (v) => setState(() => _erythema = v),
+            ),
+            _SkinParamRow(
+              icon: '🫧', label: 'Bumps & Swelling',
+              question: 'Raised bumps or puffiness?',
+              value: _papulation,
+              onChanged: (v) => setState(() => _papulation = v),
+            ),
+            _SkinParamRow(
+              icon: '🩹', label: 'Scratch Marks',
+              question: 'Scratch marks or broken skin?',
+              value: _excoriation,
+              onChanged: (v) => setState(() => _excoriation = v),
+            ),
+            _SkinParamRow(
+              icon: '🪨', label: 'Skin Thickening',
+              question: 'Thick, rough, or sandpaper-like texture?',
+              value: _lichenification,
+              onChanged: (v) => setState(() => _lichenification = v),
+            ),
+            _SkinParamRow(
+              icon: '💧', label: 'Weeping / Crusting',
+              question: 'Oozy, wet, or crusty patches?',
+              value: _oozing,
+              onChanged: (v) => setState(() => _oozing = v),
+            ),
+            _SkinParamRow(
+              icon: '🌵', label: 'Dryness / Flaking',
+              question: 'Dry, flaky, or scaly skin?',
+              value: _dryness,
+              onChanged: (v) => setState(() => _dryness = v),
+            ),
+            _SkinParamRow(
+              icon: '🌑', label: 'Skin Darkening',
+              question: 'Turned darker — brown or blackish patches?',
+              value: _pigmentation,
+              onChanged: (v) => setState(() => _pigmentation = v),
+            ),
+
             const SizedBox(height: 6),
-            Wrap(spacing: 6, runSpacing: 4, children: List.generate(6, (i) {
-              final val = i + 1;
-              return ChoiceChip(
-                label: Text(_areaLabels[i], style: const TextStyle(fontSize: 11)),
-                selected: _areaScore == val,
-                onSelected: (_) => setState(() => _areaScore = val),
-              );
-            })),
-            const SizedBox(height: 14),
+            const Divider(height: 8),
+            const SizedBox(height: 4),
 
-            // EASI attributes
-            _AttributeRow(label: 'Erythema', hint: 'Redness / discolouration',
-                value: _erythema, attrLabels: _attrLabels,
-                onChanged: (v) => setState(() => _erythema = v)),
-            _AttributeRow(label: 'Papulation', hint: 'Thickness / induration',
-                value: _papulation, attrLabels: _attrLabels,
-                onChanged: (v) => setState(() => _papulation = v)),
-            _AttributeRow(label: 'Excoriation', hint: 'Scratch marks / erosion',
-                value: _excoriation, attrLabels: _attrLabels,
-                onChanged: (v) => setState(() => _excoriation = v)),
-            _AttributeRow(label: 'Lichenification', hint: 'Skin thickening / leathering',
-                value: _lichenification, attrLabels: _attrLabels,
-                onChanged: (v) => setState(() => _lichenification = v)),
+            // ── Area affected ───────────────────────────────────────────────
+            Text('How much of this zone is affected?',
+                style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(6, (i) {
+                final val = i + 1;
+                final selected = _areaScore == val;
+                final fillColor = selected
+                    ? Color.lerp(
+                        const Color(0xFF43A047), const Color(0xFFB71C1C), i / 5)!
+                    : Colors.transparent;
+                final borderColor = selected
+                    ? Color.lerp(
+                        const Color(0xFF43A047), const Color(0xFFB71C1C), i / 5)!
+                    : Colors.grey.shade300;
+                return GestureDetector(
+                  onTap: () => setState(() => _areaScore = val),
+                  child: Column(children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: fillColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: borderColor, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text('$val',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: selected ? Colors.white : Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(_areaLabels[i],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: selected ? borderColor : Colors.grey.shade400,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                        height: 1.2,
+                      ),
+                    ),
+                  ]),
+                );
+              }),
+            ),
 
-            const Divider(height: 12),
+            const SizedBox(height: 10),
+            const Divider(height: 8),
 
-            // Running score
+            // ── Running score ───────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
@@ -1199,7 +1284,7 @@ class _EasiPanelState extends State<_EasiPanel> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                Text('Region: ${_regional.toStringAsFixed(2)}',
+                Text('Zone: ${_regional.toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 12)),
                 const Text('  ·  ', style: TextStyle(color: Colors.grey)),
                 Text('Total EASI: ${total.toStringAsFixed(1)}',
@@ -1229,6 +1314,8 @@ class _EasiPanelState extends State<_EasiPanel> {
                     erythema: _erythema, papulation: _papulation,
                     excoriation: _excoriation, lichenification: _lichenification,
                     areaScore: _areaScore,
+                    oozing: _oozing, dryness: _dryness,
+                    pigmentation: _pigmentation,
                   ));
                 },
               ),
@@ -1240,35 +1327,85 @@ class _EasiPanelState extends State<_EasiPanel> {
   }
 }
 
-// ─── Attribute row ────────────────────────────────────────────────────────────
+// ─── Skin parameter row ───────────────────────────────────────────────────────
+// Icon + plain-language label + 4-dot severity selector + text label.
+// Used in the zone scoring panel to replace raw clinical terminology.
 
-class _AttributeRow extends StatelessWidget {
-  final String label, hint;
-  final int value;
-  final List<String> attrLabels;
+class _SkinParamRow extends StatelessWidget {
+  final String icon;
+  final String label;
+  final String question;
+  final int value; // 0–3
   final void Function(int) onChanged;
 
-  const _AttributeRow({
-    required this.label, required this.hint, required this.value,
-    required this.attrLabels, required this.onChanged,
+  const _SkinParamRow({
+    required this.icon,
+    required this.label,
+    required this.question,
+    required this.value,
+    required this.onChanged,
   });
+
+  static const _dotColors = [
+    Color(0xFF9E9E9E), // 0 None     — grey
+    Color(0xFFFF9800), // 1 Mild     — amber
+    Color(0xFFEF6C00), // 2 Moderate — deep orange
+    Color(0xFFB71C1C), // 3 Severe   — deep red
+  ];
+  static const _textLabels = ['None', 'Mild', 'Moderate', 'Severe'];
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 6),
-          Text(hint, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-        ]),
-        const SizedBox(height: 4),
-        Wrap(spacing: 6, children: List.generate(4, (i) => ChoiceChip(
-          label: Text(attrLabels[i], style: const TextStyle(fontSize: 11)),
-          selected: value == i,
-          onSelected: (_) => onChanged(i),
-        ))),
+      padding: const EdgeInsets.only(bottom: 11),
+      child: Row(children: [
+        // Emoji icon
+        SizedBox(width: 26, child: Text(icon, style: const TextStyle(fontSize: 17))),
+        const SizedBox(width: 8),
+        // Label + sub-question
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(question, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          ]),
+        ),
+        const SizedBox(width: 10),
+        // 4-dot selector
+        Row(
+          children: List.generate(4, (i) {
+            final selected = value == i;
+            final color = _dotColors[i];
+            return GestureDetector(
+              onTap: () => onChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 20, height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? color : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? color : Colors.grey.shade300,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(width: 8),
+        // Severity text
+        SizedBox(
+          width: 58,
+          child: Text(
+            _textLabels[value],
+            style: TextStyle(
+              fontSize: 11,
+              color: value == 0 ? Colors.grey.shade400 : _dotColors[value],
+              fontWeight: value > 0 ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
       ]),
     );
   }
