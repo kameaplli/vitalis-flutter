@@ -73,111 +73,87 @@ class EczemaBodyMap extends StatefulWidget {
 }
 
 class _EczemaBodyMapState extends State<EczemaBodyMap> {
-  // ── Zoom / pan ─────────────────────────────────────────────────────────────
-  double _zoom = 1.0;
-  Offset _pan  = Offset.zero;
-  // Saved at gesture start for relative calculations.
-  double  _startZoom = 1.0;
-  Offset  _startPan  = Offset.zero;
+  // ── InteractiveViewer handles zoom/pan ────────────────────────────────────
+  final _txController = TransformationController();
 
-  // ── Drawing ────────────────────────────────────────────────────────────────
-  List<Offset> _stroke = []; // in-progress stroke in image pixel space
-  bool   _tapCandidate = false;
-  Offset _tapStart     = Offset.zero;
+  // ── Drawing (pointer-level, bypasses gesture arena) ───────────────────────
+  int          _activePointers = 0;
+  List<Offset> _stroke         = [];
 
-  // Cached widget size — updated every build so gesture handlers can use it.
+  // Widget size set in LayoutBuilder, used for coordinate conversion.
   Size _sz = Size.zero;
 
-  // ── Coordinate helpers ────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _txController.dispose();
+    super.dispose();
+  }
 
-  /// Screen-local → 1548×1134 image pixel space, accounting for current zoom/pan.
+  // ── Coordinate helper ─────────────────────────────────────────────────────
+  // Inside InteractiveViewer content, localPosition is already in content
+  // coordinates (0→w, 0→h) regardless of zoom/pan.  Just scale to image space.
   Offset _toImage(Offset local) {
-    final unzoomed = (local - _pan) / _zoom;
-    return Offset(unzoomed.dx * _kSvgW / _sz.width,
-                  unzoomed.dy * _kSvgH / _sz.height);
+    if (_sz.isEmpty) return Offset.zero;
+    return Offset(local.dx * _kSvgW / _sz.width,
+                  local.dy * _kSvgH / _sz.height);
   }
 
-  /// Clamp pan so the image edge never scrolls past the widget edge.
-  Offset _clampPan(Offset p) {
-    if (_zoom <= 1.0) return Offset.zero;
-    final maxX = _sz.width  * (_zoom - 1);
-    final maxY = _sz.height * (_zoom - 1);
-    return Offset(p.dx.clamp(-maxX, 0.0), p.dy.clamp(-maxY, 0.0));
-  }
-
-  // ── Gesture handlers ──────────────────────────────────────────────────────
-
-  void _onScaleStart(ScaleStartDetails d) {
-    _startZoom = _zoom;
-    _startPan  = _pan;
-    _tapStart  = d.localFocalPoint;
-    _tapCandidate = true;
-
-    if (widget.drawMode && d.pointerCount == 1) {
-      _stroke = [_toImage(d.localFocalPoint)];
+  // ── Zone tap (zone mode only) ─────────────────────────────────────────────
+  void _onTapUp(TapUpDetails d) {
+    if (widget.readOnly || widget.onZoneTap == null) return;
+    final imgPt = _toImage(d.localPosition);
+    for (final r in EczemaBodyMap._allRegions.reversed) {
+      if (r.contains(imgPt)) { widget.onZoneTap!(r); return; }
     }
   }
 
-  void _onScaleUpdate(ScaleUpdateDetails d) {
-    if (d.pointerCount > 1) {
-      // ── Pinch zoom towards focal point ──────────────────────────────────
-      _tapCandidate = false;
-      _stroke = [];
-      final newZoom = (_startZoom * d.scale).clamp(1.0, 5.0);
-      final fp      = d.localFocalPoint;
-      final fpLocal = (fp - _startPan) / _startZoom;
-      setState(() {
-        _zoom = newZoom;
-        _pan  = _clampPan(fp - fpLocal * newZoom);
-      });
-    } else if (widget.drawMode) {
-      // ── Freehand draw ───────────────────────────────────────────────────
-      if ((d.localFocalPoint - _tapStart).distance > 8) _tapCandidate = false;
-      final pt = _toImage(d.localFocalPoint);
-      // Downsample: only keep every other point to reduce payload size.
-      if (_stroke.isEmpty || (_stroke.last - pt).distance > 4) {
-        setState(() => _stroke.add(pt));
-      }
-    } else {
-      // ── Pan view ────────────────────────────────────────────────────────
-      if ((d.localFocalPoint - _tapStart).distance > 10) _tapCandidate = false;
-      setState(() => _pan = _clampPan(_pan + d.focalPointDelta));
+  // ── Draw handlers (Listener — always fires, no gesture-arena competition) ─
+  void _onPointerDown(PointerDownEvent e) {
+    _activePointers++;
+    if (_activePointers == 1 && widget.drawMode) {
+      setState(() => _stroke = [_toImage(e.localPosition)]);
+    } else if (_activePointers > 1 && _stroke.isNotEmpty) {
+      // Multi-touch → zoom taking over; cancel current stroke.
+      setState(() => _stroke = []);
     }
   }
 
-  void _onScaleEnd(ScaleEndDetails d) {
-    if (_tapCandidate) {
-      // Clean single tap → zone selection (non-draw, non-readOnly)
-      if (!widget.drawMode && !widget.readOnly && widget.onZoneTap != null) {
-        final imgPt = _toImage(_tapStart);
-        for (final r in EczemaBodyMap._allRegions.reversed) {
-          if (r.contains(imgPt)) {
-            widget.onZoneTap!(r);
-            break;
-          }
-        }
-      }
-    } else if (widget.drawMode && _stroke.length > 4) {
-      // Finalise drawn stroke
-      final cx = _stroke.map((p) => p.dx).reduce((a, b) => a + b) / _stroke.length;
-      final cy = _stroke.map((p) => p.dy).reduce((a, b) => a + b) / _stroke.length;
-      final centroid = Offset(cx, cy);
-      BodyRegion? zone;
-      for (final r in EczemaBodyMap._allRegions.reversed) {
-        if (r.contains(centroid)) { zone = r; break; }
-      }
-      final patch = DrawnPatch(
-        zoneId:   zone?.id ?? '',
-        severity: widget.drawSeverity,
-        points:   List.from(_stroke),
-      );
-      widget.onPatchDrawn?.call(patch, zone);
+  void _onPointerMove(PointerMoveEvent e) {
+    if (_activePointers != 1 || !widget.drawMode || _stroke.isEmpty) return;
+    final pt = _toImage(e.localPosition);
+    // Downsample: skip points closer than 4px to keep payload small.
+    if ((_stroke.last - pt).distance > 4) {
+      setState(() => _stroke.add(pt));
     }
+  }
 
-    setState(() {
-      _stroke       = [];
-      _tapCandidate = false;
-    });
+  void _onPointerUp(PointerUpEvent e) {
+    if (_activePointers == 1 && widget.drawMode && _stroke.length > 4) {
+      _finalizeStroke();
+    } else if (_stroke.isNotEmpty) {
+      setState(() => _stroke = []);
+    }
+    _activePointers = (_activePointers - 1).clamp(0, 10);
+  }
+
+  void _onPointerCancel(PointerCancelEvent e) {
+    _activePointers = (_activePointers - 1).clamp(0, 10);
+    if (_stroke.isNotEmpty) setState(() => _stroke = []);
+  }
+
+  void _finalizeStroke() {
+    final pts = List<Offset>.from(_stroke);
+    setState(() => _stroke = []);
+    final cx = pts.map((p) => p.dx).reduce((a, b) => a + b) / pts.length;
+    final cy = pts.map((p) => p.dy).reduce((a, b) => a + b) / pts.length;
+    BodyRegion? zone;
+    for (final r in EczemaBodyMap._allRegions.reversed) {
+      if (r.contains(Offset(cx, cy))) { zone = r; break; }
+    }
+    widget.onPatchDrawn?.call(
+      DrawnPatch(zoneId: zone?.id ?? '', severity: widget.drawSeverity, points: pts),
+      zone,
+    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -189,47 +165,70 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
       final h = w * _kAspect;
       _sz = Size(w, h);
 
-      return SizedBox(
+      // The content inside InteractiveViewer — pointer events arrive here
+      // in content-local coords (0→w, 0→h), independent of zoom/pan.
+      final content = SizedBox(
         width: w,
         height: h,
-        child: ClipRect(
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown:   _onPointerDown,
+          onPointerMove:   _onPointerMove,
+          onPointerUp:     _onPointerUp,
+          onPointerCancel: _onPointerCancel,
           child: GestureDetector(
-            onScaleStart: _onScaleStart,
-            onScaleUpdate: _onScaleUpdate,
-            onScaleEnd: _onScaleEnd,
-            child: Transform(
-              transform: Matrix4.identity()
-                ..translate(_pan.dx, _pan.dy)
-                ..scale(_zoom),
-              alignment: Alignment.topLeft,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Layer 1: clinical PNG background.
-                  Image.asset(
-                    'assets/body_map_clinical.png',
-                    width: w, height: h,
-                    fit: BoxFit.fill,
-                  ),
-                  // Layer 2: zone overlays + drawn patches + live stroke.
-                  CustomPaint(
+            // onTapUp only wired in zone mode; draw mode uses Listener above.
+            onTapUp: (!widget.drawMode && !widget.readOnly) ? _onTapUp : null,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset('assets/body_map_clinical.png',
+                    width: w, height: h, fit: BoxFit.fill),
+                RepaintBoundary(
+                  child: CustomPaint(
                     size: Size(w, h),
                     painter: _ZoneOverlayPainter(
-                      regions:      EczemaBodyMap._allRegions,
-                      regionScores: widget.regionScores,
-                      heatData:     widget.heatData,
-                      activeZoneId: widget.activeZoneId,
-                      drawnPatches: widget.drawnPatches,
+                      regions:       EczemaBodyMap._allRegions,
+                      regionScores:  widget.regionScores,
+                      heatData:      widget.heatData,
+                      activeZoneId:  widget.activeZoneId,
+                      drawnPatches:  widget.drawnPatches,
                       currentStroke: _stroke,
                       drawSeverity:  widget.drawSeverity,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       );
+
+      // InteractiveViewer provides smooth pinch-to-zoom.
+      // panEnabled=false in draw mode (zoom still works); true in zone mode.
+      // At scale=1.0 in zone mode, InteractiveViewer yields vertical drags to
+      // the parent SingleChildScrollView automatically — no conflict.
+      Widget viewer = InteractiveViewer(
+        transformationController: _txController,
+        minScale: 1.0,
+        maxScale: 5.0,
+        panEnabled: !widget.drawMode,
+        clipBehavior: Clip.hardEdge,
+        child: content,
+      );
+
+      // In draw mode, claim the pan gesture so the parent scroll doesn't steal
+      // finger moves that are meant for drawing strokes.
+      if (widget.drawMode) {
+        viewer = GestureDetector(
+          onPanStart:  (_) {},
+          onPanUpdate: (_) {},
+          onPanEnd:    (_) {},
+          child: viewer,
+        );
+      }
+
+      return SizedBox(width: w, height: h, child: viewer);
     });
   }
 }
