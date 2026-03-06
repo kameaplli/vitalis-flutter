@@ -1182,16 +1182,25 @@ class _AnalyticsContent extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         _MacroDonut(data: data),
-        const SizedBox(height: 20),
-        Text('Meal Type Breakdown',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        ..._mealTypes.map((mt) => _MealTypeCard(
-              mealType: mt,
-              macros: data.byMealType[mt],
-              topFoods: data.mealFoods[mt] ?? [],
-              maxCalories: _maxMealCalories(data),
-            )),
+        const SizedBox(height: 12),
+        // Collapsible meal type breakdown — swipe up / tap header to collapse
+        // and reclaim screen real estate for the donut chart.
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: Text('Meal Type Breakdown',
+                style: Theme.of(context).textTheme.titleMedium),
+            initiallyExpanded: true,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(top: 4),
+            children: _mealTypes.map((mt) => _MealTypeCard(
+                  mealType: mt,
+                  macros: data.byMealType[mt],
+                  topFoods: data.mealFoods[mt] ?? [],
+                  maxCalories: _maxMealCalories(data),
+                )).toList(),
+          ),
+        ),
       ],
     );
   }

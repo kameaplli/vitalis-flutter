@@ -96,18 +96,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     final user     = auth.user;
     final children = user?.profile.children ?? [];
 
-    final persons = <String>[
-      'self',
-      ...children.map<String>((c) => c.id as String),
-    ];
-    final currentIndex = persons.indexOf(ref.watch(selectedPersonProvider));
-
-    void swipeTo(int index) {
-      if (persons.isEmpty) return;
-      final wrapped = ((index % persons.length) + persons.length) % persons.length;
-      ref.read(selectedPersonProvider.notifier).state = persons[wrapped];
-    }
-
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -119,19 +107,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             else
               _SoloTopBar(user: user),
             // ── Screen content ───────────────────────────────────────────────
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onHorizontalDragEnd: children.isNotEmpty
-                    ? (details) {
-                        final v = details.primaryVelocity ?? 0;
-                        if (v < -400) swipeTo(currentIndex + 1);
-                        if (v > 400) swipeTo(currentIndex - 1);
-                      }
-                    : null,
-                child: widget.child,
-              ),
-            ),
+            // Profile switching is handled ONLY by the avatar bar above,
+            // not by swiping on screen content (prevents accidental switches
+            // when interacting with analytics charts, body maps, etc.).
+            Expanded(child: widget.child),
           ],
         ),
       ),
