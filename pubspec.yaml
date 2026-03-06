@@ -55,6 +55,10 @@ dependencies:
   # SVG rendering
   flutter_svg: ^2.0.10+1
 
+  # PDF generation + printing/sharing
+  pdf: ^3.11.0
+  printing: ^5.13.1
+
   # Icons
   cupertino_icons: ^1.0.6
 

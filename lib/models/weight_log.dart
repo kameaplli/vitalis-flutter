@@ -19,13 +19,27 @@ class WeightLog {
 
   factory WeightLog.fromJson(Map<String, dynamic> json) {
     return WeightLog(
-      id: json['id'] ?? '',
-      date: json['date'] ?? '',
-      time: json['time'] ?? '',
+      id:     json['id'] ?? '',
+      date:   json['date'] ?? '',
+      time:   json['time'] ?? '',
       weight: (json['weight'] as num?)?.toDouble() ?? 0,
-      unit: json['unit'] ?? 'kg',
-      notes: json['notes'],
+      unit:   json['unit'] ?? 'kg',
+      notes:  json['notes'],
       person: json['person'] ?? 'Me',
     );
   }
+}
+
+class WeightHistory {
+  final List<WeightLog> entries;
+  final double? idealWeight;
+  final double? idealMin;
+  final double? idealMax;
+
+  const WeightHistory({
+    required this.entries,
+    this.idealWeight,
+    this.idealMin,
+    this.idealMax,
+  });
 }

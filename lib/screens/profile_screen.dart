@@ -20,6 +20,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _nameCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
+  final _heightCtrl = TextEditingController();
   String? _gender;
   bool _editing = false;
   bool _biometricEnabled = false;
@@ -32,6 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.read(authProvider).user;
     _nameCtrl.text = user?.name ?? '';
     _ageCtrl.text = user?.age?.toString() ?? '';
+    _heightCtrl.text = user?.height?.toStringAsFixed(0) ?? '';
     _gender = user?.gender;
     _loadBiometricState();
     _loadNotificationState();
@@ -108,6 +110,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _ageCtrl.dispose();
+    _heightCtrl.dispose();
     super.dispose();
   }
 
@@ -196,6 +199,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
                 onChanged: (v) => setState(() => _gender = v),
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _heightCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Height (cm)',
+                  prefixIcon: Icon(Icons.height),
+                  suffixText: 'cm',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
             ] else ...[
               ListTile(
                 leading: const Icon(Icons.person_outline),
@@ -218,6 +231,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   leading: const Icon(Icons.wc),
                   title: const Text('Gender'),
                   trailing: Text(user.gender!),
+                ),
+              if (user.height != null)
+                ListTile(
+                  leading: const Icon(Icons.height),
+                  title: const Text('Height'),
+                  trailing: Text('${user.height!.toStringAsFixed(0)} cm'),
                 ),
             ],
             const Divider(height: 32),
@@ -338,6 +357,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       name: _nameCtrl.text.trim(),
       age: int.tryParse(_ageCtrl.text),
       gender: _gender,
+      height: double.tryParse(_heightCtrl.text),
     );
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated!')));
   }

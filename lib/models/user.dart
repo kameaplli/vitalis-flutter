@@ -3,14 +3,16 @@ import 'family_member.dart';
 class UserProfile {
   final int? age;
   final String? gender;
+  final double? height;
   final List<FamilyMember> children;
 
-  UserProfile({this.age, this.gender, this.children = const []});
+  UserProfile({this.age, this.gender, this.height, this.children = const []});
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       age: json['age'],
       gender: json['gender'],
+      height: (json['height'] as num?)?.toDouble(),
       children: (json['children'] as List<dynamic>? ?? [])
           .map((c) => FamilyMember.fromJson(c))
           .toList(),
@@ -25,6 +27,7 @@ class AppUser {
   final String? avatarUrl;
   final int? age;
   final String? gender;
+  final double? height;
   final UserProfile profile;
 
   AppUser({
@@ -34,6 +37,7 @@ class AppUser {
     this.avatarUrl,
     this.age,
     this.gender,
+    this.height,
     required this.profile,
   });
 
@@ -46,6 +50,7 @@ class AppUser {
       avatarUrl: json['avatar_url'],
       age: json['age'],
       gender: json['gender'],
+      height: (json['height'] as num?)?.toDouble(),
       profile: UserProfile.fromJson(profileData),
     );
   }
@@ -55,6 +60,7 @@ class AppUser {
     String? avatarUrl,
     int? age,
     String? gender,
+    double? height,
     UserProfile? profile,
   }) {
     return AppUser(
@@ -64,6 +70,7 @@ class AppUser {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       age: age ?? this.age,
       gender: gender ?? this.gender,
+      height: height ?? this.height,
       profile: profile ?? this.profile,
     );
   }

@@ -35,6 +35,7 @@ class ApiConstants {
   static const String foodDatabase = '/api/foods/database';
   static const String frequentFoods = '/api/foods/frequent';
   static const String customFoods = '/api/foods/custom';
+  static const String foodLabelScan = '/api/foods/scan-label';
 
   // Nutrition
   static const String nutritionLog = '/api/log/nutrition';
@@ -60,9 +61,11 @@ class ApiConstants {
   // Eczema
   static const String eczema = '/api/health/eczema';
   static const String eczemaHistory = '/api/health/eczema/history';
+  static const String eczemaHeatmap = '/api/health/eczema/heatmap';
 
   // Analytics
   static const String analyticsNutrition = '/api/analytics/nutrition';
+  static const String nutritionBreakdown  = '/api/analytics/nutrition/breakdown';
 
   // Profile
   static const String profile = '/api/profile';
@@ -70,7 +73,8 @@ class ApiConstants {
   static const String profileChild = '/api/profile/child';
 
   // Grocery Intelligence
-  static const String groceryReceipts  = '/api/grocery/receipts';
-  static const String grocerySpending  = '/api/analytics/grocery/spending';
-  static const String groceryNutrition = '/api/analytics/grocery/nutrition';
+  static const String groceryReceipts      = '/api/grocery/receipts';
+  static const String grocerySpending      = '/api/analytics/grocery/spending';
+  static const String groceryNutrition     = '/api/analytics/grocery/nutrition';
+  static const String groceryCategoryItems = '/api/analytics/grocery/category-items';
 }
