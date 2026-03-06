@@ -263,8 +263,13 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       false;
 
   void _onZoneTap(BodyRegion region) {
+    // Highlight the zone first (triggers pulse animation in body map),
+    // then open the scoring panel after a short delay so the user sees
+    // which zone they tapped.
     setState(() => _activeZoneId = region.id);
-    _showEasiPanel(region);
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted) _showEasiPanel(region);
+    });
   }
 
   void _onPatchDrawn(DrawnPatch patch, BodyRegion? zone) {
