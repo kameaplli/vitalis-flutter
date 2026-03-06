@@ -108,23 +108,26 @@ class _EczemaBodyMapState extends State<EczemaBodyMap>
     super.dispose();
   }
 
-  // Content-local → 1548×1134 image pixels.
-  Offset _toImage(Offset local) {
+  // Viewport-local point → 1548×1134 image pixels.
+  // GestureDetector is OUTSIDE InteractiveViewer, so localPosition is in
+  // viewport space. Use toScene() to undo zoom/pan, then scale to image coords.
+  Offset _viewportToImage(Offset viewportLocal) {
     if (_sz.isEmpty) return Offset.zero;
-    return Offset(local.dx * _kSvgW / _sz.width,
-                  local.dy * _kSvgH / _sz.height);
+    final scene = _txController.toScene(viewportLocal);
+    return Offset(scene.dx * _kSvgW / _sz.width,
+                  scene.dy * _kSvgH / _sz.height);
   }
 
   // ── Zone tap ──────────────────────────────────────────────────────────────
   void _onTapUp(TapUpDetails d) {
     if (widget.readOnly || widget.onZoneTap == null) return;
-    final imgPt = _toImage(d.localPosition);
+    final imgPt = _viewportToImage(d.localPosition);
     for (final r in EczemaBodyMap._allRegions.reversed) {
       if (r.contains(imgPt)) { widget.onZoneTap!(r); return; }
     }
   }
 
-  // ── Pointer tracking (Listener — multi-touch cancel only) ─────────────
+  // ── Pointer tracking (multi-touch cancel for drawing) ─────────────────
   void _onPointerDown(PointerDownEvent e) {
     _activePointers++;
     if (_activePointers > 1 && _stroke.isNotEmpty) {
@@ -141,15 +144,15 @@ class _EczemaBodyMapState extends State<EczemaBodyMap>
     if (_stroke.isNotEmpty) setState(() => _stroke = []);
   }
 
-  // ── Freehand draw via GestureDetector.onPan ───────────────────────────
+  // ── Freehand draw (GestureDetector outside InteractiveViewer) ─────────
   void _onPanStart(DragStartDetails d) {
     if (!widget.drawMode || _activePointers > 1) return;
-    setState(() => _stroke = [_toImage(d.localPosition)]);
+    setState(() => _stroke = [_viewportToImage(d.localPosition)]);
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (!widget.drawMode || _stroke.isEmpty || _activePointers > 1) return;
-    final pt = _toImage(d.localPosition);
+    final pt = _viewportToImage(d.localPosition);
     if ((_stroke.last - pt).distance > 4) {
       setState(() => _stroke.add(pt));
     }
@@ -184,68 +187,83 @@ class _EczemaBodyMapState extends State<EczemaBodyMap>
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, constraints) {
-      final w = constraints.maxWidth;
-      final h = w * _kAspect;
+      // Fit image within available space maintaining aspect ratio.
+      // Critical: Expanded parent may give tight height > w * _kAspect.
+      final availW = constraints.maxWidth;
+      final availH = constraints.maxHeight.isFinite
+          ? constraints.maxHeight
+          : availW * _kAspect;
+      double w, h;
+      if (availW * _kAspect <= availH) {
+        w = availW;
+        h = availW * _kAspect;
+      } else {
+        h = availH;
+        w = availH / _kAspect;
+      }
       _sz = Size(w, h);
 
+      // Image + overlay (child of InteractiveViewer)
       final content = SizedBox(
         width: w,
         height: h,
-        child: Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown:   _onPointerDown,
-          onPointerUp:     _onPointerUp,
-          onPointerCancel: _onPointerCancel,
-          child: GestureDetector(
-            onTapUp:    (!widget.drawMode && !widget.readOnly) ? _onTapUp : null,
-            onPanStart: widget.drawMode ? _onPanStart : null,
-            onPanUpdate: widget.drawMode ? _onPanUpdate : null,
-            onPanEnd:   widget.drawMode ? _onPanEnd   : null,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset('assets/body_map_clinical.png',
-                    width: w, height: h, fit: BoxFit.fill),
-                RepaintBoundary(
-                  child: CustomPaint(
-                    size: Size(w, h),
-                    painter: _ZoneOverlayPainter(
-                      regions:       EczemaBodyMap._allRegions,
-                      regionScores:  widget.regionScores,
-                      heatData:      widget.heatData,
-                      activeZoneId:  widget.activeZoneId,
-                      drawnPatches:  widget.drawnPatches,
-                      currentStroke: _stroke,
-                      drawSeverity:  widget.drawSeverity,
-                      pulseT:        _pulseAnim.value,
-                    ),
-                  ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset('assets/body_map_clinical.png',
+                width: w, height: h, fit: BoxFit.fill),
+            RepaintBoundary(
+              child: CustomPaint(
+                size: Size(w, h),
+                painter: _ZoneOverlayPainter(
+                  regions:       EczemaBodyMap._allRegions,
+                  regionScores:  widget.regionScores,
+                  heatData:      widget.heatData,
+                  activeZoneId:  widget.activeZoneId,
+                  drawnPatches:  widget.drawnPatches,
+                  currentStroke: _stroke,
+                  drawSeverity:  widget.drawSeverity,
+                  pulseT:        _pulseAnim.value,
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       );
 
-      // ClipRect prevents the InteractiveViewer from rendering content
-      // outside its bounds when zoomed, avoiding the "canvas slides left/right"
-      // visual issue.
-      return ClipRect(
-        child: SizedBox(
-          width: w,
-          height: h,
-          child: InteractiveViewer(
-            transformationController: _txController,
-            minScale: 1.0,
-            maxScale: 5.0,
-            panEnabled: !widget.drawMode,
-            scaleEnabled: true,
-            // Boundary margin allows slight overscroll for a "springy" feel
-            // but keeps the image mostly locked in frame.
-            boundaryMargin: const EdgeInsets.all(20),
-            clipBehavior: Clip.hardEdge,
-            interactionEndFrictionCoefficient: 0.0001, // smooth deceleration
-            child: content,
+      // GestureDetector is OUTSIDE InteractiveViewer.
+      // - In view mode: onTapUp for zone selection; InteractiveViewer handles pan/zoom.
+      // - In draw mode: onPan* for freehand; InteractiveViewer is fully passive.
+      // toScene() converts viewport coords → content coords at any zoom level.
+      return Center(
+        child: ClipRect(
+          child: SizedBox(
+            width: w,
+            height: h,
+            child: Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown:   _onPointerDown,
+              onPointerUp:     _onPointerUp,
+              onPointerCancel: _onPointerCancel,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp:     (!widget.drawMode && !widget.readOnly) ? _onTapUp : null,
+                onPanStart:  widget.drawMode ? _onPanStart  : null,
+                onPanUpdate: widget.drawMode ? _onPanUpdate : null,
+                onPanEnd:    widget.drawMode ? _onPanEnd    : null,
+                child: InteractiveViewer(
+                  transformationController: _txController,
+                  minScale: 1.0,
+                  maxScale: 5.0,
+                  panEnabled: !widget.drawMode,
+                  scaleEnabled: !widget.drawMode,
+                  boundaryMargin: const EdgeInsets.all(20),
+                  clipBehavior: Clip.hardEdge,
+                  interactionEndFrictionCoefficient: 0.0001,
+                  child: content,
+                ),
+              ),
+            ),
           ),
         ),
       );
