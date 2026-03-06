@@ -367,11 +367,17 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ─── Log Tab ──────────────────────────────────────────────────────────────
   Widget _buildLogTab() {
     final cs = Theme.of(context).colorScheme;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    // Split into fixed top (body map — must NOT be in a scroll view so that
+    // InteractiveViewer pinch-zoom gestures aren't stolen by SingleChildScrollView)
+    // and an Expanded scrollable form below.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Date / time
           Row(children: [
             Expanded(
@@ -499,9 +505,17 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               }).toList(),
             ),
           ],
+            ],        // end body-map Column children
+          ),          // end body-map Column
+        ),            // end Padding (body map — NOT in scroll view)
 
-          const SizedBox(height: 14),
-
+        // Scrollable form section — all fields below the body map
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           // EASI breakdown card
           _EasiBreakdownCard(scores: _regionScores),
 
@@ -741,8 +755,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
             ),
           ),
           const SizedBox(height: 24),
-        ],
-      ),
+              ],        // end scrollable Column children
+            ),          // end scrollable Column
+          ),            // end SingleChildScrollView
+        ),              // end Expanded
+      ],                // end outer Column children
     );
   }
 

@@ -76,11 +76,13 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
   // ── InteractiveViewer handles zoom/pan ────────────────────────────────────
   final _txController = TransformationController();
 
-  // ── Drawing (pointer-level, bypasses gesture arena) ───────────────────────
-  int          _activePointers = 0;
-  List<Offset> _stroke         = [];
+  // ── Drawing ───────────────────────────────────────────────────────────────
+  // Pointer count tracked via Listener (bypasses gesture arena).
+  int _activePointers = 0;
+  // Stroke in image pixel space, collected via GestureDetector.onPan inside
+  // the InteractiveViewer content — guaranteed content-local coordinates.
+  List<Offset> _stroke = [];
 
-  // Widget size set in LayoutBuilder, used for coordinate conversion.
   Size _sz = Size.zero;
 
   @override
@@ -89,16 +91,16 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
     super.dispose();
   }
 
-  // ── Coordinate helper ─────────────────────────────────────────────────────
-  // Inside InteractiveViewer content, localPosition is already in content
-  // coordinates (0→w, 0→h) regardless of zoom/pan.  Just scale to image space.
+  // Content-local → 1548×1134 image pixels.
+  // GestureDetector.onPan inside InteractiveViewer's Transform gives content-
+  // local coords directly — no need to invert the zoom/pan matrix.
   Offset _toImage(Offset local) {
     if (_sz.isEmpty) return Offset.zero;
     return Offset(local.dx * _kSvgW / _sz.width,
                   local.dy * _kSvgH / _sz.height);
   }
 
-  // ── Zone tap (zone mode only) ─────────────────────────────────────────────
+  // ── Zone tap (zone mode) ──────────────────────────────────────────────────
   void _onTapUp(TapUpDetails d) {
     if (widget.readOnly || widget.onZoneTap == null) return;
     final imgPt = _toImage(d.localPosition);
@@ -107,38 +109,48 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
     }
   }
 
-  // ── Draw handlers (Listener — always fires, no gesture-arena competition) ─
+  // ── Pointer tracking (via Listener — for multi-touch cancel only) ─────────
   void _onPointerDown(PointerDownEvent e) {
     _activePointers++;
-    if (_activePointers == 1 && widget.drawMode) {
-      setState(() => _stroke = [_toImage(e.localPosition)]);
-    } else if (_activePointers > 1 && _stroke.isNotEmpty) {
-      // Multi-touch → zoom taking over; cancel current stroke.
+    if (_activePointers > 1 && _stroke.isNotEmpty) {
+      // Second finger → pinch zoom starting; cancel stroke.
       setState(() => _stroke = []);
-    }
-  }
-
-  void _onPointerMove(PointerMoveEvent e) {
-    if (_activePointers != 1 || !widget.drawMode || _stroke.isEmpty) return;
-    final pt = _toImage(e.localPosition);
-    // Downsample: skip points closer than 4px to keep payload small.
-    if ((_stroke.last - pt).distance > 4) {
-      setState(() => _stroke.add(pt));
     }
   }
 
   void _onPointerUp(PointerUpEvent e) {
-    if (_activePointers == 1 && widget.drawMode && _stroke.length > 4) {
-      _finalizeStroke();
-    } else if (_stroke.isNotEmpty) {
-      setState(() => _stroke = []);
-    }
     _activePointers = (_activePointers - 1).clamp(0, 10);
   }
 
   void _onPointerCancel(PointerCancelEvent e) {
     _activePointers = (_activePointers - 1).clamp(0, 10);
     if (_stroke.isNotEmpty) setState(() => _stroke = []);
+  }
+
+  // ── Draw via GestureDetector.onPan (inside InteractiveViewer Transform) ───
+  // Using onPan instead of Listener.onPointerMove ensures that localPosition
+  // is correctly in content-local space after InteractiveViewer's Transform.
+  void _onPanStart(DragStartDetails d) {
+    if (!widget.drawMode || _activePointers > 1) return;
+    setState(() => _stroke = [_toImage(d.localPosition)]);
+  }
+
+  void _onPanUpdate(DragUpdateDetails d) {
+    if (!widget.drawMode || _stroke.isEmpty || _activePointers > 1) return;
+    final pt = _toImage(d.localPosition);
+    // Downsample: skip points within 4 image-pixels of the last stored point.
+    if ((_stroke.last - pt).distance > 4) {
+      setState(() => _stroke.add(pt));
+    }
+  }
+
+  void _onPanEnd(DragEndDetails d) {
+    if (!widget.drawMode) return;
+    if (_stroke.length > 4) {
+      _finalizeStroke();
+    } else {
+      setState(() => _stroke = []);
+    }
   }
 
   void _finalizeStroke() {
@@ -165,20 +177,22 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
       final h = w * _kAspect;
       _sz = Size(w, h);
 
-      // The content inside InteractiveViewer — pointer events arrive here
-      // in content-local coords (0→w, 0→h), independent of zoom/pan.
+      // Content is inside InteractiveViewer's Transform.
+      // GestureDetector.onPan coordinates are content-local (correct).
+      // Listener only tracks pointer count for multi-touch cancel.
       final content = SizedBox(
         width: w,
         height: h,
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown:   _onPointerDown,
-          onPointerMove:   _onPointerMove,
           onPointerUp:     _onPointerUp,
           onPointerCancel: _onPointerCancel,
           child: GestureDetector(
-            // onTapUp only wired in zone mode; draw mode uses Listener above.
-            onTapUp: (!widget.drawMode && !widget.readOnly) ? _onTapUp : null,
+            onTapUp:    (!widget.drawMode && !widget.readOnly) ? _onTapUp : null,
+            onPanStart: widget.drawMode ? _onPanStart : null,
+            onPanUpdate: widget.drawMode ? _onPanUpdate : null,
+            onPanEnd:   widget.drawMode ? _onPanEnd   : null,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -204,31 +218,23 @@ class _EczemaBodyMapState extends State<EczemaBodyMap> {
         ),
       );
 
-      // InteractiveViewer provides smooth pinch-to-zoom.
-      // panEnabled=false in draw mode (zoom still works); true in zone mode.
-      // At scale=1.0 in zone mode, InteractiveViewer yields vertical drags to
-      // the parent SingleChildScrollView automatically — no conflict.
-      Widget viewer = InteractiveViewer(
-        transformationController: _txController,
-        minScale: 1.0,
-        maxScale: 5.0,
-        panEnabled: !widget.drawMode,
-        clipBehavior: Clip.hardEdge,
-        child: content,
+      // Body map is now outside any SingleChildScrollView (restructured in
+      // eczema_screen._buildLogTab), so no outer GestureDetector wrapper is
+      // needed to prevent scroll conflicts.
+      return SizedBox(
+        width: w,
+        height: h,
+        child: InteractiveViewer(
+          transformationController: _txController,
+          minScale: 1.0,
+          maxScale: 5.0,
+          // In draw mode, disable pan so the inner GestureDetector.onPan
+          // can claim the 1-finger drag for drawing.  Scale (pinch) always works.
+          panEnabled: !widget.drawMode,
+          clipBehavior: Clip.hardEdge,
+          child: content,
+        ),
       );
-
-      // In draw mode, claim the pan gesture so the parent scroll doesn't steal
-      // finger moves that are meant for drawing strokes.
-      if (widget.drawMode) {
-        viewer = GestureDetector(
-          onPanStart:  (_) {},
-          onPanUpdate: (_) {},
-          onPanEnd:    (_) {},
-          child: viewer,
-        );
-      }
-
-      return SizedBox(width: w, height: h, child: viewer);
     });
   }
 }
@@ -279,22 +285,31 @@ class _ZoneOverlayPainter extends CustomPainter {
       }
 
       if (fill != null) {
-        _paintZone(canvas, region, Paint()..color = fill.withValues(alpha: 0.50), sw, sh);
+        // Light fill so the underlying anatomy remains visible
+        _paintZone(canvas, region,
+            Paint()..color = fill.withValues(alpha: 0.30), sw, sh);
+        // Bold outline so the zone boundary is clearly visible (not just a blob)
+        _paintZone(canvas, region,
+            Paint()..color = fill.withValues(alpha: 0.85)
+                   ..style = PaintingStyle.stroke
+                   ..strokeWidth = 2.0, sw, sh);
       }
 
       if (isActive) {
         final outlineColor = fill ?? const Color(0xFF1565C0);
+        // Thick outer glow
         _paintZone(canvas, region,
-            Paint()..color = outlineColor..style = PaintingStyle.stroke..strokeWidth = 2.0,
-            sw, sh);
+            Paint()..color = outlineColor.withValues(alpha: 0.30)
+                   ..style = PaintingStyle.stroke
+                   ..strokeWidth = 6.0, sw, sh, inflate: 2.0);
+        // Solid inner outline
         _paintZone(canvas, region,
-            Paint()..color = outlineColor.withValues(alpha: 0.25)..style = PaintingStyle.stroke..strokeWidth = 4.0,
-            sw, sh, inflate: 2.0);
-        if (fill == null) {
-          _paintZone(canvas, region,
-              Paint()..color = const Color(0xFF1565C0).withValues(alpha: 0.15),
-              sw, sh);
-        }
+            Paint()..color = outlineColor
+                   ..style = PaintingStyle.stroke
+                   ..strokeWidth = 2.5, sw, sh);
+        // Very subtle fill for active zone
+        _paintZone(canvas, region,
+            Paint()..color = outlineColor.withValues(alpha: 0.15), sw, sh);
       }
     }
   }
