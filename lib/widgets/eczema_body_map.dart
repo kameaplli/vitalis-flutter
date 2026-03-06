@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import '../models/easi_models.dart';
 
 // ─── Canvas dimensions ─────────────────────────────────────────────────────
-// Matches body_map_clinical.png: 1548 wide × 1134 tall (landscape, front+back).
+// Matches body_map_clinical.png: 1548 wide × 1134 tall (front+back).
 const double _kSvgW = 1548.0;
 const double _kSvgH = 1134.0;
 const double _kAspect = _kSvgH / _kSvgW; // ≈ 0.733
 
 // Kept for API compatibility with eczema_screen callers.
-// The view parameter is no longer used for display — both front and back
-// zones are always shown simultaneously on the full body diagram.
 enum EczemaBodyView { front, back }
 
 // ─── Severity colour ramp (0.0 = clear → 1.0 = very severe) ─────────────────
@@ -25,19 +23,33 @@ Color severityColor(double t) {
 
 Color _levelColor(int level) => severityColor(level / 10.0);
 
-// ─── EczemaBodyMap ────────────────────────────────────────────────────────────
-// Renders body_map_clinical.png (front + back side-by-side) as the background,
-// then draws semi-transparent severity overlays and zone numbers on top.
+// Severity colours used for drawn patch strokes.
+const _patchColors = [
+  Color(0xFF9E9E9E), // 0 — shouldn't be drawn
+  Color(0xFFFF9800), // 1 — mild
+  Color(0xFFEF6C00), // 2 — moderate
+  Color(0xFFB71C1C), // 3 — severe
+];
 
-class EczemaBodyMap extends StatelessWidget {
-  // view kept for API compat but no longer controls display.
+// ─── EczemaBodyMap ────────────────────────────────────────────────────────────
+// Renders body_map_clinical.png as background, then draws zone overlays,
+// drawn patches, and the in-progress stroke on top.
+// Supports pinch-to-zoom (always) and freehand drawing (when drawMode=true).
+
+class EczemaBodyMap extends StatefulWidget {
+  // view kept for API compat — ignored in display.
   final EczemaBodyView view;
   final Map<String, EasiRegionScore> regionScores;
   final Map<String, double>? heatData;
   final String? activeZoneId;
   final void Function(BodyRegion)? onZoneTap;
   final bool readOnly;
-  final bool showGroupBoundaries; // reserved for API compat
+  final bool showGroupBoundaries;
+  // ── Draw mode ─────────────────────────────────────────────────────────────
+  final bool drawMode;
+  final int drawSeverity;             // 0-3: colour of new strokes
+  final List<DrawnPatch> drawnPatches;
+  final void Function(DrawnPatch, BodyRegion?)? onPatchDrawn;
 
   const EczemaBodyMap({
     super.key,
@@ -48,60 +60,173 @@ class EczemaBodyMap extends StatelessWidget {
     this.onZoneTap,
     this.readOnly = false,
     this.showGroupBoundaries = false,
+    this.drawMode = false,
+    this.drawSeverity = 1,
+    this.drawnPatches = const [],
+    this.onPatchDrawn,
   });
 
-  // All 50 zones always visible.
   static final _allRegions = [...kFrontRegions, ...kBackRegions];
 
-  void _handleTap(Offset local, Size size) {
-    if (readOnly || onZoneTap == null) return;
-    // Convert widget-local → SVG canvas coordinates.
-    final svgPt = Offset(
-      local.dx * _kSvgW / size.width,
-      local.dy * _kSvgH / size.height,
-    );
-    // Iterate in reverse so zones drawn last (topmost) are hit-tested first.
-    for (final r in _allRegions.reversed) {
-      if (r.contains(svgPt)) {
-        onZoneTap!(r);
-        return;
-      }
+  @override
+  State<EczemaBodyMap> createState() => _EczemaBodyMapState();
+}
+
+class _EczemaBodyMapState extends State<EczemaBodyMap> {
+  // ── Zoom / pan ─────────────────────────────────────────────────────────────
+  double _zoom = 1.0;
+  Offset _pan  = Offset.zero;
+  // Saved at gesture start for relative calculations.
+  double  _startZoom = 1.0;
+  Offset  _startPan  = Offset.zero;
+
+  // ── Drawing ────────────────────────────────────────────────────────────────
+  List<Offset> _stroke = []; // in-progress stroke in image pixel space
+  bool   _tapCandidate = false;
+  Offset _tapStart     = Offset.zero;
+
+  // Cached widget size — updated every build so gesture handlers can use it.
+  Size _sz = Size.zero;
+
+  // ── Coordinate helpers ────────────────────────────────────────────────────
+
+  /// Screen-local → 1548×1134 image pixel space, accounting for current zoom/pan.
+  Offset _toImage(Offset local) {
+    final unzoomed = (local - _pan) / _zoom;
+    return Offset(unzoomed.dx * _kSvgW / _sz.width,
+                  unzoomed.dy * _kSvgH / _sz.height);
+  }
+
+  /// Clamp pan so the image edge never scrolls past the widget edge.
+  Offset _clampPan(Offset p) {
+    if (_zoom <= 1.0) return Offset.zero;
+    final maxX = _sz.width  * (_zoom - 1);
+    final maxY = _sz.height * (_zoom - 1);
+    return Offset(p.dx.clamp(-maxX, 0.0), p.dy.clamp(-maxY, 0.0));
+  }
+
+  // ── Gesture handlers ──────────────────────────────────────────────────────
+
+  void _onScaleStart(ScaleStartDetails d) {
+    _startZoom = _zoom;
+    _startPan  = _pan;
+    _tapStart  = d.localFocalPoint;
+    _tapCandidate = true;
+
+    if (widget.drawMode && d.pointerCount == 1) {
+      _stroke = [_toImage(d.localFocalPoint)];
     }
   }
+
+  void _onScaleUpdate(ScaleUpdateDetails d) {
+    if (d.pointerCount > 1) {
+      // ── Pinch zoom towards focal point ──────────────────────────────────
+      _tapCandidate = false;
+      _stroke = [];
+      final newZoom = (_startZoom * d.scale).clamp(1.0, 5.0);
+      final fp      = d.localFocalPoint;
+      final fpLocal = (fp - _startPan) / _startZoom;
+      setState(() {
+        _zoom = newZoom;
+        _pan  = _clampPan(fp - fpLocal * newZoom);
+      });
+    } else if (widget.drawMode) {
+      // ── Freehand draw ───────────────────────────────────────────────────
+      if ((d.localFocalPoint - _tapStart).distance > 8) _tapCandidate = false;
+      final pt = _toImage(d.localFocalPoint);
+      // Downsample: only keep every other point to reduce payload size.
+      if (_stroke.isEmpty || (_stroke.last - pt).distance > 4) {
+        setState(() => _stroke.add(pt));
+      }
+    } else {
+      // ── Pan view ────────────────────────────────────────────────────────
+      if ((d.localFocalPoint - _tapStart).distance > 10) _tapCandidate = false;
+      setState(() => _pan = _clampPan(_pan + d.focalPointDelta));
+    }
+  }
+
+  void _onScaleEnd(ScaleEndDetails d) {
+    if (_tapCandidate) {
+      // Clean single tap → zone selection (non-draw, non-readOnly)
+      if (!widget.drawMode && !widget.readOnly && widget.onZoneTap != null) {
+        final imgPt = _toImage(_tapStart);
+        for (final r in EczemaBodyMap._allRegions.reversed) {
+          if (r.contains(imgPt)) {
+            widget.onZoneTap!(r);
+            break;
+          }
+        }
+      }
+    } else if (widget.drawMode && _stroke.length > 4) {
+      // Finalise drawn stroke
+      final cx = _stroke.map((p) => p.dx).reduce((a, b) => a + b) / _stroke.length;
+      final cy = _stroke.map((p) => p.dy).reduce((a, b) => a + b) / _stroke.length;
+      final centroid = Offset(cx, cy);
+      BodyRegion? zone;
+      for (final r in EczemaBodyMap._allRegions.reversed) {
+        if (r.contains(centroid)) { zone = r; break; }
+      }
+      final patch = DrawnPatch(
+        zoneId:   zone?.id ?? '',
+        severity: widget.drawSeverity,
+        points:   List.from(_stroke),
+      );
+      widget.onPatchDrawn?.call(patch, zone);
+    }
+
+    setState(() {
+      _stroke       = [];
+      _tapCandidate = false;
+    });
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (_, constraints) {
       final w = constraints.maxWidth;
       final h = w * _kAspect;
+      _sz = Size(w, h);
+
       return SizedBox(
         width: w,
         height: h,
-        child: GestureDetector(
-          onTapDown: readOnly
-              ? null
-              : (d) => _handleTap(d.localPosition, Size(w, h)),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Layer 1: clinical medical diagram PNG.
-              Image.asset(
-                'assets/body_map_clinical.png',
-                width: w,
-                height: h,
-                fit: BoxFit.fill,
+        child: ClipRect(
+          child: GestureDetector(
+            onScaleStart: _onScaleStart,
+            onScaleUpdate: _onScaleUpdate,
+            onScaleEnd: _onScaleEnd,
+            child: Transform(
+              transform: Matrix4.identity()
+                ..translate(_pan.dx, _pan.dy)
+                ..scale(_zoom),
+              alignment: Alignment.topLeft,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Layer 1: clinical PNG background.
+                  Image.asset(
+                    'assets/body_map_clinical.png',
+                    width: w, height: h,
+                    fit: BoxFit.fill,
+                  ),
+                  // Layer 2: zone overlays + drawn patches + live stroke.
+                  CustomPaint(
+                    size: Size(w, h),
+                    painter: _ZoneOverlayPainter(
+                      regions:      EczemaBodyMap._allRegions,
+                      regionScores: widget.regionScores,
+                      heatData:     widget.heatData,
+                      activeZoneId: widget.activeZoneId,
+                      drawnPatches: widget.drawnPatches,
+                      currentStroke: _stroke,
+                      drawSeverity:  widget.drawSeverity,
+                    ),
+                  ),
+                ],
               ),
-              // Layer 2: severity colour overlays + zone number labels.
-              CustomPaint(
-                size: Size(w, h),
-                painter: _ZoneOverlayPainter(
-                  regions: _allRegions,
-                  regionScores: regionScores,
-                  heatData: heatData,
-                  activeZoneId: activeZoneId,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -110,25 +235,31 @@ class EczemaBodyMap extends StatelessWidget {
 }
 
 // ─── Zone Overlay Painter ─────────────────────────────────────────────────────
-// Draws only the coloured severity fills and zone numbers.
-// The silhouette / anatomy is supplied by the SVG background layer.
 
 class _ZoneOverlayPainter extends CustomPainter {
   final List<BodyRegion> regions;
   final Map<String, EasiRegionScore> regionScores;
   final Map<String, double>? heatData;
   final String? activeZoneId;
+  final List<DrawnPatch> drawnPatches;
+  final List<Offset> currentStroke; // in image pixel space
+  final int drawSeverity;
 
   const _ZoneOverlayPainter({
     required this.regions,
     required this.regionScores,
     this.heatData,
     this.activeZoneId,
+    this.drawnPatches = const [],
+    this.currentStroke = const [],
+    this.drawSeverity = 1,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     _drawZoneOverlays(canvas, size);
+    _drawPatches(canvas, size);
+    _drawCurrentStroke(canvas, size);
     _drawZoneNumbers(canvas, size);
   }
 
@@ -148,50 +279,82 @@ class _ZoneOverlayPainter extends CustomPainter {
         if (s != null && s.attributeSum > 0) fill = _levelColor(s.level);
       }
 
-      // Severity fill overlay.
       if (fill != null) {
-        final fp = Paint()..color = fill.withValues(alpha: 0.62);
-        _paintZone(canvas, region, fp, sw, sh);
+        _paintZone(canvas, region, Paint()..color = fill.withValues(alpha: 0.50), sw, sh);
       }
 
-      // Active zone: outline + halo + light fill when unscored.
       if (isActive) {
         final outlineColor = fill ?? const Color(0xFF1565C0);
-
-        final rp = Paint()
-          ..color = outlineColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0;
-        _paintZone(canvas, region, rp, sw, sh);
-
-        final halo = Paint()
-          ..color = outlineColor.withValues(alpha: 0.25)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 4.0;
-        _paintZone(canvas, region, halo, sw, sh, inflate: 2.0);
-
+        _paintZone(canvas, region,
+            Paint()..color = outlineColor..style = PaintingStyle.stroke..strokeWidth = 2.0,
+            sw, sh);
+        _paintZone(canvas, region,
+            Paint()..color = outlineColor.withValues(alpha: 0.25)..style = PaintingStyle.stroke..strokeWidth = 4.0,
+            sw, sh, inflate: 2.0);
         if (fill == null) {
-          final activeFill = Paint()
-            ..color = const Color(0xFF1565C0).withValues(alpha: 0.15);
-          _paintZone(canvas, region, activeFill, sw, sh);
+          _paintZone(canvas, region,
+              Paint()..color = const Color(0xFF1565C0).withValues(alpha: 0.15),
+              sw, sh);
         }
       }
     }
   }
 
+  void _drawPatches(Canvas canvas, Size size) {
+    final sw = size.width / _kSvgW;
+    final sh = size.height / _kSvgH;
+
+    for (final patch in drawnPatches) {
+      if (patch.points.length < 2) continue;
+      final color = _patchColors[patch.severity.clamp(0, 3)];
+      final paint = Paint()
+        ..color = color.withValues(alpha: 0.70)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 5.0;
+      final path = Path();
+      path.moveTo(patch.points[0].dx * sw, patch.points[0].dy * sh);
+      for (int i = 1; i < patch.points.length; i++) {
+        path.lineTo(patch.points[i].dx * sw, patch.points[i].dy * sh);
+      }
+      canvas.drawPath(path, paint);
+      // Thin fill pass for closed areas
+      canvas.drawPath(path, Paint()
+        ..color = color.withValues(alpha: 0.18)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 10.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round);
+    }
+  }
+
+  void _drawCurrentStroke(Canvas canvas, Size size) {
+    if (currentStroke.length < 2) return;
+    final sw = size.width / _kSvgW;
+    final sh = size.height / _kSvgH;
+    final color = _patchColors[drawSeverity.clamp(0, 3)];
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = 5.0;
+    final path = Path();
+    path.moveTo(currentStroke[0].dx * sw, currentStroke[0].dy * sh);
+    for (int i = 1; i < currentStroke.length; i++) {
+      path.lineTo(currentStroke[i].dx * sw, currentStroke[i].dy * sh);
+    }
+    canvas.drawPath(path, paint);
+  }
+
   void _paintZone(
-    Canvas canvas,
-    BodyRegion region,
-    Paint paint,
-    double sw,
-    double sh, {
+    Canvas canvas, BodyRegion region, Paint paint, double sw, double sh, {
     double inflate = 0,
   }) {
     if (region.isEllipse) {
-      final r = region.ellipseRect;
-      final scaled = Rect.fromLTWH(
-        r.left * sw, r.top * sh, r.width * sw, r.height * sh,
-      );
+      final r      = region.ellipseRect;
+      final scaled = Rect.fromLTWH(r.left * sw, r.top * sh, r.width * sw, r.height * sh);
       canvas.drawOval(inflate > 0 ? scaled.inflate(inflate) : scaled, paint);
     } else {
       final poly = region.polyPoints;
@@ -203,11 +366,10 @@ class _ZoneOverlayPainter extends CustomPainter {
       }
       path.close();
       if (inflate > 0 && paint.style == PaintingStyle.stroke) {
-        final inflated = Paint()
+        canvas.drawPath(path, Paint()
           ..color = paint.color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = (paint.strokeWidth) + inflate * 2;
-        canvas.drawPath(path, inflated);
+          ..strokeWidth = paint.strokeWidth + inflate * 2);
       } else {
         canvas.drawPath(path, paint);
       }
@@ -215,19 +377,20 @@ class _ZoneOverlayPainter extends CustomPainter {
   }
 
   void _drawZoneNumbers(Canvas canvas, Size size) {
-    final sw = size.width / _kSvgW;
-    final sh = size.height / _kSvgH;
+    final sw       = size.width / _kSvgW;
+    final sh       = size.height / _kSvgH;
     final fontSize = (size.width * 0.013).clamp(5.0, 8.5);
 
     for (final region in regions) {
-      final c = region.centroid;
+      final c  = region.centroid;
       final cx = c.dx * sw;
       final cy = c.dy * sh;
 
-      final isActive  = region.id == activeZoneId;
-      final hasScore  = (regionScores[region.id]?.attributeSum ?? 0) > 0;
-      final hasHeat   = (heatData?[region.id] ?? 0) > 0.01;
-      final highlighted = isActive || hasScore || hasHeat;
+      final isActive    = region.id == activeZoneId;
+      final hasScore    = (regionScores[region.id]?.attributeSum ?? 0) > 0;
+      final hasHeat     = (heatData?[region.id] ?? 0) > 0.01;
+      final hasPatch    = drawnPatches.any((p) => p.zoneId == region.id);
+      final highlighted = isActive || hasScore || hasHeat || hasPatch;
 
       final tp = TextPainter(
         text: TextSpan(
@@ -236,13 +399,7 @@ class _ZoneOverlayPainter extends CustomPainter {
             color: highlighted ? Colors.white : const Color(0xFF37474F),
             fontSize: fontSize,
             fontWeight: FontWeight.w700,
-            shadows: const [
-              Shadow(
-                color: Colors.black45,
-                blurRadius: 2,
-                offset: Offset(0.4, 0.4),
-              ),
-            ],
+            shadows: const [Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0.4, 0.4))],
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -257,7 +414,10 @@ class _ZoneOverlayPainter extends CustomPainter {
       old.regions != regions ||
       old.regionScores != regionScores ||
       old.heatData != heatData ||
-      old.activeZoneId != activeZoneId;
+      old.activeZoneId != activeZoneId ||
+      old.drawnPatches != drawnPatches ||
+      old.currentStroke != currentStroke ||
+      old.drawSeverity != drawSeverity;
 }
 
 // ─── Severity Legend ──────────────────────────────────────────────────────────
@@ -285,18 +445,11 @@ class EczemaSeverityLegend extends StatelessWidget {
         final color = severityColor(b.$2);
         return Row(mainAxisSize: MainAxisSize.min, children: [
           Container(
-            width: compact ? 9 : 11,
-            height: compact ? 9 : 11,
+            width: compact ? 9 : 11, height: compact ? 9 : 11,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 3),
-          Text(
-            b.$1,
-            style: TextStyle(
-              fontSize: compact ? 9 : 10,
-              color: Colors.grey.shade700,
-            ),
-          ),
+          Text(b.$1, style: TextStyle(fontSize: compact ? 9 : 10, color: Colors.grey.shade700)),
         ]);
       }).toList(),
     );
@@ -325,7 +478,6 @@ class EczemaBodyComparison extends StatelessWidget {
     required this.easiB,
     required this.severityA,
     required this.severityB,
-    // view param kept for call-site compat but unused.
     EczemaBodyView view = EczemaBodyView.front,
   });
 
@@ -340,15 +492,13 @@ class EczemaBodyComparison extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final delta = easiB - easiA;
+    final delta   = easiB - easiA;
     final improved = delta < 0;
-    final deltaColor =
-        improved ? Colors.green : (delta > 0 ? Colors.red : Colors.grey);
+    final deltaColor = improved ? Colors.green : (delta > 0 ? Colors.red : Colors.grey);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Side-by-side body maps (both show full front + back diagram).
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -360,8 +510,6 @@ class EczemaBodyComparison extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-
-        // Delta summary chip.
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -371,23 +519,15 @@ class EczemaBodyComparison extends StatelessWidget {
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(
-              improved
-                  ? Icons.trending_down
-                  : (delta > 0 ? Icons.trending_up : Icons.trending_flat),
-              color: deltaColor,
-              size: 18,
+              improved ? Icons.trending_down : (delta > 0 ? Icons.trending_up : Icons.trending_flat),
+              color: deltaColor, size: 18,
             ),
             const SizedBox(width: 6),
             Text(
               delta == 0
                   ? 'No change in EASI score'
-                  : 'EASI ${improved ? "improved" : "worsened"} by '
-                    '${delta.abs().toStringAsFixed(1)} points',
-              style: TextStyle(
-                color: deltaColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
+                  : 'EASI ${improved ? "improved" : "worsened"} by ${delta.abs().toStringAsFixed(1)} points',
+              style: TextStyle(color: deltaColor, fontWeight: FontWeight.w600, fontSize: 13),
             ),
           ]),
         ),
@@ -397,13 +537,8 @@ class EczemaBodyComparison extends StatelessWidget {
     );
   }
 
-  Widget _buildSide(
-    String label,
-    double easi,
-    String severity,
-    Map<String, EasiRegionScore> scores,
-    bool isA,
-  ) {
+  Widget _buildSide(String label, double easi, String severity,
+      Map<String, EasiRegionScore> scores, bool isA) {
     final color = _easiColor(easi);
     return Expanded(
       child: Column(
@@ -417,25 +552,13 @@ class EczemaBodyComparison extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: color.withValues(alpha: 0.5)),
             ),
-            child: Text(
-              'EASI ${easi.toStringAsFixed(1)} · $severity',
-              style: TextStyle(
-                fontSize: 11,
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: Text('EASI ${easi.toStringAsFixed(1)} · $severity',
+                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 6),
           Padding(
-            padding: EdgeInsets.only(
-              left:  isA ? 0 : 4,
-              right: isA ? 4 : 0,
-            ),
-            child: EczemaBodyMap(
-              regionScores: scores,
-              readOnly: true,
-            ),
+            padding: EdgeInsets.only(left: isA ? 0 : 4, right: isA ? 4 : 0),
+            child: EczemaBodyMap(regionScores: scores, readOnly: true),
           ),
         ],
       ),
@@ -443,55 +566,40 @@ class EczemaBodyComparison extends StatelessWidget {
   }
 
   Widget _buildDeltaTable() {
-    final allIds = {...scoresA.keys, ...scoresB.keys};
+    final allIds  = {...scoresA.keys, ...scoresB.keys};
     final changes = <(String, double, double)>[];
 
     for (final id in allIds) {
-      final a = scoresA[id];
-      final b = scoresB[id];
+      final a  = scoresA[id];
+      final b  = scoresB[id];
       final ea = a?.easiContribution(groupForRegion(id)) ?? 0;
       final eb = b?.easiContribution(groupForRegion(id)) ?? 0;
       if ((ea - eb).abs() > 0.01) changes.add((id, ea, eb));
     }
     changes.sort((x, y) => (y.$2 - y.$3).abs().compareTo((x.$2 - x.$3).abs()));
-
     if (changes.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Region Changes',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade700,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text('Region Changes',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         ...changes.take(8).map((c) {
-          final region = findRegion(c.$1);
-          final lbl = region?.label ?? c.$1;
-          final delta = c.$3 - c.$2;
+          final region  = findRegion(c.$1);
+          final lbl     = region?.label ?? c.$1;
+          final delta   = c.$3 - c.$2;
           final improved = delta < 0;
-          final color = improved ? Colors.green.shade600 : Colors.red.shade600;
+          final color   = improved ? Colors.green.shade600 : Colors.red.shade600;
           return Padding(
             padding: const EdgeInsets.only(bottom: 3),
             child: Row(children: [
               Expanded(child: Text(lbl, style: const TextStyle(fontSize: 11))),
-              Text(
-                '${c.$2.toStringAsFixed(1)} → ${c.$3.toStringAsFixed(1)}',
-                style: const TextStyle(fontSize: 11),
-              ),
+              Text('${c.$2.toStringAsFixed(1)} → ${c.$3.toStringAsFixed(1)}',
+                  style: const TextStyle(fontSize: 11)),
               const SizedBox(width: 6),
-              Text(
-                '${improved ? "↓" : "↑"} ${delta.abs().toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('${improved ? "↓" : "↑"} ${delta.abs().toStringAsFixed(1)}',
+                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
             ]),
           );
         }),

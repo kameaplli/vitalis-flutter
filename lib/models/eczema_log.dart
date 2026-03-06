@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'easi_models.dart';
 
 class EczemaLogSummary {
   final String id;
@@ -37,14 +38,30 @@ class EczemaLogSummary {
     );
   }
 
+  /// Unwrap the affected_areas field, which may be:
+  ///   legacy:  [zoneObj, ...]
+  ///   current: {"zones": [...], "patches": [...]}
+  static List _unwrapZones(dynamic raw) {
+    if (raw == null) return [];
+    final decoded = raw is String ? jsonDecode(raw as String) : raw;
+    if (decoded is Map) return (decoded['zones'] as List? ?? []);
+    if (decoded is List) return decoded;
+    return [];
+  }
+
+  static List _unwrapPatches(dynamic raw) {
+    if (raw == null) return [];
+    final decoded = raw is String ? jsonDecode(raw as String) : raw;
+    if (decoded is Map) return (decoded['patches'] as List? ?? []);
+    return [];
+  }
+
   /// Returns Map<zoneId, itchLevel> handling both old (string list) and
   /// new (list of {area, level}) formats.
   Map<String, int> get parsedAreas {
     if (affectedAreas == null) return {};
     try {
-      final List items = affectedAreas is String
-          ? jsonDecode(affectedAreas as String) as List
-          : affectedAreas as List;
+      final List items = _unwrapZones(affectedAreas);
       final result = <String, int>{};
       for (final item in items) {
         if (item is Map) {
@@ -70,14 +87,25 @@ class EczemaLogSummary {
     }
   }
 
+  /// Drawn patches from this log entry (if any).
+  List<DrawnPatch> get parsedPatches {
+    try {
+      return _unwrapPatches(affectedAreas)
+          .whereType<Map>()
+          .map((m) => DrawnPatch.fromJson(Map<String, dynamic>.from(m)))
+          .where((p) => p.points.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Returns raw EASI area data — list of maps with full EASI attributes.
   /// Each entry: {area, erythema, papulation, excoriation, lichenification, area_score, level}
   List<Map<String, dynamic>> get parsedEasiAreas {
     if (affectedAreas == null) return [];
     try {
-      final List items = affectedAreas is String
-          ? jsonDecode(affectedAreas as String) as List
-          : affectedAreas as List;
+      final List items = _unwrapZones(affectedAreas);
       return items.whereType<Map>().map((item) {
         final area = item['area'] as String? ?? '';
         if (item.containsKey('erythema')) {
