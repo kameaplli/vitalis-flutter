@@ -165,166 +165,166 @@ class _ClinicalBodyPainter extends CustomPainter {
   }
 
   // ── Anatomical Silhouette ─────────────────────────────────────────────────
-  // Proportions follow the Rule of Nines on a 220×500 logical canvas.
-  // Segments are drawn back-to-front so joints overlap cleanly.
+  // Traced from the provided medical diagram on a 220×500 logical canvas.
+  // Arms spread outward (x=22–56 right, x=164–198 left); torso narrower at
+  // waist than at shoulders. Drawn back-to-front so joints overlap cleanly.
 
   void _drawClinicalSilhouette(Canvas canvas, double sw, double sh) {
     double x(double v) => _x(v, sw);
     double y(double v) => _y(v, sh);
 
-    // FEET (drawn first — behind everything)
+    // ── FEET (drawn first — behind everything) ──────────────────────────────
     _fill(canvas, Path()
-      ..moveTo(x(60), y(452))
-      ..lineTo(x(95), y(452))
-      ..lineTo(x(97), y(474))
-      ..quadraticBezierTo(x(78), y(478), x(62), y(473))
+      ..moveTo(x(58), y(462))
+      ..lineTo(x(100), y(462))
+      ..lineTo(x(97), y(484))
+      ..quadraticBezierTo(x(80), y(492), x(55), y(480))
       ..close());
     _fill(canvas, Path()
-      ..moveTo(x(160), y(452))
-      ..lineTo(x(125), y(452))
-      ..lineTo(x(123), y(474))
-      ..quadraticBezierTo(x(142), y(478), x(158), y(473))
-      ..close());
-
-    // LOWER LEGS
-    _fill(canvas, Path()
-      ..moveTo(x(76), y(360))
-      ..lineTo(x(95), y(360))
-      ..lineTo(x(93), y(452))
-      ..lineTo(x(77), y(452))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(144), y(360))
-      ..lineTo(x(125), y(360))
-      ..lineTo(x(127), y(452))
-      ..lineTo(x(143), y(452))
+      ..moveTo(x(162), y(462))
+      ..lineTo(x(120), y(462))
+      ..lineTo(x(123), y(484))
+      ..quadraticBezierTo(x(140), y(492), x(165), y(480))
       ..close());
 
-    // THIGHS
+    // ── LOWER LEGS ──────────────────────────────────────────────────────────
     _fill(canvas, Path()
-      ..moveTo(x(72), y(228))
-      ..lineTo(x(97), y(228))
-      ..quadraticBezierTo(x(96), y(290), x(95), y(356))
-      ..lineTo(x(74), y(358))
-      ..quadraticBezierTo(x(73), y(290), x(72), y(228))
+      ..moveTo(x(73), y(392))
+      ..lineTo(x(100), y(392))
+      ..lineTo(x(97), y(462))
+      ..lineTo(x(74), y(462))
       ..close());
     _fill(canvas, Path()
-      ..moveTo(x(148), y(228))
-      ..lineTo(x(123), y(228))
-      ..quadraticBezierTo(x(124), y(290), x(125), y(356))
-      ..lineTo(x(146), y(358))
-      ..quadraticBezierTo(x(147), y(290), x(148), y(228))
+      ..moveTo(x(147), y(392))
+      ..lineTo(x(120), y(392))
+      ..lineTo(x(123), y(462))
+      ..lineTo(x(146), y(462))
       ..close());
 
-    // HANDS
+    // ── KNEES (ellipses) ────────────────────────────────────────────────────
+    _fillOval(canvas, Rect.fromLTWH(x(70), y(370), x(30), y(22)));
+    _fillOval(canvas, Rect.fromLTWH(x(120), y(370), x(30), y(22)));
+
+    // ── THIGHS ──────────────────────────────────────────────────────────────
     _fill(canvas, Path()
-      ..moveTo(x(42), y(218))
-      ..lineTo(x(67), y(218))
-      ..lineTo(x(68), y(242))
-      ..lineTo(x(42), y(242))
+      ..moveTo(x(68), y(240))
+      ..lineTo(x(105), y(240))
+      ..quadraticBezierTo(x(103), y(305), x(101), y(370))
+      ..lineTo(x(70), y(370))
+      ..quadraticBezierTo(x(69), y(305), x(68), y(240))
       ..close());
     _fill(canvas, Path()
-      ..moveTo(x(178), y(218))
-      ..lineTo(x(153), y(218))
-      ..lineTo(x(152), y(242))
-      ..lineTo(x(178), y(242))
+      ..moveTo(x(152), y(240))
+      ..lineTo(x(115), y(240))
+      ..quadraticBezierTo(x(117), y(305), x(119), y(370))
+      ..lineTo(x(150), y(370))
+      ..quadraticBezierTo(x(151), y(305), x(152), y(240))
       ..close());
 
-    // FOREARMS
+    // ── HANDS ───────────────────────────────────────────────────────────────
     _fill(canvas, Path()
-      ..moveTo(x(44), y(162))
-      ..lineTo(x(65), y(160))
-      ..lineTo(x(66), y(218))
-      ..lineTo(x(43), y(218))
+      ..moveTo(x(14), y(220))
+      ..lineTo(x(54), y(220))
+      ..lineTo(x(56), y(252))
+      ..lineTo(x(12), y(248))
       ..close());
     _fill(canvas, Path()
-      ..moveTo(x(176), y(162))
-      ..lineTo(x(155), y(160))
-      ..lineTo(x(154), y(218))
-      ..lineTo(x(177), y(218))
-      ..close());
-
-    // UPPER ARMS
-    _fill(canvas, Path()
-      ..moveTo(x(44), y(82))
-      ..lineTo(x(65), y(82))
-      ..lineTo(x(65), y(148))
-      ..quadraticBezierTo(x(64), y(158), x(65), y(163))
-      ..lineTo(x(43), y(161))
-      ..quadraticBezierTo(x(41), y(153), x(44), y(146))
-      ..lineTo(x(44), y(82))
-      ..close());
-    _fill(canvas, Path()
-      ..moveTo(x(176), y(82))
-      ..lineTo(x(155), y(82))
-      ..lineTo(x(155), y(148))
-      ..quadraticBezierTo(x(156), y(158), x(155), y(163))
-      ..lineTo(x(177), y(161))
-      ..quadraticBezierTo(x(179), y(153), x(176), y(146))
-      ..lineTo(x(176), y(82))
+      ..moveTo(x(206), y(220))
+      ..lineTo(x(166), y(220))
+      ..lineTo(x(164), y(252))
+      ..lineTo(x(208), y(248))
       ..close());
 
-    // TORSO
+    // ── FOREARMS ────────────────────────────────────────────────────────────
     _fill(canvas, Path()
-      ..moveTo(x(68), y(76))
-      ..lineTo(x(100), y(76))
-      ..lineTo(x(120), y(76))
-      ..lineTo(x(152), y(76))
-      ..quadraticBezierTo(x(162), y(77), x(164), y(90))
-      ..quadraticBezierTo(x(163), y(104), x(156), y(112))
-      ..lineTo(x(152), y(162))
-      ..quadraticBezierTo(x(151), y(174), x(150), y(182))
-      ..quadraticBezierTo(x(150), y(198), x(153), y(208))
-      ..quadraticBezierTo(x(153), y(220), x(146), y(227))
-      ..lineTo(x(122), y(230))
-      ..quadraticBezierTo(x(116), y(232), x(110), y(232))
-      ..quadraticBezierTo(x(104), y(232), x(98), y(230))
-      ..lineTo(x(74), y(227))
-      ..quadraticBezierTo(x(67), y(220), x(67), y(208))
-      ..quadraticBezierTo(x(70), y(198), x(70), y(182))
-      ..quadraticBezierTo(x(69), y(174), x(68), y(162))
-      ..lineTo(x(64), y(112))
-      ..quadraticBezierTo(x(57), y(104), x(56), y(90))
-      ..quadraticBezierTo(x(58), y(77), x(68), y(76))
+      ..moveTo(x(20), y(168))
+      ..lineTo(x(54), y(168))
+      ..lineTo(x(52), y(220))
+      ..lineTo(x(18), y(220))
+      ..close());
+    _fill(canvas, Path()
+      ..moveTo(x(200), y(168))
+      ..lineTo(x(166), y(168))
+      ..lineTo(x(168), y(220))
+      ..lineTo(x(202), y(220))
       ..close());
 
-    // NECK
+    // ── UPPER ARMS ──────────────────────────────────────────────────────────
     _fill(canvas, Path()
-      ..moveTo(x(102), y(57))
-      ..lineTo(x(118), y(57))
-      ..lineTo(x(120), y(76))
-      ..lineTo(x(100), y(76))
+      ..moveTo(x(24), y(80))
+      ..lineTo(x(56), y(80))
+      ..lineTo(x(54), y(168))
+      ..lineTo(x(22), y(168))
+      ..close());
+    _fill(canvas, Path()
+      ..moveTo(x(196), y(80))
+      ..lineTo(x(164), y(80))
+      ..lineTo(x(166), y(168))
+      ..lineTo(x(198), y(168))
       ..close());
 
-    // HEAD
+    // ── TORSO ───────────────────────────────────────────────────────────────
+    // Wider at shoulders (x=58–162), narrows at waist (x=68–152),
+    // slight hip flare, ends at groin split (x=98–122 centre).
+    _fill(canvas, Path()
+      ..moveTo(x(58), y(76))
+      ..lineTo(x(99), y(76))
+      ..lineTo(x(121), y(76))
+      ..lineTo(x(162), y(76))
+      ..quadraticBezierTo(x(170), y(80), x(168), y(95))
+      ..quadraticBezierTo(x(164), y(110), x(156), y(122))
+      ..lineTo(x(152), y(168))
+      ..quadraticBezierTo(x(151), y(180), x(150), y(195))
+      ..quadraticBezierTo(x(150), y(210), x(153), y(220))
+      ..quadraticBezierTo(x(152), y(232), x(148), y(240))
+      ..lineTo(x(122), y(240))
+      ..quadraticBezierTo(x(116), y(242), x(110), y(242))
+      ..quadraticBezierTo(x(104), y(242), x(98), y(240))
+      ..lineTo(x(72), y(240))
+      ..quadraticBezierTo(x(68), y(232), x(67), y(220))
+      ..quadraticBezierTo(x(70), y(210), x(70), y(195))
+      ..quadraticBezierTo(x(69), y(180), x(68), y(168))
+      ..lineTo(x(64), y(122))
+      ..quadraticBezierTo(x(56), y(110), x(52), y(95))
+      ..quadraticBezierTo(x(50), y(80), x(58), y(76))
+      ..close());
+
+    // ── NECK ────────────────────────────────────────────────────────────────
+    _fill(canvas, Path()
+      ..moveTo(x(101), y(54))
+      ..lineTo(x(119), y(54))
+      ..lineTo(x(121), y(76))
+      ..lineTo(x(99), y(76))
+      ..close());
+
+    // ── HEAD ────────────────────────────────────────────────────────────────
     _fillOval(canvas,
-        Rect.fromCenter(center: Offset(x(110), y(31)), width: x(44), height: y(50)));
+        Rect.fromCenter(center: Offset(x(110), y(30)), width: x(46), height: y(52)));
 
-    // EARS (orientation cue)
+    // EARS
     final earPaint = Paint()
       ..color = _kBodyStroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8;
     canvas.drawOval(
-        Rect.fromCenter(center: Offset(x(88), y(32)), width: x(5), height: y(9)),
+        Rect.fromCenter(center: Offset(x(87), y(30)), width: x(5), height: y(10)),
         earPaint);
     canvas.drawOval(
-        Rect.fromCenter(center: Offset(x(132), y(32)), width: x(5), height: y(9)),
+        Rect.fromCenter(center: Offset(x(133), y(30)), width: x(5), height: y(10)),
         earPaint);
 
     // CLAVICLE HINT (front view only)
     if (isFront) {
       final clav = Paint()
-        ..color = _kBodyStroke.withValues(alpha: 0.25)
+        ..color = _kBodyStroke.withValues(alpha: 0.28)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.7;
-      canvas.drawLine(Offset(x(100), y(76)), Offset(x(72), y(80)), clav);
-      canvas.drawLine(Offset(x(120), y(76)), Offset(x(148), y(80)), clav);
+        ..strokeWidth = 0.8;
+      canvas.drawLine(Offset(x(99), y(76)),  Offset(x(64),  y(82)), clav);
+      canvas.drawLine(Offset(x(121), y(76)), Offset(x(156), y(82)), clav);
     }
   }
 
   // ── Anatomical separator lines ─────────────────────────────────────────────
-  // Thin lines at joint / zone-boundary levels so zones are visually distinct.
 
   void _drawAnatomicalSeparators(Canvas canvas, double sw, double sh) {
     double x(double v) => _x(v, sw);
@@ -332,44 +332,43 @@ class _ClinicalBodyPainter extends CustomPainter {
     final p = _sepPaint;
 
     // Midline through torso
-    canvas.drawLine(Offset(x(110), y(57)), Offset(x(110), y(232)), p);
+    canvas.drawLine(Offset(x(110), y(54)), Offset(x(110), y(242)), p);
 
     // Wrist
-    canvas.drawLine(Offset(x(42),  y(218)), Offset(x(68),  y(218)), p);
-    canvas.drawLine(Offset(x(152), y(218)), Offset(x(178), y(218)), p);
+    canvas.drawLine(Offset(x(14),  y(220)), Offset(x(54),  y(220)), p);
+    canvas.drawLine(Offset(x(166), y(220)), Offset(x(206), y(220)), p);
 
     // Elbow
-    canvas.drawLine(Offset(x(42),  y(161)), Offset(x(67),  y(161)), p);
-    canvas.drawLine(Offset(x(153), y(161)), Offset(x(178), y(161)), p);
+    canvas.drawLine(Offset(x(20),  y(168)), Offset(x(54),  y(168)), p);
+    canvas.drawLine(Offset(x(166), y(168)), Offset(x(200), y(168)), p);
 
-    // Axilla (arm / torso junction)
-    canvas.drawLine(Offset(x(44),  y(82)), Offset(x(66),  y(82)), p);
-    canvas.drawLine(Offset(x(154), y(82)), Offset(x(176), y(82)), p);
+    // Axilla
+    canvas.drawLine(Offset(x(24),  y(80)), Offset(x(56),  y(80)), p);
+    canvas.drawLine(Offset(x(164), y(80)), Offset(x(196), y(80)), p);
 
-    // Chest / upper-abdomen boundary (y≈115)
-    canvas.drawLine(Offset(x(68), y(115)), Offset(x(152), y(115)), p);
+    // Chest / upper-abd boundary
+    canvas.drawLine(Offset(x(64), y(122)), Offset(x(156), y(122)), p);
 
-    // Upper- / lower-abdomen boundary (y≈162, front); also mid/lower-back boundary (back)
-    canvas.drawLine(Offset(x(68), y(162)), Offset(x(152), y(162)), p);
+    // Upper-abd / lower-abd boundary
+    canvas.drawLine(Offset(x(68), y(168)), Offset(x(152), y(168)), p);
 
     if (isFront) {
-      // Lower abdomen / groin boundary
-      canvas.drawLine(Offset(x(68), y(208)), Offset(x(152), y(208)), p);
+      // Lower-abd / groin boundary
+      canvas.drawLine(Offset(x(68), y(215)), Offset(x(152), y(215)), p);
     } else {
-      // Additional back-view separators
-      canvas.drawLine(Offset(x(68), y(155)), Offset(x(152), y(155)), p);
-      canvas.drawLine(Offset(x(68), y(185)), Offset(x(152), y(185)), p);
+      // Lower-back / sacrum-buttock boundary
+      canvas.drawLine(Offset(x(68), y(215)), Offset(x(152), y(215)), p);
     }
 
-    // Knee band (two lines, one above one below the ellipse)
-    canvas.drawLine(Offset(x(72),  y(358)), Offset(x(98),  y(358)), p);
-    canvas.drawLine(Offset(x(122), y(358)), Offset(x(148), y(358)), p);
-    canvas.drawLine(Offset(x(72),  y(364)), Offset(x(98),  y(364)), p);
-    canvas.drawLine(Offset(x(122), y(364)), Offset(x(148), y(364)), p);
+    // Knee band
+    canvas.drawLine(Offset(x(70),  y(370)), Offset(x(100), y(370)), p);
+    canvas.drawLine(Offset(x(120), y(370)), Offset(x(150), y(370)), p);
+    canvas.drawLine(Offset(x(70),  y(392)), Offset(x(100), y(392)), p);
+    canvas.drawLine(Offset(x(120), y(392)), Offset(x(150), y(392)), p);
 
-    // Ankle
-    canvas.drawLine(Offset(x(76),  y(452)), Offset(x(95),  y(452)), p);
-    canvas.drawLine(Offset(x(125), y(452)), Offset(x(144), y(452)), p);
+    // Ankle / foot
+    canvas.drawLine(Offset(x(74),  y(462)), Offset(x(97),  y(462)), p);
+    canvas.drawLine(Offset(x(123), y(462)), Offset(x(146), y(462)), p);
   }
 
   // ── Zone overlays ──────────────────────────────────────────────────────────
