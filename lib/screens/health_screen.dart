@@ -139,6 +139,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medication_outlined,      Colors.blue,
           ref.watch(medicationsProvider('$person:7'))),
+      _CardDef('vitals',      'Vitals',      Icons.monitor_heart_outlined,   Colors.pink,
+          ref.watch(vitalsProvider(key))),
+      _CardDef('sleep',       'Sleep',       Icons.bedtime_outlined,         Colors.indigo,
+          ref.watch(sleepProvider(key))),
+      _CardDef('exercise',    'Exercise',    Icons.fitness_center_outlined,  Colors.orange,
+          ref.watch(exerciseProvider(key))),
       _CardDef('mood',        'Mood',        Icons.mood_outlined,            Colors.green,
           ref.watch(moodProvider(key))),
       _CardDef('weight',      'Weight',      Icons.monitor_weight_outlined,  Colors.purple,
@@ -699,6 +705,9 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
     switch (widget.category) {
       case 'symptoms':    return 'Symptoms';
       case 'medications': return 'Medications';
+      case 'vitals':      return 'Vitals';
+      case 'sleep':       return 'Sleep';
+      case 'exercise':    return 'Exercise';
       case 'mood':        return 'Mood';
       default:            return widget.category;
     }
@@ -713,6 +722,9 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
     switch (widget.category) {
       case 'symptoms':    body = _SymptomsTab(key: ValueKey(key), personKey: key); break;
       case 'medications': body = _MedicationsTab(key: ValueKey(key), personKey: key); break;
+      case 'vitals':      body = _VitalsTab(key: ValueKey(key), personKey: key); break;
+      case 'sleep':       body = _SleepTab(key: ValueKey(key), personKey: key); break;
+      case 'exercise':    body = _ExerciseTab(key: ValueKey(key), personKey: key); break;
       case 'mood':        body = _MoodTab(key: ValueKey(key), personKey: key); break;
       default:            body = Center(child: Text('Unknown: ${widget.category}')); break;
     }
