@@ -19,6 +19,17 @@ class SecureStorage {
   static Future<void> clearToken() =>
       _storage.delete(key: 'jwt_token');
 
+  // ── Refresh token ─────────────────────────────────────────────────────────
+
+  static Future<void> saveRefreshToken(String token) =>
+      _storage.write(key: 'refresh_token', value: token);
+
+  static Future<String?> getRefreshToken() =>
+      _storage.read(key: 'refresh_token');
+
+  static Future<void> clearRefreshToken() =>
+      _storage.delete(key: 'refresh_token');
+
   // ── Biometric flags ───────────────────────────────────────────────────────
 
   static Future<bool> getBiometricsEnabled() async =>

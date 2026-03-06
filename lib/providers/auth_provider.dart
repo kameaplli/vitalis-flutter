@@ -65,6 +65,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         data: {'email': email, 'password': password},
       );
       await apiClient.saveToken(res.data['access_token']);
+      final refreshToken = res.data['refresh_token'] as String?;
+      if (refreshToken != null) await SecureStorage.saveRefreshToken(refreshToken);
       final user = AppUser.fromJson(res.data['user']);
       NotificationService.scheduleHydrationReminders();
       SecureStorage.setNotificationsEnabled(true);
@@ -118,6 +120,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         data: {'name': name, 'email': email, 'password': password},
       );
       await apiClient.saveToken(res.data['access_token']);
+      final refreshToken = res.data['refresh_token'] as String?;
+      if (refreshToken != null) await SecureStorage.saveRefreshToken(refreshToken);
       final user = AppUser.fromJson(res.data['user']);
 
       final available = await BiometricService.isAvailable();
@@ -159,6 +163,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await apiClient.dio.post(ApiConstants.logout);
     } catch (_) {}
     await apiClient.clearToken();
+    await SecureStorage.clearRefreshToken();
     NotificationService.cancelAll();
     SecureStorage.setNotificationsEnabled(false);
     // Reset "prompted" if biometrics were never actually enabled, so the
