@@ -1,8 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import '../core/api_client.dart';
+import '../core/constants.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/nutrition_provider.dart';
@@ -767,12 +772,140 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
   String _query = '';
   TabController? _tabCtrl;
   List<FoodCategory> _categories = [];
+  bool _barcodeScanning = false;
+  bool _labelScanning = false;
+  MobileScannerController? _scanCtrl;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     _tabCtrl?.dispose();
+    _scanCtrl?.dispose();
     super.dispose();
+  }
+
+  // ── Barcode scan ────────────────────────────────────────────────────────────
+
+  void _startBarcodeScanning() {
+    _scanCtrl?.dispose();
+    _scanCtrl = MobileScannerController();
+    setState(() { _barcodeScanning = true; });
+  }
+
+  Future<void> _onBarcodeDetected(String barcode) async {
+    if (!_barcodeScanning) return;
+    setState(() { _barcodeScanning = false; });
+    _scanCtrl?.stop();
+    try {
+      final res = await Dio().get(
+        'https://world.openfoodfacts.org/api/v0/product/$barcode.json',
+      );
+      if (res.data['status'] == 1) {
+        final p = res.data['product'] as Map<String, dynamic>;
+        final n = (p['nutriments'] as Map<String, dynamic>?) ?? {};
+        final food = FoodItem(
+          id: barcode,
+          name: (p['product_name'] as String?)?.trim().isNotEmpty == true
+              ? p['product_name'] as String
+              : 'Product $barcode',
+          cal:      (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0,
+          protein:  (n['proteins_100g']     as num?)?.toDouble() ?? 0,
+          carbs:    (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0,
+          fat:      (n['fat_100g']           as num?)?.toDouble() ?? 0,
+          servingSize: 100,
+          emoji: '🏷️',
+        );
+        _addFood(food);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Product not found: $barcode')));
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Barcode lookup failed')));
+      }
+    }
+  }
+
+  // ── Food label scan ─────────────────────────────────────────────────────────
+
+  Future<void> _scanFoodLabel(ImageSource source) async {
+    final img = await ImagePicker().pickImage(source: source);
+    if (img == null) return;
+    setState(() { _labelScanning = true; });
+    try {
+      final bytes = await img.readAsBytes();
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: 'label.jpg'),
+      });
+      final res = await apiClient.dio.post(
+        ApiConstants.foodLabelScan, data: formData);
+      final d = res.data as Map<String, dynamic>;
+      if (mounted) _showLabelResult(d);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Label scan failed')));
+      }
+    } finally {
+      if (mounted) setState(() { _labelScanning = false; });
+    }
+  }
+
+  void _showLabelResult(Map<String, dynamic> d) {
+    final nameCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Label Scan Result'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Product name', isDense: true),
+            ),
+            const SizedBox(height: 10),
+            Text('Per 100g:', style: TextStyle(
+                fontSize: 12, color: Colors.grey.shade600)),
+            Text('Calories: ${d['calories_per_100g'] ?? '—'} kcal'),
+            Text('Protein: ${d['protein_per_100g'] ?? '—'} g'),
+            Text('Carbs: ${d['carbs_per_100g'] ?? '—'} g'),
+            Text('Fat: ${d['fat_per_100g'] ?? '—'} g'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              final food = FoodItem(
+                id: 'label_${DateTime.now().millisecondsSinceEpoch}',
+                name: nameCtrl.text.trim().isNotEmpty
+                    ? nameCtrl.text.trim()
+                    : 'Scanned Product',
+                cal:     (d['calories_per_100g'] as num?)?.toDouble() ?? 0,
+                protein: (d['protein_per_100g']  as num?)?.toDouble() ?? 0,
+                carbs:   (d['carbs_per_100g']    as num?)?.toDouble() ?? 0,
+                fat:     (d['fat_per_100g']      as num?)?.toDouble() ?? 0,
+                servingSize: 100,
+                emoji: '📋',
+              );
+              _addFood(food);
+            },
+            child: const Text('Add Food'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -811,31 +944,97 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
                     color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2)),
               ),
-              // Search
+              // Search + scan buttons
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  controller: _searchCtrl,
-                  autofocus: false,
-                  decoration: InputDecoration(
-                    hintText: 'Search foods…',
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    suffixIcon: _query.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _query = '');
-                            })
-                        : null,
-                  ),
-                  onChanged: (v) => setState(() => _query = v.toLowerCase()),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchCtrl,
+                        autofocus: false,
+                        decoration: InputDecoration(
+                          hintText: 'Search foods…',
+                          prefixIcon: const Icon(Icons.search),
+                          isDense: true,
+                          suffixIcon: _query.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    setState(() => _query = '');
+                                  })
+                              : null,
+                        ),
+                        onChanged: (v) => setState(() => _query = v.toLowerCase()),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Barcode scan
+                    IconButton(
+                      tooltip: 'Scan barcode',
+                      icon: Icon(
+                        _barcodeScanning ? Icons.cancel_outlined : Icons.qr_code_scanner,
+                        color: _barcodeScanning
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.primary,
+                      ),
+                      onPressed: _barcodeScanning
+                          ? () => setState(() { _barcodeScanning = false; _scanCtrl?.stop(); })
+                          : _startBarcodeScanning,
+                    ),
+                    // Food label scan
+                    _labelScanning
+                        ? const SizedBox(
+                            width: 24, height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : PopupMenuButton<ImageSource>(
+                            icon: Icon(Icons.document_scanner_outlined,
+                                color: Theme.of(context).colorScheme.primary),
+                            tooltip: 'Scan food label',
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: ImageSource.camera,
+                                child: Row(children: [
+                                  Icon(Icons.camera_alt_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Camera'),
+                                ]),
+                              ),
+                              const PopupMenuItem(
+                                value: ImageSource.gallery,
+                                child: Row(children: [
+                                  Icon(Icons.photo_library_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Gallery'),
+                                ]),
+                              ),
+                            ],
+                            onSelected: _scanFoodLabel,
+                          ),
+                  ],
                 ),
               ),
-              // Tabs (hidden during search)
-              if (_query.isEmpty)
+              // Barcode camera view
+              if (_barcodeScanning)
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: MobileScanner(
+                      controller: _scanCtrl!,
+                      onDetect: (capture) {
+                        final barcodes = capture.barcodes;
+                        if (barcodes.isNotEmpty &&
+                            barcodes.first.rawValue != null) {
+                          _onBarcodeDetected(barcodes.first.rawValue!);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              // Tabs (hidden during search or barcode scan)
+              if (_query.isEmpty && !_barcodeScanning)
                 TabBar(
                   controller: _tabCtrl!,
                   isScrollable: true,
@@ -848,8 +1047,8 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
                         )),
                   ],
                 ),
-              // List
-              Expanded(
+              // Food list (hidden while barcode camera is open)
+              if (!_barcodeScanning) Expanded(
                 child: _query.isNotEmpty
                     ? _FoodList(
                         items: allFiltered,
