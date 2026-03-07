@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../providers/eczema_provider.dart';
 import '../providers/selected_person_provider.dart';
+import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/eczema_log.dart';
@@ -1329,9 +1330,16 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
 
   // ─── Heatmap Tab ────────────────────────────────────────────────────────────
   Future<void> _generateMockData() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Generating mock data (~240 records)… please wait'), duration: Duration(seconds: 30)),
+    );
     try {
-      final res = await apiClient.dio.post(ApiConstants.eczemaMock);
+      final res = await apiClient.dio.post(
+        ApiConstants.eczemaMock,
+        options: Options(receiveTimeout: const Duration(seconds: 120)),
+      );
       if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       final data = res.data as Map<String, dynamic>;
       final ec = data['eczema_entries'] ?? 0;
       final nc = data['nutrition_entries'] ?? 0;
@@ -1341,6 +1349,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _invalidateAll();
     } catch (e) {
       if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
