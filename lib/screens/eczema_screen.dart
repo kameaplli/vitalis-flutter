@@ -425,64 +425,15 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
               child: Row(children: [
-                // Zone / Draw toggle
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Zone'), icon: Icon(Icons.touch_app, size: 14)),
-                    ButtonSegment(value: true,  label: Text('Draw'), icon: Icon(Icons.draw,      size: 14)),
-                  ],
-                  selected: {_drawMode},
-                  onSelectionChanged: (s) => setState(() => _drawMode = s.first),
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11)),
-                  ),
+                // Draw mode UI hidden — kept in codebase for future use
+                // _drawMode is always false; Zone mode is the default
+                Icon(Icons.touch_app_outlined, size: 13, color: cs.onSurfaceVariant),
+                const SizedBox(width: 3),
+                Flexible(
+                  child: Text('Tap zone to score  ·  Pinch to zoom',
+                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                      overflow: TextOverflow.ellipsis),
                 ),
-                const SizedBox(width: 10),
-                if (_drawMode) ...[
-                  ...[1, 2, 3].map((sev) {
-                    const colors = [
-                      Color(0xFFFF9800), Color(0xFFEF6C00), Color(0xFFB71C1C),
-                    ];
-                    const labels = ['Mild', 'Mod', 'Sev'];
-                    final selected = _drawSeverity == sev;
-                    return GestureDetector(
-                      onTap: () => setState(() => _drawSeverity = sev),
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: selected ? colors[sev - 1].withValues(alpha: 0.20) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: colors[sev - 1].withValues(alpha: selected ? 0.8 : 0.3),
-                            width: selected ? 1.5 : 1.0,
-                          ),
-                        ),
-                        child: Text(labels[sev - 1],
-                          style: TextStyle(fontSize: 10,
-                              color: selected ? colors[sev - 1] : cs.onSurfaceVariant,
-                              fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-                      ),
-                    );
-                  }),
-                  const Spacer(),
-                  if (_drawnPatches.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.undo, size: 18),
-                      tooltip: 'Undo last stroke',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => setState(() => _drawnPatches.removeLast()),
-                    ),
-                ] else ...[
-                  Icon(Icons.touch_app_outlined, size: 13, color: cs.onSurfaceVariant),
-                  const SizedBox(width: 3),
-                  Flexible(
-                    child: Text('Tap zone to score  ·  Pinch to zoom',
-                        style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ],
               ]),
             ),
 

@@ -511,7 +511,7 @@ const kFrontRegions = <BodyRegion>[
 
 const kBackRegions = <BodyRegion>[
 
-  // z23 -- R. Scalp (B)
+  // z23 -- R. Scalp (B) — keep (head zones align correctly)
   BodyRegion(
     id: 'z23', label: 'R. Scalp (B)', number: 23, isFront: false,
     group: EasiGroup.headNeck,
@@ -557,29 +557,32 @@ const kBackRegions = <BodyRegion>[
     ],
   ),
 
-  // z26 -- L. Upper Back (from automated extraction)
+  // ── TORSO ZONES (all retraced to match image body outline) ────────────
+  // Back body midline: x ≈ 1155
+  // Body edges at shoulder: ~1045 (L) to ~1265 (R)
+  // Body edges at waist:    ~1055 (L) to ~1255 (R)
+
+  // z26 -- L. Upper Back
   BodyRegion(
     id: 'z26', label: 'L. Upper Back', number: 26, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1095, 193), Offset(1153, 199),
-      Offset(1153, 259), Offset(1127, 277),
-      Offset(1096, 290), Offset(1071, 292),
-      Offset(1053, 287), Offset(1033, 273),
-      Offset(1043, 234), Offset(1063, 205), Offset(1079, 196),
+      Offset(1048, 192), Offset(1100, 194), Offset(1155, 198),
+      Offset(1155, 270),
+      Offset(1115, 275), Offset(1080, 278), Offset(1050, 275),
+      Offset(1042, 258), Offset(1038, 238), Offset(1042, 215),
     ],
   ),
 
-  // z27 -- R. Upper Back (from automated extraction)
+  // z27 -- R. Upper Back
   BodyRegion(
     id: 'z27', label: 'R. Upper Back', number: 27, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1155, 199), Offset(1251, 201), Offset(1280, 195),
-      Offset(1317, 207), Offset(1336, 231), Offset(1346, 263),
-      Offset(1318, 291), Offset(1301, 293),
-      Offset(1285, 289), Offset(1227, 253),
-      Offset(1194, 244), Offset(1155, 259),
+      Offset(1155, 198), Offset(1210, 194), Offset(1262, 192),
+      Offset(1268, 215), Offset(1272, 238), Offset(1268, 258),
+      Offset(1260, 275), Offset(1230, 278), Offset(1195, 275),
+      Offset(1155, 270),
     ],
   ),
 
@@ -588,15 +591,16 @@ const kBackRegions = <BodyRegion>[
     id: 'z28', label: 'L. Upper Arm (B)', number: 28, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(1033, 273), Offset(1020, 260), Offset(1005, 250),
-      Offset(988, 242), Offset(970, 238),
-      Offset(958, 248), Offset(948, 260), Offset(940, 274),
-      Offset(934, 290), Offset(930, 308), Offset(928, 326),
-      Offset(928, 344), Offset(930, 360),
-      Offset(945, 368), Offset(960, 372),
-      Offset(978, 368), Offset(998, 356), Offset(1016, 340),
-      Offset(1030, 322), Offset(1040, 304), Offset(1045, 290),
-      Offset(1053, 287),
+      Offset(1042, 215), Offset(1038, 238), Offset(1042, 258),
+      Offset(1050, 275),
+      Offset(1040, 298), Offset(1032, 318), Offset(1026, 340),
+      Offset(1020, 360),
+      Offset(1005, 352), Offset(990, 362), Offset(975, 370),
+      Offset(962, 368), Offset(948, 360),
+      Offset(938, 340), Offset(932, 318), Offset(930, 296),
+      Offset(934, 274), Offset(942, 256), Offset(954, 242),
+      Offset(970, 234), Offset(988, 234), Offset(1005, 240),
+      Offset(1020, 250), Offset(1032, 264),
     ],
   ),
 
@@ -605,14 +609,16 @@ const kBackRegions = <BodyRegion>[
     id: 'z29', label: 'R. Upper Arm (B)', number: 29, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(1318, 291), Offset(1330, 280), Offset(1342, 268),
-      Offset(1356, 254), Offset(1370, 244), Offset(1384, 240),
-      Offset(1396, 248), Offset(1406, 260), Offset(1414, 276),
-      Offset(1418, 294), Offset(1420, 314), Offset(1418, 334),
-      Offset(1414, 352), Offset(1408, 366),
-      Offset(1395, 365), Offset(1380, 372),
-      Offset(1363, 388), Offset(1346, 368), Offset(1330, 348),
-      Offset(1320, 330), Offset(1314, 310), Offset(1312, 296),
+      Offset(1268, 215), Offset(1272, 238), Offset(1268, 258),
+      Offset(1260, 275),
+      Offset(1270, 298), Offset(1278, 318), Offset(1284, 340),
+      Offset(1290, 360),
+      Offset(1305, 352), Offset(1320, 362), Offset(1335, 370),
+      Offset(1348, 368), Offset(1362, 360),
+      Offset(1372, 340), Offset(1378, 318), Offset(1380, 296),
+      Offset(1376, 274), Offset(1368, 256), Offset(1356, 242),
+      Offset(1340, 234), Offset(1322, 234), Offset(1305, 240),
+      Offset(1290, 250), Offset(1278, 264),
     ],
   ),
 
@@ -621,54 +627,54 @@ const kBackRegions = <BodyRegion>[
     id: 'z30', label: 'L. Forearm (B)', number: 30, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(930, 360), Offset(945, 368), Offset(960, 372),
-      Offset(952, 390), Offset(940, 416), Offset(928, 440),
-      Offset(916, 462), Offset(904, 484), Offset(896, 502),
-      Offset(882, 498), Offset(870, 492),
-      Offset(880, 468), Offset(896, 438), Offset(910, 408),
-      Offset(922, 382),
+      Offset(948, 360), Offset(962, 368), Offset(975, 370),
+      Offset(966, 390), Offset(954, 414), Offset(940, 438),
+      Offset(926, 460), Offset(912, 482), Offset(902, 498),
+      Offset(888, 494), Offset(876, 488),
+      Offset(886, 466), Offset(900, 440), Offset(914, 414),
+      Offset(928, 390), Offset(938, 374),
     ],
   ),
 
-  // z31 -- R. Forearm (B) (from automated extraction)
+  // z31 -- R. Forearm (B)
   BodyRegion(
     id: 'z31', label: 'R. Forearm (B)', number: 31, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(1395, 365), Offset(1424, 401),
-      Offset(1435, 422), Offset(1453, 472), Offset(1471, 501),
-      Offset(1455, 515), Offset(1448, 517),
-      Offset(1438, 496), Offset(1399, 451),
-      Offset(1375, 404), Offset(1363, 388),
-      Offset(1379, 380),
+      Offset(1362, 360), Offset(1348, 368), Offset(1335, 370),
+      Offset(1344, 390), Offset(1356, 414), Offset(1370, 438),
+      Offset(1384, 460), Offset(1398, 482), Offset(1408, 498),
+      Offset(1422, 494), Offset(1434, 488),
+      Offset(1424, 466), Offset(1410, 440), Offset(1396, 414),
+      Offset(1382, 390), Offset(1372, 374),
     ],
   ),
 
-  // z32 -- L. Hand (B) (hand-traced smooth contour)
+  // z32 -- L. Hand (B)
   BodyRegion(
     id: 'z32', label: 'L. Hand (B)', number: 32, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(896, 500), Offset(910, 506), Offset(920, 518),
-      Offset(926, 534), Offset(928, 552), Offset(924, 568),
-      Offset(916, 582), Offset(904, 592), Offset(890, 596),
-      Offset(876, 594), Offset(864, 586), Offset(854, 574),
-      Offset(848, 558), Offset(846, 540), Offset(848, 522),
-      Offset(856, 508), Offset(866, 498), Offset(880, 496),
+      Offset(902, 498), Offset(888, 494), Offset(876, 488),
+      Offset(866, 500), Offset(858, 516), Offset(854, 534),
+      Offset(854, 554), Offset(858, 572), Offset(866, 586),
+      Offset(878, 596), Offset(892, 600), Offset(906, 596),
+      Offset(916, 586), Offset(922, 570), Offset(924, 552),
+      Offset(922, 534), Offset(916, 518), Offset(910, 506),
     ],
   ),
 
-  // z33 -- R. Hand (B) (hand-traced smooth contour)
+  // z33 -- R. Hand (B)
   BodyRegion(
     id: 'z33', label: 'R. Hand (B)', number: 33, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(1448, 515), Offset(1434, 510), Offset(1422, 516),
-      Offset(1414, 528), Offset(1410, 544), Offset(1412, 562),
-      Offset(1418, 578), Offset(1428, 592), Offset(1440, 600),
-      Offset(1454, 604), Offset(1466, 598), Offset(1474, 586),
-      Offset(1478, 570), Offset(1478, 552), Offset(1474, 536),
-      Offset(1466, 522), Offset(1458, 516),
+      Offset(1408, 498), Offset(1422, 494), Offset(1434, 488),
+      Offset(1444, 500), Offset(1452, 516), Offset(1456, 534),
+      Offset(1456, 554), Offset(1452, 572), Offset(1444, 586),
+      Offset(1432, 596), Offset(1418, 600), Offset(1404, 596),
+      Offset(1394, 586), Offset(1388, 570), Offset(1386, 552),
+      Offset(1388, 534), Offset(1394, 518), Offset(1400, 506),
     ],
   ),
 
@@ -677,27 +683,24 @@ const kBackRegions = <BodyRegion>[
     id: 'z34', label: 'L. Mid Back', number: 34, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1053, 287), Offset(1071, 292), Offset(1096, 290),
-      Offset(1127, 277), Offset(1153, 259),
-      Offset(1153, 345),
-      Offset(1130, 360), Offset(1108, 372),
-      Offset(1086, 384), Offset(1068, 392),
-      Offset(1055, 396), Offset(1045, 390),
-      Offset(1040, 370), Offset(1040, 348),
-      Offset(1042, 324), Offset(1045, 304),
+      Offset(1050, 275), Offset(1080, 278), Offset(1115, 275),
+      Offset(1155, 270),
+      Offset(1155, 368),
+      Offset(1115, 372), Offset(1082, 374), Offset(1056, 370),
+      Offset(1048, 348), Offset(1046, 322), Offset(1048, 298),
     ],
   ),
 
-  // z35 -- R. Mid Back (from automated extraction)
+  // z35 -- R. Mid Back
   BodyRegion(
     id: 'z35', label: 'R. Mid Back', number: 35, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1155, 259), Offset(1194, 244),
-      Offset(1227, 253), Offset(1260, 298),
-      Offset(1287, 300), Offset(1295, 317),
-      Offset(1274, 395), Offset(1236, 377),
-      Offset(1199, 345), Offset(1155, 345),
+      Offset(1155, 270), Offset(1195, 275), Offset(1230, 278),
+      Offset(1260, 275),
+      Offset(1262, 298), Offset(1264, 322), Offset(1262, 348),
+      Offset(1254, 370), Offset(1228, 374), Offset(1195, 372),
+      Offset(1155, 368),
     ],
   ),
 
@@ -706,42 +709,37 @@ const kBackRegions = <BodyRegion>[
     id: 'z36', label: 'L. Lower Back', number: 36, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1055, 396), Offset(1068, 392), Offset(1086, 384),
-      Offset(1108, 372), Offset(1130, 360), Offset(1153, 345),
-      Offset(1153, 440),
-      Offset(1130, 460), Offset(1104, 468),
-      Offset(1080, 472), Offset(1060, 468),
-      Offset(1048, 456), Offset(1042, 438),
-      Offset(1045, 418),
+      Offset(1056, 370), Offset(1082, 374), Offset(1115, 372),
+      Offset(1155, 368),
+      Offset(1155, 452),
+      Offset(1115, 456), Offset(1085, 458), Offset(1062, 454),
+      Offset(1052, 438), Offset(1050, 418), Offset(1052, 394),
     ],
   ),
 
-  // z37 -- R. Lower Back (from automated extraction)
+  // z37 -- R. Lower Back
   BodyRegion(
     id: 'z37', label: 'R. Lower Back', number: 37, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1155, 345), Offset(1199, 345),
-      Offset(1207, 366), Offset(1230, 384),
-      Offset(1247, 394), Offset(1272, 405),
-      Offset(1270, 424), Offset(1275, 462),
-      Offset(1266, 460), Offset(1238, 460),
-      Offset(1223, 464), Offset(1194, 439),
-      Offset(1155, 440),
+      Offset(1155, 368), Offset(1195, 372), Offset(1228, 374),
+      Offset(1254, 370),
+      Offset(1258, 394), Offset(1260, 418), Offset(1258, 438),
+      Offset(1248, 454), Offset(1225, 458), Offset(1195, 456),
+      Offset(1155, 452),
     ],
   ),
 
-  // z46 -- Sacrum (from automated extraction)
+  // z46 -- Sacrum
   BodyRegion(
     id: 'z46', label: 'Sacrum', number: 46, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1104, 468), Offset(1124, 467), Offset(1153, 472),
-      Offset(1155, 440), Offset(1194, 439),
-      Offset(1223, 464), Offset(1238, 460),
-      Offset(1190, 515), Offset(1190, 573),
-      Offset(1168, 591), Offset(1119, 595),
-      Offset(1088, 565), Offset(1104, 474),
+      Offset(1115, 456), Offset(1155, 452), Offset(1195, 456),
+      Offset(1205, 472), Offset(1198, 504), Offset(1185, 535),
+      Offset(1170, 558), Offset(1155, 570),
+      Offset(1140, 558), Offset(1125, 535), Offset(1112, 504),
+      Offset(1105, 472),
     ],
   ),
 
@@ -750,58 +748,60 @@ const kBackRegions = <BodyRegion>[
     id: 'z38', label: 'L. Buttock', number: 38, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1060, 468), Offset(1080, 472), Offset(1104, 474),
-      Offset(1088, 565), Offset(1090, 580),
-      Offset(1100, 590), Offset(1119, 595),
-      Offset(1100, 600), Offset(1080, 598),
-      Offset(1060, 590), Offset(1044, 576),
-      Offset(1032, 558), Offset(1028, 538),
-      Offset(1030, 516), Offset(1036, 496),
-      Offset(1044, 480),
+      Offset(1062, 454), Offset(1085, 458), Offset(1115, 456),
+      Offset(1105, 472), Offset(1112, 504), Offset(1125, 535),
+      Offset(1140, 558), Offset(1155, 570),
+      Offset(1130, 585), Offset(1105, 592),
+      Offset(1078, 590), Offset(1055, 580), Offset(1038, 564),
+      Offset(1030, 542), Offset(1030, 518), Offset(1036, 496),
+      Offset(1046, 476),
     ],
   ),
 
-  // z39 -- R. Buttock (from automated extraction)
+  // z39 -- R. Buttock
   BodyRegion(
     id: 'z39', label: 'R. Buttock', number: 39, isFront: false,
     group: EasiGroup.trunk,
     polyPoints: [
-      Offset(1246, 468), Offset(1276, 472),
-      Offset(1288, 538), Offset(1289, 556),
-      Offset(1284, 566), Offset(1271, 577),
-      Offset(1246, 587), Offset(1227, 587),
-      Offset(1216, 584), Offset(1199, 573),
-      Offset(1199, 508), Offset(1226, 472),
+      Offset(1248, 454), Offset(1225, 458), Offset(1195, 456),
+      Offset(1205, 472), Offset(1198, 504), Offset(1185, 535),
+      Offset(1170, 558), Offset(1155, 570),
+      Offset(1180, 585), Offset(1205, 592),
+      Offset(1232, 590), Offset(1255, 580), Offset(1272, 564),
+      Offset(1280, 542), Offset(1280, 518), Offset(1274, 496),
+      Offset(1264, 476),
     ],
   ),
+
+  // ── LOWER EXTREMITY ZONES (retraced) ──────────────────────────────────
 
   // z40 -- L. Thigh (B)
   BodyRegion(
     id: 'z40', label: 'L. Thigh (B)', number: 40, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1028, 538), Offset(1032, 558), Offset(1044, 576),
-      Offset(1060, 590), Offset(1080, 598), Offset(1100, 600),
-      Offset(1119, 595), Offset(1100, 648),
-      Offset(1090, 700), Offset(1080, 740),
-      Offset(1072, 770), Offset(1068, 810),
-      Offset(1020, 816), Offset(1014, 740),
-      Offset(1010, 680), Offset(1012, 630),
-      Offset(1018, 585),
+      Offset(1038, 564), Offset(1055, 580), Offset(1078, 590),
+      Offset(1105, 592), Offset(1130, 585),
+      Offset(1120, 635), Offset(1108, 690), Offset(1096, 740),
+      Offset(1085, 780), Offset(1078, 810),
+      Offset(1024, 812),
+      Offset(1018, 780), Offset(1014, 740), Offset(1014, 690),
+      Offset(1018, 640), Offset(1025, 600),
     ],
   ),
 
-  // z41 -- R. Thigh (B) (from automated extraction)
+  // z41 -- R. Thigh (B)
   BodyRegion(
     id: 'z41', label: 'R. Thigh (B)', number: 41, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1291, 570), Offset(1294, 585),
-      Offset(1291, 655), Offset(1272, 733),
-      Offset(1262, 810), Offset(1212, 817),
-      Offset(1206, 695), Offset(1198, 643),
-      Offset(1199, 585), Offset(1222, 595),
-      Offset(1249, 595), Offset(1276, 584),
+      Offset(1272, 564), Offset(1255, 580), Offset(1232, 590),
+      Offset(1205, 592), Offset(1180, 585),
+      Offset(1190, 635), Offset(1202, 690), Offset(1214, 740),
+      Offset(1225, 780), Offset(1232, 810),
+      Offset(1270, 812),
+      Offset(1278, 780), Offset(1284, 740), Offset(1288, 690),
+      Offset(1286, 640), Offset(1280, 600),
     ],
   ),
 
@@ -810,12 +810,11 @@ const kBackRegions = <BodyRegion>[
     id: 'z47', label: 'L. Back Knee', number: 47, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1020, 816), Offset(1068, 810),
-      Offset(1072, 840), Offset(1072, 870),
-      Offset(1068, 900), Offset(1060, 920),
-      Offset(1030, 920), Offset(1004, 920),
-      Offset(1000, 900), Offset(1002, 870),
-      Offset(1008, 840),
+      Offset(1024, 812), Offset(1078, 810),
+      Offset(1080, 840), Offset(1078, 870), Offset(1072, 900),
+      Offset(1064, 920),
+      Offset(1034, 922), Offset(1008, 920),
+      Offset(1002, 900), Offset(1004, 870), Offset(1010, 840),
     ],
   ),
 
@@ -824,12 +823,11 @@ const kBackRegions = <BodyRegion>[
     id: 'z48', label: 'R. Back Knee', number: 48, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1212, 817), Offset(1262, 819),
-      Offset(1266, 845), Offset(1268, 891),
-      Offset(1260, 930),
-      Offset(1230, 930), Offset(1210, 930),
-      Offset(1206, 900), Offset(1208, 870),
-      Offset(1212, 840),
+      Offset(1232, 810), Offset(1270, 812),
+      Offset(1272, 840), Offset(1272, 870), Offset(1268, 900),
+      Offset(1260, 920),
+      Offset(1238, 922), Offset(1216, 920),
+      Offset(1212, 900), Offset(1214, 870), Offset(1218, 840),
     ],
   ),
 
@@ -838,24 +836,24 @@ const kBackRegions = <BodyRegion>[
     id: 'z42', label: 'L. Calf', number: 42, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1004, 920), Offset(1030, 920), Offset(1060, 920),
-      Offset(1058, 950), Offset(1052, 980),
-      Offset(1044, 1010), Offset(1040, 1030),
-      Offset(996, 1030), Offset(992, 1010),
-      Offset(988, 980), Offset(990, 950),
+      Offset(1008, 920), Offset(1034, 922), Offset(1064, 920),
+      Offset(1060, 950), Offset(1054, 980),
+      Offset(1046, 1008), Offset(1042, 1028),
+      Offset(1000, 1030),
+      Offset(994, 1008), Offset(990, 980), Offset(992, 950),
     ],
   ),
 
-  // z43 -- R. Calf (hand-traced smooth contour)
+  // z43 -- R. Calf
   BodyRegion(
     id: 'z43', label: 'R. Calf', number: 43, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1204, 930), Offset(1230, 930), Offset(1260, 930),
-      Offset(1268, 955), Offset(1264, 980), Offset(1256, 1005),
-      Offset(1246, 1022), Offset(1234, 1028),
-      Offset(1218, 1028), Offset(1210, 1010),
-      Offset(1204, 985), Offset(1200, 960),
+      Offset(1216, 920), Offset(1238, 922), Offset(1260, 920),
+      Offset(1264, 950), Offset(1264, 980), Offset(1258, 1008),
+      Offset(1252, 1028),
+      Offset(1222, 1030),
+      Offset(1216, 1008), Offset(1212, 980), Offset(1212, 950),
     ],
   ),
 
@@ -864,28 +862,28 @@ const kBackRegions = <BodyRegion>[
     id: 'z44', label: 'L. Foot (B)', number: 44, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(996, 1030), Offset(1040, 1030),
-      Offset(1044, 1046), Offset(1044, 1064),
-      Offset(1038, 1080), Offset(1026, 1092),
-      Offset(1010, 1100), Offset(990, 1104),
-      Offset(970, 1102), Offset(952, 1096),
-      Offset(940, 1086), Offset(936, 1072),
-      Offset(938, 1058), Offset(946, 1046),
-      Offset(960, 1036), Offset(978, 1032),
+      Offset(1000, 1030), Offset(1042, 1028),
+      Offset(1046, 1044), Offset(1046, 1062),
+      Offset(1040, 1078), Offset(1028, 1090),
+      Offset(1012, 1098), Offset(992, 1102),
+      Offset(972, 1100), Offset(954, 1094),
+      Offset(942, 1084), Offset(938, 1070),
+      Offset(940, 1056), Offset(948, 1044),
+      Offset(962, 1036), Offset(980, 1032),
     ],
   ),
 
-  // z45 -- R. Foot (B) (hand-traced smooth oval matching image contour)
+  // z45 -- R. Foot (B)
   BodyRegion(
     id: 'z45', label: 'R. Foot (B)', number: 45, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1218, 1028), Offset(1240, 1025), Offset(1260, 1028),
-      Offset(1278, 1035), Offset(1294, 1048), Offset(1306, 1065),
-      Offset(1310, 1080), Offset(1306, 1092), Offset(1294, 1100),
-      Offset(1274, 1104), Offset(1254, 1104), Offset(1234, 1100),
-      Offset(1220, 1092), Offset(1212, 1078), Offset(1210, 1060),
-      Offset(1212, 1042),
+      Offset(1222, 1030), Offset(1252, 1028),
+      Offset(1260, 1044), Offset(1268, 1058), Offset(1270, 1074),
+      Offset(1266, 1088), Offset(1256, 1098), Offset(1240, 1104),
+      Offset(1222, 1106), Offset(1206, 1102), Offset(1194, 1094),
+      Offset(1186, 1082), Offset(1184, 1066), Offset(1188, 1050),
+      Offset(1198, 1040), Offset(1210, 1034),
     ],
   ),
 ];
