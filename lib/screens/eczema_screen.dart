@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -185,6 +186,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         SnackBar(content: Text(isEdit ? 'Log updated' : 'Log saved')),
       );
       _tabs.animateTo(0);
+
+      // Auto-capture environment data in the background
+      _captureEnvironment();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -217,6 +221,29 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _date = DateTime.now();
       _time = TimeOfDay.now();
     });
+  }
+
+  /// Silently capture weather/air quality for the current location.
+  Future<void> _captureEnvironment() async {
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) return;
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+      );
+      // Fire-and-forget: store environment data server-side
+      await apiClient.dio.get(
+        ApiConstants.environmentCurrent,
+        queryParameters: {'lat': pos.latitude, 'lon': pos.longitude},
+      );
+    } catch (_) {
+      // Non-critical — silently ignore
+    }
   }
 
   void _editLog(EczemaLogSummary log) {
@@ -2254,16 +2281,30 @@ class _ReportContent extends StatelessWidget {
           ],
 
           // ── Phase 1: Environmental Triggers ──────────────────
-          if (envCorrelation != null) ...[
-            const SizedBox(height: 16),
-            EnvironmentCorrelationCard(correlation: envCorrelation!),
-          ],
+          const SizedBox(height: 16),
+          if (envCorrelation != null)
+            EnvironmentCorrelationCard(correlation: envCorrelation!)
+          else
+            _EmptyAnalysisCard(
+              icon: Icons.cloud,
+              title: 'Environmental Triggers',
+              message: 'Save eczema logs to auto-capture weather data. '
+                  'Location permission is needed to track temperature, '
+                  'humidity, pollen, and air quality alongside your flares.',
+            ),
 
           // ── Phase 2: Smart Food Correlation ──────────────────
-          if (smartCorrelation != null) ...[
-            const SizedBox(height: 16),
-            SmartCorrelationCard(result: smartCorrelation!),
-          ],
+          const SizedBox(height: 16),
+          if (smartCorrelation != null)
+            SmartCorrelationCard(result: smartCorrelation!)
+          else
+            _EmptyAnalysisCard(
+              icon: Icons.psychology,
+              title: 'Smart Food Analysis',
+              message: 'Log both eczema and nutrition data to unlock '
+                  'AI-powered food trigger analysis with Bayesian '
+                  'probabilities, lag detection, and combination triggers.',
+            ),
 
           // ── Export button ──────────────────────────────────
           const SizedBox(height: 16),
@@ -2282,6 +2323,50 @@ class _ReportContent extends StatelessWidget {
 }
 
 // ─── Stat card for report ───────────────────────────────────────────────────
+
+class _EmptyAnalysisCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  const _EmptyAnalysisCard({required this.icon, required this.title, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: cs.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: cs.onSurfaceVariant, size: 20),
+                const SizedBox(width: 8),
+                Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _StatCard extends StatelessWidget {
   final String label;
