@@ -806,8 +806,54 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
 
 
   // ── PDF export ──────────────────────────────────────────────────────────────
+
+  static PdfColor _pdfItchColor(double avgItch) {
+    if (avgItch <= 0) return PdfColors.grey;
+    if (avgItch <= 2) return PdfColors.green400;
+    if (avgItch <= 4) return PdfColors.yellow700;
+    if (avgItch <= 6) return PdfColors.orange;
+    if (avgItch <= 8) return PdfColors.deepOrange;
+    return PdfColors.red900;
+  }
+
+  static String _pdfItchLabel(double avgItch) {
+    if (avgItch <= 0) return 'None';
+    if (avgItch <= 2) return 'Mild';
+    if (avgItch <= 4) return 'Moderate';
+    if (avgItch <= 6) return 'Significant';
+    if (avgItch <= 8) return 'Severe';
+    return 'Extreme';
+  }
+
   Future<void> _exportPdf(List<EczemaLogSummary> logs) async {
     final doc = pw.Document();
+    final days = _tabs.index == 3 ? _reportDays : _historyDays;
+
+    // Compute heatmap-style stats for the PDF
+    final itchValues = logs.where((l) => l.itchSeverity != null).map((l) => l.itchSeverity!).toList();
+    final avgItch = itchValues.isEmpty ? 0.0 : itchValues.reduce((a, b) => a + b) / itchValues.length;
+    final maxItch = itchValues.isEmpty ? 0 : itchValues.reduce((a, b) => a > b ? a : b);
+    final easiScores = logs.map((l) => l.easiScore).toList();
+    final avgEasi = easiScores.isEmpty ? 0.0 : easiScores.reduce((a, b) => a + b) / easiScores.length;
+    final maxEasi = easiScores.isEmpty ? 0.0 : easiScores.reduce((a, b) => a > b ? a : b);
+    final sleepDisrupted = logs.where((l) => l.sleepDisrupted == true).length;
+
+    // Compute per-zone itch averages
+    final zoneItchSum = <String, double>{};
+    final zoneItchCount = <String, int>{};
+    for (final log in logs) {
+      final itch = log.itchSeverity ?? 0;
+      for (final zoneId in log.parsedAreas.keys) {
+        zoneItchSum[zoneId] = (zoneItchSum[zoneId] ?? 0) + itch;
+        zoneItchCount[zoneId] = (zoneItchCount[zoneId] ?? 0) + 1;
+      }
+    }
+    final zoneAvgItch = <String, double>{};
+    for (final id in zoneItchSum.keys) {
+      zoneAvgItch[id] = zoneItchSum[id]! / zoneItchCount[id]!;
+    }
+    final sortedZones = zoneAvgItch.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
@@ -817,74 +863,217 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         children: [
           pw.Text('Vitalis — Eczema Assessment Report',
               style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-          pw.Text('Period: last $_historyDays days  ·  Generated: ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
+          pw.Text('Period: last $days days  ·  Generated: ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
           pw.Divider(),
         ],
       ),
       build: (context) => [
-        // Summary stats
-        _pdfSummary(logs),
+        // ── Key Statistics ──────────────────────────────────
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey400),
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+            children: [
+              _pdfStat('Entries', '${logs.length}'),
+              _pdfStat('Avg Itch', '${avgItch.toStringAsFixed(1)}/10'),
+              _pdfStat('Peak Itch', '$maxItch/10'),
+              _pdfStat('Avg EASI', avgEasi.toStringAsFixed(1)),
+              _pdfStat('Peak EASI', maxEasi.toStringAsFixed(1)),
+              _pdfStat('Sleep Disrupted', '$sleepDisrupted'),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Row(children: [
+          pw.Text('Overall Itch: ', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text('${_pdfItchLabel(avgItch)} (${avgItch.toStringAsFixed(1)}/10)',
+              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                  color: _pdfItchColor(avgItch))),
+          pw.Text('   |   Overall EASI: ', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text('${_easiLabel(avgEasi)} (${avgEasi.toStringAsFixed(1)})',
+              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+        ]),
+
+        // ── Itch Severity by Zone (heatmap data) ──────────
+        if (sortedZones.isNotEmpty) ...[
+          pw.SizedBox(height: 16),
+          pw.Text('Itch Severity by Zone',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 2),
+          pw.Text('Color indicates average itch intensity during the period',
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+          pw.SizedBox(height: 6),
+          // Severity legend bar
+          pw.Row(children: [
+            for (final entry in [
+              (PdfColors.green400, 'Mild (1-2)'),
+              (PdfColors.yellow700, 'Moderate (3-4)'),
+              (PdfColors.orange, 'Significant (5-6)'),
+              (PdfColors.deepOrange, 'Severe (7-8)'),
+              (PdfColors.red900, 'Extreme (9-10)'),
+            ]) ...[
+              pw.Container(width: 8, height: 8,
+                  decoration: pw.BoxDecoration(color: entry.$1, shape: pw.BoxShape.circle)),
+              pw.SizedBox(width: 2),
+              pw.Text(entry.$2, style: const pw.TextStyle(fontSize: 7)),
+              pw.SizedBox(width: 8),
+            ],
+          ]),
+          pw.SizedBox(height: 6),
+          // Zone table with itch severity
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(0.5),
+              1: const pw.FlexColumnWidth(3),
+              2: const pw.FlexColumnWidth(2),
+              3: const pw.FlexColumnWidth(1.5),
+              4: const pw.FlexColumnWidth(1.5),
+              5: const pw.FlexColumnWidth(2),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                children: ['', 'Zone', 'Avg Itch', 'Severity', 'Frequency', 'Body Group'].map((h) =>
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  ),
+                ).toList(),
+              ),
+              ...sortedZones.take(15).map((e) {
+                final region = findRegion(e.key);
+                final lbl = region?.label ?? e.key;
+                final avgI = e.value;
+                final count = zoneItchCount[e.key] ?? 0;
+                final pct = logs.isEmpty ? 0 : (count / logs.length * 100).round();
+                final color = _pdfItchColor(avgI);
+                final group = region != null ? region.group.label : '';
+                return pw.TableRow(children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Container(width: 8, height: 8,
+                          decoration: pw.BoxDecoration(color: color, shape: pw.BoxShape.circle))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text(lbl, style: const pw.TextStyle(fontSize: 8))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text('${avgI.toStringAsFixed(1)} / 10',
+                          style: pw.TextStyle(fontSize: 8, color: color, fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text(_pdfItchLabel(avgI), style: pw.TextStyle(fontSize: 8, color: color))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text('$pct% ($count/${logs.length})', style: const pw.TextStyle(fontSize: 8))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text(group, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600))),
+                ]);
+              }),
+            ],
+          ),
+        ],
+
+        // ── Body Group Summary ─────────────────────────────
         pw.SizedBox(height: 16),
-        // Log table
+        pw.Text('Body Group Summary',
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 6),
+        _pdfGroupSummary(logs, zoneAvgItch, zoneItchCount),
+
+        // ── Assessment History ─────────────────────────────
+        pw.SizedBox(height: 16),
         pw.Text('Assessment History',
             style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 6),
         _pdfTable(logs),
-        pw.SizedBox(height: 16),
-        // Region frequency
-        _pdfRegionFrequency(logs),
       ],
     ));
 
     await Printing.layoutPdf(onLayout: (format) => doc.save());
   }
 
-  pw.Widget _pdfSummary(List<EczemaLogSummary> logs) {
-    final easiScores = logs.map((l) => l.easiScore).toList();
-    final avgEasi = easiScores.isEmpty ? 0.0 : easiScores.reduce((a, b) => a + b) / easiScores.length;
-    final maxEasi = easiScores.isEmpty ? 0.0 : easiScores.reduce((a, b) => a > b ? a : b);
-    final sleepDisrupted = logs.where((l) => l.sleepDisrupted == true).length;
-
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-        children: [
-          _pdfStat('Entries', '${logs.length}'),
-          _pdfStat('Avg EASI', avgEasi.toStringAsFixed(1)),
-          _pdfStat('Peak EASI', maxEasi.toStringAsFixed(1)),
-          _pdfStat('Sleep disrupted', '$sleepDisrupted nights'),
-        ],
-      ),
-    );
-  }
-
   pw.Widget _pdfStat(String label, String value) => pw.Column(
     children: [
-      pw.Text(value, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-      pw.Text(label, style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+      pw.Text(value, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+      pw.Text(label, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
     ],
   );
+
+  pw.Widget _pdfGroupSummary(List<EczemaLogSummary> logs,
+      Map<String, double> zoneAvgItch, Map<String, int> zoneItchCount) {
+    final groupData = <String, (double itchSum, int itchCount, int zoneCount)>{};
+    for (final e in zoneAvgItch.entries) {
+      final region = findRegion(e.key);
+      final groupName = region?.group.label ?? 'Unknown';
+      final count = zoneItchCount[e.key] ?? 0;
+      final cur = groupData[groupName] ?? (0.0, 0, 0);
+      groupData[groupName] = (cur.$1 + e.value * count, cur.$2 + count, cur.$3 + 1);
+    }
+
+    final sorted = groupData.entries.toList()
+      ..sort((a, b) {
+        final avgA = a.value.$2 > 0 ? a.value.$1 / a.value.$2 : 0.0;
+        final avgB = b.value.$2 > 0 ? b.value.$1 / b.value.$2 : 0.0;
+        return avgB.compareTo(avgA);
+      });
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(3),
+        1: const pw.FlexColumnWidth(2),
+        2: const pw.FlexColumnWidth(2),
+        3: const pw.FlexColumnWidth(2),
+      },
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+          children: ['Body Group', 'Avg Itch', 'Severity', 'Zones Affected'].map((h) =>
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text(h, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            ),
+          ).toList(),
+        ),
+        ...sorted.map((e) {
+          final avgI = e.value.$2 > 0 ? e.value.$1 / e.value.$2 : 0.0;
+          final color = _pdfItchColor(avgI);
+          return pw.TableRow(children: [
+            pw.Padding(padding: const pw.EdgeInsets.all(4),
+                child: pw.Text(e.key, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+            pw.Padding(padding: const pw.EdgeInsets.all(4),
+                child: pw.Text('${avgI.toStringAsFixed(1)} / 10',
+                    style: pw.TextStyle(fontSize: 9, color: color, fontWeight: pw.FontWeight.bold))),
+            pw.Padding(padding: const pw.EdgeInsets.all(4),
+                child: pw.Text(_pdfItchLabel(avgI), style: pw.TextStyle(fontSize: 9, color: color))),
+            pw.Padding(padding: const pw.EdgeInsets.all(4),
+                child: pw.Text('${e.value.$3}', style: const pw.TextStyle(fontSize: 9))),
+          ]);
+        }),
+      ],
+    );
+  }
 
   pw.Widget _pdfTable(List<EczemaLogSummary> logs) {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
       columnWidths: {
         0: const pw.FlexColumnWidth(2),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(2),
+        1: const pw.FlexColumnWidth(1.2),
+        2: const pw.FlexColumnWidth(1.5),
         3: const pw.FlexColumnWidth(1),
-        4: const pw.FlexColumnWidth(3),
+        4: const pw.FlexColumnWidth(1),
+        5: const pw.FlexColumnWidth(3),
       },
       children: [
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-          children: ['Date', 'EASI', 'Severity', 'Itch', 'Affected Areas'].map((h) =>
+          children: ['Date', 'EASI', 'Severity', 'Itch', 'Sleep', 'Affected Areas'].map((h) =>
             pw.Padding(
               padding: const pw.EdgeInsets.all(4),
-              child: pw.Text(h, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+              child: pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
             )
           ).toList(),
         ),
@@ -895,46 +1084,20 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               .map((k) => findRegion(k)?.label ?? k)
               .join(', ');
           return pw.TableRow(children: [
-            pw.Padding(padding: const pw.EdgeInsets.all(4),
-                child: pw.Text('${log.logDate} ${log.logTime}', style: const pw.TextStyle(fontSize: 8))),
-            pw.Padding(padding: const pw.EdgeInsets.all(4),
-                child: pw.Text(easi.toStringAsFixed(1), style: const pw.TextStyle(fontSize: 8))),
-            pw.Padding(padding: const pw.EdgeInsets.all(4),
-                child: pw.Text(_easiLabel(easi), style: const pw.TextStyle(fontSize: 8))),
-            pw.Padding(padding: const pw.EdgeInsets.all(4),
-                child: pw.Text('${log.itchSeverity ?? "-"}/10', style: const pw.TextStyle(fontSize: 8))),
-            pw.Padding(padding: const pw.EdgeInsets.all(4),
+            pw.Padding(padding: const pw.EdgeInsets.all(3),
+                child: pw.Text('${log.logDate} ${log.logTime}', style: const pw.TextStyle(fontSize: 7))),
+            pw.Padding(padding: const pw.EdgeInsets.all(3),
+                child: pw.Text(easi.toStringAsFixed(1), style: const pw.TextStyle(fontSize: 7))),
+            pw.Padding(padding: const pw.EdgeInsets.all(3),
+                child: pw.Text(_easiLabel(easi), style: const pw.TextStyle(fontSize: 7))),
+            pw.Padding(padding: const pw.EdgeInsets.all(3),
+                child: pw.Text('${log.itchSeverity ?? "-"}/10', style: const pw.TextStyle(fontSize: 7))),
+            pw.Padding(padding: const pw.EdgeInsets.all(3),
+                child: pw.Text((log.sleepDisrupted == true) ? 'Yes' : '-', style: const pw.TextStyle(fontSize: 7))),
+            pw.Padding(padding: const pw.EdgeInsets.all(3),
                 child: pw.Text(
                     areas + (log.parsedAreas.length > 3 ? ' +${log.parsedAreas.length - 3}' : ''),
-                    style: const pw.TextStyle(fontSize: 8))),
-          ]);
-        }),
-      ],
-    );
-  }
-
-  pw.Widget _pdfRegionFrequency(List<EczemaLogSummary> logs) {
-    final freq = <String, int>{};
-    for (final log in logs) {
-      for (final id in log.parsedAreas.keys) { freq[id] = (freq[id] ?? 0) + 1; }
-    }
-    final sorted = freq.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    if (sorted.isEmpty) return pw.SizedBox();
-
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text('Most Affected Regions',
-            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-        pw.SizedBox(height: 6),
-        ...sorted.take(8).map((e) {
-          final region = findRegion(e.key);
-          final lbl = region?.label ?? e.key;
-          final pct = (e.value / logs.length * 100).round();
-          return pw.Row(children: [
-            pw.SizedBox(width: 130, child: pw.Text(lbl, style: const pw.TextStyle(fontSize: 9))),
-            pw.Text('$pct% of visits (${e.value}/${logs.length})',
-                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                    style: const pw.TextStyle(fontSize: 7))),
           ]);
         }),
       ],
