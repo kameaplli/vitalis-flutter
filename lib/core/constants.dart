@@ -79,4 +79,13 @@ class ApiConstants {
   static const String grocerySpending      = '/api/analytics/grocery/spending';
   static const String groceryNutrition     = '/api/analytics/grocery/nutrition';
   static const String groceryCategoryItems = '/api/analytics/grocery/category-items';
+
+  // Environment Intelligence (Phase 1)
+  static const String environmentCurrent     = '/api/environment/current';
+  static const String environmentHistory     = '/api/environment/history';
+  static const String environmentCorrelation = '/api/environment/correlation';
+  static const String environmentFlareRisk   = '/api/environment/flare-risk';
+
+  // Smart Food Analysis (Phase 2)
+  static const String eczemaSmartCorrelation = '/api/health/eczema/smart-correlation';
 }
