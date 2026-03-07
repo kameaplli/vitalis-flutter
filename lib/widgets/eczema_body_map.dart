@@ -356,9 +356,9 @@ class _ZoneOverlayPainter extends CustomPainter {
           _drawRadiatingGlow(canvas, region, fill, heatIntensity, sw, sh);
         }
       } else {
-        // No data — draw a light outline so zone shape is always visible
+        // No data — draw a white outline so zone shape is visible on dark bg
         _paintZone(canvas, region,
-            Paint()..color = const Color(0x30546E7A)
+            Paint()..color = const Color(0x50FFFFFF)
                    ..style = PaintingStyle.stroke
                    ..strokeWidth = 1.0
                    ..strokeJoin = StrokeJoin.round, sw, sh);
@@ -529,10 +529,10 @@ class _ZoneOverlayPainter extends CustomPainter {
         text: TextSpan(
           text: '${region.number}',
           style: TextStyle(
-            color: highlighted ? Colors.white : const Color(0xFF37474F),
+            color: highlighted ? Colors.white : const Color(0xAAFFFFFF),
             fontSize: fontSize,
             fontWeight: FontWeight.w700,
-            shadows: const [Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0.4, 0.4))],
+            shadows: const [Shadow(color: Colors.black54, blurRadius: 3, offset: Offset(0.5, 0.5))],
           ),
         ),
         textDirection: TextDirection.ltr,
