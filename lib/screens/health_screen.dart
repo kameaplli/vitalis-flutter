@@ -145,6 +145,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           const AsyncValue.data([])),
       _CardDef('eczema',      'Eczema',      Icons.healing_outlined,         Colors.teal,
           const AsyncValue.data([])),
+      _CardDef('skin-photos', 'Skin Photos', Icons.camera_alt_outlined,     Colors.brown,
+          const AsyncValue.data([])),
+      _CardDef('products',    'Products',    Icons.inventory_2_outlined,     Colors.indigo,
+          const AsyncValue.data([])),
+      _CardDef('insights',    'Insights',    Icons.psychology_outlined,      Colors.deepPurple,
+          const AsyncValue.data([])),
     ];
 
     return Scaffold(
@@ -184,11 +190,13 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           itemBuilder: (context, i) => _HealthCard(
             def: cards[i],
             onTap: () {
-              final route = cards[i].category == 'weight'
-                  ? '/health/weight'
-                  : cards[i].category == 'eczema'
-                      ? '/health/eczema'
-                      : '/health/${cards[i].category}';
+              final cat = cards[i].category;
+              final route = cat == 'weight' ? '/health/weight'
+                  : cat == 'eczema' ? '/health/eczema'
+                  : cat == 'skin-photos' ? '/skin-photos'
+                  : cat == 'products' ? '/products'
+                  : cat == 'insights' ? '/insights'
+                  : '/health/$cat';
               context.push(route);
             },
           ),

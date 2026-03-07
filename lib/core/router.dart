@@ -14,6 +14,9 @@ import '../screens/profile_screen.dart';
 import '../screens/scanner_screen.dart';
 import '../screens/grocery_screen.dart';
 import '../screens/receipt_scan_screen.dart';
+import '../screens/products_screen.dart';
+import '../screens/insights_screen.dart';
+import '../screens/skin_photos_screen.dart';
 import '../widgets/app_shell.dart';
 
 class _LoadingScreen extends StatelessWidget {
@@ -87,6 +90,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profile',    builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/scanner',    builder: (_, __) => const ScannerScreen()),
           GoRoute(path: '/grocery/scan', builder: (_, __) => const ReceiptScanScreen()),
+          GoRoute(path: '/products',    builder: (_, __) => const ProductsScreen()),
+          GoRoute(path: '/insights',    builder: (_, __) => const InsightsScreen()),
+          GoRoute(path: '/skin-photos', builder: (_, __) => const SkinPhotosScreen()),
         ],
       ),
     ],
