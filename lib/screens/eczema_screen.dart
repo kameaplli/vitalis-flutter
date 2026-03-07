@@ -1347,7 +1347,8 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
 
   Future<void> _deleteMockData() async {
     try {
-      final res = await apiClient.dio.delete(ApiConstants.eczemaMock);
+      final res = await apiClient.dio.delete(ApiConstants.eczemaMock,
+          queryParameters: {'all': true});
       if (!mounted) return;
       final data = res.data as Map<String, dynamic>;
       final ec = data['eczema_deleted'] ?? 0;
