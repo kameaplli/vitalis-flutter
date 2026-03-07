@@ -825,7 +825,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     return 'Extreme';
   }
 
-  Future<void> _exportPdf(List<EczemaLogSummary> logs) async {
+  Future<void> _exportPdf(List<EczemaLogSummary> logs, [FoodCorrelationData? foodCorrelation]) async {
     final doc = pw.Document();
     final days = _tabs.index == 3 ? _reportDays : _historyDays;
 
@@ -1010,6 +1010,96 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         ],
       ),
       build: (context) => [
+        // Food Correlation Insights
+        if (foodCorrelation != null && foodCorrelation.badFoods.isNotEmpty) ...[
+          pw.Text('Food–Itch Correlation Analysis',
+              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Foods eaten 0–2 days before eczema entries, ranked by correlation with higher itch scores.',
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+          ),
+          pw.SizedBox(height: 8),
+
+          // Bad foods table
+          pw.Text('Suspected Trigger Foods',
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.red800)),
+          pw.SizedBox(height: 4),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3),
+              1: const pw.FlexColumnWidth(2),
+              2: const pw.FlexColumnWidth(2),
+              3: const pw.FlexColumnWidth(2),
+              4: const pw.FlexColumnWidth(1.5),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.red50),
+                children: ['Food', 'Avg Itch (eaten)', 'Avg Itch (not eaten)', 'Impact', 'Times'].map((h) =>
+                  pw.Padding(padding: const pw.EdgeInsets.all(4),
+                      child: pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+                ).toList(),
+              ),
+              ...foodCorrelation.badFoods.map((f) => pw.TableRow(children: [
+                pw.Padding(padding: const pw.EdgeInsets.all(3),
+                    child: pw.Text(f.foodName, style: const pw.TextStyle(fontSize: 8))),
+                pw.Padding(padding: const pw.EdgeInsets.all(3),
+                    child: pw.Text('${f.avgItchWith}/10',
+                        style: pw.TextStyle(fontSize: 8, color: PdfColors.red700, fontWeight: pw.FontWeight.bold))),
+                pw.Padding(padding: const pw.EdgeInsets.all(3),
+                    child: pw.Text('${f.avgItchWithout}/10', style: const pw.TextStyle(fontSize: 8))),
+                pw.Padding(padding: const pw.EdgeInsets.all(3),
+                    child: pw.Text('+${f.correlationScore}',
+                        style: pw.TextStyle(fontSize: 8, color: PdfColors.red700, fontWeight: pw.FontWeight.bold))),
+                pw.Padding(padding: const pw.EdgeInsets.all(3),
+                    child: pw.Text('${f.timesEaten}×', style: const pw.TextStyle(fontSize: 8))),
+              ])),
+            ],
+          ),
+
+          if (foodCorrelation.goodFoods.isNotEmpty) ...[
+            pw.SizedBox(height: 10),
+            pw.Text('Foods with Lower Itch Correlation',
+                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+            pw.SizedBox(height: 4),
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(3),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(2),
+                3: const pw.FlexColumnWidth(2),
+                4: const pw.FlexColumnWidth(1.5),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.green50),
+                  children: ['Food', 'Avg Itch (eaten)', 'Avg Itch (not eaten)', 'Impact', 'Times'].map((h) =>
+                    pw.Padding(padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(h, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+                  ).toList(),
+                ),
+                ...foodCorrelation.goodFoods.map((f) => pw.TableRow(children: [
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text(f.foodName, style: const pw.TextStyle(fontSize: 8))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text('${f.avgItchWith}/10', style: const pw.TextStyle(fontSize: 8))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text('${f.avgItchWithout}/10', style: const pw.TextStyle(fontSize: 8))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text('${f.correlationScore}',
+                          style: pw.TextStyle(fontSize: 8, color: PdfColors.green700, fontWeight: pw.FontWeight.bold))),
+                  pw.Padding(padding: const pw.EdgeInsets.all(3),
+                      child: pw.Text('${f.timesEaten}×', style: const pw.TextStyle(fontSize: 8))),
+                ])),
+              ],
+            ),
+          ],
+          pw.SizedBox(height: 16),
+        ],
+
         // Body Group Summary
         pw.Text('Body Group Summary',
             style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
@@ -1170,13 +1260,13 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         final scoresA = _logToScores(logA);
         final scoresB = _logToScores(logB);
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Selectors
-              Row(children: [
+        // Use Column + Expanded so body map gets remaining space without overlap
+        return Column(
+          children: [
+            // Selectors (fixed at top)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+              child: Row(children: [
                 Expanded(child: _visitPicker('Visit A', logs, logA.id, (id) => setState(() {
                   _compareIdA = id;
                   if (_compareIdB == null) _compareIdB = logs.firstWhereOrNull((l) => l.id != id)?.id;
@@ -1184,11 +1274,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 const SizedBox(width: 8),
                 Expanded(child: _visitPicker('Visit B', logs, logB.id, (id) => setState(() => _compareIdB = id))),
               ]),
-              const SizedBox(height: 12),
+            ),
 
-              // Comparison widget — give it 50% more height than default
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.75,
+            // Body comparison fills available space
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
                 child: EczemaBodyComparison(
                   view: EczemaBodyView.front,
                   scoresA: scoresA,
@@ -1201,12 +1292,14 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                   severityB: _easiLabel(logB.easiScore),
                 ),
               ),
+            ),
 
-              // Additional metrics table
-              const SizedBox(height: 16),
-              _CompareMetricsTable(logA: logA, logB: logB),
-            ],
-          ),
+            // Metrics table at bottom (scrollable if needed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: _CompareMetricsTable(logA: logA, logB: logB),
+            ),
+          ],
         );
       },
     );
@@ -1237,20 +1330,45 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ─── Heatmap Tab ────────────────────────────────────────────────────────────
   Future<void> _generateMockData() async {
     try {
-      await apiClient.dio.post(ApiConstants.eczemaMock);
+      final res = await apiClient.dio.post(ApiConstants.eczemaMock);
       if (!mounted) return;
+      final data = res.data as Map<String, dynamic>;
+      final ec = data['eczema_entries'] ?? 0;
+      final nc = data['nutrition_entries'] ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Generated 100 mock eczema logs')),
+        SnackBar(content: Text('Generated $ec eczema + $nc nutrition mock entries (90 days)')),
       );
-      final person = ref.read(selectedPersonProvider);
-      ref.invalidate(eczemaHeatmapProvider('$person:$_heatmapDays'));
-      ref.invalidate(eczemaProvider('$person:60'));
+      _invalidateAll();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
+  }
+
+  Future<void> _deleteMockData() async {
+    try {
+      final res = await apiClient.dio.delete(ApiConstants.eczemaMock);
+      if (!mounted) return;
+      final data = res.data as Map<String, dynamic>;
+      final ec = data['eczema_deleted'] ?? 0;
+      final nc = data['nutrition_deleted'] ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted $ec eczema + $nc nutrition mock entries')),
+      );
+      _invalidateAll();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _invalidateAll() {
+    final person = ref.read(selectedPersonProvider);
+    ref.invalidate(eczemaHeatmapProvider('$person:$_heatmapDays'));
+    ref.invalidate(eczemaHeatmapProvider('$person:$_reportDays'));
+    ref.invalidate(eczemaProvider('$person:$_historyDays'));
+    ref.invalidate(eczemaProvider('$person:90'));
+    ref.invalidate(eczemaFoodCorrelationProvider('$person:$_reportDays'));
   }
 
   Widget _buildHeatmapTab() {
@@ -1263,8 +1381,13 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           child: Row(children: [
             IconButton(
               icon: const Icon(Icons.science_outlined, size: 20),
-              tooltip: 'Generate 100 mock logs',
+              tooltip: 'Generate mock data (90 days)',
               onPressed: _generateMockData,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_outlined, size: 20),
+              tooltip: 'Delete all mock data',
+              onPressed: _deleteMockData,
             ),
             const Spacer(),
             SegmentedButton<int>(
@@ -1330,6 +1453,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     final person = ref.watch(selectedPersonProvider);
     final heatAsync = ref.watch(eczemaHeatmapProvider('$person:$_reportDays'));
     final logsAsync = ref.watch(eczemaProvider('$person:$_reportDays'));
+    final foodAsync = ref.watch(eczemaFoodCorrelationProvider('$person:$_reportDays'));
 
     return Column(
       children: [
@@ -1368,11 +1492,13 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                           style: TextStyle(color: Colors.grey)),
                     );
                   }
+                  final foodData = foodAsync.valueOrNull;
                   return _ReportContent(
                     heatData: heatData,
                     logs: logs,
                     days: _reportDays,
-                    onExportPdf: () => _exportPdf(logs),
+                    foodCorrelation: foodData,
+                    onExportPdf: () => _exportPdf(logs, foodData),
                   );
                 },
               );
@@ -1487,12 +1613,14 @@ class _ReportContent extends StatelessWidget {
   final EczemaHeatmapData heatData;
   final List<EczemaLogSummary> logs;
   final int days;
+  final FoodCorrelationData? foodCorrelation;
   final VoidCallback onExportPdf;
 
   const _ReportContent({
     required this.heatData,
     required this.logs,
     required this.days,
+    this.foodCorrelation,
     required this.onExportPdf,
   });
 
@@ -1735,6 +1863,103 @@ class _ReportContent extends StatelessWidget {
                 ]),
               );
             }),
+          ],
+
+          // ── Food Correlation Insights ──────────────────────
+          if (foodCorrelation != null && foodCorrelation!.badFoods.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const Icon(Icons.restaurant, size: 18, color: Colors.red),
+                    const SizedBox(width: 6),
+                    Text('Suspected Trigger Foods',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: Colors.red.shade700)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Foods correlated with higher itch scores (eaten 0–2 days before flares)',
+                    style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                  ...foodCorrelation!.badFoods.take(3).map((f) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(children: [
+                      Container(
+                        width: 10, height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade400,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(f.foodName,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          Text(
+                            'Avg itch ${f.avgItchWith}/10 when eaten vs ${f.avgItchWithout}/10 without  ·  ${f.timesEaten}× eaten',
+                            style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                          ),
+                        ]),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Text('+${f.correlationScore}',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+                                color: Colors.red.shade700)),
+                      ),
+                    ]),
+                  )),
+                ]),
+              ),
+            ),
+
+            if (foodCorrelation!.goodFoods.isNotEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Icon(Icons.eco, size: 18, color: Colors.green),
+                      const SizedBox(width: 6),
+                      Text('Foods with Lower Itch',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Colors.green.shade700)),
+                    ]),
+                    const SizedBox(height: 8),
+                    ...foodCorrelation!.goodFoods.take(3).map((f) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(children: [
+                        Container(
+                          width: 10, height: 10,
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade400,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(f.foodName,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        ),
+                        Text(
+                          '${f.avgItchWith}/10 vs ${f.avgItchWithout}/10',
+                          style: TextStyle(fontSize: 11, color: Colors.green.shade600),
+                        ),
+                      ]),
+                    )),
+                  ]),
+                ),
+              ),
           ],
 
           // ── Export button ──────────────────────────────────

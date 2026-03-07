@@ -63,6 +63,7 @@ class ApiConstants {
   static const String eczemaHistory = '/api/health/eczema/history';
   static const String eczemaHeatmap = '/api/health/eczema/heatmap';
   static const String eczemaMock = '/api/health/eczema/mock';
+  static const String eczemaFoodCorrelation = '/api/health/eczema/food-correlation';
 
   // Analytics
   static const String analyticsNutrition = '/api/analytics/nutrition';

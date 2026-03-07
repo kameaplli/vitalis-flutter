@@ -27,6 +27,61 @@ final eczemaHeatmapProvider =
   return EczemaHeatmapData.fromJson(res.data as Map<String, dynamic>);
 });
 
+/// Key format: "person:days"
+final eczemaFoodCorrelationProvider =
+    FutureProvider.family<FoodCorrelationData, String>((ref, key) async {
+  final parts = key.split(':');
+  final person = parts[0].isNotEmpty ? parts[0] : 'self';
+  final days = int.tryParse(parts.elementAtOrNull(1) ?? '90') ?? 90;
+  final res = await apiClient.dio.get(ApiConstants.eczemaFoodCorrelation,
+      queryParameters: {'person': person, 'days': days});
+  return FoodCorrelationData.fromJson(res.data as Map<String, dynamic>);
+});
+
+class FoodCorrelationData {
+  final List<FoodCorrelation> badFoods;
+  final List<FoodCorrelation> goodFoods;
+
+  const FoodCorrelationData({required this.badFoods, required this.goodFoods});
+
+  factory FoodCorrelationData.fromJson(Map<String, dynamic> json) {
+    return FoodCorrelationData(
+      badFoods: (json['bad_foods'] as List? ?? [])
+          .map((e) => FoodCorrelation.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      goodFoods: (json['good_foods'] as List? ?? [])
+          .map((e) => FoodCorrelation.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class FoodCorrelation {
+  final String foodName;
+  final double avgItchWith;
+  final double avgItchWithout;
+  final double correlationScore;
+  final int timesEaten;
+
+  const FoodCorrelation({
+    required this.foodName,
+    required this.avgItchWith,
+    required this.avgItchWithout,
+    required this.correlationScore,
+    required this.timesEaten,
+  });
+
+  factory FoodCorrelation.fromJson(Map<String, dynamic> json) {
+    return FoodCorrelation(
+      foodName: json['food_name'] as String? ?? '',
+      avgItchWith: (json['avg_itch_with'] as num?)?.toDouble() ?? 0,
+      avgItchWithout: (json['avg_itch_without'] as num?)?.toDouble() ?? 0,
+      correlationScore: (json['correlation_score'] as num?)?.toDouble() ?? 0,
+      timesEaten: (json['times_eaten'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class EczemaHeatmapData {
   final Map<String, double> regionIntensity; // zoneId → 0.0-1.0
   final List<({DateTime date, double easi})> easiTrend;
