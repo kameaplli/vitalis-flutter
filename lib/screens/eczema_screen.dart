@@ -7,12 +7,18 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../providers/eczema_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../providers/environment_provider.dart';
+import '../providers/smart_correlation_provider.dart';
 import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/eczema_log.dart';
 import '../models/easi_models.dart';
+import '../models/environment_data.dart';
+import '../models/smart_correlation_data.dart';
 import '../widgets/eczema_body_map.dart';
+import '../widgets/environment_card.dart';
+import '../widgets/smart_correlation_card.dart';
 
 // ─── EASI helpers ─────────────────────────────────────────────────────────────
 
@@ -1647,6 +1653,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     final logsAsync = ref.watch(eczemaProvider('$person:$_reportDays'));
     final foodAsync = ref.watch(eczemaFoodCorrelationProvider('$person:$_reportDays'));
 
+    // Phase 1: Environment correlation
+    final envAsync = ref.watch(environmentCorrelationProvider((days: _reportDays, person: person)));
+    // Phase 2: Smart food correlation
+    final smartAsync = ref.watch(smartCorrelationProvider((days: _reportDays, person: person)));
+
     return Column(
       children: [
         // Period selector
@@ -1688,13 +1699,14 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                     skipLoadingOnReload: true,
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (e, _) {
-                      // Show report without food data if correlation fails
                       return _ReportContent(
                         heatData: heatData,
                         logs: logs,
                         days: _reportDays,
                         foodCorrelation: null,
                         onExportPdf: () => _exportPdf(logs),
+                        envCorrelation: envAsync.valueOrNull,
+                        smartCorrelation: smartAsync.valueOrNull,
                       );
                     },
                     data: (foodData) {
@@ -1704,6 +1716,8 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                         days: _reportDays,
                         foodCorrelation: foodData,
                         onExportPdf: () => _exportPdf(logs, foodData),
+                        envCorrelation: envAsync.valueOrNull,
+                        smartCorrelation: smartAsync.valueOrNull,
                       );
                     },
                   );
@@ -1888,6 +1902,8 @@ class _ReportContent extends StatelessWidget {
   final int days;
   final FoodCorrelationData? foodCorrelation;
   final VoidCallback onExportPdf;
+  final EnvironmentCorrelation? envCorrelation;
+  final SmartCorrelationResult? smartCorrelation;
 
   const _ReportContent({
     required this.heatData,
@@ -1895,6 +1911,8 @@ class _ReportContent extends StatelessWidget {
     required this.days,
     this.foodCorrelation,
     required this.onExportPdf,
+    this.envCorrelation,
+    this.smartCorrelation,
   });
 
   static Color _itchColor(double avgItch) {
@@ -2233,6 +2251,18 @@ class _ReportContent extends StatelessWidget {
                   ]),
                 ),
               ),
+          ],
+
+          // ── Phase 1: Environmental Triggers ──────────────────
+          if (envCorrelation != null) ...[
+            const SizedBox(height: 16),
+            EnvironmentCorrelationCard(correlation: envCorrelation!),
+          ],
+
+          // ── Phase 2: Smart Food Correlation ──────────────────
+          if (smartCorrelation != null) ...[
+            const SizedBox(height: 16),
+            SmartCorrelationCard(result: smartCorrelation!),
           ],
 
           // ── Export button ──────────────────────────────────
