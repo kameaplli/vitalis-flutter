@@ -229,28 +229,21 @@ class _EczemaBodyMapState extends State<EczemaBodyMap>
       final content = SizedBox(
         width: w,
         height: h,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset('assets/body_map_clinical.png',
-                width: w, height: h, fit: BoxFit.fill),
-            RepaintBoundary(
-              child: CustomPaint(
-                size: Size(w, h),
-                painter: _ZoneOverlayPainter(
-                  regions:       EczemaBodyMap._allRegions,
-                  regionScores:  widget.regionScores,
-                  heatData:      widget.heatData,
-                  activeZoneId:  widget.activeZoneId,
-                  drawnPatches:  widget.drawnPatches,
-                  currentStroke: _stroke,
-                  drawSeverity:  widget.drawSeverity,
-                  pulseT:        _pulseAnim.value,
-                  heatT:         _heatAnim.value,
-                ),
-              ),
+        child: RepaintBoundary(
+          child: CustomPaint(
+            size: Size(w, h),
+            painter: _ZoneOverlayPainter(
+              regions:       EczemaBodyMap._allRegions,
+              regionScores:  widget.regionScores,
+              heatData:      widget.heatData,
+              activeZoneId:  widget.activeZoneId,
+              drawnPatches:  widget.drawnPatches,
+              currentStroke: _stroke,
+              drawSeverity:  widget.drawSeverity,
+              pulseT:        _pulseAnim.value,
+              heatT:         _heatAnim.value,
             ),
-          ],
+          ),
         ),
       );
 
@@ -324,6 +317,7 @@ class _ZoneOverlayPainter extends CustomPainter {
     _drawZoneOverlays(canvas, size);
     _drawPatches(canvas, size);
     _drawCurrentStroke(canvas, size);
+    _drawZoneNumbers(canvas, size);
   }
 
   void _drawZoneOverlays(Canvas canvas, Size size) {
@@ -361,6 +355,13 @@ class _ZoneOverlayPainter extends CustomPainter {
         if (heatData != null && heatIntensity > 0.01) {
           _drawRadiatingGlow(canvas, region, fill, heatIntensity, sw, sh);
         }
+      } else {
+        // No data — draw a light outline so zone shape is always visible
+        _paintZone(canvas, region,
+            Paint()..color = const Color(0x30546E7A)
+                   ..style = PaintingStyle.stroke
+                   ..strokeWidth = 1.0
+                   ..strokeJoin = StrokeJoin.round, sw, sh);
       }
 
       if (isActive) {
@@ -508,7 +509,6 @@ class _ZoneOverlayPainter extends CustomPainter {
     }
   }
 
-  // Zone numbers kept in code — re-enable when background image is replaced.
   void _drawZoneNumbers(Canvas canvas, Size size) {
     final sw       = size.width / _kSvgW;
     final sh       = size.height / _kSvgH;
