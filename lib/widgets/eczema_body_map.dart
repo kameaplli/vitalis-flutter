@@ -627,24 +627,15 @@ class EczemaBodyComparison extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final delta   = easiB - easiA;
+    final delta = easiB - easiA;
     final improved = delta < 0;
     final deltaColor = improved ? Colors.green : (delta > 0 ? Colors.red : Colors.grey);
+    final cs = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildSide(labelA, easiA, severityA, scoresA, true),
-              Container(width: 1, color: Colors.grey.shade300),
-              _buildSide(labelB, easiB, severityB, scoresB, false),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+        // ── EASI delta banner ──
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -666,41 +657,83 @@ class EczemaBodyComparison extends StatelessWidget {
             ),
           ]),
         ),
+        const SizedBox(height: 8),
+
+        // ── Compact EASI summary row ──
+        Row(children: [
+          _easiBadge('Visit A', easiA, severityA, labelA),
+          const SizedBox(width: 8),
+          Icon(Icons.arrow_forward, size: 16, color: cs.onSurfaceVariant),
+          const SizedBox(width: 8),
+          _easiBadge('Visit B', easiB, severityB, labelB),
+        ]),
+        const SizedBox(height: 12),
+
+        // ── Body maps: stacked vertically, each uses full width ──
+        _bodyMapCard('Visit A', labelA, easiA, scoresA, cs),
         const SizedBox(height: 10),
-        _buildDeltaTable(),
+        _bodyMapCard('Visit B', labelB, easiB, scoresB, cs),
+        const SizedBox(height: 12),
+
+        // ── Region changes ──
+        _buildDeltaTable(cs),
       ],
     );
   }
 
-  Widget _buildSide(String label, double easi, String severity,
-      Map<String, EasiRegionScore> scores, bool isA) {
+  Widget _easiBadge(String title, double easi, String severity, String label) {
     final color = _easiColor(easi);
     return Expanded(
-      child: Column(
-        children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          const SizedBox(height: 2),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withValues(alpha: 0.5)),
-            ),
-            child: Text('EASI ${easi.toStringAsFixed(1)} · $severity',
-                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: EdgeInsets.only(left: isA ? 0 : 4, right: isA ? 4 : 0),
-            child: EczemaBodyMap(regionScores: scores, readOnly: true),
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
+        ),
+        child: Column(children: [
+          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+          Text('EASI ${easi.toStringAsFixed(1)} · $severity',
+              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
+          Text(label.replaceAll('\n', ' '),
+              style: const TextStyle(fontSize: 9, color: Colors.grey)),
+        ]),
       ),
     );
   }
 
-  Widget _buildDeltaTable() {
+  Widget _bodyMapCard(String title, String label, double easi,
+      Map<String, EasiRegionScore> scores, ColorScheme cs) {
+    final color = _easiColor(easi);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+          ),
+          child: Row(children: [
+            Text(title, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                color: cs.onSurface)),
+            const Spacer(),
+            Text('EASI ${easi.toStringAsFixed(1)}',
+                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(4),
+          child: EczemaBodyMap(regionScores: scores, readOnly: true),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildDeltaTable(ColorScheme cs) {
     final allIds  = {...scoresA.keys, ...scoresB.keys};
     final changes = <(String, double, double)>[];
 
@@ -718,8 +751,8 @@ class EczemaBodyComparison extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Region Changes',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
+            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
         ...changes.take(8).map((c) {
           final region  = findRegion(c.$1);
           final lbl     = region?.label ?? c.$1;
@@ -727,11 +760,19 @@ class EczemaBodyComparison extends StatelessWidget {
           final improved = delta < 0;
           final color   = improved ? Colors.green.shade600 : Colors.red.shade600;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Row(children: [
+              Container(
+                width: 8, height: 8,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(child: Text(lbl, style: const TextStyle(fontSize: 11))),
               Text('${c.$2.toStringAsFixed(1)} → ${c.$3.toStringAsFixed(1)}',
-                  style: const TextStyle(fontSize: 11)),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
               const SizedBox(width: 6),
               Text('${improved ? "↓" : "↑"} ${delta.abs().toStringAsFixed(1)}',
                   style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
