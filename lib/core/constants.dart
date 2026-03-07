@@ -91,4 +91,20 @@ class ApiConstants {
 
   // Smart Food Analysis (Phase 2)
   static const String eczemaSmartCorrelation = '/api/health/eczema/smart-correlation';
+
+  // Skin Photos (Phase 3)
+  static const String skinPhotoUpload   = '/api/health/eczema/photo';
+  static const String skinPhotos        = '/api/health/eczema/photos';
+  static const String skinPhotoTimeline = '/api/health/eczema/photo-timeline';
+
+  // Product Scanner (Phase 4)
+  static const String productScan       = '/api/products/scan';
+  static const String products          = '/api/products';
+  static const String productCorrelation = '/api/products/correlation';
+
+  // AI Insights (Phase 5)
+  static const String insightsWeekly    = '/api/insights/weekly';
+  static const String insightsFlareRisk = '/api/insights/flare-risk';
+  static const String insightsInvestigate = '/api/insights/investigate';
+  static const String insightsHistory   = '/api/insights/history';
 }

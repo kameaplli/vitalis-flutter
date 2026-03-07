@@ -15,6 +15,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../providers/selected_person_provider.dart';
+import 'insights_screen.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -185,6 +186,15 @@ class _HomeBody extends ConsumerWidget {
                   const SizedBox(width: 8),
                   _QuickButton('Eczema',     Icons.healing_outlined,   Colors.teal,
                       () => context.push('/eczema')),
+                  const SizedBox(width: 8),
+                  _QuickButton('Products',   Icons.inventory_2_outlined, Colors.indigo,
+                      () => context.push('/products')),
+                  const SizedBox(width: 8),
+                  _QuickButton('Insights',   Icons.psychology_outlined,  Colors.deepPurple,
+                      () => context.push('/insights')),
+                  const SizedBox(width: 8),
+                  _QuickButton('Skin Photos', Icons.camera_alt_outlined, Colors.brown,
+                      () => context.push('/skin-photos')),
                 ],
               ),
             ),
@@ -207,6 +217,9 @@ class _HomeBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
         ),
+
+        // ── Flare risk snapshot ─────────────────────────────────────────
+        SliverToBoxAdapter(child: _FlareRiskSnapshot()),
 
         // ── Top calorie foods ─────────────────────────────────────────────
         if (data.topCalorieFoods.isNotEmpty)
@@ -1365,6 +1378,96 @@ class _QuickButton extends StatelessWidget {
         foregroundColor: color,
         side: BorderSide(color: color.withValues(alpha: 0.5)),
       ),
+    );
+  }
+}
+
+// ── Flare risk snapshot on dashboard ─────────────────────────────────────────
+
+class _FlareRiskSnapshot extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final riskAsync = ref.watch(flareRiskPredictionProvider);
+    return riskAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (risk) {
+        if (risk == null) return const SizedBox.shrink();
+        final color = risk.score >= 60
+            ? Colors.red
+            : (risk.score >= 30 ? Colors.orange : Colors.green);
+        final label = risk.score >= 60
+            ? 'High'
+            : (risk.score >= 30 ? 'Moderate' : 'Low');
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: InkWell(
+            onTap: () => context.push('/insights'),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: risk.score / 100,
+                          strokeWidth: 4,
+                          color: color,
+                          backgroundColor: color.withValues(alpha: 0.15),
+                          strokeCap: StrokeCap.round,
+                        ),
+                        Text('${risk.score}',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: color)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.shield_outlined,
+                                size: 14, color: color),
+                            const SizedBox(width: 4),
+                            Text('Flare Risk: $label',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                    color: color)),
+                          ],
+                        ),
+                        if (risk.recommendations.isNotEmpty)
+                          Text(risk.recommendations.first,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios,
+                      size: 12,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.5)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
