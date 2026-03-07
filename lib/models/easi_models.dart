@@ -494,18 +494,17 @@ const kFrontRegions = <BodyRegion>[
     ],
   ),
 
-  // z22 -- L. Foot (from automated extraction)
+  // z22 -- L. Foot (hand-traced smooth oval matching image contour)
   BodyRegion(
     id: 'z22', label: 'L. Foot', number: 22, isFront: true,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(391, 1030), Offset(431, 1026),
-      Offset(417, 1035), Offset(430, 1037),
-      Offset(458, 1068), Offset(482, 1080),
-      Offset(471, 1076), Offset(461, 1084),
-      Offset(470, 1105), Offset(481, 1108),
-      Offset(437, 1104), Offset(389, 1068),
-      Offset(387, 1039),
+      Offset(391, 1030), Offset(410, 1026), Offset(432, 1026),
+      Offset(454, 1030), Offset(472, 1040), Offset(484, 1054),
+      Offset(490, 1072), Offset(488, 1088), Offset(478, 1098),
+      Offset(462, 1104), Offset(442, 1108), Offset(422, 1106),
+      Offset(404, 1100), Offset(392, 1090), Offset(386, 1076),
+      Offset(384, 1058), Offset(386, 1042),
     ],
   ),
 ];
@@ -645,30 +644,31 @@ const kBackRegions = <BodyRegion>[
     ],
   ),
 
-  // z32 -- L. Hand (B) (from automated extraction)
+  // z32 -- L. Hand (B) (hand-traced smooth contour)
   BodyRegion(
     id: 'z32', label: 'L. Hand (B)', number: 32, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(896, 502), Offset(882, 498), Offset(870, 492),
-      Offset(860, 504), Offset(852, 520), Offset(848, 538),
-      Offset(850, 556), Offset(856, 572), Offset(866, 586),
-      Offset(878, 592), Offset(888, 586), Offset(897, 574),
-      Offset(905, 562), Offset(911, 548), Offset(917, 534),
-      Offset(939, 532), Offset(927, 567), Offset(911, 588),
+      Offset(896, 500), Offset(910, 506), Offset(920, 518),
+      Offset(926, 534), Offset(928, 552), Offset(924, 568),
+      Offset(916, 582), Offset(904, 592), Offset(890, 596),
+      Offset(876, 594), Offset(864, 586), Offset(854, 574),
+      Offset(848, 558), Offset(846, 540), Offset(848, 522),
+      Offset(856, 508), Offset(866, 498), Offset(880, 496),
     ],
   ),
 
-  // z33 -- R. Hand (B)
+  // z33 -- R. Hand (B) (hand-traced smooth contour)
   BodyRegion(
     id: 'z33', label: 'R. Hand (B)', number: 33, isFront: false,
     group: EasiGroup.upperExt,
     polyPoints: [
-      Offset(1455, 515), Offset(1448, 517),
-      Offset(1460, 532), Offset(1468, 548), Offset(1472, 566),
-      Offset(1470, 584), Offset(1464, 598), Offset(1454, 606),
-      Offset(1442, 600), Offset(1432, 590), Offset(1424, 576),
-      Offset(1416, 560), Offset(1410, 544), Offset(1406, 528),
+      Offset(1448, 515), Offset(1434, 510), Offset(1422, 516),
+      Offset(1414, 528), Offset(1410, 544), Offset(1412, 562),
+      Offset(1418, 578), Offset(1428, 592), Offset(1440, 600),
+      Offset(1454, 604), Offset(1466, 598), Offset(1474, 586),
+      Offset(1478, 570), Offset(1478, 552), Offset(1474, 536),
+      Offset(1466, 522), Offset(1458, 516),
     ],
   ),
 
@@ -846,16 +846,16 @@ const kBackRegions = <BodyRegion>[
     ],
   ),
 
-  // z43 -- R. Calf (from automated extraction, separated from z48)
+  // z43 -- R. Calf (hand-traced smooth contour)
   BodyRegion(
     id: 'z43', label: 'R. Calf', number: 43, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1210, 930), Offset(1230, 930), Offset(1260, 930),
-      Offset(1268, 960), Offset(1257, 1000),
-      Offset(1247, 1022), Offset(1234, 1028),
-      Offset(1218, 1029), Offset(1217, 965),
-      Offset(1204, 930),
+      Offset(1204, 930), Offset(1230, 930), Offset(1260, 930),
+      Offset(1268, 955), Offset(1264, 980), Offset(1256, 1005),
+      Offset(1246, 1022), Offset(1234, 1028),
+      Offset(1218, 1028), Offset(1210, 1010),
+      Offset(1204, 985), Offset(1200, 960),
     ],
   ),
 
@@ -875,18 +875,17 @@ const kBackRegions = <BodyRegion>[
     ],
   ),
 
-  // z45 -- R. Foot (B) (from automated extraction)
+  // z45 -- R. Foot (B) (hand-traced smooth oval matching image contour)
   BodyRegion(
     id: 'z45', label: 'R. Foot (B)', number: 45, isFront: false,
     group: EasiGroup.lowerExt,
     polyPoints: [
-      Offset(1218, 1029), Offset(1234, 1028), Offset(1247, 1022),
-      Offset(1257, 1061), Offset(1306, 1068),
-      Offset(1311, 1075), Offset(1294, 1089),
-      Offset(1214, 1100), Offset(1210, 1073),
-      Offset(1221, 1072), Offset(1214, 1086),
-      Offset(1226, 1095), Offset(1248, 1092),
-      Offset(1250, 1070), Offset(1242, 1067),
+      Offset(1218, 1028), Offset(1240, 1025), Offset(1260, 1028),
+      Offset(1278, 1035), Offset(1294, 1048), Offset(1306, 1065),
+      Offset(1310, 1080), Offset(1306, 1092), Offset(1294, 1100),
+      Offset(1274, 1104), Offset(1254, 1104), Offset(1234, 1100),
+      Offset(1220, 1092), Offset(1212, 1078), Offset(1210, 1060),
+      Offset(1212, 1042),
     ],
   ),
 ];

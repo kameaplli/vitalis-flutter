@@ -111,7 +111,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _tabs.addListener(() => setState(() {}));
   }
 
@@ -176,7 +176,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isEdit ? 'Log updated' : 'Log saved')),
       );
-      _tabs.animateTo(1);
+      _tabs.animateTo(0);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -228,7 +228,32 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _activeZoneId = null;
       _drawMode = false;
     });
-    _tabs.animateTo(0);
+    _tabs.animateTo(0); // Switch to Log tab
+  }
+
+  void _showHistorySheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => _HistorySheet(
+          scrollController: scrollController,
+          historyDays: _historyDays,
+          onDaysChanged: (d) => setState(() => _historyDays = d),
+          onEdit: (log) { Navigator.pop(ctx); _editLog(log); },
+          onDelete: (id) => _deleteLog(id),
+          onConfirmDelete: (c) => _confirmDelete(c),
+          onExportPdf: (logs) => _exportPdf(logs),
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteLog(String id) async {
@@ -358,12 +383,16 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'History',
+            onPressed: _showHistorySheet,
+          ),
         ],
         bottom: TabBar(
           controller: _tabs,
           tabs: const [
             Tab(text: 'Log'),
-            Tab(text: 'History'),
             Tab(text: 'Compare'),
             Tab(text: 'Heatmap'),
           ],
@@ -374,7 +403,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         // Disable horizontal swipe to switch tabs — it conflicts with
         // pinch-zoom and zone taps on the body map. Tabs switch via tap only.
         physics: const NeverScrollableScrollPhysics(),
-        children: [_buildLogTab(), _buildHistoryTab(), _buildCompareTab(), _buildHeatmapTab()],
+        children: [_buildLogTab(), _buildCompareTab(), _buildHeatmapTab()],
       ),
     );
   }
@@ -543,149 +572,285 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
-        builder: (_, scrollController) => _FullFormPanel(
-          scrollController: scrollController,
-          date: _date,
-          time: _time,
-          regionScores: _regionScores,
-          drawnPatches: _drawnPatches,
-          itchVas: _itchVas,
-          sleepDisrupted: _sleepDisrupted,
-          sleepHoursLost: _sleepHoursLost,
-          stressLevel: _stressLevel,
-          trigNewDetergent: _trigNewDetergent, trigNewFabric: _trigNewFabric,
-          trigDust: _trigDust, trigPet: _trigPet, trigChlorine: _trigChlorine,
-          trigDairy: _trigDairy, trigEggs: _trigEggs, trigNuts: _trigNuts,
-          trigWheat: _trigWheat, trigSoy: _trigSoy, trigCitrus: _trigCitrus,
-          txMoisturizer: _txMoisturizer, txSteroid: _txSteroid,
-          txAntihistamine: _txAntihistamine, txWetWrap: _txWetWrap,
-          txSteroidStrength: _txSteroidStrength,
-          txMoistType: _txMoistType,
-          notesCtrl: _notesCtrl,
-          saving: _saving,
-          editingId: _editingId,
-          onPickDate: () async {
-            Navigator.pop(ctx);
-            await _pickDate();
-            if (mounted) _showFullFormSheet();
-          },
-          onPickTime: () async {
-            Navigator.pop(ctx);
-            await _pickTime();
-            if (mounted) _showFullFormSheet();
-          },
-          onUpdate: (updates) => setState(updates),
-          onSubmit: () {
-            Navigator.pop(ctx);
-            _submit();
-          },
-          onShowZone: (region) {
-            Navigator.pop(ctx);
-            _showEasiPanel(region);
+        builder: (_, scrollController) => StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            void update(VoidCallback fn) {
+              fn();
+              setState(() {});      // update parent
+              setSheetState(() {}); // update sheet
+            }
+
+            final cs = Theme.of(sheetCtx).colorScheme;
+            final easi = _computeEasi(_regionScores);
+            final color = _easiColor(easi);
+
+            return Column(children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(children: [
+                  Text(_editingId != null ? 'Edit Assessment' : 'Log Assessment',
+                      style: Theme.of(sheetCtx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withValues(alpha: 0.6)),
+                    ),
+                    child: Text('EASI ${easi.toStringAsFixed(1)} - ${_easiLabel(easi)}',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1),
+              // Scrollable form
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    // Date / time
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.calendar_today, size: 15),
+                          label: Text(DateFormat('dd MMM yyyy').format(_date)),
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await _pickDate();
+                            if (mounted) _showFullFormSheet();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.access_time, size: 15),
+                          label: Text(_time.format(sheetCtx)),
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await _pickTime();
+                            if (mounted) _showFullFormSheet();
+                          },
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+
+                    // Scored zones
+                    if (_regionScores.isNotEmpty) ...[
+                      Text('Scored Zones', style: Theme.of(sheetCtx).textTheme.titleSmall),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6, runSpacing: 4,
+                        children: _regionScores.entries.map((e) {
+                          final region = findRegion(e.key);
+                          final lbl = region?.label ?? e.key;
+                          final contribution = e.value.easiContribution(groupForRegion(e.key));
+                          final c = _easiColor(contribution * 3);
+                          return InputChip(
+                            label: Text('$lbl ${contribution.toStringAsFixed(1)}',
+                                style: const TextStyle(fontSize: 11)),
+                            backgroundColor: c.withValues(alpha: 0.10),
+                            side: BorderSide(color: c.withValues(alpha: 0.4)),
+                            onDeleted: () => update(() => _regionScores.remove(e.key)),
+                            onPressed: () {
+                              if (region != null) {
+                                Navigator.pop(ctx);
+                                _showEasiPanel(region);
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // EASI breakdown
+                    _EasiBreakdownCard(scores: _regionScores),
+                    const SizedBox(height: 10),
+
+                    // Itch Intensity
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Text('Itch Intensity', style: Theme.of(sheetCtx).textTheme.titleSmall),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _easiColor(_itchVas.toDouble()).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text('$_itchVas / 10',
+                                  style: TextStyle(fontWeight: FontWeight.bold,
+                                      color: _easiColor(_itchVas.toDouble()))),
+                            ),
+                          ]),
+                          Slider(
+                            value: _itchVas.toDouble(), min: 0, max: 10, divisions: 10,
+                            activeColor: _easiColor(_itchVas.toDouble()),
+                            onChanged: (v) => update(() => _itchVas = v.round()),
+                          ),
+                          const SizedBox(height: 4),
+                        ]),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Sleep disruption
+                    Card(
+                      child: SwitchListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        title: const Text('Sleep disrupted by itch', style: TextStyle(fontSize: 14)),
+                        value: _sleepDisrupted,
+                        onChanged: (v) => update(() => _sleepDisrupted = v),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Stress level
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Text('Stress Level', style: Theme.of(sheetCtx).textTheme.titleSmall),
+                            const Spacer(),
+                            Text('$_stressLevel / 10', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ]),
+                          Slider(
+                            value: _stressLevel.toDouble(), min: 0, max: 10, divisions: 10,
+                            onChanged: (v) => update(() => _stressLevel = v.round()),
+                          ),
+                        ]),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Triggers
+                    Card(
+                      child: ExpansionTile(
+                        title: const Text('Triggers', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            child: Wrap(spacing: 6, runSpacing: 4, children: [
+                              _TrigChip('Detergent', _trigNewDetergent, (v) => update(() => _trigNewDetergent = v)),
+                              _TrigChip('Fabric', _trigNewFabric, (v) => update(() => _trigNewFabric = v)),
+                              _TrigChip('Dust', _trigDust, (v) => update(() => _trigDust = v)),
+                              _TrigChip('Pet', _trigPet, (v) => update(() => _trigPet = v)),
+                              _TrigChip('Chlorine', _trigChlorine, (v) => update(() => _trigChlorine = v)),
+                              _TrigChip('Dairy', _trigDairy, (v) => update(() => _trigDairy = v)),
+                              _TrigChip('Eggs', _trigEggs, (v) => update(() => _trigEggs = v)),
+                              _TrigChip('Nuts', _trigNuts, (v) => update(() => _trigNuts = v)),
+                              _TrigChip('Wheat', _trigWheat, (v) => update(() => _trigWheat = v)),
+                              _TrigChip('Soy', _trigSoy, (v) => update(() => _trigSoy = v)),
+                              _TrigChip('Citrus', _trigCitrus, (v) => update(() => _trigCitrus = v)),
+                            ]),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Treatment
+                    Card(
+                      child: ExpansionTile(
+                        title: const Text('Treatment', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            child: Column(children: [
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero, dense: true,
+                                title: const Text('Moisturizer', style: TextStyle(fontSize: 13)),
+                                value: _txMoisturizer,
+                                onChanged: (v) => update(() => _txMoisturizer = v ?? false),
+                              ),
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero, dense: true,
+                                title: const Text('Steroid cream', style: TextStyle(fontSize: 13)),
+                                value: _txSteroid,
+                                onChanged: (v) => update(() => _txSteroid = v ?? false),
+                              ),
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero, dense: true,
+                                title: const Text('Antihistamine', style: TextStyle(fontSize: 13)),
+                                value: _txAntihistamine,
+                                onChanged: (v) => update(() => _txAntihistamine = v ?? false),
+                              ),
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero, dense: true,
+                                title: const Text('Wet wrap', style: TextStyle(fontSize: 13)),
+                                value: _txWetWrap,
+                                onChanged: (v) => update(() => _txWetWrap = v ?? false),
+                              ),
+                            ]),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Notes
+                    TextField(
+                      controller: _notesCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes (optional)',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                      maxLines: 3,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Save button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.icon(
+                        icon: _saving
+                            ? const SizedBox(width: 18, height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.save),
+                        label: Text(_editingId != null ? 'Update Log' : 'Save Assessment',
+                            style: const TextStyle(fontSize: 16)),
+                        onPressed: _saving ? null : () {
+                          Navigator.pop(ctx);
+                          _submit();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ]);
           },
         ),
       ),
     );
   }
 
-
-  // ─── History Tab ────────────────────────────────────────────────────────────
-  Widget _buildHistoryTab() {
-    final person = ref.watch(selectedPersonProvider);
-    final logsAsync = ref.watch(eczemaProvider('$person:$_historyDays'));
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Row(children: [
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 7, label: Text('7d')),
-                ButtonSegment(value: 30, label: Text('30d')),
-                ButtonSegment(value: 90, label: Text('90d')),
-              ],
-              selected: {_historyDays},
-              onSelectionChanged: (s) => setState(() => _historyDays = s.first),
-            ),
-            const Spacer(),
-            logsAsync.when(
-              skipLoadingOnReload: true,
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (logs) => logs.isEmpty
-                  ? const SizedBox.shrink()
-                  : OutlinedButton.icon(
-                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                      label: const Text('Export PDF'),
-                      onPressed: () => _exportPdf(logs),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-            ),
-          ]),
-        ),
-        Expanded(
-          child: logsAsync.when(
-            skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
-            data: (logs) {
-              if (logs.isEmpty) {
-                return const Center(child: Text('No eczema logs yet'));
-              }
-              return Column(children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-                  child: Row(children: [
-                    Icon(Icons.swipe, size: 12, color: Colors.grey.shade400),
-                    const SizedBox(width: 4),
-                    Text('Swipe right to edit · left to delete',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
-                  ]),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: logs.length,
-                    itemBuilder: (ctx, i) {
-                      final log = logs[i];
-                      return Dismissible(
-                        key: Key(log.id),
-                        direction: DismissDirection.horizontal,
-                        background: Container(
-                          color: Colors.blue, alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.only(left: 16),
-                          child: const Icon(Icons.edit, color: Colors.white),
-                        ),
-                        secondaryBackground: Container(
-                          color: Colors.red, alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 16),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (dir) async {
-                          if (dir == DismissDirection.startToEnd) {
-                            _editLog(log);
-                            return false;
-                          }
-                          return _confirmDelete(ctx);
-                        },
-                        onDismissed: (dir) async {
-                          if (dir == DismissDirection.endToStart) await _deleteLog(log.id);
-                        },
-                        child: _HistoryCard(log: log),
-                      );
-                    },
-                  ),
-                ),
-              ]);
-            },
-          ),
-        ),
-      ],
-    );
-  }
 
   // ── PDF export ──────────────────────────────────────────────────────────────
   Future<void> _exportPdf(List<EczemaLogSummary> logs) async {
@@ -864,17 +1029,20 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               ]),
               const SizedBox(height: 12),
 
-              // Comparison widget
-              EczemaBodyComparison(
-                view: EczemaBodyView.front,
-                scoresA: scoresA,
-                scoresB: scoresB,
-                labelA: '${logA.logDate}\n${logA.logTime}',
-                labelB: '${logB.logDate}\n${logB.logTime}',
-                easiA: logA.easiScore,
-                easiB: logB.easiScore,
-                severityA: _easiLabel(logA.easiScore),
-                severityB: _easiLabel(logB.easiScore),
+              // Comparison widget — give it 50% more height than default
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: EczemaBodyComparison(
+                  view: EczemaBodyView.front,
+                  scoresA: scoresA,
+                  scoresB: scoresB,
+                  labelA: '${logA.logDate}\n${logA.logTime}',
+                  labelB: '${logB.logDate}\n${logB.logTime}',
+                  easiA: logA.easiScore,
+                  easiB: logB.easiScore,
+                  severityA: _easiLabel(logA.easiScore),
+                  severityB: _easiLabel(logB.easiScore),
+                ),
               ),
 
               // Additional metrics table
@@ -1331,284 +1499,113 @@ class _SkinParamRow extends StatelessWidget {
   }
 }
 
-// ─── Full form panel (90% height sheet) ──────────────────────────────────────
+// ─── History sheet (shown from AppBar icon) ─────────────────────────────────
 
-class _FullFormPanel extends StatelessWidget {
+class _HistorySheet extends ConsumerWidget {
   final ScrollController scrollController;
-  final DateTime date;
-  final TimeOfDay time;
-  final Map<String, EasiRegionScore> regionScores;
-  final List<DrawnPatch> drawnPatches;
-  final int itchVas;
-  final bool sleepDisrupted;
-  final double sleepHoursLost;
-  final int stressLevel;
-  final bool trigNewDetergent, trigNewFabric, trigDust, trigPet, trigChlorine;
-  final bool trigDairy, trigEggs, trigNuts, trigWheat, trigSoy, trigCitrus;
-  final bool txMoisturizer, txSteroid, txAntihistamine, txWetWrap;
-  final String txSteroidStrength, txMoistType;
-  final TextEditingController notesCtrl;
-  final bool saving;
-  final String? editingId;
-  final VoidCallback onPickDate, onPickTime, onSubmit;
-  final void Function(VoidCallback) onUpdate;
-  final void Function(BodyRegion) onShowZone;
+  final int historyDays;
+  final void Function(int) onDaysChanged;
+  final void Function(EczemaLogSummary) onEdit;
+  final Future<void> Function(String) onDelete;
+  final Future<bool> Function(BuildContext) onConfirmDelete;
+  final void Function(List<EczemaLogSummary>) onExportPdf;
 
-  const _FullFormPanel({
+  const _HistorySheet({
     required this.scrollController,
-    required this.date, required this.time,
-    required this.regionScores, required this.drawnPatches,
-    required this.itchVas, required this.sleepDisrupted, required this.sleepHoursLost,
-    required this.stressLevel,
-    required this.trigNewDetergent, required this.trigNewFabric,
-    required this.trigDust, required this.trigPet, required this.trigChlorine,
-    required this.trigDairy, required this.trigEggs, required this.trigNuts,
-    required this.trigWheat, required this.trigSoy, required this.trigCitrus,
-    required this.txMoisturizer, required this.txSteroid,
-    required this.txAntihistamine, required this.txWetWrap,
-    required this.txSteroidStrength, required this.txMoistType,
-    required this.notesCtrl, required this.saving, required this.editingId,
-    required this.onPickDate, required this.onPickTime, required this.onUpdate,
-    required this.onSubmit, required this.onShowZone,
+    required this.historyDays,
+    required this.onDaysChanged,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onConfirmDelete,
+    required this.onExportPdf,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final easi = _computeEasi(regionScores);
-    final color = _easiColor(easi);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final person = ref.watch(selectedPersonProvider);
+    final logsAsync = ref.watch(eczemaProvider('$person:$historyDays'));
 
-    return Column(
-      children: [
-        // Drag handle
-        Container(
-          margin: const EdgeInsets.only(top: 8, bottom: 4),
-          width: 40, height: 4,
-          decoration: BoxDecoration(
-            color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        // Header with EASI summary
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Row(children: [
-            Text(editingId != null ? 'Edit Assessment' : 'Log Assessment',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withValues(alpha: 0.6)),
-              ),
-              child: Text('EASI ${easi.toStringAsFixed(1)} - ${_easiLabel(easi)}',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-            ),
-          ]),
-        ),
-        const Divider(height: 1),
-        // Scrollable form content
-        Expanded(
-          child: ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              // Date / time
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.calendar_today, size: 15),
-                    label: Text(DateFormat('dd MMM yyyy').format(date)),
-                    onPressed: onPickDate,
+    return Column(children: [
+      // Drag handle
+      Container(
+        margin: const EdgeInsets.only(top: 10, bottom: 6),
+        width: 40, height: 4,
+        decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        child: Row(children: [
+          Text('History', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const Spacer(),
+          logsAsync.whenOrNull(
+            data: (logs) => logs.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                    tooltip: 'Export PDF',
+                    onPressed: () => onExportPdf(logs),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.access_time, size: 15),
-                    label: Text(time.format(context)),
-                    onPressed: onPickTime,
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 12),
-
-              // Scored zones
-              if (regionScores.isNotEmpty) ...[
-                Text('Scored Zones', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6, runSpacing: 4,
-                  children: regionScores.entries.map((e) {
-                    final region = findRegion(e.key);
-                    final lbl = region?.label ?? e.key;
-                    final contribution = e.value.easiContribution(groupForRegion(e.key));
-                    final c = _easiColor(contribution * 3);
-                    return InputChip(
-                      label: Text('$lbl ${contribution.toStringAsFixed(1)}',
-                          style: const TextStyle(fontSize: 11)),
-                      backgroundColor: c.withValues(alpha: 0.10),
-                      side: BorderSide(color: c.withValues(alpha: 0.4)),
-                      onDeleted: () => onUpdate(() => regionScores.remove(e.key)),
-                      onPressed: () { if (region != null) onShowZone(region); },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              // EASI breakdown
-              _EasiBreakdownCard(scores: regionScores),
-              const SizedBox(height: 10),
-
-              // Itch Intensity
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Text('Itch Intensity', style: Theme.of(context).textTheme.titleSmall),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _easiColor(itchVas.toDouble()).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text('$itchVas / 10',
-                            style: TextStyle(fontWeight: FontWeight.bold,
-                                color: _easiColor(itchVas.toDouble()))),
-                      ),
-                    ]),
-                    StatefulBuilder(builder: (ctx, setSB) => Slider(
-                      value: itchVas.toDouble(), min: 0, max: 10, divisions: 10,
-                      activeColor: _easiColor(itchVas.toDouble()),
-                      onChanged: (v) => onUpdate(() {}),  // parent setState triggers rebuild
-                    )),
-                    const SizedBox(height: 4),
-                  ]),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Sleep disruption
-              Card(
-                child: Column(children: [
-                  SwitchListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    title: const Text('Sleep disrupted by itch', style: TextStyle(fontSize: 14)),
-                    value: sleepDisrupted,
-                    onChanged: (v) => onUpdate(() {}),
-                  ),
+          ) ?? const SizedBox.shrink(),
+        ]),
+      ),
+      const Divider(height: 1),
+      Expanded(
+        child: logsAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+          data: (logs) {
+            if (logs.isEmpty) return const Center(child: Text('No eczema logs yet'));
+            return Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+                child: Row(children: [
+                  Icon(Icons.swipe, size: 12, color: Colors.grey.shade400),
+                  const SizedBox(width: 4),
+                  Text('Swipe right to edit · left to delete',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
                 ]),
               ),
-
-              const SizedBox(height: 8),
-
-              // Triggers
-              Card(
-                child: ExpansionTile(
-                  title: const Text('Triggers', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Wrap(spacing: 6, runSpacing: 4, children: [
-                          _TrigChip('Detergent', trigNewDetergent, (v) => onUpdate(() {})),
-                          _TrigChip('Fabric', trigNewFabric, (v) => onUpdate(() {})),
-                          _TrigChip('Dust', trigDust, (v) => onUpdate(() {})),
-                          _TrigChip('Pet', trigPet, (v) => onUpdate(() {})),
-                          _TrigChip('Chlorine', trigChlorine, (v) => onUpdate(() {})),
-                          _TrigChip('Dairy', trigDairy, (v) => onUpdate(() {})),
-                          _TrigChip('Eggs', trigEggs, (v) => onUpdate(() {})),
-                          _TrigChip('Nuts', trigNuts, (v) => onUpdate(() {})),
-                          _TrigChip('Wheat', trigWheat, (v) => onUpdate(() {})),
-                          _TrigChip('Soy', trigSoy, (v) => onUpdate(() {})),
-                          _TrigChip('Citrus', trigCitrus, (v) => onUpdate(() {})),
-                        ]),
-                      ]),
-                    ),
-                  ],
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: logs.length,
+                  itemBuilder: (ctx, i) {
+                    final log = logs[i];
+                    return Dismissible(
+                      key: Key(log.id),
+                      direction: DismissDirection.horizontal,
+                      background: Container(
+                        color: Colors.blue, alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 16),
+                        child: const Icon(Icons.edit, color: Colors.white),
+                      ),
+                      secondaryBackground: Container(
+                        color: Colors.red, alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      confirmDismiss: (dir) async {
+                        if (dir == DismissDirection.startToEnd) {
+                          onEdit(log);
+                          return false;
+                        }
+                        return onConfirmDelete(ctx);
+                      },
+                      onDismissed: (dir) async {
+                        if (dir == DismissDirection.endToStart) await onDelete(log.id);
+                      },
+                      child: _HistoryCard(log: log),
+                    );
+                  },
                 ),
               ),
-
-              const SizedBox(height: 8),
-
-              // Treatment
-              Card(
-                child: ExpansionTile(
-                  title: const Text('Treatment', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: Column(children: [
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero, dense: true,
-                          title: const Text('Moisturizer', style: TextStyle(fontSize: 13)),
-                          value: txMoisturizer,
-                          onChanged: (v) => onUpdate(() {}),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero, dense: true,
-                          title: const Text('Steroid cream', style: TextStyle(fontSize: 13)),
-                          value: txSteroid,
-                          onChanged: (v) => onUpdate(() {}),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero, dense: true,
-                          title: const Text('Antihistamine', style: TextStyle(fontSize: 13)),
-                          value: txAntihistamine,
-                          onChanged: (v) => onUpdate(() {}),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero, dense: true,
-                          title: const Text('Wet wrap', style: TextStyle(fontSize: 13)),
-                          value: txWetWrap,
-                          onChanged: (v) => onUpdate(() {}),
-                        ),
-                      ]),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Notes
-              TextField(
-                controller: notesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 16),
-
-              // Save button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton.icon(
-                  icon: saving
-                      ? const SizedBox(width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save),
-                  label: Text(editingId != null ? 'Update Log' : 'Save Assessment',
-                      style: const TextStyle(fontSize: 16)),
-                  onPressed: saving ? null : onSubmit,
-                ),
-              ),
-            ],
-          ),
+            ]);
+          },
         ),
-      ],
-    );
+      ),
+    ]);
   }
 }
 

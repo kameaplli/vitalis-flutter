@@ -299,7 +299,8 @@ class _ZoneOverlayPainter extends CustomPainter {
     _drawZoneOverlays(canvas, size);
     _drawPatches(canvas, size);
     _drawCurrentStroke(canvas, size);
-    _drawZoneNumbers(canvas, size);
+    // Zone numbers come from the background image — don't draw overlay duplicates.
+    // Re-enable _drawZoneNumbers when background image is replaced by vector overlay.
   }
 
   void _drawZoneOverlays(Canvas canvas, Size size) {
