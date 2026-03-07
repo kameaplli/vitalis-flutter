@@ -1501,13 +1501,28 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                           style: TextStyle(color: Colors.grey)),
                     );
                   }
-                  final foodData = foodAsync.valueOrNull;
-                  return _ReportContent(
-                    heatData: heatData,
-                    logs: logs,
-                    days: _reportDays,
-                    foodCorrelation: foodData,
-                    onExportPdf: () => _exportPdf(logs, foodData),
+                  return foodAsync.when(
+                    skipLoadingOnReload: true,
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, _) {
+                      // Show report without food data if correlation fails
+                      return _ReportContent(
+                        heatData: heatData,
+                        logs: logs,
+                        days: _reportDays,
+                        foodCorrelation: null,
+                        onExportPdf: () => _exportPdf(logs),
+                      );
+                    },
+                    data: (foodData) {
+                      return _ReportContent(
+                        heatData: heatData,
+                        logs: logs,
+                        days: _reportDays,
+                        foodCorrelation: foodData,
+                        onExportPdf: () => _exportPdf(logs, foodData),
+                      );
+                    },
                   );
                 },
               );
