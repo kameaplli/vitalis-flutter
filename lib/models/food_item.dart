@@ -1,3 +1,57 @@
+class FoodAllergenInfo {
+  final String category;
+  final String? detail;
+  final String? risk;
+
+  const FoodAllergenInfo({required this.category, this.detail, this.risk});
+
+  factory FoodAllergenInfo.fromJson(Map<String, dynamic> json) {
+    return FoodAllergenInfo(
+      category: json['category'] as String? ?? '',
+      detail: json['detail'] as String?,
+      risk: json['risk'] as String?,
+    );
+  }
+
+  String get displayName {
+    const names = {
+      'dairy': 'Dairy',
+      'egg': 'Eggs',
+      'peanut': 'Peanuts',
+      'tree_nut': 'Tree Nuts',
+      'wheat': 'Wheat',
+      'soy': 'Soy',
+      'fish': 'Fish',
+      'shellfish': 'Shellfish',
+      'histamine': 'Histamine',
+      'histamine_liberator': 'Hist. Liberator',
+      'nickel': 'Nickel',
+      'salicylate': 'Salicylate',
+      'dairy_aliases': 'Dairy',
+    };
+    return names[category] ?? category;
+  }
+
+  String get emoji {
+    const emojis = {
+      'dairy': '🥛',
+      'dairy_aliases': '🥛',
+      'egg': '🥚',
+      'peanut': '🥜',
+      'tree_nut': '🌰',
+      'wheat': '🌾',
+      'soy': '🫘',
+      'fish': '🐟',
+      'shellfish': '🦐',
+      'histamine': '⚠️',
+      'histamine_liberator': '⚠️',
+      'nickel': '🔩',
+      'salicylate': '💊',
+    };
+    return emojis[category] ?? '⚠️';
+  }
+}
+
 class FoodItem {
   final String id;
   final String name;
@@ -8,6 +62,7 @@ class FoodItem {
   final String? emoji;
   final String? unit;
   final double? servingSize;
+  final List<FoodAllergenInfo> allergens;
 
   FoodItem({
     required this.id,
@@ -19,6 +74,7 @@ class FoodItem {
     this.emoji,
     this.unit,
     this.servingSize,
+    this.allergens = const [],
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
@@ -32,12 +88,27 @@ class FoodItem {
       emoji: json['emoji'],
       unit: json['unit'],
       servingSize: (json['serving_size'] as num?)?.toDouble(),
+      allergens: (json['allergens'] as List<dynamic>?)
+              ?.map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
   double get caloriesPerServing {
     if (cal == null || servingSize == null) return 0;
     return (cal! / 100) * servingSize!;
+  }
+
+  /// Unique allergen categories (de-duped, e.g. dairy + dairy_aliases → just Dairy)
+  List<FoodAllergenInfo> get uniqueAllergens {
+    final seen = <String>{};
+    final result = <FoodAllergenInfo>[];
+    for (final a in allergens) {
+      final key = a.displayName;
+      if (seen.add(key)) result.add(a);
+    }
+    return result;
   }
 }
 
