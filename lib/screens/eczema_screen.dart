@@ -69,7 +69,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ── Period filters ───────────────────────────────────────────────────────
   int _historyDays = 30;
   int _heatmapDays = 30;
-  int _reportDays = 30;
+  int _reportDays = 90;
 
   // ── Edit tracking ────────────────────────────────────────────────────────
   String? _editingId;
@@ -1261,13 +1261,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         final scoresA = _logToScores(logA);
         final scoresB = _logToScores(logB);
 
-        // Use Column + Expanded so body map gets remaining space without overlap
-        return Column(
-          children: [
-            // Selectors (fixed at top)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              child: Row(children: [
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          child: Column(
+            children: [
+              // Selectors
+              Row(children: [
                 Expanded(child: _visitPicker('Visit A', logs, logA.id, (id) => setState(() {
                   _compareIdA = id;
                   if (_compareIdB == null) _compareIdB = logs.firstWhereOrNull((l) => l.id != id)?.id;
@@ -1275,32 +1274,26 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 const SizedBox(width: 8),
                 Expanded(child: _visitPicker('Visit B', logs, logB.id, (id) => setState(() => _compareIdB = id))),
               ]),
-            ),
+              const SizedBox(height: 8),
 
-            // Body comparison fills available space
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                child: EczemaBodyComparison(
-                  view: EczemaBodyView.front,
-                  scoresA: scoresA,
-                  scoresB: scoresB,
-                  labelA: '${logA.logDate}\n${logA.logTime}',
-                  labelB: '${logB.logDate}\n${logB.logTime}',
-                  easiA: logA.easiScore,
-                  easiB: logB.easiScore,
-                  severityA: _easiLabel(logA.easiScore),
-                  severityB: _easiLabel(logB.easiScore),
-                ),
+              // Body comparison (scrolls with everything else)
+              EczemaBodyComparison(
+                view: EczemaBodyView.front,
+                scoresA: scoresA,
+                scoresB: scoresB,
+                labelA: '${logA.logDate}\n${logA.logTime}',
+                labelB: '${logB.logDate}\n${logB.logTime}',
+                easiA: logA.easiScore,
+                easiB: logB.easiScore,
+                severityA: _easiLabel(logA.easiScore),
+                severityB: _easiLabel(logB.easiScore),
               ),
-            ),
 
-            // Metrics table at bottom (scrollable if needed)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: _CompareMetricsTable(logA: logA, logB: logB),
-            ),
-          ],
+              const SizedBox(height: 16),
+              // Metrics table
+              _CompareMetricsTable(logA: logA, logB: logB),
+            ],
+          ),
         );
       },
     );
