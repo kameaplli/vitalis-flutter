@@ -1029,6 +1029,24 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   }
 
   // ─── Heatmap Tab ────────────────────────────────────────────────────────────
+  Future<void> _generateMockData() async {
+    try {
+      await apiClient.dio.post(ApiConstants.eczemaMock);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generated 100 mock eczema logs')),
+      );
+      final person = ref.read(selectedPersonProvider);
+      ref.invalidate(eczemaHeatmapProvider('$person:$_heatmapDays'));
+      ref.invalidate(eczemaProvider('$person:60'));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   Widget _buildHeatmapTab() {
     final person = ref.watch(selectedPersonProvider);
     final heatAsync = ref.watch(eczemaHeatmapProvider('$person:$_heatmapDays'));
@@ -1037,6 +1055,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(children: [
+            IconButton(
+              icon: const Icon(Icons.science_outlined, size: 20),
+              tooltip: 'Generate 100 mock logs',
+              onPressed: _generateMockData,
+            ),
             const Spacer(),
             SegmentedButton<int>(
               segments: const [
