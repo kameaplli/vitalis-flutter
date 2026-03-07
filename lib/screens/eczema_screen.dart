@@ -68,6 +68,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ── Period filters ───────────────────────────────────────────────────────
   int _historyDays = 30;
   int _heatmapDays = 30;
+  int _reportDays = 30;
 
   // ── Edit tracking ────────────────────────────────────────────────────────
   String? _editingId;
@@ -111,7 +112,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 4, vsync: this);
     _tabs.addListener(() => setState(() {}));
   }
 
@@ -395,6 +396,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
             Tab(text: 'Log'),
             Tab(text: 'Compare'),
             Tab(text: 'Heatmap'),
+            Tab(text: 'Report'),
           ],
         ),
       ),
@@ -403,7 +405,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         // Disable horizontal swipe to switch tabs — it conflicts with
         // pinch-zoom and zone taps on the body map. Tabs switch via tap only.
         physics: const NeverScrollableScrollPhysics(),
-        children: [_buildLogTab(), _buildCompareTab(), _buildHeatmapTab()],
+        children: [_buildLogTab(), _buildCompareTab(), _buildHeatmapTab(), _buildReportTab()],
       ),
     );
   }
@@ -1116,6 +1118,372 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           ),
         ),
       ],
+    );
+  }
+
+  // ─── Report Tab ────────────────────────────────────────────────────────────
+  Widget _buildReportTab() {
+    final person = ref.watch(selectedPersonProvider);
+    final heatAsync = ref.watch(eczemaHeatmapProvider('$person:$_reportDays'));
+    final logsAsync = ref.watch(eczemaProvider('$person:$_reportDays'));
+
+    return Column(
+      children: [
+        // Period selector
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Row(children: [
+            Text('Report Period',
+                style: Theme.of(context).textTheme.titleSmall),
+            const Spacer(),
+            SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 7, label: Text('7d')),
+                ButtonSegment(value: 30, label: Text('30d')),
+                ButtonSegment(value: 90, label: Text('90d')),
+              ],
+              selected: {_reportDays},
+              onSelectionChanged: (s) => setState(() => _reportDays = s.first),
+            ),
+          ]),
+        ),
+        Expanded(
+          child: heatAsync.when(
+            skipLoadingOnReload: true,
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (heatData) {
+              return logsAsync.when(
+                skipLoadingOnReload: true,
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (logs) {
+                  if (logs.isEmpty) {
+                    return const Center(
+                      child: Text('No eczema data for this period',
+                          style: TextStyle(color: Colors.grey)),
+                    );
+                  }
+                  return _ReportContent(
+                    heatData: heatData,
+                    logs: logs,
+                    days: _reportDays,
+                    onExportPdf: () => _exportPdf(logs),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Report content widget ────────────────────────────────────────────────────
+
+class _ReportContent extends StatelessWidget {
+  final EczemaHeatmapData heatData;
+  final List<EczemaLogSummary> logs;
+  final int days;
+  final VoidCallback onExportPdf;
+
+  const _ReportContent({
+    required this.heatData,
+    required this.logs,
+    required this.days,
+    required this.onExportPdf,
+  });
+
+  static Color _itchColor(double avgItch) {
+    if (avgItch <= 0) return const Color(0xFF9E9E9E);
+    if (avgItch <= 2) return const Color(0xFF66BB6A);
+    if (avgItch <= 4) return const Color(0xFFFDD835);
+    if (avgItch <= 6) return const Color(0xFFFF9800);
+    if (avgItch <= 8) return const Color(0xFFF4511E);
+    return const Color(0xFFB71C1C);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    // Compute stats
+    final itchValues = logs
+        .where((l) => l.itchSeverity != null)
+        .map((l) => l.itchSeverity!)
+        .toList();
+    final avgItch = itchValues.isEmpty
+        ? 0.0
+        : itchValues.reduce((a, b) => a + b) / itchValues.length;
+    final maxItch = itchValues.isEmpty
+        ? 0
+        : itchValues.reduce((a, b) => a > b ? a : b);
+    final sleepDisrupted = logs.where((l) => l.sleepDisrupted == true).length;
+    final easiScores = logs.map((l) => l.easiScore).toList();
+    final avgEasi = easiScores.isEmpty
+        ? 0.0
+        : easiScores.reduce((a, b) => a + b) / easiScores.length;
+
+    // Compute per-zone itch averages
+    final zoneItchSum = <String, double>{};
+    final zoneItchCount = <String, int>{};
+    for (final log in logs) {
+      final itch = log.itchSeverity ?? 0;
+      for (final zoneId in log.parsedAreas.keys) {
+        zoneItchSum[zoneId] = (zoneItchSum[zoneId] ?? 0) + itch;
+        zoneItchCount[zoneId] = (zoneItchCount[zoneId] ?? 0) + 1;
+      }
+    }
+    final zoneAvgItch = <String, double>{};
+    for (final id in zoneItchSum.keys) {
+      zoneAvgItch[id] = zoneItchSum[id]! / zoneItchCount[id]!;
+    }
+
+    // Sort zones by avg itch descending
+    final sortedZones = zoneAvgItch.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Heatmap Body Map ──────────────────────────────────
+          Card(
+            clipBehavior: Clip.hardEdge,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: [
+                  Row(children: [
+                    const SizedBox(width: 8),
+                    Text('Itch Severity Heatmap',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const Spacer(),
+                    Text('Last $days days',
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                    const SizedBox(width: 8),
+                  ]),
+                  const SizedBox(height: 4),
+                  EczemaBodyMap(
+                    heatData: heatData.regionIntensity,
+                    readOnly: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Itch Severity Legend ─────────────────────────────
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Itch Severity Scale',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      for (final entry in [
+                        (0.0, 'None'),
+                        (2.0, 'Mild'),
+                        (4.0, 'Moderate'),
+                        (6.0, 'Significant'),
+                        (8.0, 'Severe'),
+                        (10.0, 'Extreme'),
+                      ])
+                        Expanded(
+                          child: Column(children: [
+                            Container(
+                              height: 8,
+                              margin: const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                color: _itchColor(entry.$1),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(entry.$2,
+                                style: const TextStyle(fontSize: 8),
+                                textAlign: TextAlign.center),
+                          ]),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Key Stats ──────────────────────────────────────
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _StatCard(
+              label: 'Entries',
+              value: '${logs.length}',
+              color: cs.primary,
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(
+              label: 'Avg Itch',
+              value: avgItch.toStringAsFixed(1),
+              color: _itchColor(avgItch),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(
+              label: 'Peak Itch',
+              value: '$maxItch/10',
+              color: _itchColor(maxItch.toDouble()),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _StatCard(
+              label: 'Sleep',
+              value: '$sleepDisrupted',
+              subtitle: 'disrupted',
+              color: sleepDisrupted > 0 ? Colors.indigo : Colors.green,
+            )),
+          ]),
+
+          // ── Avg EASI ────────────────────────────────────────
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(children: [
+                Text('Avg EASI Score',
+                    style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _easiColor(avgEasi).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _easiColor(avgEasi).withValues(alpha: 0.5)),
+                  ),
+                  child: Text(
+                    '${avgEasi.toStringAsFixed(1)} — ${_easiLabel(avgEasi)}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _easiColor(avgEasi),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+
+          // ── Most Affected Areas (color-coded by itch) ──────
+          if (sortedZones.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text('Most Affected Areas',
+                style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text('Color shows average itch severity for each zone',
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            ...sortedZones.take(12).map((e) {
+              final region = findRegion(e.key);
+              final label = region?.label ?? e.key;
+              final avgI = e.value;
+              final count = zoneItchCount[e.key] ?? 0;
+              final color = _itchColor(avgI);
+              final pct = logs.isEmpty ? 0 : (count / logs.length * 100).round();
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(children: [
+                  // Color indicator
+                  Container(
+                    width: 12, height: 12,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 110,
+                    child: Text(label,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  ),
+                  // Itch bar
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (avgI / 10.0).clamp(0.0, 1.0),
+                        minHeight: 10,
+                        backgroundColor: color.withValues(alpha: 0.10),
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 85,
+                    child: Text(
+                      '${avgI.toStringAsFixed(1)}/10 · $pct%',
+                      style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ]),
+              );
+            }),
+          ],
+
+          // ── Export button ──────────────────────────────────
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Export PDF Report'),
+              onPressed: onExportPdf,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stat card for report ───────────────────────────────────────────────────
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String? subtitle;
+  final Color color;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        child: Column(children: [
+          Text(value,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          if (subtitle != null)
+            Text(subtitle!,
+                style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7))),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center),
+        ]),
+      ),
     );
   }
 }

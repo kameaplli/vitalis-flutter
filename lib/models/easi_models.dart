@@ -661,20 +661,32 @@ const kBackRegions = <BodyRegion>[
     ],
   ),
 
-  // z32 -- L. Hand (B)
+  // z32 -- L. Hand (B) (OpenCV-extracted polygon)
   BodyRegion(
     id: 'z32', label: 'L. Hand (B)', number: 32, isFront: false,
     group: EasiGroup.upperExt,
-    isEllipse: true,
-    ellipseRect: Rect.fromLTWH(872, 505, 56, 80),  // center (900, 545)
+    polyPoints: [
+      Offset(913, 510), Offset(888, 526), Offset(861, 555),
+      Offset(886, 545), Offset(867, 594), Offset(887, 560),
+      Offset(893, 567), Offset(885, 584), Offset(898, 568),
+      Offset(904, 570), Offset(889, 603), Offset(905, 576),
+      Offset(911, 579), Offset(908, 592), Offset(916, 585),
+      Offset(941, 534),
+    ],
   ),
 
-  // z33 -- R. Hand (B)
+  // z33 -- R. Hand (B) (OpenCV-extracted polygon)
   BodyRegion(
     id: 'z33', label: 'R. Hand (B)', number: 33, isFront: false,
     group: EasiGroup.upperExt,
-    isEllipse: true,
-    ellipseRect: Rect.fromLTWH(1382, 505, 56, 80),  // center (1410, 545)
+    polyPoints: [
+      Offset(1369, 534), Offset(1394, 585), Offset(1402, 592),
+      Offset(1399, 579), Offset(1405, 576), Offset(1421, 603),
+      Offset(1406, 570), Offset(1412, 568), Offset(1425, 584),
+      Offset(1417, 567), Offset(1423, 560), Offset(1443, 594),
+      Offset(1424, 545), Offset(1449, 555), Offset(1422, 526),
+      Offset(1397, 510),
+    ],
   ),
 
   // z34 -- L. Mid Back
@@ -856,20 +868,32 @@ const kBackRegions = <BodyRegion>[
     ],
   ),
 
-  // z44 -- L. Foot (B)
+  // z44 -- L. Foot (B) (OpenCV-extracted polygon)
   BodyRegion(
     id: 'z44', label: 'L. Foot (B)', number: 44, isFront: false,
     group: EasiGroup.lowerExt,
-    isEllipse: true,
-    ellipseRect: Rect.fromLTWH(1002, 1041, 72, 54),  // center (1038, 1068)
+    polyPoints: [
+      Offset(1101, 1072), Offset(1087, 1070), Offset(1094, 1086),
+      Offset(1084, 1093), Offset(1066, 1093), Offset(1060, 1085),
+      Offset(1062, 1071), Offset(1071, 1066), Offset(1055, 1060),
+      Offset(1006, 1066), Offset(998, 1072), Offset(1000, 1081),
+      Offset(1013, 1090), Offset(1051, 1095), Offset(1083, 1105),
+      Offset(1095, 1103), Offset(1103, 1088),
+    ],
   ),
 
-  // z45 -- R. Foot (B)
+  // z45 -- R. Foot (B) (OpenCV-extracted polygon)
   BodyRegion(
     id: 'z45', label: 'R. Foot (B)', number: 45, isFront: false,
     group: EasiGroup.lowerExt,
-    isEllipse: true,
-    ellipseRect: Rect.fromLTWH(1210, 1041, 72, 54),  // center (1246, 1068)
+    polyPoints: [
+      Offset(1207, 1088), Offset(1215, 1103), Offset(1227, 1105),
+      Offset(1259, 1095), Offset(1297, 1090), Offset(1310, 1081),
+      Offset(1312, 1072), Offset(1304, 1066), Offset(1255, 1060),
+      Offset(1239, 1066), Offset(1248, 1071), Offset(1250, 1085),
+      Offset(1244, 1093), Offset(1226, 1093), Offset(1216, 1086),
+      Offset(1223, 1070), Offset(1209, 1072),
+    ],
   ),
 ];
 
