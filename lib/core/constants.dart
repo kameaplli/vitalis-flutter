@@ -36,6 +36,9 @@ class ApiConstants {
   static const String frequentFoods = '/api/foods/frequent';
   static const String customFoods = '/api/foods/custom';
   static const String foodLabelScan = '/api/foods/scan-label';
+  static const String foodAllergenCheck = '/api/foods/allergen-check';
+  static const String foodClassifyBatch = '/api/foods/classify-batch';
+  static const String foodIngredients = '/api/foods/ingredients';
 
   // Nutrition
   static const String nutritionLog = '/api/log/nutrition';

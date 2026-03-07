@@ -487,6 +487,17 @@ class _FoodItemTileState extends State<_FoodItemTile> {
                   '  F ${sf.fat.toStringAsFixed(1)}g',
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                 ),
+                if (sf.food.uniqueAllergens.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Wrap(
+                      spacing: 3,
+                      runSpacing: 2,
+                      children: sf.food.uniqueAllergens.take(4).map((a) =>
+                        _AllergenBadge(allergen: a),
+                      ).toList(),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -803,17 +814,33 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
       if (res.data['status'] == 1) {
         final p = res.data['product'] as Map<String, dynamic>;
         final n = (p['nutriments'] as Map<String, dynamic>?) ?? {};
+        final productName = (p['product_name'] as String?)?.trim().isNotEmpty == true
+            ? p['product_name'] as String
+            : 'Product $barcode';
+
+        // Allergen check via backend
+        List<FoodAllergenInfo> allergens = [];
+        try {
+          final allergenRes = await apiClient.dio.get(
+            ApiConstants.foodAllergenCheck,
+            queryParameters: {'food_name': productName},
+          );
+          final rawAllergens = allergenRes.data['allergens'] as List<dynamic>? ?? [];
+          allergens = rawAllergens
+              .map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
+              .toList();
+        } catch (_) {}
+
         final food = FoodItem(
           id: barcode,
-          name: (p['product_name'] as String?)?.trim().isNotEmpty == true
-              ? p['product_name'] as String
-              : 'Product $barcode',
+          name: productName,
           cal:      (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0,
           protein:  (n['proteins_100g']     as num?)?.toDouble() ?? 0,
           carbs:    (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0,
           fat:      (n['fat_100g']           as num?)?.toDouble() ?? 0,
           servingSize: 100,
           emoji: '🏷️',
+          allergens: allergens,
         );
         _addFood(food);
       } else {
@@ -1107,14 +1134,31 @@ class _FoodList extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (ctx, i) {
         final food = items[i];
+        final badges = food.uniqueAllergens;
         return ListTile(
           leading: Text(food.emoji ?? '🍽️',
               style: const TextStyle(fontSize: 22)),
           title: Text(food.name),
-          subtitle: Text(
-            '${food.caloriesPerServing.toStringAsFixed(0)} kcal'
-            ' · ${(food.servingSize ?? 100).toStringAsFixed(0)}g serving',
-            style: const TextStyle(fontSize: 12),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${food.caloriesPerServing.toStringAsFixed(0)} kcal'
+                ' · ${(food.servingSize ?? 100).toStringAsFixed(0)}g serving',
+                style: const TextStyle(fontSize: 12),
+              ),
+              if (badges.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 3,
+                    runSpacing: 2,
+                    children: badges.take(4).map((a) =>
+                      _AllergenBadge(allergen: a),
+                    ).toList(),
+                  ),
+                ),
+            ],
           ),
           trailing: IconButton(
             icon:
@@ -1123,6 +1167,31 @@ class _FoodList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ─── Allergen badge widget ────────────────────────────────────────────────────
+
+class _AllergenBadge extends StatelessWidget {
+  final FoodAllergenInfo allergen;
+  const _AllergenBadge({required this.allergen});
+
+  @override
+  Widget build(BuildContext context) {
+    final isHigh = allergen.risk == 'high';
+    final color = isHigh ? Colors.red : Colors.orange;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.4), width: 0.5),
+      ),
+      child: Text(
+        '${allergen.emoji} ${allergen.displayName}',
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color.shade700),
+      ),
     );
   }
 }
