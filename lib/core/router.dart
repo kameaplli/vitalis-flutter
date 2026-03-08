@@ -17,6 +17,7 @@ import '../screens/receipt_scan_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/skin_photos_screen.dart';
+import '../screens/onboarding_screen.dart';
 import '../widgets/app_shell.dart';
 
 class _LoadingScreen extends StatelessWidget {
@@ -30,10 +31,15 @@ class _LoadingScreen extends StatelessWidget {
 final _rootNavigatorKey  = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Tracks whether the user has completed onboarding.
+/// Initialized via provider override in main.dart.
+final onboardingCompleteProvider = StateProvider<bool?>((ref) => null);
+
 /// Fires whenever authProvider changes — triggers GoRouter redirect re-evaluation.
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+    ref.listen<bool?>(onboardingCompleteProvider, (_, __) => notifyListeners());
   }
 }
 
@@ -53,6 +59,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (isLoading) return loc == '/loading' ? null : '/loading';
       if (!isAuthenticated) return '/auth';
+
+      // Check onboarding for first-time users
+      final onboardingDone = ref.read(onboardingCompleteProvider);
+      if (onboardingDone == false && loc != '/onboarding') return '/onboarding';
+
       if (loc == '/auth' || loc == '/loading') return '/dashboard';
       return null;
     },
@@ -64,6 +75,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth',
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

@@ -107,4 +107,7 @@ class ApiConstants {
   static const String insightsFlareRisk = '/api/insights/flare-risk';
   static const String insightsInvestigate = '/api/insights/investigate';
   static const String insightsHistory   = '/api/insights/history';
+
+  // Achievements (Phase 6)
+  static const String achievements = '/api/achievements';
 }

@@ -10,6 +10,8 @@ import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
+import '../providers/achievements_provider.dart';
+import '../widgets/achievement_badges.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -258,6 +260,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               value: _notificationsEnabled,
               onChanged: _toggleNotifications,
             ),
+            const Divider(height: 32),
+            // Achievements section
+            _AchievementsSection(),
             const Divider(height: 32),
             // Children section
             Row(
@@ -577,5 +582,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to remove family member')));
     }
+  }
+}
+
+class _AchievementsSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(achievementsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Achievements', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
+        asyncData.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Could not load achievements', style: TextStyle(color: Colors.grey.shade500)),
+          data: (data) => AchievementBadgesWidget(
+            badges: data.badges,
+            stats: data.stats,
+          ),
+        ),
+      ],
+    );
   }
 }
