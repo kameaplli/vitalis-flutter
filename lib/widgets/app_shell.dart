@@ -41,6 +41,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
   bool _locked = false;
   bool _checkingBio = false;
+  bool _wentToBackground = false;
 
   @override
   void initState() {
@@ -61,7 +62,11 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _wentToBackground = true;
+    }
+    if (state == AppLifecycleState.resumed && _wentToBackground) {
+      _wentToBackground = false;
       _checkBiometricLock();
     }
   }
@@ -70,15 +75,18 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (_checkingBio) return;
     _checkingBio = true;
     try {
+      // Skip if user is not logged in (e.g. just signed out)
+      final user = ref.read(authProvider).user;
+      if (user == null || !mounted) return;
+
       final enabled = await SecureStorage.getBiometricsEnabled();
-      if (!enabled || !mounted) { _checkingBio = false; return; }
+      if (!enabled || !mounted) return;
 
       setState(() => _locked = true);
       final ok = await BiometricService.authenticate(
         reason: 'Unlock Vitalis',
       );
       if (mounted) setState(() => _locked = !ok);
-      // If user cancels, stay locked — they can tap the lock icon to retry
     } finally {
       _checkingBio = false;
     }
