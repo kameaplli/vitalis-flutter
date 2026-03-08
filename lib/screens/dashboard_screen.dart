@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,18 +30,61 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // 0 = Today, 7 = 7d, 30 = 30d
   int _days = 0;
+  late PageController _pageController;
+  bool _syncingPage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _refresh(String person) {
     ref.invalidate(dashboardProvider(person));
     if (_days > 0) ref.invalidate(analyticsProvider('$person:$_days'));
     ref.invalidate(grocerySpendingProvider('$person:month'));
     ref.invalidate(todayHydrationProvider(person));
+    ref.invalidate(familySnapshotProvider);
+  }
+
+  List<Map<String, String>> _buildPersonList() {
+    final auth = ref.read(authProvider);
+    final user = auth.user;
+    return [
+      {'id': 'self', 'name': user?.name ?? 'Me'},
+      for (final c in user?.profile.children ?? [])
+        {'id': c.id, 'name': c.name},
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final person   = ref.watch(selectedPersonProvider);
-    final dashAsync = ref.watch(dashboardProvider(person));
+    final person  = ref.watch(selectedPersonProvider);
+    final persons = _buildPersonList();
+    final hasFamily = persons.length > 1;
+
+    // Sync PageView when selectedPersonProvider changes externally (avatar bar tap)
+    final targetIndex = persons.indexWhere((p) => p['id'] == person);
+    if (targetIndex >= 0 && _pageController.hasClients && !_syncingPage) {
+      final currentPage = _pageController.page?.round() ?? 0;
+      if (currentPage != targetIndex) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_pageController.hasClients) {
+            _pageController.animateToPage(
+              targetIndex,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        });
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -52,21 +96,238 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _refresh(person),
-        child: dashAsync.when(
+      body: Column(
+        children: [
+          // ── Zone B: Family Snapshot Row (only if family exists) ──────
+          if (hasFamily) _FamilySnapshotRow(persons: persons),
+          // ── Zone C: PageView per person ─────────────────────────────
+          Expanded(
+            child: hasFamily
+                ? PageView.builder(
+                    controller: _pageController,
+                    itemCount: persons.length,
+                    onPageChanged: (i) {
+                      _syncingPage = true;
+                      ref.read(selectedPersonProvider.notifier).state =
+                          persons[i]['id']!;
+                      Future.microtask(() => _syncingPage = false);
+                    },
+                    itemBuilder: (context, i) => _PersonDashboardPage(
+                      personId: persons[i]['id']!,
+                      days: _days,
+                      onDaysChanged: (d) => setState(() => _days = d),
+                      onRefresh: _refresh,
+                    ),
+                  )
+                : _PersonDashboardPage(
+                    personId: person,
+                    days: _days,
+                    onDaysChanged: (d) => setState(() => _days = d),
+                    onRefresh: _refresh,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Zone B: Family Snapshot Row ──────────────────────────────────────────────
+
+class _FamilySnapshotRow extends ConsumerWidget {
+  final List<Map<String, String>> persons;
+  const _FamilySnapshotRow({required this.persons});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedPersonProvider);
+    final snapshotAsync = ref.watch(familySnapshotProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      color: cs.surface,
+      child: SizedBox(
+        height: 110,
+        child: snapshotAsync.when(
           skipLoadingOnReload: true,
-          loading: () => const _HomeShimmer(),
-          error: (e, _) => _HomeError(
-            error: e,
-            onRetry: () => _refresh(person),
+          loading: () => const Center(
+            child: SizedBox(
+              width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
-          data: (data) => _HomeBody(
-            data:   data,
-            days:   _days,
-            person: person,
-            onDaysChanged: (d) => setState(() => _days = d),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (snapshots) => ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            itemCount: snapshots.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final snap = snapshots[i];
+              final isSelected = snap.id == selected;
+              return _PersonSnapshotCard(
+                snapshot: snap,
+                isSelected: isSelected,
+                onTap: () => ref.read(selectedPersonProvider.notifier).state = snap.id,
+              );
+            },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonSnapshotCard extends StatelessWidget {
+  final PersonSnapshot snapshot;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _PersonSnapshotCard({
+    required this.snapshot,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final score = snapshot.healthScore;
+    final scoreColor = score >= 70
+        ? Colors.green
+        : score >= 40
+            ? Colors.orange
+            : Colors.red;
+
+    final avatarUrl = snapshot.avatarUrl != null
+        ? ApiConstants.resolveUrl(snapshot.avatarUrl)
+        : null;
+    final initial = snapshot.name.isNotEmpty
+        ? snapshot.name[0].toUpperCase()
+        : '?';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 130,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? cs.primaryContainer.withValues(alpha: 0.4)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? cs.primary : cs.outlineVariant.withValues(alpha: 0.3),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Name + avatar row
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: cs.primaryContainer,
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+                      : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(initial,
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: cs.onPrimaryContainer))
+                      : null,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    snapshot.name.split(' ').first,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? cs.onPrimaryContainer : cs.onSurface,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Health score
+            Row(
+              children: [
+                Text(
+                  score.toStringAsFixed(0),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: scoreColor,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Health',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            // Calories + water
+            Text(
+              '${snapshot.todayCalories.round()} cal',
+              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+            ),
+            Text(
+              '${(snapshot.todayWater / 1000).toStringAsFixed(1)} L water',
+              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Zone C: Per-Person Dashboard Page ───────────────────────────────────────
+
+class _PersonDashboardPage extends ConsumerWidget {
+  final String personId;
+  final int days;
+  final ValueChanged<int> onDaysChanged;
+  final void Function(String) onRefresh;
+
+  const _PersonDashboardPage({
+    required this.personId,
+    required this.days,
+    required this.onDaysChanged,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashAsync = ref.watch(dashboardProvider(personId));
+
+    return RefreshIndicator(
+      onRefresh: () async => onRefresh(personId),
+      child: dashAsync.when(
+        skipLoadingOnReload: true,
+        loading: () => const _HomeShimmer(),
+        error: (e, _) => _HomeError(
+          error: e,
+          onRetry: () => onRefresh(personId),
+        ),
+        data: (data) => _HomeBody(
+          data: data,
+          days: days,
+          person: personId,
+          onDaysChanged: onDaysChanged,
         ),
       ),
     );
@@ -445,6 +706,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
       });
       ref.invalidate(todayHydrationProvider(widget.person));
       ref.invalidate(dashboardProvider(widget.person));
+      ref.invalidate(familySnapshotProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

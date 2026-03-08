@@ -4,6 +4,50 @@ import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../models/dashboard_data.dart';
 
+// ── Family snapshot model ───────────────────────────────────────────────────
+
+class PersonSnapshot {
+  final String id;
+  final String name;
+  final String? avatarUrl;
+  final double healthScore;
+  final double todayCalories;
+  final double todayWater;
+
+  const PersonSnapshot({
+    required this.id,
+    required this.name,
+    this.avatarUrl,
+    required this.healthScore,
+    required this.todayCalories,
+    required this.todayWater,
+  });
+
+  factory PersonSnapshot.fromJson(Map<String, dynamic> json) => PersonSnapshot(
+        id: json['id'] ?? 'self',
+        name: json['name'] ?? '',
+        avatarUrl: json['avatar_url'],
+        healthScore: (json['health_score'] as num?)?.toDouble() ?? 0,
+        todayCalories: (json['today_calories'] as num?)?.toDouble() ?? 0,
+        todayWater: (json['today_water'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+/// Fetches lightweight snapshot for all family members in one call.
+final familySnapshotProvider =
+    FutureProvider<List<PersonSnapshot>>((ref) async {
+  ref.keepAlive();
+  final today = DateTime.now().toIso8601String().substring(0, 10);
+  final res = await apiClient.dio.get(
+    ApiConstants.dashboardFamily,
+    queryParameters: {'date': today},
+  );
+  final persons = (res.data['persons'] as List<dynamic>? ?? [])
+      .map((p) => PersonSnapshot.fromJson(p as Map<String, dynamic>))
+      .toList();
+  return persons;
+});
+
 /// Family provider — keyed by person ('self' or family_member_id).
 ///
 /// Cache strategy:
