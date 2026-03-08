@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import '../providers/auth_provider.dart';
@@ -9,7 +10,6 @@ import '../providers/profile_provider.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
-import '../services/notification_service.dart';
 import '../providers/achievements_provider.dart';
 import '../widgets/achievement_badges.dart';
 
@@ -27,8 +27,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _editing = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
-  bool _notificationsEnabled = false;
-
   @override
   void initState() {
     super.initState();
@@ -38,42 +36,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _heightCtrl.text = user?.height?.toStringAsFixed(0) ?? '';
     _gender = user?.gender;
     _loadBiometricState();
-    _loadNotificationState();
   }
 
   Future<void> _loadBiometricState() async {
     final available = await BiometricService.isAvailable();
     final enabled = await SecureStorage.getBiometricsEnabled();
     if (mounted) setState(() { _biometricAvailable = available; _biometricEnabled = enabled; });
-  }
-
-  Future<void> _loadNotificationState() async {
-    final enabled = await SecureStorage.getNotificationsEnabled();
-    if (mounted) setState(() => _notificationsEnabled = enabled);
-  }
-
-  Future<void> _toggleNotifications(bool enable) async {
-    if (enable) {
-      try {
-        await NotificationService.init(); // re-request permission if denied
-        await NotificationService.scheduleHydrationReminders();
-        await SecureStorage.setNotificationsEnabled(true);
-        if (mounted) setState(() => _notificationsEnabled = true);
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Could not enable notifications — allow notification permission in device Settings.'),
-              duration: Duration(seconds: 5),
-            ),
-          );
-        }
-      }
-    } else {
-      await NotificationService.cancelAll();
-      await SecureStorage.setNotificationsEnabled(false);
-      if (mounted) setState(() => _notificationsEnabled = false);
-    }
   }
 
   Future<void> _toggleBiometric(bool enable) async {
@@ -253,12 +221,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 value: _biometricEnabled,
                 onChanged: _toggleBiometric,
               ),
-            SwitchListTile(
-              secondary: const Icon(Icons.notifications_outlined),
-              title: const Text('Hydration reminders'),
-              subtitle: const Text('Hourly notifications 8 AM – 10 PM'),
-              value: _notificationsEnabled,
-              onChanged: _toggleNotifications,
+            ListTile(
+              leading: const Icon(Icons.notifications_outlined),
+              title: const Text('Notification preferences'),
+              subtitle: const Text('Meals, hydration, eczema alerts'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => GoRouter.of(context).push('/notifications'),
             ),
             const Divider(height: 32),
             // Achievements section
