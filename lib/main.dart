@@ -7,9 +7,11 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService.init();
+  // Read onboarding pref synchronously (fast, local SharedPrefs)
   final prefs = await SharedPreferences.getInstance();
   final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
+  // Launch app immediately — notification init runs in background
+  NotificationService.init(); // fire-and-forget, non-blocking
   runApp(ProviderScope(
     overrides: [
       onboardingCompleteProvider.overrideWith((ref) => onboardingDone),
