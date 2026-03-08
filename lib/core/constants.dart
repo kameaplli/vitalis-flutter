@@ -30,6 +30,7 @@ class ApiConstants {
 
   // Dashboard
   static const String dashboard = '/api/dashboard';
+  static const String dashboardFamily = '/api/dashboard/family';
 
   // Foods
   static const String foodDatabase = '/api/foods/database';
