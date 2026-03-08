@@ -7,8 +7,27 @@ import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/grocery_models.dart';
+import '../models/insight_data.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/selected_person_provider.dart';
+
+// ── Grocery AI Insights provider ─────────────────────────────────────────────
+// key = period (month|quarter|year) — maps to backend param
+final _groceryInsightsProvider =
+    FutureProvider.family<WeeklyInsight?, String>((ref, period) async {
+  try {
+    // Map frontend period names to backend names
+    const periodMap = {'month': 'month', '3month': 'quarter', 'year': 'year'};
+    final backendPeriod = periodMap[period] ?? 'month';
+    final res = await apiClient.dio.get(
+      ApiConstants.insightsGrocery,
+      queryParameters: {'period': backendPeriod},
+    );
+    return WeeklyInsight.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+});
 
 // Category colour palette
 const _categoryColors = {
@@ -870,7 +889,19 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // AI Insights card
+          Consumer(builder: (context, ref, _) {
+            final insightAsync = ref.watch(_groceryInsightsProvider(_period));
+            return insightAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (insight) => insight != null
+                  ? _GroceryInsightsCard(insight: insight)
+                  : const SizedBox.shrink(),
+            );
+          }),
 
           // Spending section
           Text('Spending by Category',
@@ -929,6 +960,76 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           ),
           const SizedBox(height: 80), // FAB padding
         ],
+      ),
+    );
+  }
+}
+
+class _GroceryInsightsCard extends StatelessWidget {
+  final WeeklyInsight insight;
+  const _GroceryInsightsCard({required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAi = insight.source == 'ai';
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(isAi ? Icons.auto_awesome : Icons.bar_chart,
+                  size: 16, color: isAi ? Colors.purple : Colors.teal),
+              const SizedBox(width: 6),
+              Text(isAi ? 'AI Grocery Insights' : 'Grocery Analysis',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isAi ? Colors.purple : Colors.teal)),
+            ]),
+            const SizedBox(height: 10),
+            ...insight.insights.map((i) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.insights, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(i.title, style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(i.body, style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            if (insight.recommendations.isNotEmpty) ...[
+              const Divider(height: 16),
+              ...insight.recommendations.map((r) {
+                final color = r.priority == 'high' ? Colors.red
+                    : (r.priority == 'medium' ? Colors.orange : Colors.green);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(children: [
+                    Icon(Icons.lightbulb_outline, size: 14, color: color),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(r.action,
+                        style: const TextStyle(fontSize: 12))),
+                  ]),
+                );
+              }),
+            ],
+          ],
+        ),
       ),
     );
   }
