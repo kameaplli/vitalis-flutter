@@ -1531,9 +1531,9 @@ class _MacroFoodSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      minChildSize: 0.3,
-      maxChildSize: 0.8,
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
       expand: false,
       builder: (_, ctrl) => Column(children: [
         const SizedBox(height: 8),
@@ -1542,7 +1542,7 @@ class _MacroFoodSheet extends StatelessWidget {
                 color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(2))),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text('Top $macro Sources',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
@@ -1591,9 +1591,9 @@ class _MealFoodSheet extends StatelessWidget {
         ? 'Top Foods'
         : 'Top ${mealType[0].toUpperCase()}${mealType.substring(1)} Foods';
     return DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      minChildSize: 0.3,
-      maxChildSize: 0.8,
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
       expand: false,
       builder: (_, ctrl) => Column(children: [
         const SizedBox(height: 8),
@@ -1602,7 +1602,7 @@ class _MealFoodSheet extends StatelessWidget {
                 color: Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(2))),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(title,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ),
