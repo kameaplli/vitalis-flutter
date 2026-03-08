@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/router.dart';
+import '../services/notification_service.dart';
 
 const _kOnboardingCompleteKey = 'onboarding_complete';
 
@@ -26,11 +27,19 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
+  static const _totalPages = 6;
 
   // User selections
   final Set<String> _problemAreas = {};
   final Set<String> _knownTriggers = {};
   bool _locationEnabled = false;
+
+  // Meal time preferences
+  TimeOfDay _breakfastTime = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _lunchTime = const TimeOfDay(hour: 12, minute: 30);
+  TimeOfDay _dinnerTime = const TimeOfDay(hour: 18, minute: 30);
+  bool _hydrationReminders = true;
+  bool _mealReminders = true;
 
   static const _areas = [
     'Face', 'Neck', 'Arms', 'Hands', 'Legs', 'Feet', 'Torso', 'Back', 'Scalp',
@@ -40,7 +49,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   ];
 
   void _next() {
-    if (_page < 4) {
+    if (_page < _totalPages - 1) {
       _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     } else {
       _finish();
@@ -48,6 +57,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    // Save notification preferences from onboarding
+    await NotificationPrefs.setMealsEnabled(_mealReminders);
+    await NotificationPrefs.setHydrationEnabled(_hydrationReminders);
+    await NotificationPrefs.setBreakfastTime(
+        NotificationPrefs.formatTime(_breakfastTime.hour, _breakfastTime.minute));
+    await NotificationPrefs.setLunchTime(
+        NotificationPrefs.formatTime(_lunchTime.hour, _lunchTime.minute));
+    await NotificationPrefs.setDinnerTime(
+        NotificationPrefs.formatTime(_dinnerTime.hour, _dinnerTime.minute));
+
+    // Schedule notifications with user's chosen times
+    await NotificationService.scheduleAll();
+
     await setOnboardingComplete();
     ref.read(onboardingCompleteProvider.notifier).state = true;
     if (mounted) context.go('/dashboard');
@@ -72,7 +94,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (i) => AnimatedContainer(
+                children: List.generate(_totalPages, (i) => AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: i == _page ? 24 : 8,
                   height: 8,
@@ -112,6 +134,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     enabled: _locationEnabled,
                     onChanged: (v) => setState(() => _locationEnabled = v),
                   ),
+                  _MealTimesPage(
+                    cs: cs,
+                    breakfastTime: _breakfastTime,
+                    lunchTime: _lunchTime,
+                    dinnerTime: _dinnerTime,
+                    hydrationEnabled: _hydrationReminders,
+                    mealsEnabled: _mealReminders,
+                    onBreakfastChanged: (t) => setState(() => _breakfastTime = t),
+                    onLunchChanged: (t) => setState(() => _lunchTime = t),
+                    onDinnerChanged: (t) => setState(() => _dinnerTime = t),
+                    onHydrationChanged: (v) => setState(() => _hydrationReminders = v),
+                    onMealsChanged: (v) => setState(() => _mealReminders = v),
+                  ),
                   _ReadyPage(cs: cs),
                 ],
               ),
@@ -135,7 +170,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   const Spacer(),
                   FilledButton(
                     onPressed: _next,
-                    child: Text(_page == 4 ? "Let's Go!" : 'Next'),
+                    child: Text(_page == _totalPages - 1 ? "Let's Go!" : 'Next'),
                   ),
                 ],
               ),
@@ -291,6 +326,131 @@ class _LocationPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MealTimesPage extends StatelessWidget {
+  final ColorScheme cs;
+  final TimeOfDay breakfastTime;
+  final TimeOfDay lunchTime;
+  final TimeOfDay dinnerTime;
+  final bool hydrationEnabled;
+  final bool mealsEnabled;
+  final ValueChanged<TimeOfDay> onBreakfastChanged;
+  final ValueChanged<TimeOfDay> onLunchChanged;
+  final ValueChanged<TimeOfDay> onDinnerChanged;
+  final ValueChanged<bool> onHydrationChanged;
+  final ValueChanged<bool> onMealsChanged;
+
+  const _MealTimesPage({
+    required this.cs,
+    required this.breakfastTime,
+    required this.lunchTime,
+    required this.dinnerTime,
+    required this.hydrationEnabled,
+    required this.mealsEnabled,
+    required this.onBreakfastChanged,
+    required this.onLunchChanged,
+    required this.onDinnerChanged,
+    required this.onHydrationChanged,
+    required this.onMealsChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 24),
+            Icon(Icons.notifications_active, size: 48, color: cs.primary),
+            const SizedBox(height: 16),
+            const Text('Set up your reminders',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              "We'll nudge you at the right times so logging feels effortless. You can change these anytime in Settings.",
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Meal reminders toggle + times
+            SwitchListTile(
+              secondary: const Icon(Icons.restaurant, color: Colors.orange),
+              title: const Text('Meal reminders'),
+              value: mealsEnabled,
+              onChanged: onMealsChanged,
+              dense: true,
+            ),
+            if (mealsEnabled) ...[
+              _OnboardingTimeTile(
+                emoji: '🌅',
+                label: 'Breakfast',
+                time: breakfastTime,
+                onTap: () async {
+                  final t = await showTimePicker(context: context, initialTime: breakfastTime);
+                  if (t != null) onBreakfastChanged(t);
+                },
+              ),
+              _OnboardingTimeTile(
+                emoji: '☀️',
+                label: 'Lunch',
+                time: lunchTime,
+                onTap: () async {
+                  final t = await showTimePicker(context: context, initialTime: lunchTime);
+                  if (t != null) onLunchChanged(t);
+                },
+              ),
+              _OnboardingTimeTile(
+                emoji: '🌙',
+                label: 'Dinner',
+                time: dinnerTime,
+                onTap: () async {
+                  final t = await showTimePicker(context: context, initialTime: dinnerTime);
+                  if (t != null) onDinnerChanged(t);
+                },
+              ),
+            ],
+            const SizedBox(height: 8),
+
+            // Hydration reminders toggle
+            SwitchListTile(
+              secondary: const Icon(Icons.water_drop, color: Colors.blue),
+              title: const Text('Hydration reminders'),
+              subtitle: const Text('Every 90 min during the day'),
+              value: hydrationEnabled,
+              onChanged: onHydrationChanged,
+              dense: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingTimeTile extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final TimeOfDay time;
+  final VoidCallback onTap;
+  const _OnboardingTimeTile({required this.emoji, required this.label, required this.time, required this.onTap});
+
+  String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    leading: Text(emoji, style: const TextStyle(fontSize: 20)),
+    title: Text(label),
+    trailing: TextButton(
+      onPressed: onTap,
+      child: Text(_fmt(time), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+    ),
+  );
 }
 
 class _ReadyPage extends StatelessWidget {

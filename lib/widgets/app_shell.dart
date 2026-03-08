@@ -8,6 +8,7 @@ import '../models/dashboard_data.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../services/background_service.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -40,7 +41,17 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _handleBiometricOffer());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleBiometricOffer();
+      _runBackgroundChecks();
+    });
+  }
+
+  Future<void> _runBackgroundChecks() async {
+    // Process any pending notification quick-actions (e.g., 250ml hydration tap)
+    await BackgroundService.processPendingActions();
+    // Check weather-based flare risk (once per day)
+    BackgroundService.checkFlareRisk();
   }
 
   Future<void> _handleBiometricOffer() async {
