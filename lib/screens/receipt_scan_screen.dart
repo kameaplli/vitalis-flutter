@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
@@ -60,12 +61,37 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     final xFile = await _picker.pickImage(
       source:    source,
       imageQuality: 85,
-      maxWidth:  1200,
-      maxHeight: 1600,
+      maxWidth:  2400,
+      maxHeight: 3200,
     );
     if (xFile == null) return;
+
+    // Auto-launch cropper for camera captures so user can trim to receipt
+    // boundaries and correct alignment before uploading
+    String finalPath = xFile.path;
+    if (source == ImageSource.camera) {
+      final cropped = await ImageCropper().cropImage(
+        sourcePath: xFile.path,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Align Receipt',
+            toolbarColor: Theme.of(context).colorScheme.primary,
+            toolbarWidgetColor: Colors.white,
+            lockAspectRatio: false,
+            hideBottomControls: false,
+          ),
+          IOSUiSettings(
+            title: 'Align Receipt',
+            aspectRatioLockEnabled: false,
+          ),
+        ],
+      );
+      if (cropped == null) return; // user cancelled crop
+      finalPath = cropped.path;
+    }
+
     setState(() {
-      _image       = File(xFile.path);
+      _image       = File(finalPath);
       _pollStatus  = null;
       _doneReceipt = null;
     });
