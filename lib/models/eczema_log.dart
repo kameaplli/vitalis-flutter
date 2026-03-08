@@ -11,6 +11,11 @@ class EczemaLogSummary {
   final dynamic affectedAreas;
   final bool? sleepDisrupted;
   final String? notes;
+  final int? stressLevel;
+  final bool? dairyConsumed;
+  final bool? eggsConsumed;
+  final bool? nutsConsumed;
+  final bool? wheatConsumed;
 
   EczemaLogSummary({
     required this.id,
@@ -22,6 +27,11 @@ class EczemaLogSummary {
     this.affectedAreas,
     this.sleepDisrupted,
     this.notes,
+    this.stressLevel,
+    this.dairyConsumed,
+    this.eggsConsumed,
+    this.nutsConsumed,
+    this.wheatConsumed,
   });
 
   factory EczemaLogSummary.fromJson(Map<String, dynamic> json) {
@@ -35,6 +45,11 @@ class EczemaLogSummary {
       affectedAreas: json['affected_areas'],
       sleepDisrupted: json['sleep_disrupted'],
       notes: json['notes'],
+      stressLevel: json['stress_level'],
+      dairyConsumed: json['dairy_consumed'],
+      eggsConsumed: json['eggs_consumed'],
+      nutsConsumed: json['nuts_consumed'],
+      wheatConsumed: json['wheat_consumed'],
     );
   }
 

@@ -18,8 +18,16 @@ import '../models/easi_models.dart';
 import '../models/environment_data.dart';
 import '../models/smart_correlation_data.dart';
 import '../widgets/eczema_body_map.dart';
-import '../widgets/environment_card.dart';
+import '../widgets/environment_card.dart' hide FlareRiskGauge;
 import '../widgets/smart_correlation_card.dart';
+import '../widgets/calendar_heatmap.dart';
+import '../widgets/flare_risk_gauge.dart';
+import '../widgets/trigger_radar_chart.dart';
+import '../widgets/causation_chain.dart';
+import '../widgets/what_if_simulator.dart';
+import '../widgets/achievement_badges.dart';
+import '../widgets/swipeable_insight_cards.dart';
+import '../widgets/quick_log_sheet.dart';
 
 // ─── EASI helpers ─────────────────────────────────────────────────────────────
 
@@ -266,6 +274,74 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     _tabs.animateTo(0); // Switch to Log tab
   }
 
+  void _showQuickLog() {
+    // Gather frequent zones from recent logs
+    final person = ref.read(selectedPersonProvider);
+    final logsAsync = ref.read(eczemaProvider('$person:$_historyDays'));
+    final logs = logsAsync.valueOrNull ?? [];
+    final zoneCounts = <String, int>{};
+    for (final log in logs) {
+      for (final zone in log.parsedAreas.keys) {
+        zoneCounts[zone] = (zoneCounts[zone] ?? 0) + 1;
+      }
+    }
+    final frequentZones = (zoneCounts.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(6)
+        .map((e) => e.key)
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => QuickLogSheet(
+        frequentZones: frequentZones,
+        recentFoods: const ['Dairy', 'Eggs', 'Nuts', 'Wheat', 'Soy', 'Citrus'],
+        onExpandToFull: () {
+          _tabs.animateTo(0);
+          _showFullFormSheet();
+        },
+        onSubmit: ({required severity, bodyZones, foodAssociations, notes}) async {
+          final p = ref.read(selectedPersonProvider);
+          final now = DateTime.now();
+          final data = {
+            'log_date': DateFormat('yyyy-MM-dd').format(now),
+            'log_time': DateFormat('HH:mm').format(now),
+            'itch_severity': severity.itchValue,
+            'dairy_consumed': foodAssociations?.contains('Dairy') ?? false,
+            'eggs_consumed': foodAssociations?.contains('Eggs') ?? false,
+            'nuts_consumed': foodAssociations?.contains('Nuts') ?? false,
+            'wheat_consumed': foodAssociations?.contains('Wheat') ?? false,
+            'soy_consumed': foodAssociations?.contains('Soy') ?? false,
+            'citrus_consumed': foodAssociations?.contains('Citrus') ?? false,
+            'family_member_id': p == 'self' ? null : p,
+          };
+          if (bodyZones != null && bodyZones.isNotEmpty) {
+            final zones = bodyZones.map((z) => {'area': z, 'level': severity.itchValue}).toList();
+            data['affected_areas'] = jsonEncode({'zones': zones, 'patches': []});
+          }
+          try {
+            await apiClient.dio.post(ApiConstants.eczema, data: data);
+            if (!mounted) return;
+            ref.invalidate(eczemaProvider('$p:$_historyDays'));
+            ref.invalidate(eczemaHeatmapProvider('$p:$_heatmapDays'));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Quick log saved!')),
+            );
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error: $e')),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
   void _showHistorySheet() {
     showModalBottomSheet(
       context: context,
@@ -418,6 +494,11 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 ),
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.bolt),
+            tooltip: 'Quick Log',
+            onPressed: _showQuickLog,
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'History',
@@ -2306,6 +2387,161 @@ class _ReportContent extends StatelessWidget {
                   'probabilities, lag detection, and combination triggers.',
             ),
 
+          // ── Phase 6: Calendar Heatmap ──────────────────────
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.calendar_month, size: 18, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text('Severity Calendar',
+                        style: Theme.of(context).textTheme.titleSmall),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('Daily itch severity over the last $days days',
+                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 10),
+                  CalendarHeatmap(
+                    data: {
+                      for (final log in logs)
+                        if (log.itchSeverity != null)
+                          log.logDate: log.itchSeverity!.toDouble(),
+                    },
+                    days: days,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Phase 6: Flare Risk Gauge ──────────────────────
+          if (envCorrelation != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  Text('Flare Risk Score',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Center(child: FlareRiskGauge(score: envCorrelation!.flareRiskScore)),
+                  const SizedBox(height: 8),
+                  if (envCorrelation!.topTrigger != null)
+                    Text('Top trigger: ${envCorrelation!.topTrigger}',
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                ]),
+              ),
+            ),
+          ],
+
+          // ── Phase 6: Trigger Profile Radar ─────────────────
+          if (smartCorrelation != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(children: [
+                  Text('Trigger Profile',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text('Which categories contribute most to your flares',
+                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+                  Center(child: TriggerRadarChart(
+                    food: _triggerAxisValue(smartCorrelation!.categoryCorrelations),
+                    environment: envCorrelation != null
+                        ? (envCorrelation!.flareRiskScore / 100).clamp(0.0, 1.0)
+                        : 0,
+                    products: 0, // would need product correlation data
+                    stress: _stressAxisValue(logs),
+                    sleep: _sleepAxisValue(logs),
+                  )),
+                ]),
+              ),
+            ),
+          ],
+
+          // ── Phase 6: Causation Chain ────────────────────────
+          if (logs.length >= 2 && foodCorrelation != null && foodCorrelation!.badFoods.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.timeline, size: 18, color: Colors.deepPurple),
+                      const SizedBox(width: 6),
+                      Text('Recent Causation Chain',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text('Suspected food triggers leading to flares',
+                        style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 12),
+                    CausationChainTimeline(events: _buildCausationEvents(logs, foodCorrelation!)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // ── Phase 6: What-If Simulator ─────────────────────
+          if (smartCorrelation != null && smartCorrelation!.bayesianTriggers.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.science, size: 18, color: Colors.indigo),
+                      const SizedBox(width: 6),
+                      Text('What-If Simulator',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text('See how avoiding triggers might help',
+                        style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                    const SizedBox(height: 12),
+                    WhatIfSimulator(
+                      currentAvgItch: avgItch,
+                      scenarios: _buildWhatIfScenarios(smartCorrelation!, avgItch),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // ── Phase 6: Swipeable Insight Cards ───────────────
+          if (smartCorrelation != null || envCorrelation != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Insights', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    SwipeableInsightCards(
+                      insights: _buildSwipeInsights(
+                        smartCorrelation, envCorrelation, avgItch, logs.length,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
           // ── Export button ──────────────────────────────────
           const SizedBox(height: 16),
           SizedBox(
@@ -2319,6 +2555,140 @@ class _ReportContent extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // ── Phase 6 helper methods ──────────────────────────────────────────────────
+
+  static double _triggerAxisValue(List<CategoryCorrelation> cats) {
+    if (cats.isEmpty) return 0;
+    final maxRisk = cats.map((c) => c.riskMultiplier).reduce((a, b) => a > b ? a : b);
+    return (maxRisk / 3).clamp(0.0, 1.0); // normalize: 3x = full
+  }
+
+  static double _stressAxisValue(List<EczemaLogSummary> logs) {
+    final stressLogs = logs.where((l) => l.stressLevel != null && l.stressLevel! > 0).toList();
+    if (stressLogs.isEmpty) return 0;
+    final avg = stressLogs.map((l) => l.stressLevel!).reduce((a, b) => a + b) / stressLogs.length;
+    return (avg / 10).clamp(0.0, 1.0);
+  }
+
+  static double _sleepAxisValue(List<EczemaLogSummary> logs) {
+    final disrupted = logs.where((l) => l.sleepDisrupted == true).length;
+    if (logs.isEmpty) return 0;
+    return (disrupted / logs.length).clamp(0.0, 1.0);
+  }
+
+  static List<CausationEvent> _buildCausationEvents(
+      List<EczemaLogSummary> logs, FoodCorrelationData foodData) {
+    final events = <CausationEvent>[];
+    final badFoodNames = foodData.badFoods.take(3).map((f) => f.foodName).toSet();
+
+    // Take last 5 logs and create a simplified chain
+    final recent = logs.take(5).toList();
+    for (final log in recent.reversed) {
+      final date = DateTime.tryParse(log.logDate) ?? DateTime.now();
+      final itch = log.itchSeverity ?? 0;
+      final triggers = <String>[];
+      if (log.dairyConsumed == true) triggers.add('DAIRY');
+      if (log.eggsConsumed == true) triggers.add('EGGS');
+      if (log.nutsConsumed == true) triggers.add('NUTS');
+      if (log.wheatConsumed == true) triggers.add('WHEAT');
+
+      if (triggers.isNotEmpty || itch >= 5) {
+        events.add(CausationEvent(
+          dateTime: date,
+          title: itch >= 5 ? 'Flare: Itch $itch/10' : 'Triggers logged',
+          subtitle: triggers.isEmpty ? 'No specific triggers flagged' : triggers.join(', '),
+          tags: triggers,
+          isFlare: itch >= 5,
+          severity: itch.toDouble(),
+        ));
+      }
+    }
+    return events;
+  }
+
+  static List<WhatIfScenario> _buildWhatIfScenarios(
+      SmartCorrelationResult smart, double currentAvg) {
+    final scenarios = <WhatIfScenario>[];
+    for (final trigger in smart.bayesianTriggers.take(4)) {
+      if (trigger.posteriorProbability > 0.2) {
+        final reduction = currentAvg * trigger.posteriorProbability * 0.5;
+        scenarios.add(WhatIfScenario(
+          label: 'Avoid ${trigger.displayName}',
+          description: '${(trigger.posteriorProbability * 100).toInt()}% trigger probability',
+          predictedItch: (currentAvg - reduction).clamp(0.0, 10.0),
+          icon: Icons.no_food,
+        ));
+      }
+    }
+    // Add sleep/stress scenarios
+    if (currentAvg > 3) {
+      scenarios.add(WhatIfScenario(
+        label: 'Improve sleep quality',
+        description: 'Get 7+ hours consistently',
+        predictedItch: (currentAvg * 0.85).clamp(0.0, 10.0),
+        icon: Icons.bedtime,
+      ));
+    }
+    return scenarios;
+  }
+
+  static List<SwipeableInsight> _buildSwipeInsights(
+      SmartCorrelationResult? smart, EnvironmentCorrelation? env,
+      double avgItch, int logCount) {
+    final insights = <SwipeableInsight>[];
+
+    if (smart != null) {
+      for (final cat in smart.categoryCorrelations.where((c) => c.significant).take(3)) {
+        insights.add(SwipeableInsight(
+          title: '${cat.displayName} increases itch ${cat.riskMultiplier.toStringAsFixed(1)}x',
+          body: 'Avg itch ${cat.avgItchWith.toStringAsFixed(1)}/10 with ${cat.displayName} '
+              'vs ${cat.avgItchWithout.toStringAsFixed(1)}/10 without.',
+          icon: Icons.restaurant,
+          color: Colors.red,
+        ));
+      }
+      for (final bt in smart.bayesianTriggers.where((b) => b.confidence == 'confirmed').take(2)) {
+        insights.add(SwipeableInsight(
+          title: '${bt.displayName}: confirmed trigger',
+          body: '${(bt.posteriorProbability * 100).toInt()}% probability based on ${bt.timesConsumed} observations.',
+          icon: Icons.verified,
+          color: Colors.deepOrange,
+        ));
+      }
+    }
+
+    if (env != null) {
+      for (final f in env.factors.where((f) => f.significant).take(2)) {
+        insights.add(SwipeableInsight(
+          title: '${f.factor} affects your skin ${f.riskMultiplier.toStringAsFixed(1)}x',
+          body: 'Itch is ${f.avgItchBad.toStringAsFixed(1)}/10 in bad conditions '
+              'vs ${f.avgItchNormal.toStringAsFixed(1)}/10 normally.',
+          icon: Icons.cloud,
+          color: Colors.blue,
+        ));
+      }
+    }
+
+    if (logCount >= 7) {
+      insights.add(SwipeableInsight(
+        title: '$logCount entries logged!',
+        body: "Your data is getting powerful. Keep logging for more accurate insights.",
+        icon: Icons.trending_up,
+        color: Colors.green,
+      ));
+    }
+
+    if (insights.isEmpty) {
+      insights.add(const SwipeableInsight(
+        title: 'Keep logging!',
+        body: 'More data means better insights. Try to log daily for the best results.',
+        icon: Icons.edit_note,
+      ));
+    }
+
+    return insights;
   }
 }
 
