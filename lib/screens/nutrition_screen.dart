@@ -16,6 +16,7 @@ import '../providers/selected_person_provider.dart';
 import '../providers/nutrition_analytics_provider.dart';
 import '../models/food_item.dart';
 import '../models/nutrition_analytics.dart';
+import '../models/insight_data.dart';
 import '../core/timezone_util.dart';
 import 'entries_screen.dart' show NutritionHistoryContent;
 
@@ -1196,6 +1197,25 @@ class _AllergenBadge extends StatelessWidget {
   }
 }
 
+// ─── Nutrition AI Insights provider ──────────────────────────────────────────
+
+// key = "person:days"
+final _nutritionInsightsProvider =
+    FutureProvider.family<WeeklyInsight?, String>((ref, key) async {
+  try {
+    final parts = key.split(':');
+    final person = parts[0];
+    final days = parts.length > 1 ? parts[1] : '30';
+    final res = await apiClient.dio.get(
+      ApiConstants.insightsNutrition,
+      queryParameters: {'person': person, 'days': int.parse(days)},
+    );
+    return WeeklyInsight.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+});
+
 // ─── Analytics tab ────────────────────────────────────────────────────────────
 
 class _AnalyticsTab extends ConsumerStatefulWidget {
@@ -1232,7 +1252,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
-            data: (data) => _AnalyticsContent(data: data, days: _days),
+            data: (data) => _AnalyticsContent(data: data, days: _days, personKey: key),
           ),
         ),
       ],
@@ -1240,20 +1260,28 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
   }
 }
 
-class _AnalyticsContent extends StatelessWidget {
+class _AnalyticsContent extends ConsumerWidget {
   final NutritionAnalyticsData data;
   final int days;
-  const _AnalyticsContent({required this.data, required this.days});
+  final String personKey;
+  const _AnalyticsContent({required this.data, required this.days, required this.personKey});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final insightAsync = ref.watch(_nutritionInsightsProvider(personKey));
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // AI Insights card
+        insightAsync.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (insight) => insight != null
+              ? _NutritionInsightsCard(insight: insight)
+              : const SizedBox.shrink(),
+        ),
         _MacroDonut(data: data),
         const SizedBox(height: 12),
-        // Collapsible meal type breakdown — swipe up / tap header to collapse
-        // and reclaim screen real estate for the donut chart.
         Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
@@ -1283,6 +1311,78 @@ class _AnalyticsContent extends StatelessWidget {
       if (c > max) max = c;
     }
     return max;
+  }
+}
+
+// ─── Nutrition AI Insights card ───────────────────────────────────────────────
+
+class _NutritionInsightsCard extends StatelessWidget {
+  final WeeklyInsight insight;
+  const _NutritionInsightsCard({required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isAi = insight.source == 'ai';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(isAi ? Icons.auto_awesome : Icons.bar_chart,
+                  size: 16, color: isAi ? Colors.purple : Colors.teal),
+              const SizedBox(width: 6),
+              Text(isAi ? 'AI Nutrition Insights' : 'Nutrition Analysis',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isAi ? Colors.purple : Colors.teal)),
+            ]),
+            const SizedBox(height: 10),
+            ...insight.insights.map((i) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.insights, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(i.title, style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(i.body, style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            if (insight.recommendations.isNotEmpty) ...[
+              const Divider(height: 16),
+              ...insight.recommendations.map((r) {
+                final color = r.priority == 'high' ? Colors.red
+                    : (r.priority == 'medium' ? Colors.orange : Colors.green);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(children: [
+                    Icon(Icons.lightbulb_outline, size: 14, color: color),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(r.action,
+                        style: const TextStyle(fontSize: 12))),
+                  ]),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
