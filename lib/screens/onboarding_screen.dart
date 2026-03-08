@@ -57,21 +57,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
-    // Save notification preferences from onboarding
-    await NotificationPrefs.setMealsEnabled(_mealReminders);
-    await NotificationPrefs.setHydrationEnabled(_hydrationReminders);
-    await NotificationPrefs.setBreakfastTime(
-        NotificationPrefs.formatTime(_breakfastTime.hour, _breakfastTime.minute));
-    await NotificationPrefs.setLunchTime(
-        NotificationPrefs.formatTime(_lunchTime.hour, _lunchTime.minute));
-    await NotificationPrefs.setDinnerTime(
-        NotificationPrefs.formatTime(_dinnerTime.hour, _dinnerTime.minute));
-
-    // Schedule notifications with user's chosen times
-    await NotificationService.scheduleAll();
-
+    // Mark onboarding complete FIRST so user is never stuck
     await setOnboardingComplete();
     ref.read(onboardingCompleteProvider.notifier).state = true;
+
+    // Save notification preferences (best-effort, don't block navigation)
+    try {
+      await NotificationPrefs.setMealsEnabled(_mealReminders);
+      await NotificationPrefs.setHydrationEnabled(_hydrationReminders);
+      await NotificationPrefs.setBreakfastTime(
+          NotificationPrefs.formatTime(_breakfastTime.hour, _breakfastTime.minute));
+      await NotificationPrefs.setLunchTime(
+          NotificationPrefs.formatTime(_lunchTime.hour, _lunchTime.minute));
+      await NotificationPrefs.setDinnerTime(
+          NotificationPrefs.formatTime(_dinnerTime.hour, _dinnerTime.minute));
+      await NotificationService.scheduleAll();
+    } catch (_) {
+      // Notification setup failed — user can configure later in Settings
+    }
+
     if (mounted) context.go('/dashboard');
   }
 
