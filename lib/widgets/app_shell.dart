@@ -10,6 +10,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
 import '../services/biometric_service.dart';
+import '../services/prefetch_service.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -95,6 +96,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   Future<void> _runBackgroundChecks() async {
     await BackgroundService.processPendingActions();
     BackgroundService.checkFlareRisk();
+    // Prefetch data for screens the user is likely to visit
+    final person = ref.read(selectedPersonProvider);
+    PrefetchService.warmAll(ref, person);
   }
 
   Future<void> _handleBiometricOffer() async {
