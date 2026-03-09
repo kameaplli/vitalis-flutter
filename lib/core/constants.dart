@@ -116,4 +116,11 @@ class ApiConstants {
 
   // Achievements (Phase 6)
   static const String achievements = '/api/achievements';
+
+  // Finance Intelligence
+  static const String financeStatements   = '/api/finance/statements';
+  static const String financeTransactions = '/api/finance/transactions';
+  static const String financeSpending     = '/api/analytics/finance/spending';
+  static const String financeBudget       = '/api/analytics/finance/budget';
+  static const String financeTrends       = '/api/analytics/finance/trends';
 }

@@ -23,6 +23,9 @@ dependencies:
   # Charts
   fl_chart: ^0.68.0
 
+  # File picking (PDF/CSV uploads)
+  file_picker: ^8.0.0
+
   # Image picking & camera
   image_picker: ^1.0.7
   image_cropper: ^7.1.0

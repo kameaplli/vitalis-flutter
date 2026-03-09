@@ -19,6 +19,7 @@ import '../screens/insights_screen.dart';
 import '../screens/skin_photos_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/notification_preferences_screen.dart';
+import '../screens/finance_screen.dart';
 import '../widgets/app_shell.dart';
 
 class _LoadingScreen extends StatelessWidget {
@@ -110,6 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/insights',    builder: (_, __) => const InsightsScreen()),
           GoRoute(path: '/skin-photos', builder: (_, __) => const SkinPhotosScreen()),
           GoRoute(path: '/notifications', builder: (_, __) => const NotificationPreferencesScreen()),
+          GoRoute(path: '/finance',       builder: (_, __) => const FinanceScreen()),
         ],
       ),
     ],
