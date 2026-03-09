@@ -66,28 +66,34 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     );
     if (xFile == null) return;
 
-    // Auto-launch cropper for camera captures so user can trim to receipt
-    // boundaries and correct alignment before uploading
+    // Try to launch cropper for camera captures so user can trim to receipt
+    // boundaries. If cropper fails (some devices), fall back to original image.
     String finalPath = xFile.path;
     if (source == ImageSource.camera) {
-      final cropped = await ImageCropper().cropImage(
-        sourcePath: xFile.path,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: 'Align Receipt',
-            toolbarColor: Theme.of(context).colorScheme.primary,
-            toolbarWidgetColor: Colors.white,
-            lockAspectRatio: false,
-            hideBottomControls: false,
-          ),
-          IOSUiSettings(
-            title: 'Align Receipt',
-            aspectRatioLockEnabled: false,
-          ),
-        ],
-      );
-      if (cropped == null) return; // user cancelled crop
-      finalPath = cropped.path;
+      try {
+        final cropped = await ImageCropper().cropImage(
+          sourcePath: xFile.path,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'Align Receipt',
+              toolbarColor: Theme.of(context).colorScheme.primary,
+              toolbarWidgetColor: Colors.white,
+              lockAspectRatio: false,
+              hideBottomControls: false,
+            ),
+            IOSUiSettings(
+              title: 'Align Receipt',
+              aspectRatioLockEnabled: false,
+            ),
+          ],
+        );
+        if (cropped != null) {
+          finalPath = cropped.path;
+        }
+        // If cropped == null (user cancelled or cropper failed), use original
+      } catch (_) {
+        // Cropper failed — use original camera image as-is
+      }
     }
 
     setState(() {
