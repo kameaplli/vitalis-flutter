@@ -31,39 +31,86 @@ final _groceryInsightsProvider =
 
 // Category colour palette
 const _categoryColors = {
-  'produce':       Color(0xFF4CAF50),
-  'dairy':         Color(0xFF2196F3),
+  // Produce
+  'fruits':        Color(0xFFE91E63),
+  'vegetables':    Color(0xFF4CAF50),
+  'leafy_greens':  Color(0xFF2E7D32),
+  'herbs':         Color(0xFF66BB6A),
+  'nuts_seeds':    Color(0xFF8D6E63),
+  // Protein
   'meat':          Color(0xFFE53935),
+  'poultry':       Color(0xFFEF5350),
   'seafood':       Color(0xFF00BCD4),
+  'eggs':          Color(0xFFFFB74D),
+  // Dairy
+  'dairy':         Color(0xFF2196F3),
+  'plant_based':   Color(0xFF81C784),
+  // Grains
   'bakery':        Color(0xFFFF8F00),
-  'frozen':        Color(0xFF7986CB),
-  'beverages':     Color(0xFF26C6DA),
-  'snacks':        Color(0xFFFF7043),
+  'grains_pasta':  Color(0xFFD4A54A),
+  'cereals':       Color(0xFFFFC107),
+  // Pantry
   'pantry':        Color(0xFF8D6E63),
+  'canned_goods':  Color(0xFF78909C),
+  'condiments':    Color(0xFFFF7043),
+  'spices':        Color(0xFFD84315),
+  'oils_vinegar':  Color(0xFFAED581),
+  // Cold
+  'frozen':        Color(0xFF7986CB),
+  'deli':          Color(0xFFEC407A),
+  // Drinks
+  'beverages':     Color(0xFF26C6DA),
+  'juice':         Color(0xFFFFCA28),
+  'alcohol':       Color(0xFF5C6BC0),
+  // Snacks
+  'snacks':        Color(0xFFFF7043),
+  'confectionery': Color(0xFFAB47BC),
+  // Non-food
   'household':     Color(0xFF78909C),
   'personal_care': Color(0xFFAB47BC),
+  'baby':          Color(0xFFF48FB1),
+  'pet':           Color(0xFFA1887F),
+  // Legacy
+  'produce':       Color(0xFF4CAF50),
   'other':         Color(0xFF9E9E9E),
 };
 
 Color _catColor(String cat) => _categoryColors[cat] ?? const Color(0xFF9E9E9E);
 
-String _catLabel(String cat) {
-  const labels = {
-    'produce':       'Produce',
-    'dairy':         'Dairy',
-    'meat':          'Meat',
-    'seafood':       'Seafood',
-    'bakery':        'Bakery',
-    'frozen':        'Frozen',
-    'beverages':     'Beverages',
-    'snacks':        'Snacks',
-    'pantry':        'Pantry',
-    'household':     'Household',
-    'personal_care': 'Personal Care',
-    'other':         'Other',
-  };
-  return labels[cat] ?? cat;
-}
+String _catLabel(String cat) => switch (cat) {
+  'fruits'        => 'Fruits',
+  'vegetables'    => 'Vegetables',
+  'leafy_greens'  => 'Leafy Greens',
+  'herbs'         => 'Herbs',
+  'nuts_seeds'    => 'Nuts & Seeds',
+  'meat'          => 'Meat',
+  'poultry'       => 'Poultry',
+  'seafood'       => 'Seafood',
+  'eggs'          => 'Eggs',
+  'dairy'         => 'Dairy',
+  'plant_based'   => 'Plant-Based',
+  'bakery'        => 'Bakery',
+  'grains_pasta'  => 'Grains & Pasta',
+  'cereals'       => 'Cereals',
+  'pantry'        => 'Pantry',
+  'canned_goods'  => 'Canned Goods',
+  'condiments'    => 'Condiments',
+  'spices'        => 'Spices',
+  'oils_vinegar'  => 'Oils & Vinegar',
+  'frozen'        => 'Frozen',
+  'deli'          => 'Deli',
+  'beverages'     => 'Beverages',
+  'juice'         => 'Juice',
+  'alcohol'       => 'Alcohol',
+  'snacks'        => 'Snacks',
+  'confectionery' => 'Confectionery',
+  'household'     => 'Household',
+  'personal_care' => 'Personal Care',
+  'baby'          => 'Baby',
+  'pet'           => 'Pet',
+  'produce'       => 'Produce',
+  _               => cat[0].toUpperCase() + cat.substring(1),
+};
 
 class GroceryScreen extends ConsumerStatefulWidget {
   const GroceryScreen({super.key});
@@ -539,7 +586,9 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
     // Group items by category
     final Map<String, List<GroceryItem>> grouped = {};
     for (final item in items) {
-      (grouped[item.category] ??= []).add(item);
+      for (final cat in item.categories) {
+        (grouped[cat] ??= []).add(item);
+      }
     }
     // Sort categories by total spend descending
     final categories = grouped.keys.toList()
@@ -809,6 +858,36 @@ class _ItemRow extends StatelessWidget {
                           fontSize: 11, color: cs.onSurfaceVariant),
                     ),
                   ),
+                if (item.categories.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: item.categories.map((c) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _catColor(c).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(_catIcon(c), size: 10, color: _catColor(c)),
+                            const SizedBox(width: 3),
+                            Text(
+                              _catLabel(c),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: _catColor(c),
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      )).toList(),
+                    ),
+                  ),
                 if (item.estCalories != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
@@ -868,22 +947,40 @@ class _ItemRow extends StatelessWidget {
   }
 }
 
-IconData _catIcon(String cat) {
-  const icons = {
-    'produce':       Icons.eco_outlined,
-    'dairy':         Icons.water_drop_outlined,
-    'meat':          Icons.set_meal_outlined,
-    'seafood':       Icons.set_meal_outlined,
-    'bakery':        Icons.bakery_dining_outlined,
-    'frozen':        Icons.ac_unit_outlined,
-    'beverages':     Icons.local_drink_outlined,
-    'snacks':        Icons.cookie_outlined,
-    'pantry':        Icons.kitchen_outlined,
-    'household':     Icons.cleaning_services_outlined,
-    'personal_care': Icons.soap_outlined,
-  };
-  return icons[cat] ?? Icons.shopping_basket_outlined;
-}
+IconData _catIcon(String cat) => switch (cat) {
+  'fruits'        => Icons.local_grocery_store,
+  'vegetables'    => Icons.eco,
+  'leafy_greens'  => Icons.grass,
+  'herbs'         => Icons.spa,
+  'nuts_seeds'    => Icons.grain,
+  'meat'          => Icons.restaurant,
+  'poultry'       => Icons.egg_alt,
+  'seafood'       => Icons.set_meal,
+  'eggs'          => Icons.egg,
+  'dairy'         => Icons.water_drop,
+  'plant_based'   => Icons.energy_savings_leaf,
+  'bakery'        => Icons.bakery_dining,
+  'grains_pasta'  => Icons.ramen_dining,
+  'cereals'       => Icons.breakfast_dining,
+  'pantry'        => Icons.kitchen,
+  'canned_goods'  => Icons.inventory_2,
+  'condiments'    => Icons.local_dining,
+  'spices'        => Icons.local_fire_department,
+  'oils_vinegar'  => Icons.opacity,
+  'frozen'        => Icons.ac_unit,
+  'deli'          => Icons.content_cut,
+  'beverages'     => Icons.local_drink,
+  'juice'         => Icons.local_bar,
+  'alcohol'       => Icons.wine_bar,
+  'snacks'        => Icons.cookie,
+  'confectionery' => Icons.cake,
+  'household'     => Icons.cleaning_services,
+  'personal_care' => Icons.face,
+  'baby'          => Icons.child_care,
+  'pet'           => Icons.pets,
+  'produce'       => Icons.eco,
+  _               => Icons.category,
+};
 
 // ── Edit grocery item sheet ───────────────────────────────────────────────────
 
@@ -899,13 +996,20 @@ class _EditItemSheet extends StatefulWidget {
 class _EditItemSheetState extends State<_EditItemSheet> {
   late final TextEditingController _priceCtrl;
   late final TextEditingController _qtyCtrl;
-  late String _category;
+  late Set<String> _selectedCategories;
   bool _saving = false;
 
-  static const _categories = [
-    'produce', 'dairy', 'meat', 'seafood', 'bakery',
-    'frozen', 'beverages', 'snacks', 'pantry',
-    'household', 'personal_care', 'other',
+  static const _allCategories = [
+    'fruits', 'vegetables', 'leafy_greens', 'herbs', 'nuts_seeds',
+    'meat', 'poultry', 'seafood', 'eggs',
+    'dairy', 'plant_based',
+    'bakery', 'grains_pasta', 'cereals',
+    'pantry', 'canned_goods', 'condiments', 'spices', 'oils_vinegar',
+    'frozen', 'deli',
+    'beverages', 'juice', 'alcohol',
+    'snacks', 'confectionery',
+    'household', 'personal_care', 'baby', 'pet',
+    'other',
   ];
 
   @override
@@ -917,8 +1021,10 @@ class _EditItemSheetState extends State<_EditItemSheet> {
         text: widget.item.quantity == widget.item.quantity.roundToDouble()
             ? widget.item.quantity.round().toString()
             : widget.item.quantity.toStringAsFixed(1));
-    _category = _categories.contains(widget.item.category)
-        ? widget.item.category : 'other';
+    _selectedCategories = Set<String>.from(
+      widget.item.categories.where((c) => _allCategories.contains(c)),
+    );
+    if (_selectedCategories.isEmpty) _selectedCategories.add('other');
   }
 
   @override
@@ -932,7 +1038,8 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     setState(() => _saving = true);
     try {
       final body = <String, dynamic>{};
-      if (_category != widget.item.category) body['category'] = _category;
+      final newCats = _selectedCategories.toList();
+      body['categories'] = newCats;
       final newPrice = double.tryParse(_priceCtrl.text.trim());
       if (newPrice != null && newPrice != widget.item.totalPrice) {
         body['total_price'] = newPrice;
@@ -993,24 +1100,45 @@ class _EditItemSheetState extends State<_EditItemSheet> {
               ),
             const SizedBox(height: 20),
 
-            // Category dropdown
-            DropdownButtonFormField<String>(
-              value: _category,
-              decoration: InputDecoration(
-                labelText: 'Category',
-                isDense: true,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10)),
+            // Category chips (multi-select)
+            Text('Categories', style: TextStyle(
+              fontWeight: FontWeight.w600, fontSize: 13,
+              color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 180,
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: _allCategories.map((c) {
+                    final selected = _selectedCategories.contains(c);
+                    return FilterChip(
+                      label: Text(_catLabel(c), style: const TextStyle(fontSize: 12)),
+                      avatar: Icon(_catIcon(c), size: 16,
+                          color: selected ? Colors.white : _catColor(c)),
+                      selected: selected,
+                      selectedColor: _catColor(c),
+                      checkmarkColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : null,
+                        fontSize: 12,
+                      ),
+                      onSelected: (val) {
+                        setState(() {
+                          if (val) {
+                            _selectedCategories.add(c);
+                          } else if (_selectedCategories.length > 1) {
+                            _selectedCategories.remove(c);
+                          }
+                        });
+                      },
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    );
+                  }).toList(),
+                ),
               ),
-              items: _categories.map((c) => DropdownMenuItem(
-                value: c,
-                child: Row(children: [
-                  Icon(_catIcon(c), size: 18, color: _catColor(c)),
-                  const SizedBox(width: 10),
-                  Text(_catLabel(c)),
-                ]),
-              )).toList(),
-              onChanged: (v) => setState(() => _category = v ?? 'other'),
             ),
             const SizedBox(height: 14),
 

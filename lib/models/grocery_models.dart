@@ -72,6 +72,7 @@ class GroceryItem {
   final String? brand;
   final String? unit;
   final String category;
+  final List<String> categories;
   final double quantity;
   final double? unitPrice;
   final double? totalPrice;
@@ -90,6 +91,7 @@ class GroceryItem {
     this.brand,
     this.unit,
     required this.category,
+    required this.categories,
     required this.quantity,
     this.unitPrice,
     this.totalPrice,
@@ -109,6 +111,7 @@ class GroceryItem {
         brand:          j['brand'] as String?,
         unit:           j['unit'] as String?,
         category:       j['category'] as String? ?? 'other',
+        categories:     (j['categories'] as List?)?.map((e) => e.toString()).toList() ?? [j['category'] as String? ?? 'other'],
         quantity:       (j['quantity'] as num?)?.toDouble() ?? 1.0,
         unitPrice:      (j['unit_price'] as num?)?.toDouble(),
         totalPrice:     (j['total_price'] as num?)?.toDouble(),
