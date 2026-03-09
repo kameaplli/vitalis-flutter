@@ -488,15 +488,44 @@ class _ReceiptDetailSheet extends ConsumerWidget {
   }
 }
 
-class _ReceiptDetailContent extends StatelessWidget {
+class _ReceiptDetailContent extends ConsumerStatefulWidget {
   final GroceryReceipt receipt;
   final ScrollController scrollController;
   const _ReceiptDetailContent(
       {required this.receipt, required this.scrollController});
 
   @override
+  ConsumerState<_ReceiptDetailContent> createState() => _ReceiptDetailContentState();
+}
+
+class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
+  late GroceryReceipt receipt;
+
+  @override
+  void initState() {
+    super.initState();
+    receipt = widget.receipt;
+  }
+
+  void _showEditItemDialog(BuildContext context, GroceryItem item) {
+    showDialog(
+      context: context,
+      builder: (_) => _EditItemDialog(
+        item: item,
+        onSaved: (updated) {
+          ref.invalidate(groceryReceiptDetailProvider(receipt.id));
+          ref.invalidate(grocerySpendingProvider);
+        },
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = receipt.items ?? [];
+    // Watch for updates after edits
+    final detailAsync = ref.watch(groceryReceiptDetailProvider(widget.receipt.id));
+    final currentReceipt = detailAsync.valueOrNull ?? widget.receipt;
+    final items = currentReceipt.items ?? [];
     final fmt   = NumberFormat.currency(symbol: '\$');
     final cs    = Theme.of(context).colorScheme;
 
@@ -547,17 +576,17 @@ class _ReceiptDetailContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          receipt.storeName ?? 'Receipt',
+                          currentReceipt.storeName ?? 'Receipt',
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          receipt.receiptDate != null
+                          currentReceipt.receiptDate != null
                               ? DateFormat('EEEE, d MMMM yyyy')
-                                  .format(receipt.receiptDate!)
+                                  .format(currentReceipt.receiptDate!)
                               : DateFormat('EEEE, d MMMM yyyy')
-                                  .format(receipt.createdAt),
+                                  .format(currentReceipt.createdAt),
                           style: TextStyle(
                               fontSize: 13, color: cs.onSurfaceVariant),
                         ),
@@ -568,7 +597,7 @@ class _ReceiptDetailContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        fmt.format(receipt.totalAmount ?? 0),
+                        fmt.format(currentReceipt.totalAmount ?? 0),
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
                                 fontWeight: FontWeight.bold,
@@ -622,7 +651,7 @@ class _ReceiptDetailContent extends StatelessWidget {
         // Items list grouped by category
         Expanded(
           child: ListView.builder(
-            controller: scrollController,
+            controller: widget.scrollController,
             padding: const EdgeInsets.only(bottom: 24),
             itemCount: categories.length,
             itemBuilder: (ctx, ci) {
@@ -673,8 +702,12 @@ class _ReceiptDetailContent extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Items in this category
-                  ...catItems.map((item) => _ItemRow(item: item, fmt: fmt)),
+                  // Items in this category (tap to edit)
+                  ...catItems.map((item) => _ItemRow(
+                    item: item,
+                    fmt: fmt,
+                    onEdit: () => _showEditItemDialog(context, item),
+                  )),
                 ],
               );
             },
@@ -721,12 +754,15 @@ class _SummaryTile extends StatelessWidget {
 class _ItemRow extends StatelessWidget {
   final GroceryItem item;
   final NumberFormat fmt;
-  const _ItemRow({required this.item, required this.fmt});
+  final VoidCallback? onEdit;
+  const _ItemRow({required this.item, required this.fmt, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
+    return InkWell(
+      onTap: onEdit,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,6 +847,7 @@ class _ItemRow extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -830,6 +867,209 @@ IconData _catIcon(String cat) {
     'personal_care': Icons.soap_outlined,
   };
   return icons[cat] ?? Icons.shopping_basket_outlined;
+}
+
+// ── Edit grocery item dialog ──────────────────────────────────────────────────
+
+class _EditItemDialog extends StatefulWidget {
+  final GroceryItem item;
+  final ValueChanged<GroceryItem> onSaved;
+  const _EditItemDialog({required this.item, required this.onSaved});
+
+  @override
+  State<_EditItemDialog> createState() => _EditItemDialogState();
+}
+
+class _EditItemDialogState extends State<_EditItemDialog> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _priceCtrl;
+  late final TextEditingController _qtyCtrl;
+  late String _category;
+  late bool _isFood;
+  bool _saving = false;
+
+  static const _categories = [
+    'produce', 'dairy', 'meat', 'seafood', 'bakery',
+    'frozen', 'beverages', 'snacks', 'pantry',
+    'household', 'personal_care', 'other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.item.normalizedName ?? '');
+    _priceCtrl = TextEditingController(
+        text: widget.item.totalPrice?.toStringAsFixed(2) ?? '');
+    _qtyCtrl = TextEditingController(
+        text: widget.item.quantity == widget.item.quantity.roundToDouble()
+            ? widget.item.quantity.round().toString()
+            : widget.item.quantity.toStringAsFixed(1));
+    _category = widget.item.category;
+    _isFood = widget.item.isFoodItem;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _priceCtrl.dispose();
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final body = <String, dynamic>{};
+      final newName = _nameCtrl.text.trim();
+      if (newName.isNotEmpty && newName != widget.item.normalizedName) {
+        body['normalized_name'] = newName;
+      }
+      if (_category != widget.item.category) body['category'] = _category;
+      if (_isFood != widget.item.isFoodItem) body['is_food_item'] = _isFood;
+      final newPrice = double.tryParse(_priceCtrl.text.trim());
+      if (newPrice != null && newPrice != widget.item.totalPrice) {
+        body['total_price'] = newPrice;
+      }
+      final newQty = double.tryParse(_qtyCtrl.text.trim());
+      if (newQty != null && newQty != widget.item.quantity) {
+        body['quantity'] = newQty;
+      }
+
+      if (body.isNotEmpty) {
+        await apiClient.dio.put(
+          '${ApiConstants.groceryItems}/${widget.item.id}',
+          data: body,
+        );
+        widget.onSaved(widget.item);
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Item'),
+        content: const Text('Remove this item from the receipt?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await apiClient.dio.delete('${ApiConstants.groceryItems}/${widget.item.id}');
+      widget.onSaved(widget.item);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Item'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.item.rawText != null && widget.item.rawText!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text('OCR: "${widget.item.rawText}"',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500],
+                        fontStyle: FontStyle.italic)),
+              ),
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Item Name', isDense: true),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: _categories.contains(_category) ? _category : 'other',
+              decoration: const InputDecoration(
+                labelText: 'Category', isDense: true),
+              items: _categories.map((c) => DropdownMenuItem(
+                value: c,
+                child: Row(children: [
+                  Icon(_catIcon(c), size: 16, color: _catColor(c)),
+                  const SizedBox(width: 8),
+                  Text(_catLabel(c), style: const TextStyle(fontSize: 13)),
+                ]),
+              )).toList(),
+              onChanged: (v) => setState(() => _category = v ?? 'other'),
+            ),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Price', isDense: true, prefixText: '\$'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Qty', isDense: true),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            SwitchListTile(
+              title: const Text('Food Item', style: TextStyle(fontSize: 13)),
+              value: _isFood,
+              onChanged: (v) => setState(() => _isFood = v),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _delete,
+          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+        ),
+        const Spacer(),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 // ── Analytics tab ──────────────────────────────────────────────────────────────

@@ -240,6 +240,7 @@ class _ScanTabState extends State<_ScanTab> {
   String _productType = 'moisturizer';
   bool _scanning = false;
   bool _saving = false;
+  bool _lookingUp = false;
   Map<String, dynamic>? _scanResult;
   MobileScannerController? _scanCtrl;
 
@@ -255,14 +256,51 @@ class _ScanTabState extends State<_ScanTab> {
   void _startScan() {
     _scanCtrl?.dispose();
     _scanCtrl = MobileScannerController();
-    setState(() => _scanning = true);
+    setState(() {
+      _scanning = true;
+      _scanResult = null;
+    });
   }
 
   Future<void> _onBarcode(String barcode) async {
-    setState(() => _scanning = false);
+    setState(() {
+      _scanning = false;
+      _lookingUp = true;
+    });
     _scanCtrl?.stop();
 
-    // Try Open Beauty Facts via our backend
+    // Try backend lookup (Open Beauty Facts + Open Food Facts)
+    try {
+      // First try the product scan endpoint directly with barcode
+      // This does OBF + OFF lookup + ingredient check in one call
+      final res = await apiClient.dio.post(ApiConstants.productScan, data: {
+        'barcode': barcode,
+        'product_name': '',
+        'product_type': _productType,
+      });
+      final data = res.data as Map<String, dynamic>;
+
+      // Product found and saved — show result
+      setState(() {
+        _scanResult = data;
+        _nameCtrl.text = data['product_name'] ?? '';
+        _brandCtrl.text = data['brand'] ?? '';
+        _lookingUp = false;
+      });
+      widget.onScanned();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${data['product_name']} — saved!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      return;
+    } catch (_) {
+      // Product not found via auto-scan — try ingredient lookup for form pre-fill
+    }
+
     try {
       final res = await apiClient.dio.get(
         ApiConstants.foodIngredients,
@@ -272,11 +310,21 @@ class _ScanTabState extends State<_ScanTab> {
       setState(() {
         _nameCtrl.text = data['product_name'] ?? '';
         _ingredientsCtrl.text = data['ingredients_text'] ?? '';
+        _lookingUp = false;
       });
-    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Product not found: $barcode')),
+          const SnackBar(content: Text('Product found — review and save')),
+        );
+      }
+    } catch (_) {
+      setState(() => _lookingUp = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Product not found for barcode $barcode. Enter details manually.'),
+            duration: const Duration(seconds: 3),
+          ),
         );
       }
     }
@@ -327,6 +375,22 @@ class _ScanTabState extends State<_ScanTab> {
           TextButton(onPressed: () => setState(() => _scanning = false),
             child: const Text('Cancel Scan')),
         ],
+      );
+    }
+
+    if (_lookingUp) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Looking up product...', style: TextStyle(color: Colors.grey)),
+            SizedBox(height: 4),
+            Text('Checking Open Beauty Facts & Open Food Facts',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
       );
     }
 

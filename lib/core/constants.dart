@@ -80,6 +80,7 @@ class ApiConstants {
 
   // Grocery Intelligence
   static const String groceryReceipts      = '/api/grocery/receipts';
+  static const String groceryItems         = '/api/grocery/items';
   static const String grocerySpending      = '/api/analytics/grocery/spending';
   static const String groceryNutrition     = '/api/analytics/grocery/nutrition';
   static const String groceryCategoryItems = '/api/analytics/grocery/category-items';
