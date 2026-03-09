@@ -79,11 +79,13 @@ class ApiConstants {
   static const String profileChild = '/api/profile/child';
 
   // Grocery Intelligence
-  static const String groceryReceipts      = '/api/grocery/receipts';
-  static const String groceryItems         = '/api/grocery/items';
-  static const String grocerySpending      = '/api/analytics/grocery/spending';
-  static const String groceryNutrition     = '/api/analytics/grocery/nutrition';
-  static const String groceryCategoryItems = '/api/analytics/grocery/category-items';
+  static const String groceryReceipts        = '/api/grocery/receipts';
+  static const String groceryItems           = '/api/grocery/items';
+  static const String groceryLearnCategories = '/api/grocery/learn-categories';
+  static const String groceryCategoryMap     = '/api/grocery/category-map';
+  static const String grocerySpending        = '/api/analytics/grocery/spending';
+  static const String groceryNutrition       = '/api/analytics/grocery/nutrition';
+  static const String groceryCategoryItems   = '/api/analytics/grocery/category-items';
 
   // Environment Intelligence (Phase 1)
   static const String environmentCurrent     = '/api/environment/current';
