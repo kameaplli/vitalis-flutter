@@ -268,6 +268,32 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     ));
   }
 
+  Future<void> _reprocessAll() async {
+    final scaffold = ScaffoldMessenger.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    try {
+      scaffold.showSnackBar(SnackBar(
+        content: const Text('Reprocessing all statements...'),
+        backgroundColor: cs.primary,
+        duration: const Duration(seconds: 2),
+      ));
+      await apiClient.dio.post(ApiConstants.financeReprocessAll);
+      ref.invalidate(financeStatementsProvider);
+      if (!mounted) return;
+      scaffold.showSnackBar(SnackBar(
+        content: const Text('Reprocessing started! Pull to refresh in a moment.'),
+        backgroundColor: cs.primary,
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      scaffold.showSnackBar(SnackBar(
+        content: Text('Reprocess failed: $e'),
+        backgroundColor: cs.error,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -275,6 +301,13 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Finance Intelligence'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reprocess all statements',
+            onPressed: _reprocessAll,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabs,
           tabs: const [

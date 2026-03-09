@@ -12,6 +12,7 @@ import '../models/grocery_models.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/finance_provider.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../providers/selected_person_provider.dart';
@@ -263,6 +264,9 @@ class _HomeBody extends ConsumerWidget {
 
         // ── Grocery snapshot ──────────────────────────────────────────────
         SliverToBoxAdapter(child: _GrocerySnapshot(groceryAsync: groceryAsync)),
+
+        // ── Finance snapshot ─────────────────────────────────────────────
+        const SliverToBoxAdapter(child: _FinanceSnapshot()),
 
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
@@ -862,6 +866,123 @@ class _GrocerySnapshot extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ── Finance snapshot ─────────────────────────────────────────────────────────
+
+class _FinanceSnapshot extends ConsumerWidget {
+  const _FinanceSnapshot();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spendingAsync = ref.watch(financeSpendingProvider('month'));
+    return spendingAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (spending) {
+        if (spending.totalSpend <= 0) return const SizedBox.shrink();
+        final top3 = spending.byCategory.take(3).toList();
+        final cs = Theme.of(context).colorScheme;
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.account_balance_wallet_outlined, size: 16),
+                    const SizedBox(width: 6),
+                    Text('Finance This Month',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const Spacer(),
+                    Text('\$${spending.totalSpend.toStringAsFixed(0)}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: cs.primary)),
+                  ],
+                ),
+                if (spending.essentialSpend > 0 || spending.discretionarySpend > 0) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _SpendChip(
+                          label: 'Essential',
+                          amount: spending.essentialSpend,
+                          color: cs.primary),
+                      const SizedBox(width: 12),
+                      _SpendChip(
+                          label: 'Discretionary',
+                          amount: spending.discretionarySpend,
+                          color: cs.tertiary),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 10),
+                ...top3.map((cat) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          cat.category.replaceAll('_', ' '),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      Text(
+                        '${cat.percentage.toStringAsFixed(0)}% · \$${cat.amount.toStringAsFixed(0)}',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                )),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () => context.go('/finance'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('View full breakdown',
+                          style: TextStyle(
+                              fontSize: 12, color: cs.primary,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SpendChip extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+  const _SpendChip({required this.label, required this.amount, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8, height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text('$label \$${amount.toStringAsFixed(0)}',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+      ],
     );
   }
 }

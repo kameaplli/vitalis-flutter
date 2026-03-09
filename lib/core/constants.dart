@@ -123,4 +123,5 @@ class ApiConstants {
   static const String financeSpending     = '/api/analytics/finance/spending';
   static const String financeBudget       = '/api/analytics/finance/budget';
   static const String financeTrends       = '/api/analytics/finance/trends';
+  static const String financeReprocessAll = '/api/finance/statements/reprocess-all';
 }
