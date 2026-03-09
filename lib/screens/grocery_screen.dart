@@ -7,8 +7,27 @@ import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/grocery_models.dart';
+import '../models/insight_data.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/selected_person_provider.dart';
+
+// ── Grocery AI Insights provider ─────────────────────────────────────────────
+// key = period (month|quarter|year) — maps to backend param
+final _groceryInsightsProvider =
+    FutureProvider.family<WeeklyInsight?, String>((ref, period) async {
+  try {
+    // Map frontend period names to backend names
+    const periodMap = {'month': 'month', '3month': 'quarter', 'year': 'year'};
+    final backendPeriod = periodMap[period] ?? 'month';
+    final res = await apiClient.dio.get(
+      ApiConstants.insightsGrocery,
+      queryParameters: {'period': backendPeriod},
+    );
+    return WeeklyInsight.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+});
 
 // Category colour palette
 const _categoryColors = {
@@ -469,15 +488,55 @@ class _ReceiptDetailSheet extends ConsumerWidget {
   }
 }
 
-class _ReceiptDetailContent extends StatelessWidget {
+class _ReceiptDetailContent extends ConsumerStatefulWidget {
   final GroceryReceipt receipt;
   final ScrollController scrollController;
   const _ReceiptDetailContent(
       {required this.receipt, required this.scrollController});
 
   @override
+  ConsumerState<_ReceiptDetailContent> createState() => _ReceiptDetailContentState();
+}
+
+class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
+  late GroceryReceipt receipt;
+
+  @override
+  void initState() {
+    super.initState();
+    receipt = widget.receipt;
+  }
+
+  void _showEditItemDialog(BuildContext context, GroceryItem item) {
+    // Close the receipt detail sheet first, then show edit sheet
+    Navigator.of(context, rootNavigator: true).pop();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: this.context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (ctx) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: _EditItemSheet(
+            item: item,
+            onSaved: () {
+              ref.invalidate(groceryReceiptDetailProvider(widget.receipt.id));
+            },
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = receipt.items ?? [];
+    // Watch for updates after edits
+    final detailAsync = ref.watch(groceryReceiptDetailProvider(widget.receipt.id));
+    final currentReceipt = detailAsync.valueOrNull ?? widget.receipt;
+    final items = currentReceipt.items ?? [];
     final fmt   = NumberFormat.currency(symbol: '\$');
     final cs    = Theme.of(context).colorScheme;
 
@@ -528,17 +587,17 @@ class _ReceiptDetailContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          receipt.storeName ?? 'Receipt',
+                          currentReceipt.storeName ?? 'Receipt',
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          receipt.receiptDate != null
+                          currentReceipt.receiptDate != null
                               ? DateFormat('EEEE, d MMMM yyyy')
-                                  .format(receipt.receiptDate!)
+                                  .format(currentReceipt.receiptDate!)
                               : DateFormat('EEEE, d MMMM yyyy')
-                                  .format(receipt.createdAt),
+                                  .format(currentReceipt.createdAt),
                           style: TextStyle(
                               fontSize: 13, color: cs.onSurfaceVariant),
                         ),
@@ -549,7 +608,7 @@ class _ReceiptDetailContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        fmt.format(receipt.totalAmount ?? 0),
+                        fmt.format(currentReceipt.totalAmount ?? 0),
                         style: Theme.of(context).textTheme.headlineMedium
                             ?.copyWith(
                                 fontWeight: FontWeight.bold,
@@ -603,7 +662,7 @@ class _ReceiptDetailContent extends StatelessWidget {
         // Items list grouped by category
         Expanded(
           child: ListView.builder(
-            controller: scrollController,
+            controller: widget.scrollController,
             padding: const EdgeInsets.only(bottom: 24),
             itemCount: categories.length,
             itemBuilder: (ctx, ci) {
@@ -654,8 +713,12 @@ class _ReceiptDetailContent extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Items in this category
-                  ...catItems.map((item) => _ItemRow(item: item, fmt: fmt)),
+                  // Items in this category (tap to edit)
+                  ...catItems.map((item) => _ItemRow(
+                    item: item,
+                    fmt: fmt,
+                    onEdit: () => _showEditItemDialog(context, item),
+                  )),
                 ],
               );
             },
@@ -702,7 +765,8 @@ class _SummaryTile extends StatelessWidget {
 class _ItemRow extends StatelessWidget {
   final GroceryItem item;
   final NumberFormat fmt;
-  const _ItemRow({required this.item, required this.fmt});
+  final VoidCallback? onEdit;
+  const _ItemRow({required this.item, required this.fmt, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -756,7 +820,7 @@ class _ItemRow extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
+                        color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -771,7 +835,7 @@ class _ItemRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -790,6 +854,18 @@ class _ItemRow extends StatelessWidget {
                 ),
             ],
           ),
+          if (onEdit != null)
+            SizedBox(
+              width: 32, height: 32,
+              child: IconButton(
+                icon: Icon(Icons.edit_outlined, size: 16,
+                    color: cs.onSurfaceVariant),
+                onPressed: onEdit,
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Edit item',
+              ),
+            ),
         ],
       ),
     );
@@ -811,6 +887,184 @@ IconData _catIcon(String cat) {
     'personal_care': Icons.soap_outlined,
   };
   return icons[cat] ?? Icons.shopping_basket_outlined;
+}
+
+// ── Edit grocery item sheet ───────────────────────────────────────────────────
+
+class _EditItemSheet extends StatefulWidget {
+  final GroceryItem item;
+  final VoidCallback onSaved;
+  const _EditItemSheet({required this.item, required this.onSaved});
+
+  @override
+  State<_EditItemSheet> createState() => _EditItemSheetState();
+}
+
+class _EditItemSheetState extends State<_EditItemSheet> {
+  late final TextEditingController _priceCtrl;
+  late final TextEditingController _qtyCtrl;
+  late String _category;
+  bool _saving = false;
+
+  static const _categories = [
+    'produce', 'dairy', 'meat', 'seafood', 'bakery',
+    'frozen', 'beverages', 'snacks', 'pantry',
+    'household', 'personal_care', 'other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _priceCtrl = TextEditingController(
+        text: widget.item.totalPrice?.toStringAsFixed(2) ?? '');
+    _qtyCtrl = TextEditingController(
+        text: widget.item.quantity == widget.item.quantity.roundToDouble()
+            ? widget.item.quantity.round().toString()
+            : widget.item.quantity.toStringAsFixed(1));
+    _category = _categories.contains(widget.item.category)
+        ? widget.item.category : 'other';
+  }
+
+  @override
+  void dispose() {
+    _priceCtrl.dispose();
+    _qtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final body = <String, dynamic>{};
+      if (_category != widget.item.category) body['category'] = _category;
+      final newPrice = double.tryParse(_priceCtrl.text.trim());
+      if (newPrice != null && newPrice != widget.item.totalPrice) {
+        body['total_price'] = newPrice;
+      }
+      final newQty = double.tryParse(_qtyCtrl.text.trim());
+      if (newQty != null && newQty != widget.item.quantity) {
+        body['quantity'] = newQty;
+      }
+
+      if (body.isNotEmpty) {
+        await apiClient.dio.put(
+          '${ApiConstants.groceryItems}/${widget.item.id}',
+          data: body,
+        );
+        widget.onSaved();
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(width: 36, height: 4,
+                  decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(2))),
+            ),
+            const SizedBox(height: 16),
+
+            // Item name (read-only header)
+            Text(widget.item.normalizedName ?? widget.item.rawText ?? 'Item',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            if (widget.item.rawText != null &&
+                widget.item.rawText != widget.item.normalizedName)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('OCR: ${widget.item.rawText}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500],
+                        fontStyle: FontStyle.italic)),
+              ),
+            const SizedBox(height: 20),
+
+            // Category dropdown
+            DropdownButtonFormField<String>(
+              value: _category,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                isDense: true,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              items: _categories.map((c) => DropdownMenuItem(
+                value: c,
+                child: Row(children: [
+                  Icon(_catIcon(c), size: 18, color: _catColor(c)),
+                  const SizedBox(width: 10),
+                  Text(_catLabel(c)),
+                ]),
+              )).toList(),
+              onChanged: (v) => setState(() => _category = v ?? 'other'),
+            ),
+            const SizedBox(height: 14),
+
+            // Price + Qty row
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Price',
+                    isDense: true,
+                    prefixText: '\$ ',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Quantity',
+                    isDense: true,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 20),
+
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Save Changes'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Analytics tab ──────────────────────────────────────────────────────────────
@@ -870,7 +1124,19 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // AI Insights card
+          Consumer(builder: (context, ref, _) {
+            final insightAsync = ref.watch(_groceryInsightsProvider(_period));
+            return insightAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (insight) => insight != null
+                  ? _GroceryInsightsCard(insight: insight)
+                  : const SizedBox.shrink(),
+            );
+          }),
 
           // Spending section
           Text('Spending by Category',
@@ -929,6 +1195,76 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           ),
           const SizedBox(height: 80), // FAB padding
         ],
+      ),
+    );
+  }
+}
+
+class _GroceryInsightsCard extends StatelessWidget {
+  final WeeklyInsight insight;
+  const _GroceryInsightsCard({required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAi = insight.source == 'ai';
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(isAi ? Icons.auto_awesome : Icons.bar_chart,
+                  size: 16, color: isAi ? Colors.purple : Colors.teal),
+              const SizedBox(width: 6),
+              Text(isAi ? 'AI Grocery Insights' : 'Grocery Analysis',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isAi ? Colors.purple : Colors.teal)),
+            ]),
+            const SizedBox(height: 10),
+            ...insight.insights.map((i) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.insights, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(i.title, style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text(i.body, style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            if (insight.recommendations.isNotEmpty) ...[
+              const Divider(height: 16),
+              ...insight.recommendations.map((r) {
+                final color = r.priority == 'high' ? Colors.red
+                    : (r.priority == 'medium' ? Colors.orange : Colors.green);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(children: [
+                    Icon(Icons.lightbulb_outline, size: 14, color: color),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(r.action,
+                        style: const TextStyle(fontSize: 12))),
+                  ]),
+                );
+              }),
+            ],
+          ],
+        ),
       ),
     );
   }

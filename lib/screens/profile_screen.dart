@@ -232,6 +232,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             // Achievements section
             _AchievementsSection(),
             const Divider(height: 32),
+            // Sign out
+            ListTile(
+              leading: Icon(Icons.logout, color: Colors.red.shade400),
+              title: Text('Sign out', style: TextStyle(color: Colors.red.shade400)),
+              onTap: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Sign out?'),
+                    content: const Text('You will need to sign in again to use Vitalis.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.red.shade400),
+                        child: const Text('Sign out'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true && mounted) {
+                  await ref.read(authProvider.notifier).logout();
+                  if (mounted) context.go('/auth');
+                }
+              },
+            ),
+            const Divider(height: 32),
             // Children section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

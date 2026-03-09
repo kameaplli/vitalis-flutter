@@ -9,6 +9,8 @@ import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
+import '../services/biometric_service.dart';
+import '../services/prefetch_service.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -37,21 +39,66 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
+  bool _locked = false;
+  bool _checkingBio = false;
+  bool _wentToBackground = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBiometricLock();
       _handleBiometricOffer();
       _runBackgroundChecks();
     });
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _wentToBackground = true;
+    }
+    if (state == AppLifecycleState.resumed && _wentToBackground) {
+      _wentToBackground = false;
+      _checkBiometricLock();
+    }
+  }
+
+  Future<void> _checkBiometricLock() async {
+    if (_checkingBio) return;
+    _checkingBio = true;
+    try {
+      // Skip if user is not logged in (e.g. just signed out)
+      final user = ref.read(authProvider).user;
+      if (user == null || !mounted) return;
+
+      final enabled = await SecureStorage.getBiometricsEnabled();
+      if (!enabled || !mounted) return;
+
+      setState(() => _locked = true);
+      final ok = await BiometricService.authenticate(
+        reason: 'Unlock Vitalis',
+      );
+      if (mounted) setState(() => _locked = !ok);
+    } finally {
+      _checkingBio = false;
+    }
+  }
+
   Future<void> _runBackgroundChecks() async {
-    // Process any pending notification quick-actions (e.g., 250ml hydration tap)
     await BackgroundService.processPendingActions();
-    // Check weather-based flare risk (once per day)
     BackgroundService.checkFlareRisk();
+    // Prefetch data for screens the user is likely to visit
+    final person = ref.read(selectedPersonProvider);
+    PrefetchService.warmAll(ref, person);
   }
 
   Future<void> _handleBiometricOffer() async {
@@ -100,6 +147,11 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Biometric lock screen
+    if (_locked) {
+      return _BiometricLockScreen(onRetry: _checkBiometricLock);
+    }
+
     final location     = GoRouterState.of(context).matchedLocation;
     final selectedIndex = _indexForLocation(location);
 
@@ -112,20 +164,14 @@ class _AppShellState extends ConsumerState<AppShell> {
         bottom: false,
         child: Column(
           children: [
-            // ── Top persistent bar: AvatarBar (family) or profile strip (solo) ─
             if (children.isNotEmpty)
               _AvatarBar(user: user, children: children)
             else
               _SoloTopBar(user: user),
-            // ── Screen content ───────────────────────────────────────────────
-            // Profile switching is handled ONLY by the avatar bar above,
-            // not by swiping on screen content (prevents accidental switches
-            // when interacting with analytics charts, body maps, etc.).
             Expanded(child: widget.child),
           ],
         ),
       ),
-      // ── M3 NavigationBar (4 destinations) ──────────────────────────────────
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (i) => context.go(_navRoutes[i]),
@@ -156,7 +202,41 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-// ── Solo top bar (no family members) — persistent profile button ───────────────
+// ── Biometric lock screen ─────────────────────────────────────────────────────
+
+class _BiometricLockScreen extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _BiometricLockScreen({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 64, color: cs.primary),
+            const SizedBox(height: 16),
+            Text('Vitalis is locked',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cs.onSurface)),
+            const SizedBox(height: 8),
+            Text('Verify your identity to continue',
+                style: TextStyle(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.fingerprint),
+              label: const Text('Unlock'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Solo top bar (no family members) ──────────────────────────────────────────
 
 class _SoloTopBar extends ConsumerWidget {
   final dynamic user;

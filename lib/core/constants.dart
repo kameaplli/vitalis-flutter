@@ -80,6 +80,7 @@ class ApiConstants {
 
   // Grocery Intelligence
   static const String groceryReceipts      = '/api/grocery/receipts';
+  static const String groceryItems         = '/api/grocery/items';
   static const String grocerySpending      = '/api/analytics/grocery/spending';
   static const String groceryNutrition     = '/api/analytics/grocery/nutrition';
   static const String groceryCategoryItems = '/api/analytics/grocery/category-items';
@@ -107,6 +108,8 @@ class ApiConstants {
   static const String insightsWeekly    = '/api/insights/weekly';
   static const String insightsFlareRisk = '/api/insights/flare-risk';
   static const String insightsInvestigate = '/api/insights/investigate';
+  static const String insightsNutrition = '/api/insights/nutrition';
+  static const String insightsGrocery   = '/api/insights/grocery';
   static const String insightsHistory   = '/api/insights/history';
 
   // Achievements (Phase 6)
