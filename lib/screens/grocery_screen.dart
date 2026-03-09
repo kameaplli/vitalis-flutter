@@ -508,27 +508,23 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
   }
 
   void _showEditItemDialog(BuildContext context, GroceryItem item) {
-    // Close the receipt detail sheet first, then show edit sheet
-    Navigator.of(context, rootNavigator: true).pop();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      showModalBottomSheet(
-        context: this.context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (ctx) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: _EditItemSheet(
-            item: item,
-            onSaved: () {
-              ref.invalidate(groceryReceiptDetailProvider(widget.receipt.id));
-            },
-          ),
+    // Show edit sheet on top of the receipt detail sheet
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
         ),
-      );
-    });
+        child: _EditItemSheet(
+          item: item,
+          onSaved: () {
+            ref.invalidate(groceryReceiptDetailProvider(widget.receipt.id));
+          },
+        ),
+      ),
+    );
   }
 
   @override
