@@ -508,16 +508,27 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
   }
 
   void _showEditItemDialog(BuildContext context, GroceryItem item) {
-    showDialog(
-      context: context,
-      builder: (_) => _EditItemDialog(
-        item: item,
-        onSaved: (updated) {
-          ref.invalidate(groceryReceiptDetailProvider(receipt.id));
-          ref.invalidate(grocerySpendingProvider);
-        },
-      ),
-    );
+    // Close the receipt detail sheet first, then show edit sheet
+    Navigator.of(context, rootNavigator: true).pop();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: this.context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (ctx) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: _EditItemSheet(
+            item: item,
+            onSaved: () {
+              ref.invalidate(groceryReceiptDetailProvider(widget.receipt.id));
+            },
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -760,9 +771,7 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onEdit,
-      child: Padding(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,7 +820,7 @@ class _ItemRow extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
+                        color: Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -826,7 +835,7 @@ class _ItemRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -845,9 +854,20 @@ class _ItemRow extends StatelessWidget {
                 ),
             ],
           ),
+          if (onEdit != null)
+            SizedBox(
+              width: 32, height: 32,
+              child: IconButton(
+                icon: Icon(Icons.edit_outlined, size: 16,
+                    color: cs.onSurfaceVariant),
+                onPressed: onEdit,
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Edit item',
+              ),
+            ),
         ],
       ),
-    ),
     );
   }
 }
@@ -869,23 +889,21 @@ IconData _catIcon(String cat) {
   return icons[cat] ?? Icons.shopping_basket_outlined;
 }
 
-// ── Edit grocery item dialog ──────────────────────────────────────────────────
+// ── Edit grocery item sheet ───────────────────────────────────────────────────
 
-class _EditItemDialog extends StatefulWidget {
+class _EditItemSheet extends StatefulWidget {
   final GroceryItem item;
-  final ValueChanged<GroceryItem> onSaved;
-  const _EditItemDialog({required this.item, required this.onSaved});
+  final VoidCallback onSaved;
+  const _EditItemSheet({required this.item, required this.onSaved});
 
   @override
-  State<_EditItemDialog> createState() => _EditItemDialogState();
+  State<_EditItemSheet> createState() => _EditItemSheetState();
 }
 
-class _EditItemDialogState extends State<_EditItemDialog> {
-  late final TextEditingController _nameCtrl;
+class _EditItemSheetState extends State<_EditItemSheet> {
   late final TextEditingController _priceCtrl;
   late final TextEditingController _qtyCtrl;
   late String _category;
-  late bool _isFood;
   bool _saving = false;
 
   static const _categories = [
@@ -897,20 +915,18 @@ class _EditItemDialogState extends State<_EditItemDialog> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: widget.item.normalizedName ?? '');
     _priceCtrl = TextEditingController(
         text: widget.item.totalPrice?.toStringAsFixed(2) ?? '');
     _qtyCtrl = TextEditingController(
         text: widget.item.quantity == widget.item.quantity.roundToDouble()
             ? widget.item.quantity.round().toString()
             : widget.item.quantity.toStringAsFixed(1));
-    _category = widget.item.category;
-    _isFood = widget.item.isFoodItem;
+    _category = _categories.contains(widget.item.category)
+        ? widget.item.category : 'other';
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _priceCtrl.dispose();
     _qtyCtrl.dispose();
     super.dispose();
@@ -920,12 +936,7 @@ class _EditItemDialogState extends State<_EditItemDialog> {
     setState(() => _saving = true);
     try {
       final body = <String, dynamic>{};
-      final newName = _nameCtrl.text.trim();
-      if (newName.isNotEmpty && newName != widget.item.normalizedName) {
-        body['normalized_name'] = newName;
-      }
       if (_category != widget.item.category) body['category'] = _category;
-      if (_isFood != widget.item.isFoodItem) body['is_food_item'] = _isFood;
       final newPrice = double.tryParse(_priceCtrl.text.trim());
       if (newPrice != null && newPrice != widget.item.totalPrice) {
         body['total_price'] = newPrice;
@@ -940,13 +951,13 @@ class _EditItemDialogState extends State<_EditItemDialog> {
           '${ApiConstants.groceryItems}/${widget.item.id}',
           data: body,
         );
-        widget.onSaved(widget.item);
+        widget.onSaved();
       }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error saving: $e')),
         );
       }
     } finally {
@@ -954,120 +965,104 @@ class _EditItemDialogState extends State<_EditItemDialog> {
     }
   }
 
-  Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Item'),
-        content: const Text('Remove this item from the receipt?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await apiClient.dio.delete('${ApiConstants.groceryItems}/${widget.item.id}');
-      widget.onSaved(widget.item);
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit Item'),
-      content: SingleChildScrollView(
+    final cs = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.item.rawText != null && widget.item.rawText!.isNotEmpty)
+            // Handle
+            Center(
+              child: Container(width: 36, height: 4,
+                  decoration: BoxDecoration(
+                      color: cs.outlineVariant,
+                      borderRadius: BorderRadius.circular(2))),
+            ),
+            const SizedBox(height: 16),
+
+            // Item name (read-only header)
+            Text(widget.item.normalizedName ?? widget.item.rawText ?? 'Item',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            if (widget.item.rawText != null &&
+                widget.item.rawText != widget.item.normalizedName)
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text('OCR: "${widget.item.rawText}"',
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('OCR: ${widget.item.rawText}',
                     style: TextStyle(fontSize: 11, color: Colors.grey[500],
                         fontStyle: FontStyle.italic)),
               ),
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Item Name', isDense: true),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
+
+            // Category dropdown
             DropdownButtonFormField<String>(
-              value: _categories.contains(_category) ? _category : 'other',
-              decoration: const InputDecoration(
-                labelText: 'Category', isDense: true),
+              value: _category,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                isDense: true,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
               items: _categories.map((c) => DropdownMenuItem(
                 value: c,
                 child: Row(children: [
-                  Icon(_catIcon(c), size: 16, color: _catColor(c)),
-                  const SizedBox(width: 8),
-                  Text(_catLabel(c), style: const TextStyle(fontSize: 13)),
+                  Icon(_catIcon(c), size: 18, color: _catColor(c)),
+                  const SizedBox(width: 10),
+                  Text(_catLabel(c)),
                 ]),
               )).toList(),
               onChanged: (v) => setState(() => _category = v ?? 'other'),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
+
+            // Price + Qty row
             Row(children: [
               Expanded(
                 child: TextField(
                   controller: _priceCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Price', isDense: true, prefixText: '\$'),
+                  decoration: InputDecoration(
+                    labelText: 'Price',
+                    isDense: true,
+                    prefixText: '\$ ',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   controller: _qtyCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Qty', isDense: true),
+                  decoration: InputDecoration(
+                    labelText: 'Quantity',
+                    isDense: true,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
               ),
             ]),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              title: const Text('Food Item', style: TextStyle(fontSize: 13)),
-              value: _isFood,
-              onChanged: (v) => setState(() => _isFood = v),
-              dense: true,
-              contentPadding: EdgeInsets.zero,
+            const SizedBox(height: 20),
+
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Save Changes'),
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _delete,
-          child: const Text('Delete', style: TextStyle(color: Colors.red)),
-        ),
-        const Spacer(),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _save,
-          child: _saving
-              ? const SizedBox(width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Save'),
-        ),
-      ],
     );
   }
 }
