@@ -297,6 +297,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
 
     int success = 0;
     int failed = 0;
+    int duplicates = 0;
 
     for (final pf in result.files) {
       if (pf.path == null) {
@@ -319,6 +320,12 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           ),
         );
         success++;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 409) {
+          duplicates++;
+        } else {
+          failed++;
+        }
       } catch (_) {
         failed++;
       }
@@ -327,12 +334,15 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     ref.invalidate(financeStatementsProvider);
 
     if (!mounted) return;
-    final msg = failed == 0
-        ? 'Uploaded $success statement${success != 1 ? 's' : ''}'
-        : '$success uploaded, $failed failed';
+    final parts = <String>[];
+    if (success > 0) parts.add('$success uploaded');
+    if (duplicates > 0) parts.add('$duplicates already existed');
+    if (failed > 0) parts.add('$failed failed');
+    final msg = parts.join(', ');
+    final hasIssues = duplicates > 0 || failed > 0;
     scaffold.showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: failed == 0 ? cs.primary : cs.error,
+      backgroundColor: hasIssues ? (failed > 0 ? cs.error : Colors.orange) : cs.primary,
     ));
   }
 
