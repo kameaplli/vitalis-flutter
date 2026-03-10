@@ -134,7 +134,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/grocery'];
+  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/finance', '/grocery'];
 
   int _indexForLocation(String location) {
     for (int i = 0; i < _navRoutes.length; i++) {
@@ -159,12 +159,18 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final user     = auth.user;
     final children = user?.profile.children ?? [];
 
+    // Hide person switching on Finance & Grocery (always main profile)
+    final hidePersonSwitcher = location.startsWith('/finance') ||
+        location.startsWith('/grocery');
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            if (children.isNotEmpty)
+            if (hidePersonSwitcher)
+              _SoloTopBar(user: user)
+            else if (children.isNotEmpty)
               _AvatarBar(user: user, children: children)
             else
               _SoloTopBar(user: user),
@@ -190,6 +196,11 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             icon:         Icon(Icons.favorite_outline),
             selectedIcon: Icon(Icons.favorite),
             label:        'Health',
+          ),
+          NavigationDestination(
+            icon:         Icon(Icons.account_balance_outlined),
+            selectedIcon: Icon(Icons.account_balance),
+            label:        'Finance',
           ),
           NavigationDestination(
             icon:         Icon(Icons.shopping_cart_outlined),
