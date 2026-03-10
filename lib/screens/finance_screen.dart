@@ -2810,21 +2810,113 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
         }),
       ],
 
-      // ── Monthly Trends Table ──
+      // ── Monthly Trends (detailed) ──
       if (monthlyTrends.isNotEmpty) ...[
-        sectionHeader('Monthly Trends'),
-        tRow(['Month', 'Income', 'Expenses', 'Net'], header: true, flex: [2, 2, 2, 2]),
+        sectionHeader('Monthly Intelligence'),
         ...monthlyTrends.skip(monthlyTrends.length > 12 ? monthlyTrends.length - 12 : 0).map((m) {
           final mNet = (m['net'] as num?)?.toDouble() ?? 0;
+          final topCats = (m['top_categories'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          final topMerch = m['top_merchant'] as Map<String, dynamic>?;
+          final recur = (m['recurring'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
           return pw.Container(
-            decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6)))),
-            padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
-            child: pw.Row(children: [
-              pw.Expanded(flex: 2, child: pw.Text(m['month'] as String? ?? '', style: body)),
-              pw.Expanded(flex: 2, child: pw.Text(nfShort.format((m['income'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, color: _pdfPrimary))),
-              pw.Expanded(flex: 2, child: pw.Text(nfShort.format((m['expenses'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, color: _pdfRed))),
-              pw.Expanded(flex: 2, child: pw.Text(nfShort.format(mNet), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: mNet >= 0 ? _pdfPrimary : _pdfRed))),
-            ]),
+            margin: const pw.EdgeInsets.only(bottom: 10),
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              borderRadius: pw.BorderRadius.circular(6),
+              border: pw.Border.all(color: PdfColor.fromInt(0xFFE5E7EB)),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Month header row
+                pw.Row(children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: pw.BoxDecoration(color: _pdfPrimary, borderRadius: pw.BorderRadius.circular(4)),
+                    child: pw.Text(m['month'] as String? ?? '', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfWhite)),
+                  ),
+                  pw.SizedBox(width: 10),
+                  pw.Text('Income ', style: bodyMuted),
+                  pw.Text(nfShort.format((m['income'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, color: _pdfPrimary, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(width: 10),
+                  pw.Text('Spend ', style: bodyMuted),
+                  pw.Text(nfShort.format((m['expenses'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, color: _pdfRed, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(width: 10),
+                  pw.Text('Net ', style: bodyMuted),
+                  pw.Text(nfShort.format(mNet), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: mNet >= 0 ? _pdfPrimary : _pdfRed)),
+                ]),
+                pw.SizedBox(height: 6),
+                // Top categories + top merchant + recurring in columns
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Top categories
+                    pw.Expanded(flex: 3, child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Top Categories', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _pdfMuted)),
+                        pw.SizedBox(height: 2),
+                        ...topCats.map((c) {
+                          final catAmt = (c['amount'] as num?)?.toDouble() ?? 0;
+                          final monthExp = (m['expenses'] as num?)?.toDouble() ?? 1;
+                          final pct = monthExp > 0 ? (catAmt / monthExp * 100) : 0.0;
+                          return pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 1),
+                            child: pw.Row(children: [
+                              pw.SizedBox(width: 75, child: pw.Text(
+                                (c['name'] as String? ?? '').replaceAll('_', ' '),
+                                style: pw.TextStyle(fontSize: 7, color: _pdfDark),
+                              )),
+                              pw.Expanded(child: pw.Stack(children: [
+                                pw.Container(height: 6, decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFE5E7EB), borderRadius: pw.BorderRadius.circular(3))),
+                                pw.Container(height: 6, width: 100 * (pct / 100).clamp(0.01, 1.0),
+                                  decoration: pw.BoxDecoration(color: _pdfAccent, borderRadius: pw.BorderRadius.circular(3))),
+                              ])),
+                              pw.SizedBox(width: 4),
+                              pw.Text(nfShort.format(catAmt), style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _pdfDark)),
+                            ]),
+                          );
+                        }),
+                      ],
+                    )),
+                    pw.SizedBox(width: 10),
+                    // Top merchant
+                    pw.Expanded(flex: 2, child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Top Merchant', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _pdfMuted)),
+                        pw.SizedBox(height: 2),
+                        if (topMerch != null) ...[
+                          pw.Text(topMerch['name'] as String? ?? '', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfDark)),
+                          pw.Text(nf.format((topMerch['amount'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 8, color: _pdfRed)),
+                        ] else
+                          pw.Text('-', style: bodyMuted),
+                      ],
+                    )),
+                    pw.SizedBox(width: 10),
+                    // Recurring
+                    pw.Expanded(flex: 2, child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('Recurring', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _pdfMuted)),
+                        pw.SizedBox(height: 2),
+                        if (recur.isNotEmpty)
+                          ...recur.map((r) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 1),
+                            child: pw.Row(children: [
+                              pw.Expanded(child: pw.Text(r['name'] as String? ?? '', style: pw.TextStyle(fontSize: 7, color: _pdfDark), maxLines: 1)),
+                              pw.Text(nfShort.format((r['amount'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _pdfAmber)),
+                            ]),
+                          ))
+                        else
+                          pw.Text('-', style: bodyMuted),
+                      ],
+                    )),
+                  ],
+                ),
+              ],
+            ),
           );
         }),
       ],
