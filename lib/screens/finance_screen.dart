@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
@@ -1542,25 +1542,14 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
         ApiConstants.financeReport,
         queryParameters: {'period': _period},
       );
-      final reportText = res.data['report_text'] as String;
+      final data = res.data as Map<String, dynamic>;
 
       if (!mounted) return;
 
-      // Show bottom sheet with share/copy options
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (ctx) => DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (ctx, ctrl) => _ReportSheet(
-            reportText: reportText,
-            scrollController: ctrl,
-          ),
-        ),
+      final pdfBytes = await _buildModernPdf(data);
+      await Printing.layoutPdf(
+        onLayout: (_) => pdfBytes,
+        name: 'vitalis_finance_report',
       );
     } catch (e) {
       if (mounted) {
@@ -2536,110 +2525,505 @@ class _CategoryDrillDownSheetState
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Report Sheet — view, copy, or share the finance report
+// Modern PDF Report Builder
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _ReportSheet extends StatelessWidget {
-  final String reportText;
-  final ScrollController scrollController;
-  const _ReportSheet({required this.reportText, required this.scrollController});
+const _pdfPrimary = PdfColor.fromInt(0xFF0D6E4F);
+const _pdfAccent = PdfColor.fromInt(0xFF10B981);
+const _pdfDark = PdfColor.fromInt(0xFF1B1B1F);
+const _pdfMuted = PdfColor.fromInt(0xFF6B7280);
+const _pdfBg = PdfColor.fromInt(0xFFF9FAFB);
+const _pdfWhite = PdfColors.white;
+const _pdfRed = PdfColor.fromInt(0xFFEF4444);
+const _pdfAmber = PdfColor.fromInt(0xFFF59E0B);
 
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+final _pdfChartColors = [
+  const PdfColor.fromInt(0xFF0D6E4F),
+  const PdfColor.fromInt(0xFF10B981),
+  const PdfColor.fromInt(0xFF3B82F6),
+  const PdfColor.fromInt(0xFFF59E0B),
+  const PdfColor.fromInt(0xFFEF4444),
+  const PdfColor.fromInt(0xFF8B5CF6),
+  const PdfColor.fromInt(0xFFEC4899),
+  const PdfColor.fromInt(0xFF14B8A6),
+  const PdfColor.fromInt(0xFFF97316),
+  const PdfColor.fromInt(0xFF6366F1),
+];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-              color: cs.outlineVariant,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Icon(Icons.description_outlined, color: cs.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Finance Report',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.copy_outlined),
-                  tooltip: 'Copy to clipboard',
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: reportText));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Report copied to clipboard')),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                  tooltip: 'Save as PDF',
-                  onPressed: () async {
-                    try {
-                      final doc = pw.Document();
-                      doc.addPage(pw.MultiPage(
-                        pageFormat: PdfPageFormat.a4,
-                        margin: const pw.EdgeInsets.all(32),
-                        build: (ctx) => reportText.split('\n').map((line) =>
-                          pw.Text(line.isEmpty ? ' ' : line,
-                            style: pw.TextStyle(
-                              font: pw.Font.courier(),
-                              fontSize: 8,
-                            ),
-                          ),
-                        ).toList(),
-                      ));
-                      final bytes = await doc.save();
-                      await Printing.layoutPdf(
-                        onLayout: (_) => bytes,
-                        name: 'vitalis_finance_report',
-                      );
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to generate PDF: $e')),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Divider(height: 1, color: cs.outlineVariant),
-          Expanded(
-            child: SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(20),
-              child: SelectableText(
-                reportText,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-        ],
+Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
+  final doc = pw.Document();
+  final summary = data['summary'] as Map<String, dynamic>? ?? {};
+  final sections = data['sections'] as Map<String, dynamic>? ?? {};
+  final period = data['period'] as String? ?? 'month';
+  final periodLabels = {'month': 'Last Month', '3month': 'Last 3 Months',
+                        '6month': 'Last 6 Months', 'year': 'Last Year'};
+  final periodLabel = periodLabels[period] ?? period;
+
+  final categories = (sections['categories'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final monthlyTrends = (sections['monthly_trends'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final topMerchants = (sections['top_merchants'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final freqMerchants = (sections['frequent_merchants'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final dayOfWeek = (sections['day_of_week'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final biggestTxns = (sections['biggest_transactions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final impulse = (sections['impulse_spending'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final anomalies = (sections['anomalies'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final recurring = (sections['recurring'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final insights = (sections['insights'] as List?)?.cast<String>() ?? [];
+  final catChanges = (sections['category_changes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final weekendWeekday = sections['weekend_vs_weekday'] as Map<String, dynamic>? ?? {};
+  final velocity = sections['velocity'] as Map<String, dynamic>? ?? {};
+
+  final totalSpend = (summary['total_spend'] as num?)?.toDouble() ?? 0;
+  final totalIncome = (summary['total_income'] as num?)?.toDouble() ?? 0;
+  final net = (summary['net'] as num?)?.toDouble() ?? 0;
+  final essentialSpend = (summary['essential_spend'] as num?)?.toDouble() ?? 0;
+  final discretionarySpend = (summary['discretionary_spend'] as num?)?.toDouble() ?? 0;
+  final healthScore = (summary['health_score'] as num?)?.toInt() ?? 0;
+  final healthGrade = summary['health_grade'] as String? ?? '-';
+  final txnCount = (summary['transaction_count'] as num?)?.toInt() ?? 0;
+
+  final nf = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+  final nfShort = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+
+  // ── Styles ──
+  final titleStyle = pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: _pdfWhite);
+  final h1 = pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: _pdfPrimary);
+  final h2 = pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _pdfDark);
+  final body = pw.TextStyle(fontSize: 9, color: _pdfDark);
+  final bodyMuted = pw.TextStyle(fontSize: 8, color: _pdfMuted);
+  final bodyBold = pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfDark);
+  final numStyle = pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfDark, font: pw.Font.courierBold());
+
+  // ── Helper: section header ──
+  pw.Widget sectionHeader(String title) => pw.Container(
+    margin: const pw.EdgeInsets.only(top: 16, bottom: 8),
+    padding: const pw.EdgeInsets.only(bottom: 4),
+    decoration: const pw.BoxDecoration(
+      border: pw.Border(bottom: pw.BorderSide(color: _pdfAccent, width: 2)),
+    ),
+    child: pw.Text(title, style: h1),
+  );
+
+  // ── Helper: stat card ──
+  pw.Widget statCard(String label, String value, {PdfColor color = _pdfDark}) => pw.Container(
+    padding: const pw.EdgeInsets.all(10),
+    decoration: pw.BoxDecoration(
+      color: _pdfBg,
+      borderRadius: pw.BorderRadius.circular(6),
+      border: pw.Border.all(color: PdfColor.fromInt(0xFFE5E7EB)),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(label, style: bodyMuted),
+        pw.SizedBox(height: 3),
+        pw.Text(value, style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: color)),
+      ],
+    ),
+  );
+
+  // ── Helper: horizontal bar ──
+  pw.Widget hBar(double pct, {PdfColor color = _pdfAccent, double maxW = 180}) => pw.Container(
+    width: maxW * (pct / 100).clamp(0.01, 1.0),
+    height: 10,
+    decoration: pw.BoxDecoration(color: color, borderRadius: pw.BorderRadius.circular(3)),
+  );
+
+  // ── Helper: table row ──
+  pw.Widget tRow(List<String> cells, {bool header = false, List<int>? flex}) {
+    final s = header ? bodyBold : body;
+    final bg = header ? _pdfBg : _pdfWhite;
+    final flexes = flex ?? List.filled(cells.length, 1);
+    return pw.Container(
+      color: bg,
+      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+      child: pw.Row(
+        children: List.generate(cells.length, (i) =>
+          pw.Expanded(flex: flexes[i], child: pw.Text(cells[i], style: s)),
+        ),
       ),
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD PAGES
+  // ═══════════════════════════════════════════════════════════════════════════
+  doc.addPage(pw.MultiPage(
+    pageFormat: PdfPageFormat.a4,
+    margin: const pw.EdgeInsets.all(36),
+    header: (ctx) => ctx.pageNumber == 1 ? pw.SizedBox.shrink() : pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text('Vitalis Finance Report', style: pw.TextStyle(fontSize: 8, color: _pdfMuted)),
+          pw.Text(periodLabel, style: pw.TextStyle(fontSize: 8, color: _pdfMuted)),
+        ],
+      ),
+    ),
+    footer: (ctx) => pw.Container(
+      margin: const pw.EdgeInsets.only(top: 8),
+      padding: const pw.EdgeInsets.only(top: 6),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: PdfColor.fromInt(0xFFE5E7EB))),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text('Generated by Vitalis', style: pw.TextStyle(fontSize: 7, color: _pdfMuted)),
+          pw.Text('Page ${ctx.pageNumber} of ${ctx.pagesCount}', style: pw.TextStyle(fontSize: 7, color: _pdfMuted)),
+        ],
+      ),
+    ),
+    build: (ctx) => [
+      // ── Cover / Header Banner ──
+      pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.all(24),
+        decoration: pw.BoxDecoration(
+          color: _pdfPrimary,
+          borderRadius: pw.BorderRadius.circular(12),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text('VITALIS', style: pw.TextStyle(fontSize: 10, color: PdfColor.fromInt(0xFF86EFAC), fontWeight: pw.FontWeight.bold, letterSpacing: 3)),
+            pw.SizedBox(height: 4),
+            pw.Text('Finance Intelligence Report', style: titleStyle),
+            pw.SizedBox(height: 6),
+            pw.Row(children: [
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: pw.BoxDecoration(color: PdfColor.fromInt(0x33FFFFFF), borderRadius: pw.BorderRadius.circular(4)),
+                child: pw.Text(periodLabel, style: pw.TextStyle(fontSize: 9, color: _pdfWhite)),
+              ),
+              pw.SizedBox(width: 12),
+              pw.Text(DateFormat('d MMM yyyy').format(DateTime.now()), style: pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xCCFFFFFF))),
+            ]),
+          ],
+        ),
+      ),
+      pw.SizedBox(height: 16),
+
+      // ── Executive Summary Cards ──
+      pw.Row(children: [
+        pw.Expanded(child: statCard('Total Income', nf.format(totalIncome), color: _pdfPrimary)),
+        pw.SizedBox(width: 8),
+        pw.Expanded(child: statCard('Total Spending', nf.format(totalSpend), color: _pdfRed)),
+        pw.SizedBox(width: 8),
+        pw.Expanded(child: statCard('Net Cash Flow', nf.format(net), color: net >= 0 ? _pdfPrimary : _pdfRed)),
+      ]),
+      pw.SizedBox(height: 8),
+      pw.Row(children: [
+        pw.Expanded(child: statCard('Transactions', '$txnCount debits')),
+        pw.SizedBox(width: 8),
+        pw.Expanded(child: statCard('Essential', nf.format(essentialSpend))),
+        pw.SizedBox(width: 8),
+        pw.Expanded(child: statCard('Discretionary', nf.format(discretionarySpend))),
+      ]),
+
+      // ── Health Score ──
+      pw.SizedBox(height: 12),
+      pw.Container(
+        padding: const pw.EdgeInsets.all(14),
+        decoration: pw.BoxDecoration(
+          borderRadius: pw.BorderRadius.circular(8),
+          border: pw.Border.all(color: healthScore >= 60 ? _pdfAccent : _pdfAmber, width: 1.5),
+        ),
+        child: pw.Row(children: [
+          pw.Container(
+            width: 48, height: 48,
+            decoration: pw.BoxDecoration(
+              shape: pw.BoxShape.circle,
+              color: healthScore >= 80 ? _pdfPrimary : healthScore >= 60 ? _pdfAmber : _pdfRed,
+            ),
+            child: pw.Center(child: pw.Text(healthGrade, style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: _pdfWhite))),
+          ),
+          pw.SizedBox(width: 14),
+          pw.Expanded(child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Financial Health Score: $healthScore / 100', style: h2),
+              pw.SizedBox(height: 4),
+              pw.Stack(children: [
+                pw.Container(height: 8, width: 400, decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFE5E7EB), borderRadius: pw.BorderRadius.circular(4))),
+                pw.Container(height: 8, width: 400 * (healthScore / 100.0), decoration: pw.BoxDecoration(
+                  color: healthScore >= 80 ? _pdfPrimary : healthScore >= 60 ? _pdfAmber : _pdfRed,
+                  borderRadius: pw.BorderRadius.circular(4),
+                )),
+              ]),
+            ],
+          )),
+        ]),
+      ),
+
+      // ── Spending by Category ──
+      if (categories.isNotEmpty) ...[
+        sectionHeader('Spending by Category'),
+        ...categories.take(12).map((c) {
+          final pct = (c['pct'] as num?)?.toDouble() ?? 0;
+          final idx = categories.indexOf(c) % _pdfChartColors.length;
+          return pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 4),
+            child: pw.Row(children: [
+              pw.SizedBox(width: 100, child: pw.Text(
+                (c['name'] as String? ?? '').replaceAll('_', ' '),
+                style: body,
+              )),
+              pw.SizedBox(width: 4),
+              pw.Expanded(child: hBar(pct, color: _pdfChartColors[idx], maxW: 250)),
+              pw.SizedBox(width: 8),
+              pw.SizedBox(width: 65, child: pw.Text(nf.format((c['amount'] as num?)?.toDouble() ?? 0), style: numStyle, textAlign: pw.TextAlign.right)),
+              pw.SizedBox(width: 35, child: pw.Text('${pct.toStringAsFixed(1)}%', style: bodyMuted, textAlign: pw.TextAlign.right)),
+            ]),
+          );
+        }),
+      ],
+
+      // ── Category Trends ──
+      if (catChanges.isNotEmpty) ...[
+        sectionHeader('Category Trends vs Prior Period'),
+        ...catChanges.where((c) => ((c['change_pct'] as num?)?.abs() ?? 0) > 10).take(8).map((c) {
+          final pct = (c['change_pct'] as num?)?.toDouble() ?? 0;
+          final isUp = pct > 0;
+          return pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 3),
+            child: pw.Row(children: [
+              pw.SizedBox(width: 100, child: pw.Text((c['category'] as String? ?? '').replaceAll('_', ' '), style: body)),
+              pw.Text(isUp ? '▲' : '▼', style: pw.TextStyle(fontSize: 8, color: isUp ? _pdfRed : _pdfPrimary)),
+              pw.SizedBox(width: 4),
+              pw.SizedBox(width: 65, child: pw.Text(nf.format((c['current'] as num?)?.toDouble() ?? 0), style: numStyle, textAlign: pw.TextAlign.right)),
+              pw.SizedBox(width: 8),
+              pw.Text('was ${nf.format((c['previous'] as num?)?.toDouble() ?? 0)}', style: bodyMuted),
+              pw.SizedBox(width: 8),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: pw.BoxDecoration(
+                  color: isUp ? PdfColor.fromInt(0x1AEF4444) : PdfColor.fromInt(0x1A10B981),
+                  borderRadius: pw.BorderRadius.circular(3),
+                ),
+                child: pw.Text('${pct > 0 ? '+' : ''}${pct.toStringAsFixed(0)}%',
+                  style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: isUp ? _pdfRed : _pdfPrimary)),
+              ),
+            ]),
+          );
+        }),
+      ],
+
+      // ── Monthly Trends Table ──
+      if (monthlyTrends.isNotEmpty) ...[
+        sectionHeader('Monthly Trends'),
+        tRow(['Month', 'Income', 'Expenses', 'Net'], header: true, flex: [2, 2, 2, 2]),
+        ...monthlyTrends.skip(monthlyTrends.length > 12 ? monthlyTrends.length - 12 : 0).map((m) {
+          final mNet = (m['net'] as num?)?.toDouble() ?? 0;
+          return pw.Container(
+            decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6)))),
+            padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+            child: pw.Row(children: [
+              pw.Expanded(flex: 2, child: pw.Text(m['month'] as String? ?? '', style: body)),
+              pw.Expanded(flex: 2, child: pw.Text(nfShort.format((m['income'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, color: _pdfPrimary))),
+              pw.Expanded(flex: 2, child: pw.Text(nfShort.format((m['expenses'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, color: _pdfRed))),
+              pw.Expanded(flex: 2, child: pw.Text(nfShort.format(mNet), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: mNet >= 0 ? _pdfPrimary : _pdfRed))),
+            ]),
+          );
+        }),
+      ],
+
+      // ── Top Merchants ──
+      if (topMerchants.isNotEmpty) ...[
+        sectionHeader('Top Merchants'),
+        tRow(['Merchant', 'Spend', 'Visits'], header: true, flex: [4, 2, 1]),
+        ...topMerchants.map((m) => pw.Container(
+          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6)))),
+          padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+          child: pw.Row(children: [
+            pw.Expanded(flex: 4, child: pw.Text(m['name'] as String? ?? '', style: body)),
+            pw.Expanded(flex: 2, child: pw.Text(nf.format((m['amount'] as num?)?.toDouble() ?? 0), style: numStyle)),
+            pw.Expanded(flex: 1, child: pw.Text('${m['visits'] ?? 0}', style: bodyMuted, textAlign: pw.TextAlign.center)),
+          ]),
+        )),
+      ],
+
+      // ── Day of Week ──
+      if (dayOfWeek.isNotEmpty) ...[
+        sectionHeader('Spending by Day of Week'),
+        ...() {
+          final maxAmt = dayOfWeek.fold<double>(0, (m, d) => ((d['amount'] as num?)?.toDouble() ?? 0) > m ? (d['amount'] as num).toDouble() : m);
+          return dayOfWeek.map((d) {
+            final amt = (d['amount'] as num?)?.toDouble() ?? 0;
+            final pct = maxAmt > 0 ? (amt / maxAmt * 100) : 0.0;
+            final isWeekend = (d['day'] == 'Saturday' || d['day'] == 'Sunday');
+            return pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 3),
+              child: pw.Row(children: [
+                pw.SizedBox(width: 65, child: pw.Text(d['day'] as String? ?? '', style: isWeekend ? bodyBold : body)),
+                pw.Expanded(child: hBar(pct, color: isWeekend ? _pdfAmber : _pdfAccent, maxW: 250)),
+                pw.SizedBox(width: 8),
+                pw.SizedBox(width: 65, child: pw.Text(nf.format(amt), style: numStyle, textAlign: pw.TextAlign.right)),
+                pw.SizedBox(width: 35, child: pw.Text('${d['count'] ?? 0} txns', style: bodyMuted, textAlign: pw.TextAlign.right)),
+              ]),
+            );
+          });
+        }(),
+        pw.SizedBox(height: 6),
+        pw.Row(children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFFEF3C7), borderRadius: pw.BorderRadius.circular(4)),
+            child: pw.Text('Weekend: ${nf.format((weekendWeekday['weekend'] as num?)?.toDouble() ?? 0)}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfAmber)),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFD1FAE5), borderRadius: pw.BorderRadius.circular(4)),
+            child: pw.Text('Weekday: ${nf.format((weekendWeekday['weekday'] as num?)?.toDouble() ?? 0)}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfPrimary)),
+          ),
+        ]),
+      ],
+
+      // ── Spending Velocity ──
+      if (velocity.isNotEmpty) ...[
+        sectionHeader('Spending Velocity'),
+        pw.Row(children: [
+          pw.Expanded(child: statCard('Daily Average', nf.format((velocity['daily_avg'] as num?)?.toDouble() ?? 0))),
+          pw.SizedBox(width: 8),
+          pw.Expanded(child: statCard('Projected Monthly', nf.format((velocity['projected_monthly'] as num?)?.toDouble() ?? 0))),
+          pw.SizedBox(width: 8),
+          pw.Expanded(child: statCard('Highest Day', '${nf.format((velocity['highest_day'] as num?)?.toDouble() ?? 0)}\n${velocity['highest_day_date'] ?? ''}')),
+        ]),
+      ],
+
+      // ── Largest Transactions ──
+      if (biggestTxns.isNotEmpty) ...[
+        sectionHeader('Largest Transactions'),
+        tRow(['Date', 'Merchant', 'Category', 'Amount'], header: true, flex: [2, 4, 2, 2]),
+        ...biggestTxns.map((t) => pw.Container(
+          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6)))),
+          padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+          child: pw.Row(children: [
+            pw.Expanded(flex: 2, child: pw.Text(t['date'] as String? ?? '', style: bodyMuted)),
+            pw.Expanded(flex: 4, child: pw.Text(t['merchant'] as String? ?? '', style: body)),
+            pw.Expanded(flex: 2, child: pw.Text((t['category'] as String? ?? '').replaceAll('_', ' '), style: bodyMuted)),
+            pw.Expanded(flex: 2, child: pw.Text(nf.format((t['amount'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfRed), textAlign: pw.TextAlign.right)),
+          ]),
+        )),
+      ],
+
+      // ── Impulse Spending ──
+      if (impulse.isNotEmpty) ...[
+        sectionHeader('Impulse Spending Analysis'),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            color: PdfColor.fromInt(0xFFFEF2F2),
+            borderRadius: pw.BorderRadius.circular(6),
+            border: pw.Border.all(color: PdfColor.fromInt(0xFFFECACA)),
+          ),
+          child: pw.Row(children: [
+            pw.Text('Total impulse spending: ', style: body),
+            pw.Text(nf.format(impulse.fold<double>(0, (s, i) => s + ((i['total'] as num?)?.toDouble() ?? 0))),
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _pdfRed)),
+            pw.Text('  •  Potential monthly savings (30% cut): ', style: body),
+            pw.Text(nf.format(impulse.fold<double>(0, (s, i) => s + ((i['total'] as num?)?.toDouble() ?? 0)) * 0.3),
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _pdfPrimary)),
+          ]),
+        ),
+        pw.SizedBox(height: 6),
+        tRow(['Category', 'Total', 'Txns', 'Avg'], header: true, flex: [3, 2, 1, 2]),
+        ...impulse.take(8).map((i) => pw.Container(
+          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6)))),
+          padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+          child: pw.Row(children: [
+            pw.Expanded(flex: 3, child: pw.Text((i['category'] as String? ?? '').replaceAll('_', ' '), style: body)),
+            pw.Expanded(flex: 2, child: pw.Text(nf.format((i['total'] as num?)?.toDouble() ?? 0), style: numStyle)),
+            pw.Expanded(flex: 1, child: pw.Text('${i['count'] ?? 0}', style: bodyMuted, textAlign: pw.TextAlign.center)),
+            pw.Expanded(flex: 2, child: pw.Text(nf.format((i['avg'] as num?)?.toDouble() ?? 0), style: bodyMuted)),
+          ]),
+        )),
+      ],
+
+      // ── Recurring Expenses ──
+      if (recurring.isNotEmpty) ...[
+        sectionHeader('Recurring Expenses & Subscriptions'),
+        tRow(['Merchant', 'Amount', 'Category'], header: true, flex: [4, 2, 2]),
+        ...recurring.take(10).map((r) => pw.Container(
+          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6)))),
+          padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+          child: pw.Row(children: [
+            pw.Expanded(flex: 4, child: pw.Text(r['merchant'] as String? ?? '', style: body)),
+            pw.Expanded(flex: 2, child: pw.Text(nf.format((r['amount'] as num?)?.toDouble() ?? 0), style: numStyle)),
+            pw.Expanded(flex: 2, child: pw.Text((r['category'] as String? ?? '').replaceAll('_', ' '), style: bodyMuted)),
+          ]),
+        )),
+      ],
+
+      // ── Unusual Transactions ──
+      if (anomalies.isNotEmpty) ...[
+        sectionHeader('Unusual Transactions'),
+        pw.Text('Transactions significantly above their category averages:', style: bodyMuted),
+        pw.SizedBox(height: 6),
+        ...anomalies.take(6).map((a) => pw.Container(
+          margin: const pw.EdgeInsets.only(bottom: 4),
+          padding: const pw.EdgeInsets.all(8),
+          decoration: pw.BoxDecoration(
+            color: PdfColor.fromInt(0xFFFFFBEB),
+            borderRadius: pw.BorderRadius.circular(4),
+            border: pw.Border.all(color: PdfColor.fromInt(0xFFFDE68A)),
+          ),
+          child: pw.Row(children: [
+            pw.SizedBox(width: 55, child: pw.Text(a['date'] as String? ?? '', style: bodyMuted)),
+            pw.Expanded(child: pw.Text(a['merchant'] as String? ?? '', style: body)),
+            pw.Text(nf.format((a['amount'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfRed)),
+            pw.SizedBox(width: 8),
+            pw.Text('avg: ${nf.format((a['category_avg'] as num?)?.toDouble() ?? 0)}', style: bodyMuted),
+          ]),
+        )),
+      ],
+
+      // ── Insights & Recommendations ──
+      if (insights.isNotEmpty) ...[
+        sectionHeader('Insights & Recommendations'),
+        ...insights.asMap().entries.map((e) => pw.Container(
+          margin: const pw.EdgeInsets.only(bottom: 6),
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            color: e.key == 0 ? PdfColor.fromInt(0xFFECFDF5) : _pdfBg,
+            borderRadius: pw.BorderRadius.circular(6),
+            border: pw.Border.all(color: e.key == 0 ? PdfColor.fromInt(0xFFA7F3D0) : PdfColor.fromInt(0xFFE5E7EB)),
+          ),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Container(
+                width: 18, height: 18,
+                decoration: pw.BoxDecoration(
+                  shape: pw.BoxShape.circle,
+                  color: _pdfPrimary,
+                ),
+                child: pw.Center(child: pw.Text('${e.key + 1}', style: pw.TextStyle(fontSize: 8, color: _pdfWhite, fontWeight: pw.FontWeight.bold))),
+              ),
+              pw.SizedBox(width: 8),
+              pw.Expanded(child: pw.Text(e.value, style: body)),
+            ],
+          ),
+        )),
+      ],
+
+      // ── Footer ──
+      pw.SizedBox(height: 20),
+      pw.Container(
+        padding: const pw.EdgeInsets.all(12),
+        decoration: pw.BoxDecoration(
+          color: _pdfPrimary,
+          borderRadius: pw.BorderRadius.circular(8),
+        ),
+        child: pw.Center(child: pw.Text(
+          'Vitalis Finance Intelligence  •  Your money, your insights',
+          style: pw.TextStyle(fontSize: 9, color: _pdfWhite),
+        )),
+      ),
+    ],
+  ));
+
+  return doc.save();
 }
