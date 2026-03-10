@@ -233,12 +233,16 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 12),
@@ -280,6 +284,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             ),
           ),
         ],
+      ),
       ),
     );
   }
