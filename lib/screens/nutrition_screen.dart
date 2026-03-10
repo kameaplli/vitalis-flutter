@@ -90,7 +90,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
           tabs: const [
             Tab(text: 'Log'),
             Tab(text: 'History'),
-            Tab(text: 'Analytics'),
+            Tab(text: 'Insights'),
           ],
         ),
       ),
@@ -123,29 +123,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 )),
-                const Spacer(),
-                InkWell(
-                  onTap: () async {
-                    final t = await showTimePicker(
-                      context: context, initialTime: nutrition.mealTime);
-                    if (t != null) ref.read(nutritionProvider.notifier).setMealTime(t);
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: colorScheme.outlineVariant),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.access_time, size: 14, color: colorScheme.primary),
-                      const SizedBox(width: 4),
-                      Text(nutrition.mealTime.format(context),
-                          style: TextStyle(fontSize: 12, color: colorScheme.primary,
-                              fontWeight: FontWeight.w600)),
-                    ]),
-                  ),
-                ),
               ],
             ),
 
@@ -1053,54 +1030,128 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
     if (!_barcodeScanning) return;
     setState(() { _barcodeScanning = false; });
     _scanCtrl?.stop();
-    try {
-      final res = await Dio().get(
-        'https://world.openfoodfacts.org/api/v0/product/$barcode.json',
-      );
-      if (res.data['status'] == 1) {
-        final p = res.data['product'] as Map<String, dynamic>;
-        final n = (p['nutriments'] as Map<String, dynamic>?) ?? {};
-        final productName = (p['product_name'] as String?)?.trim().isNotEmpty == true
-            ? p['product_name'] as String
-            : 'Product $barcode';
 
-        // Allergen check via backend
-        List<FoodAllergenInfo> allergens = [];
-        try {
-          final allergenRes = await apiClient.dio.get(
-            ApiConstants.foodAllergenCheck,
-            queryParameters: {'food_name': productName},
-          );
-          final rawAllergens = allergenRes.data['allergens'] as List<dynamic>? ?? [];
-          allergens = rawAllergens
-              .map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
-              .toList();
-        } catch (_) {}
+    final dio = Dio();
+    dio.options.headers['User-Agent'] = 'Vitalis/3.0 (vitalis-health-app)';
 
-        final food = FoodItem(
-          id: barcode,
-          name: productName,
-          cal:      (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0,
-          protein:  (n['proteins_100g']     as num?)?.toDouble() ?? 0,
-          carbs:    (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0,
-          fat:      (n['fat_100g']           as num?)?.toDouble() ?? 0,
-          servingSize: 100,
-          emoji: '🏷️',
-          allergens: allergens,
-        );
-        _addFood(food);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Product not found: $barcode')));
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Barcode lookup failed')));
-      }
+    // Try original barcode, then normalized variants (UPC-A ↔ EAN-13)
+    final variants = <String>[barcode];
+    if (barcode.length == 12) variants.add('0$barcode');
+    if (barcode.length == 13 && barcode.startsWith('0')) {
+      variants.add(barcode.substring(1));
     }
+
+    Map<String, dynamic>? product;
+    for (final code in variants) {
+      try {
+        final res = await dio.get(
+          'https://world.openfoodfacts.org/api/v2/product/$code',
+        );
+        final data = res.data as Map<String, dynamic>;
+        if (data['status'] == 'product_found' || data['status'] == 1) {
+          product = data['product'] as Map<String, dynamic>?;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (product != null && mounted) {
+      final n = (product['nutriments'] as Map<String, dynamic>?) ?? {};
+      final productName = (product['product_name'] as String?)?.trim().isNotEmpty == true
+          ? product['product_name'] as String
+          : 'Product $barcode';
+
+      // Allergen check via backend
+      List<FoodAllergenInfo> allergens = [];
+      try {
+        final allergenRes = await apiClient.dio.get(
+          ApiConstants.foodAllergenCheck,
+          queryParameters: {'food_name': productName},
+        );
+        final rawAllergens = allergenRes.data['allergens'] as List<dynamic>? ?? [];
+        allergens = rawAllergens
+            .map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
+            .toList();
+      } catch (_) {}
+
+      final food = FoodItem(
+        id: barcode,
+        name: productName,
+        cal:      (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0,
+        protein:  (n['proteins_100g']     as num?)?.toDouble() ?? 0,
+        carbs:    (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0,
+        fat:      (n['fat_100g']           as num?)?.toDouble() ?? 0,
+        servingSize: 100,
+        emoji: '🏷️',
+        allergens: allergens,
+      );
+      _addFood(food);
+    } else if (mounted) {
+      // Product not found — offer manual entry
+      _showManualBarcodeEntry(barcode);
+    }
+  }
+
+  void _showManualBarcodeEntry(String barcode) {
+    final nameCtrl = TextEditingController();
+    final calCtrl = TextEditingController();
+    final protCtrl = TextEditingController();
+    final carbCtrl = TextEditingController();
+    final fatCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Product Not Found'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Barcode: $barcode',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const SizedBox(height: 8),
+              const Text('Enter nutrition per 100g:',
+                  style: TextStyle(fontSize: 13)),
+              const SizedBox(height: 8),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(
+                  labelText: 'Product name', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: calCtrl, keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Calories', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: protCtrl, keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Protein (g)', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: carbCtrl, keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Carbs (g)', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: fatCtrl, keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Fat (g)', isDense: true)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final food = FoodItem(
+                id: barcode,
+                name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : 'Product $barcode',
+                cal: double.tryParse(calCtrl.text) ?? 0,
+                protein: double.tryParse(protCtrl.text) ?? 0,
+                carbs: double.tryParse(carbCtrl.text) ?? 0,
+                fat: double.tryParse(fatCtrl.text) ?? 0,
+                servingSize: 100,
+                emoji: '🏷️',
+              );
+              _addFood(food);
+            },
+            child: const Text('Add Food'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Food label scan ─────────────────────────────────────────────────────────
@@ -1108,7 +1159,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
   Future<void> _scanFoodLabel(ImageSource source) async {
     final img = await ImagePicker().pickImage(source: source);
     if (img == null) return;
-    setState(() { _labelScanning = true; });
+    if (mounted) setState(() { _labelScanning = true; });
     try {
       final bytes = await img.readAsBytes();
       final formData = FormData.fromMap({
@@ -1118,10 +1169,10 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
         ApiConstants.foodLabelScan, data: formData);
       final d = res.data as Map<String, dynamic>;
       if (mounted) _showLabelResult(d);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Label scan failed')));
+          SnackBar(content: Text('Label scan failed: ${e is DioException ? e.message : e}')));
       }
     } finally {
       if (mounted) setState(() { _labelScanning = false; });

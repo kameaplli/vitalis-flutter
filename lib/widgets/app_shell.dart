@@ -249,48 +249,39 @@ class _BottomNavWithGenie extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Transform.translate(
-                        offset: const Offset(0, -18),
+                        offset: const Offset(0, -20),
                         child: Container(
-                          width: 56,
-                          height: 56,
+                          width: 58,
+                          height: 58,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFFFF6B6B), // red-coral
-                                Color(0xFFFFAB40), // amber
-                                Color(0xFF66BB6A), // green
-                                Color(0xFF42A5F5), // blue
-                                Color(0xFFAB47BC), // purple
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                            color: cs.surface,
+                            border: Border.all(
+                              color: cs.outlineVariant.withOpacity(0.5),
+                              width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFFF6B6B).withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
                           child: CustomPaint(
-                            painter: _GenieBowlPainter(),
-                            child: const Center(
-                              child: Text('✨',
-                                  style: TextStyle(fontSize: 10),
-                                  textAlign: TextAlign.center),
+                            painter: _GenieBowlPainter(
+                              iconColor: cs.onSurfaceVariant,
                             ),
                           ),
                         ),
                       ),
                       Transform.translate(
-                        offset: const Offset(0, -14),
-                        child: Text('AI',
+                        offset: const Offset(0, -16),
+                        child: Text('Zenie',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -347,65 +338,103 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-/// Custom painter: draws a colorful bowl with food items and a genie swirl.
+/// Custom painter: draws a genie rising from a food bowl.
 class _GenieBowlPainter extends CustomPainter {
+  final Color iconColor;
+  _GenieBowlPainter({this.iconColor = Colors.grey});
+
   @override
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
     final cy = size.height / 2;
 
-    // Bowl body (white with slight transparency)
+    // ── Bowl ────────────────────────────────────────
     final bowlPaint = Paint()
-      ..color = Colors.white.withOpacity(0.95)
+      ..color = iconColor.withOpacity(0.15)
       ..style = PaintingStyle.fill;
-
-    final bowlPath = Path()
-      ..moveTo(cx - 16, cy - 2)
-      ..quadraticBezierTo(cx - 18, cy + 12, cx - 10, cy + 14)
-      ..lineTo(cx + 10, cy + 14)
-      ..quadraticBezierTo(cx + 18, cy + 12, cx + 16, cy - 2)
-      ..close();
-    canvas.drawPath(bowlPath, bowlPaint);
-
-    // Bowl rim
-    final rimPaint = Paint()
-      ..color = Colors.white
+    final bowlStroke = Paint()
+      ..color = iconColor.withOpacity(0.7)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawLine(Offset(cx - 18, cy - 2), Offset(cx + 18, cy - 2), rimPaint);
-
-    // Food items in bowl (colorful circles)
-    // Red (tomato/apple)
-    canvas.drawCircle(Offset(cx - 8, cy + 3), 4, Paint()..color = const Color(0xFFFF6B6B));
-    // Green (broccoli/lettuce)
-    canvas.drawCircle(Offset(cx + 2, cy + 1), 4.5, Paint()..color = const Color(0xFF66BB6A));
-    // Orange (carrot/orange)
-    canvas.drawCircle(Offset(cx + 10, cy + 4), 3.5, Paint()..color = const Color(0xFFFFAB40));
-    // Yellow (corn/banana)
-    canvas.drawCircle(Offset(cx - 2, cy + 7), 3, Paint()..color = const Color(0xFFFFD54F));
-
-    // Genie swirl (rising from bowl)
-    final swirlPaint = Paint()
-      ..color = Colors.white.withOpacity(0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
+      ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
 
-    final swirlPath = Path()
-      ..moveTo(cx, cy - 4)
-      ..quadraticBezierTo(cx + 8, cy - 12, cx - 2, cy - 16)
-      ..quadraticBezierTo(cx - 10, cy - 19, cx + 4, cy - 22);
-    canvas.drawPath(swirlPath, swirlPaint);
+    // Bowl shape (rounded trapezoid)
+    final bowlPath = Path()
+      ..moveTo(cx - 15, cy + 4)
+      ..quadraticBezierTo(cx - 16, cy + 16, cx - 8, cy + 17)
+      ..lineTo(cx + 8, cy + 17)
+      ..quadraticBezierTo(cx + 16, cy + 16, cx + 15, cy + 4)
+      ..close();
+    canvas.drawPath(bowlPath, bowlPaint);
+    canvas.drawPath(bowlPath, bowlStroke);
 
-    // Sparkle dots
-    final sparklePaint = Paint()..color = Colors.white;
-    canvas.drawCircle(Offset(cx + 6, cy - 20), 1.5, sparklePaint);
-    canvas.drawCircle(Offset(cx - 8, cy - 14), 1.2, sparklePaint);
-    canvas.drawCircle(Offset(cx + 10, cy - 10), 1.0, sparklePaint);
+    // Bowl rim
+    canvas.drawLine(Offset(cx - 17, cy + 4), Offset(cx + 17, cy + 4), bowlStroke);
+
+    // Food items in bowl (colorful)
+    canvas.drawCircle(Offset(cx - 7, cy + 9), 3.5, Paint()..color = const Color(0xFFEF5350)); // red
+    canvas.drawCircle(Offset(cx + 1, cy + 7), 3.8, Paint()..color = const Color(0xFF66BB6A)); // green
+    canvas.drawCircle(Offset(cx + 9, cy + 9), 3.2, Paint()..color = const Color(0xFFFFB74D)); // orange
+
+    // ── Genie figure (rising from bowl) ─────────────
+    final geniePaint = Paint()
+      ..color = iconColor.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+
+    // Genie body — flowing S-curve rising from bowl
+    final bodyPath = Path()
+      ..moveTo(cx, cy + 2)
+      ..cubicTo(cx + 10, cy - 6, cx - 8, cy - 12, cx + 2, cy - 18);
+    canvas.drawPath(bodyPath, geniePaint);
+
+    // Genie head
+    canvas.drawCircle(Offset(cx + 2, cy - 20), 4, Paint()
+      ..color = iconColor.withOpacity(0.5)
+      ..style = PaintingStyle.fill);
+    canvas.drawCircle(Offset(cx + 2, cy - 20), 4, Paint()
+      ..color = iconColor.withOpacity(0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5);
+
+    // Genie arms (small curved lines)
+    final armPaint = Paint()
+      ..color = iconColor.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    // Left arm
+    canvas.drawLine(Offset(cx - 2, cy - 12), Offset(cx - 8, cy - 15), armPaint);
+    // Right arm
+    canvas.drawLine(Offset(cx + 5, cy - 12), Offset(cx + 11, cy - 15), armPaint);
+
+    // Sparkle stars
+    _drawStar(canvas, Offset(cx - 10, cy - 8), 2.0, iconColor.withOpacity(0.4));
+    _drawStar(canvas, Offset(cx + 12, cy - 18), 1.8, iconColor.withOpacity(0.35));
+    _drawStar(canvas, Offset(cx - 6, cy - 22), 1.5, iconColor.withOpacity(0.3));
+  }
+
+  void _drawStar(Canvas canvas, Offset center, double radius, Color color) {
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    // 4-pointed star as two overlapping diamonds
+    final path = Path()
+      ..moveTo(center.dx, center.dy - radius)
+      ..lineTo(center.dx + radius * 0.4, center.dy)
+      ..lineTo(center.dx, center.dy + radius)
+      ..lineTo(center.dx - radius * 0.4, center.dy)
+      ..close()
+      ..moveTo(center.dx - radius, center.dy)
+      ..lineTo(center.dx, center.dy + radius * 0.4)
+      ..lineTo(center.dx + radius, center.dy)
+      ..lineTo(center.dx, center.dy - radius * 0.4)
+      ..close();
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GenieBowlPainter oldDelegate) =>
+      oldDelegate.iconColor != iconColor;
 }
 
 // ── Biometric lock screen ─────────────────────────────────────────────────────

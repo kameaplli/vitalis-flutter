@@ -179,8 +179,11 @@ class NotificationService {
   /// Handle notification actions when app is in background/killed.
   @pragma('vm:entry-point')
   static void _onBackgroundAction(NotificationResponse response) {
-    // Background actions are limited — we store the intent for next app open.
-    // In a production app, you could use a local DB here.
+    final actionId = response.actionId ?? '';
+    if (actionId == 'hydrate_250' || actionId == 'hydrate_500') {
+      final ml = actionId == 'hydrate_250' ? 250 : 500;
+      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': ml}));
+    }
   }
 
   // ── Schedule All Notifications ─────────────────────────────────────────────
