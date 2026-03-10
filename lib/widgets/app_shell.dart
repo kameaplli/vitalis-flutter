@@ -135,7 +135,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/finance', '/grocery'];
+  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/grocery'];
 
   int _indexForLocation(String location) {
     for (int i = 0; i < _navRoutes.length; i++) {
@@ -299,12 +299,10 @@ class _BottomNavWithGenie extends StatelessWidget {
                 ),
               ),
 
-              // Right nav items: Health, Finance, Grocery
+              // Right nav items: Health, Grocery
               _NavItem(Icons.favorite_outline, Icons.favorite, 'Health', 2,
                   selectedIndex, onDestinationSelected),
-              _NavItem(Icons.account_balance_outlined, Icons.account_balance, 'Finance', 3,
-                  selectedIndex, onDestinationSelected),
-              _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Grocery', 4,
+              _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Grocery', 3,
                   selectedIndex, onDestinationSelected),
             ],
           ),
