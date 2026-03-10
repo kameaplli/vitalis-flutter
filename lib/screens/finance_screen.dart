@@ -2572,6 +2572,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
   final catChanges = (sections['category_changes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   final weekendWeekday = sections['weekend_vs_weekday'] as Map<String, dynamic>? ?? {};
   final velocity = sections['velocity'] as Map<String, dynamic>? ?? {};
+  final autoPayments = sections['auto_payments'] as Map<String, dynamic>? ?? {};
 
   final totalSpend = (summary['total_spend'] as num?)?.toDouble() ?? 0;
   final totalIncome = (summary['total_income'] as num?)?.toDouble() ?? 0;
@@ -3099,6 +3100,68 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
             ],
           ),
         )),
+      ],
+
+      // ── Auto-Payments ──
+      if ((autoPayments['total'] as num?)?.toInt() != null && (autoPayments['total'] as num).toInt() > 0) ...[
+        sectionHeader('Auto-Payments (Excluded from Spending)'),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(
+            color: PdfColor.fromInt(0xFFF0F9FF),
+            borderRadius: pw.BorderRadius.circular(6),
+            border: pw.Border.all(color: PdfColor.fromInt(0xFFBAE6FD)),
+          ),
+          child: pw.Row(children: [
+            pw.Expanded(child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Successful Payments', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfPrimary)),
+                pw.Text('${autoPayments['paid'] ?? 0} payments  •  ${nf.format((autoPayments['paid_amount'] as num?)?.toDouble() ?? 0)}',
+                  style: pw.TextStyle(fontSize: 9, color: _pdfDark)),
+              ],
+            )),
+            pw.SizedBox(width: 16),
+            pw.Expanded(child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Dishonoured / Bounced', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
+                  color: ((autoPayments['dishonoured'] as num?)?.toInt() ?? 0) > 0 ? _pdfRed : _pdfPrimary)),
+                pw.Text('${autoPayments['dishonoured'] ?? 0} payments  •  ${nf.format((autoPayments['dishonoured_amount'] as num?)?.toDouble() ?? 0)}',
+                  style: pw.TextStyle(fontSize: 9, color: _pdfDark)),
+              ],
+            )),
+          ]),
+        ),
+        if ((autoPayments['items'] as List?)?.isNotEmpty ?? false) ...[
+          pw.SizedBox(height: 6),
+          tRow(['Date', 'Merchant', 'Amount', 'Status'], header: true, flex: [2, 4, 2, 2]),
+          ...(autoPayments['items'] as List).cast<Map<String, dynamic>>().take(10).map((a) => pw.Container(
+            decoration: pw.BoxDecoration(
+              color: (a['status'] as String?) == 'dishonoured' ? PdfColor.fromInt(0x0DEF4444) : _pdfWhite,
+              border: const pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6))),
+            ),
+            padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+            child: pw.Row(children: [
+              pw.Expanded(flex: 2, child: pw.Text(a['date'] as String? ?? '', style: bodyMuted)),
+              pw.Expanded(flex: 4, child: pw.Text(a['merchant'] as String? ?? '', style: body)),
+              pw.Expanded(flex: 2, child: pw.Text(nf.format((a['amount'] as num?)?.toDouble() ?? 0), style: numStyle)),
+              pw.Expanded(flex: 2, child: pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: pw.BoxDecoration(
+                  color: (a['status'] as String?) == 'dishonoured' ? PdfColor.fromInt(0x1AEF4444) : PdfColor.fromInt(0x1A10B981),
+                  borderRadius: pw.BorderRadius.circular(3),
+                ),
+                child: pw.Text(
+                  (a['status'] as String?) == 'dishonoured' ? 'BOUNCED' : 'PAID',
+                  style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold,
+                    color: (a['status'] as String?) == 'dishonoured' ? _pdfRed : _pdfPrimary),
+                  textAlign: pw.TextAlign.center,
+                ),
+              )),
+            ]),
+          )),
+        ],
       ],
 
       // ── Footer ──
