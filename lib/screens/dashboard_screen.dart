@@ -35,6 +35,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ref.invalidate(dashboardProvider(person));
     if (_days > 0) ref.invalidate(analyticsProvider('$person:$_days'));
     ref.invalidate(grocerySpendingProvider('$person:month'));
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    ref.invalidate(hydrationHistoryProvider('$person:1:$today'));
     ref.invalidate(todayHydrationProvider(person));
   }
 
@@ -480,6 +482,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
         'time':              timeStr,
         if (widget.person != 'self') 'family_member_id': widget.person,
       });
+      ref.invalidate(hydrationHistoryProvider('${widget.person}:1:$today'));
       ref.invalidate(todayHydrationProvider(widget.person));
       ref.invalidate(dashboardProvider(widget.person));
       ref.invalidate(familySnapshotProvider);
@@ -538,6 +541,13 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
       error:   (_, __) => '',
     );
 
+    // Watch today's entries for timeline display
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final historyAsync = ref.watch(hydrationHistoryProvider('${widget.person}:1:$today'));
+    final todayEntries = historyAsync.whenOrNull(
+      data: (logs) => logs.where((l) => l.date == today).toList(),
+    );
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Padding(
@@ -579,6 +589,37 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
                 ),
               ],
             ),
+            // Timeline of today's entries
+            if (todayEntries != null && todayEntries.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 28,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: todayEntries.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) {
+                    final e = todayEntries[i];
+                    final qty = e.quantity >= 1000
+                        ? '${(e.quantity / 1000).toStringAsFixed(1)}L'
+                        : '${e.quantity.toInt()}ml';
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${e.time} · $qty',
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),

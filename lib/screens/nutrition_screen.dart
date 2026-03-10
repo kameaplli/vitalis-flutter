@@ -103,55 +103,99 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Meal type ────────────────────────────────────────────────────
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _mealTypes.map((type) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
+            // ── Daily progress header ──────────────────────────────────────
+            _DailyProgressHeader(nutrition: nutrition),
+
+            const SizedBox(height: 16),
+
+            // ── Meal type + time row ───────────────────────────────────────
+            Row(
+              children: [
+                ..._mealTypes.map((type) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
-                    label: Text(type[0].toUpperCase() + type.substring(1)),
+                    label: Text(type[0].toUpperCase() + type.substring(1),
+                        style: const TextStyle(fontSize: 12)),
                     selected: nutrition.mealType == type,
                     onSelected: (_) =>
                         ref.read(nutritionProvider.notifier).setMealType(type),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                )).toList(),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── Date + Time ──────────────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                    label: Text(DateFormat('EEE, MMM d').format(DateTime.now())),
-                    onPressed: null,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                )),
+                const Spacer(),
+                InkWell(
+                  onTap: () async {
+                    final t = await showTimePicker(
+                      context: context, initialTime: nutrition.mealTime);
+                    if (t != null) ref.read(nutritionProvider.notifier).setMealTime(t);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: colorScheme.outlineVariant),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.access_time, size: 14, color: colorScheme.primary),
+                      const SizedBox(width: 4),
+                      Text(nutrition.mealTime.format(context),
+                          style: TextStyle(fontSize: 12, color: colorScheme.primary,
+                              fontWeight: FontWeight.w600)),
+                    ]),
                   ),
                 ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── 4-method food entry hub ────────────────────────────────────
+            Text('Add Food', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _EntryMethodCard(
+                  icon: Icons.search,
+                  label: 'Search',
+                  color: Colors.blue,
+                  onTap: () => _showFoodSearch(context),
+                ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.access_time, size: 16),
-                    label: Text('${nutrition.mealTime.format(context)} ${localTimezone()}'),
-                    onPressed: () async {
-                      final t = await showTimePicker(
-                        context: context,
-                        initialTime: nutrition.mealTime,
-                      );
-                      if (t != null) {
-                        ref.read(nutritionProvider.notifier).setMealTime(t);
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    ),
-                  ),
+                _EntryMethodCard(
+                  icon: Icons.qr_code_scanner,
+                  label: 'Barcode',
+                  color: Colors.orange,
+                  onTap: () => _showFoodSearch(context, startWithBarcode: true),
+                ),
+                const SizedBox(width: 8),
+                _EntryMethodCard(
+                  icon: Icons.camera_alt_outlined,
+                  label: 'Label Scan',
+                  color: Colors.green,
+                  onTap: () => _showLabelScanOptions(context),
+                ),
+                const SizedBox(width: 8),
+                _EntryMethodCard(
+                  icon: Icons.mic,
+                  label: 'Voice',
+                  color: Colors.purple,
+                  onTap: () {
+                    final personId = ref.read(selectedPersonProvider);
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => VoiceMealSheet(
+                        personId: personId,
+                        onLogged: () {
+                          ref.invalidate(nutritionProvider);
+                          ref.invalidate(dashboardProvider(personId));
+                        },
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -161,47 +205,26 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             // ── Recent meals carousel ────────────────────────────────────────
             _RecentMealsSection(),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // ── Frequent individual foods ─────────────────────────────────────
             _FrequentFoodsSection(),
 
             // ── Selected foods ───────────────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Selected Foods',
-                    style: Theme.of(context).textTheme.titleSmall),
-                TextButton.icon(
-                  onPressed: () => _showFoodSearch(context),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add Food'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            if (nutrition.selectedFoods.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                      color: colorScheme.outlineVariant,
-                      style: BorderStyle.solid),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.restaurant_outlined,
-                        size: 48, color: colorScheme.outlineVariant),
-                    const SizedBox(height: 8),
-                    Text('No foods added yet',
-                        style: TextStyle(color: colorScheme.outline)),
-                  ],
-                ),
-              )
-            else
+            if (nutrition.selectedFoods.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Selected Foods (${nutrition.selectedFoods.length})',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  TextButton.icon(
+                    onPressed: () => _showFoodSearch(context),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Add More'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
               Column(
                 children: nutrition.selectedFoods.map((sf) => _FoodItemTile(
                   key: ValueKey(sf.food.id),
@@ -212,12 +235,26 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                       ref.read(nutritionProvider.notifier).updateGrams(sf.food.id, g),
                 )).toList(),
               ),
-
-            const SizedBox(height: 16),
-
-            // ── Macro breakdown ──────────────────────────────────────────────
-            if (nutrition.selectedFoods.isNotEmpty)
+              const SizedBox(height: 16),
               _MacroBreakdownCard(nutrition: nutrition),
+            ] else ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(children: [
+                  Icon(Icons.restaurant_outlined, size: 40,
+                      color: colorScheme.outlineVariant),
+                  const SizedBox(height: 8),
+                  Text('Tap an option above to add food',
+                      style: TextStyle(color: colorScheme.outline, fontSize: 13)),
+                ]),
+              ),
+            ],
           ],
         ),
           ),
@@ -226,27 +263,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
           // Tab 2: analytics
           const _AnalyticsTab(),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          final personId = ref.read(selectedPersonProvider);
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => VoiceMealSheet(
-              personId: personId,
-              onLogged: () {
-                ref.invalidate(nutritionProvider);
-                ref.invalidate(dashboardProvider(personId));
-              },
-            ),
-          );
-        },
-        icon: const Icon(Icons.mic),
-        label: const Text('Voice Log'),
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
       ),
     );
   }
@@ -270,12 +286,210 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
     }
   }
 
-  void _showFoodSearch(BuildContext context) {
+  void _showFoodSearch(BuildContext context, {bool startWithBarcode = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => const FoodSearchSheet(),
+      builder: (_) => FoodSearchSheet(startWithBarcode: startWithBarcode),
+    );
+  }
+
+  void _showLabelScanOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => const FoodSearchSheet(startWithLabelCamera: true),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  builder: (_) => const FoodSearchSheet(startWithLabelGallery: true),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Daily progress header ───────────────────────────────────────────────────
+
+class _DailyProgressHeader extends ConsumerWidget {
+  final NutritionState nutrition;
+  const _DailyProgressHeader({required this.nutrition});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final person = ref.watch(selectedPersonProvider);
+    final user = ref.watch(authProvider).user;
+
+    // Determine age/gender for daily intake
+    int? age;
+    String? gender;
+    if (person == 'self') {
+      age = user?.age;
+      gender = user?.gender;
+    } else {
+      final fm = user?.profile.children.where((m) => m.id == person).toList() ?? [];
+      if (fm.isNotEmpty) {
+        age = fm.first.age;
+        gender = fm.first.gender;
+      }
+    }
+    final di = _dailyIntake(age, gender);
+    final cals = nutrition.totalCalories;
+    final calPct = di.calories > 0 ? (cals / di.calories).clamp(0.0, 1.5) : 0.0;
+    final protPct = di.protein > 0 ? (nutrition.totalProtein / di.protein).clamp(0.0, 1.5) : 0.0;
+    final carbPct = di.carbs > 0 ? (nutrition.totalCarbs / di.carbs).clamp(0.0, 1.5) : 0.0;
+    final fatPct = di.fat > 0 ? (nutrition.totalFat / di.fat).clamp(0.0, 1.5) : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primaryContainer.withOpacity(0.5), cs.surface],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          // Calorie ring
+          SizedBox(
+            width: 72, height: 72,
+            child: Stack(alignment: Alignment.center, children: [
+              SizedBox(
+                width: 72, height: 72,
+                child: CircularProgressIndicator(
+                  value: calPct.clamp(0.0, 1.0),
+                  strokeWidth: 6,
+                  backgroundColor: cs.outlineVariant.withOpacity(0.3),
+                  color: calPct > 1.0 ? Colors.red : cs.primary,
+                ),
+              ),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                Text('${cals.toInt()}',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
+                        color: cs.onSurface)),
+                Text('kcal', style: TextStyle(fontSize: 10, color: cs.outline)),
+              ]),
+            ]),
+          ),
+          const SizedBox(width: 20),
+          // Macro bars
+          Expanded(
+            child: Column(
+              children: [
+                _MiniMacroBar('Protein', nutrition.totalProtein, di.protein, Colors.blue, protPct),
+                const SizedBox(height: 8),
+                _MiniMacroBar('Carbs', nutrition.totalCarbs, di.carbs, Colors.orange, carbPct),
+                const SizedBox(height: 8),
+                _MiniMacroBar('Fat', nutrition.totalFat, di.fat, Colors.red, fatPct),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMacroBar extends StatelessWidget {
+  final String label;
+  final double current;
+  final double target;
+  final Color color;
+  final double pct;
+  const _MiniMacroBar(this.label, this.current, this.target, this.color, this.pct);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        SizedBox(width: 48, child: Text(label,
+            style: TextStyle(fontSize: 11, color: cs.outline))),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: pct.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: cs.outlineVariant.withOpacity(0.3),
+              color: pct > 1.0 ? Colors.red : color,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(width: 50, child: Text(
+          '${current.toInt()}/${target.toInt()}g',
+          style: TextStyle(fontSize: 10, color: cs.outline),
+          textAlign: TextAlign.right,
+        )),
+      ],
+    );
+  }
+}
+
+// ─── Entry method card ──────────────────────────────────────────────────────
+
+class _EntryMethodCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _EntryMethodCard({
+    required this.icon, required this.label,
+    required this.color, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 26, color: color),
+                const SizedBox(height: 6),
+                Text(label, style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -795,7 +1009,15 @@ class _IntakeRow extends StatelessWidget {
 class FoodSearchSheet extends ConsumerStatefulWidget {
   /// If provided, calls this callback instead of adding to nutritionProvider.
   final void Function(FoodItem)? onFoodPicked;
-  const FoodSearchSheet({super.key, this.onFoodPicked});
+  final bool startWithBarcode;
+  final bool startWithLabelCamera;
+  final bool startWithLabelGallery;
+  const FoodSearchSheet({
+    super.key, this.onFoodPicked,
+    this.startWithBarcode = false,
+    this.startWithLabelCamera = false,
+    this.startWithLabelGallery = false,
+  });
   @override
   ConsumerState<FoodSearchSheet> createState() => _FoodSearchSheetState();
 }
@@ -809,6 +1031,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
   bool _barcodeScanning = false;
   bool _labelScanning = false;
   MobileScannerController? _scanCtrl;
+  bool _didAutoStart = false;
 
   @override
   void dispose() {
@@ -971,6 +1194,18 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
           _categories = categories;
           _tabCtrl = TabController(
               length: categories.length + 1, vsync: this);
+        }
+
+        // Auto-start barcode or label scan if requested
+        if (!_didAutoStart) {
+          _didAutoStart = true;
+          if (widget.startWithBarcode) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _startBarcodeScanning());
+          } else if (widget.startWithLabelCamera) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _scanFoodLabel(ImageSource.camera));
+          } else if (widget.startWithLabelGallery) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _scanFoodLabel(ImageSource.gallery));
+          }
         }
 
         // Filter by search query across all categories
