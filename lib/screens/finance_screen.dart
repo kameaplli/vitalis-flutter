@@ -2596,14 +2596,14 @@ class _ReportSheet extends StatelessWidget {
                       doc.addPage(pw.MultiPage(
                         pageFormat: PdfPageFormat.a4,
                         margin: const pw.EdgeInsets.all(32),
-                        build: (ctx) => [
-                          pw.Text(reportText,
+                        build: (ctx) => reportText.split('\n').map((line) =>
+                          pw.Text(line.isEmpty ? ' ' : line,
                             style: pw.TextStyle(
                               font: pw.Font.courier(),
                               fontSize: 8,
                             ),
                           ),
-                        ],
+                        ).toList(),
                       ));
                       final bytes = await doc.save();
                       await Printing.layoutPdf(
