@@ -11,6 +11,7 @@ import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
 import '../services/biometric_service.dart';
 import '../services/prefetch_service.dart';
+import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -178,39 +179,235 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _BottomNavWithGenie(
         selectedIndex: selectedIndex,
         onDestinationSelected: (i) => context.go(_navRoutes[i]),
-        destinations: const [
-          NavigationDestination(
-            icon:         Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label:        'Home',
-          ),
-          NavigationDestination(
-            icon:         Icon(Icons.restaurant_outlined),
-            selectedIcon: Icon(Icons.restaurant),
-            label:        'Nutrition',
-          ),
-          NavigationDestination(
-            icon:         Icon(Icons.favorite_outline),
-            selectedIcon: Icon(Icons.favorite),
-            label:        'Health',
-          ),
-          NavigationDestination(
-            icon:         Icon(Icons.account_balance_outlined),
-            selectedIcon: Icon(Icons.account_balance),
-            label:        'Finance',
-          ),
-          NavigationDestination(
-            icon:         Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart),
-            label:        'Grocery',
-          ),
-        ],
+        onGenieTap: () {
+          final personId = ref.read(selectedPersonProvider);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => VoiceMealSheet(
+              personId: personId,
+              onLogged: () {
+                ref.invalidate(dashboardProvider(personId));
+              },
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+// ── Bottom nav with center genie button ──────────────────────────────────────
+
+class _BottomNavWithGenie extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final VoidCallback onGenieTap;
+
+  const _BottomNavWithGenie({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.onGenieTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              // Left nav items: Home, Nutrition
+              _NavItem(Icons.home_outlined, Icons.home, 'Home', 0,
+                  selectedIndex, onDestinationSelected),
+              _NavItem(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition', 1,
+                  selectedIndex, onDestinationSelected),
+
+              // Center genie button
+              Expanded(
+                child: GestureDetector(
+                  onTap: onGenieTap,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      Transform.translate(
+                        offset: const Offset(0, -18),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFFF6B6B), // red-coral
+                                Color(0xFFFFAB40), // amber
+                                Color(0xFF66BB6A), // green
+                                Color(0xFF42A5F5), // blue
+                                Color(0xFFAB47BC), // purple
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF6B6B).withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: CustomPaint(
+                            painter: _GenieBowlPainter(),
+                            child: const Center(
+                              child: Text('✨',
+                                  style: TextStyle(fontSize: 10),
+                                  textAlign: TextAlign.center),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Transform.translate(
+                        offset: const Offset(0, -14),
+                        child: Text('AI',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Right nav items: Health, Finance, Grocery
+              _NavItem(Icons.favorite_outline, Icons.favorite, 'Health', 2,
+                  selectedIndex, onDestinationSelected),
+              _NavItem(Icons.account_balance_outlined, Icons.account_balance, 'Finance', 3,
+                  selectedIndex, onDestinationSelected),
+              _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Grocery', 4,
+                  selectedIndex, onDestinationSelected),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int index;
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+
+  const _NavItem(this.icon, this.activeIcon, this.label, this.index,
+      this.selectedIndex, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = index == selectedIndex;
+    final cs = Theme.of(context).colorScheme;
+    final color = isSelected ? cs.primary : cs.onSurfaceVariant;
+
+    return Expanded(
+      child: InkResponse(
+        onTap: () => onTap(index),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(isSelected ? activeIcon : icon, size: 22, color: color),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(fontSize: 10, color: color,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Custom painter: draws a colorful bowl with food items and a genie swirl.
+class _GenieBowlPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // Bowl body (white with slight transparency)
+    final bowlPaint = Paint()
+      ..color = Colors.white.withOpacity(0.95)
+      ..style = PaintingStyle.fill;
+
+    final bowlPath = Path()
+      ..moveTo(cx - 16, cy - 2)
+      ..quadraticBezierTo(cx - 18, cy + 12, cx - 10, cy + 14)
+      ..lineTo(cx + 10, cy + 14)
+      ..quadraticBezierTo(cx + 18, cy + 12, cx + 16, cy - 2)
+      ..close();
+    canvas.drawPath(bowlPath, bowlPaint);
+
+    // Bowl rim
+    final rimPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawLine(Offset(cx - 18, cy - 2), Offset(cx + 18, cy - 2), rimPaint);
+
+    // Food items in bowl (colorful circles)
+    // Red (tomato/apple)
+    canvas.drawCircle(Offset(cx - 8, cy + 3), 4, Paint()..color = const Color(0xFFFF6B6B));
+    // Green (broccoli/lettuce)
+    canvas.drawCircle(Offset(cx + 2, cy + 1), 4.5, Paint()..color = const Color(0xFF66BB6A));
+    // Orange (carrot/orange)
+    canvas.drawCircle(Offset(cx + 10, cy + 4), 3.5, Paint()..color = const Color(0xFFFFAB40));
+    // Yellow (corn/banana)
+    canvas.drawCircle(Offset(cx - 2, cy + 7), 3, Paint()..color = const Color(0xFFFFD54F));
+
+    // Genie swirl (rising from bowl)
+    final swirlPaint = Paint()
+      ..color = Colors.white.withOpacity(0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final swirlPath = Path()
+      ..moveTo(cx, cy - 4)
+      ..quadraticBezierTo(cx + 8, cy - 12, cx - 2, cy - 16)
+      ..quadraticBezierTo(cx - 10, cy - 19, cx + 4, cy - 22);
+    canvas.drawPath(swirlPath, swirlPaint);
+
+    // Sparkle dots
+    final sparklePaint = Paint()..color = Colors.white;
+    canvas.drawCircle(Offset(cx + 6, cy - 20), 1.5, sparklePaint);
+    canvas.drawCircle(Offset(cx - 8, cy - 14), 1.2, sparklePaint);
+    canvas.drawCircle(Offset(cx + 10, cy - 10), 1.0, sparklePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ── Biometric lock screen ─────────────────────────────────────────────────────
