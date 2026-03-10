@@ -28,7 +28,7 @@ dependencies:
 
   # Image picking & camera
   image_picker: ^1.0.7
-  image_cropper: ^7.1.0
+  image_cropper: ^11.0.0
 
   # Barcode scanning
   mobile_scanner: ^5.1.1
@@ -70,6 +70,9 @@ dependencies:
 
   # Google Fonts (Plus Jakarta Sans)
   google_fonts: ^6.2.1
+
+  # Speech-to-text (voice meal logging)
+  speech_to_text: ^7.0.0
 
 dev_dependencies:
   flutter_test:
