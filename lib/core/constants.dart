@@ -44,6 +44,8 @@ class ApiConstants {
   // Nutrition
   static const String nutritionLog = '/api/log/nutrition';
   static const String nutritionAll = '/api/log/nutrition/all';
+  static const String nutritionVoice = '/api/log/nutrition/voice';
+  static const String nutritionVoiceConfirm = '/api/log/nutrition/voice/confirm';
 
   // Weight
   static const String weightLog = '/api/log/weight';

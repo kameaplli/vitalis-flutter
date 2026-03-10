@@ -19,6 +19,7 @@ import '../models/nutrition_analytics.dart';
 import '../models/insight_data.dart';
 import '../core/timezone_util.dart';
 import 'entries_screen.dart' show NutritionHistoryContent;
+import '../widgets/voice_meal_sheet.dart';
 
 // ─── Daily intake lookup by age / gender ─────────────────────────────────────
 
@@ -225,6 +226,27 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
           // Tab 2: analytics
           const _AnalyticsTab(),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          final personId = ref.read(selectedPersonProvider);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => VoiceMealSheet(
+              personId: personId,
+              onLogged: () {
+                ref.invalidate(nutritionProvider);
+                ref.invalidate(dashboardProvider(personId));
+              },
+            ),
+          );
+        },
+        icon: const Icon(Icons.mic),
+        label: const Text('Voice Log'),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
       ),
     );
   }
