@@ -83,6 +83,18 @@ const _categoryColors = <String, Color>{
   'investment': Colors.indigo,
   'savings': Colors.green,
   'loan_repayment': Colors.red,
+  'credit_card_payment': Color(0xFF7E57C2),
+  'hand_loan': Color(0xFFFF7043),
+  // Government
+  'council_rates': Color(0xFF546E7A),
+  // Sports & recreation
+  'cricket': Color(0xFF66BB6A),
+  'karate': Color(0xFFD32F2F),
+  'swimming': Color(0xFF039BE5),
+  'calisthenics': Color(0xFF8D6E63),
+  'sports': Color(0xFF43A047),
+  // Tutoring
+  'tutoring': Color(0xFF5E35B1),
   // Professional
   'professional_services': Color(0xFF5C6BC0),
   'pet': Colors.brown,
@@ -154,6 +166,15 @@ IconData _catIcon(String cat) => switch (cat) {
       'investment' => Icons.trending_up,
       'savings' => Icons.savings,
       'loan_repayment' => Icons.credit_card,
+      'credit_card_payment' => Icons.payment,
+      'hand_loan' => Icons.handshake,
+      'council_rates' => Icons.account_balance,
+      'cricket' => Icons.sports_cricket,
+      'karate' => Icons.sports_martial_arts,
+      'swimming' => Icons.pool,
+      'calisthenics' => Icons.fitness_center,
+      'sports' => Icons.sports,
+      'tutoring' => Icons.school,
       'professional_services' => Icons.business_center,
       'pet' => Icons.pets,
       'lottery' => Icons.casino,
@@ -219,6 +240,15 @@ String _catLabel(String cat) => switch (cat) {
       'investment' => 'Investment',
       'savings' => 'Savings',
       'loan_repayment' => 'Loan Repayment',
+      'credit_card_payment' => 'Credit Card Payment',
+      'hand_loan' => 'Hand Loan',
+      'council_rates' => 'Council Rates',
+      'cricket' => 'Cricket',
+      'karate' => 'Karate',
+      'swimming' => 'Swimming',
+      'calisthenics' => 'Calisthenics',
+      'sports' => 'Sports',
+      'tutoring' => 'Tutoring',
       'professional_services' => 'Professional Services',
       'pet' => 'Pet',
       'lottery' => 'Lottery',
@@ -252,6 +282,13 @@ const _allCategories = [
   'salary', 'income', 'freelance', 'refund', 'cashback', 'rewards',
   // Financial
   'transfer', 'atm', 'cash', 'investment', 'savings', 'loan_repayment',
+  'credit_card_payment', 'hand_loan',
+  // Government
+  'council_rates',
+  // Sports & recreation
+  'cricket', 'karate', 'swimming', 'calisthenics', 'sports',
+  // Tutoring
+  'tutoring',
   // Professional
   'professional_services', 'pet', 'lottery',
   // Catch-all
