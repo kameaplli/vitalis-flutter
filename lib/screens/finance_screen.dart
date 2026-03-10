@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/finance_models.dart';
@@ -14,30 +16,47 @@ import '../providers/finance_provider.dart';
 // ── Category colours ─────────────────────────────────────────────────────────
 
 const _categoryColors = <String, Color>{
+  // Daily living
   'groceries': Colors.green,
   'dining': Colors.orange,
   'fast_food': Colors.deepOrange,
   'coffee': Colors.brown,
+  // Transport
   'transport': Colors.blue,
   'fuel': Colors.blueGrey,
   'parking': Colors.grey,
+  'tolls': Color(0xFF607D8B),
+  'rideshare': Color(0xFF1565C0),
+  // Housing
   'rent': Colors.indigo,
   'mortgage': Colors.indigo,
   'utilities': Colors.teal,
+  'home_improvement': Colors.brown,
+  'repairs': Color(0xFF8D6E63),
+  'maintenance': Color(0xFF795548),
+  // Insurance & finance
   'insurance': Colors.purple,
   'interest': Colors.red,
   'fees': Colors.red,
   'bank_charges': Colors.red,
+  'tax': Color(0xFFD32F2F),
+  // Health
   'medical': Colors.pink,
   'pharmacy': Colors.pink,
   'fitness': Colors.lightGreen,
+  'personal_care': Colors.purple,
+  // Shopping
   'apparel': Colors.deepPurple,
   'electronics': Colors.cyan,
   'furniture': Colors.amber,
   'toys': Colors.lime,
+  'online_shopping': Colors.deepOrange,
+  // Family & education
   'education': Colors.blue,
   'school_fees': Colors.blue,
   'childcare': Colors.pink,
+  'baby': Color(0xFFEC407A),
+  // Lifestyle
   'entertainment': Colors.orange,
   'streaming': Colors.purple,
   'subscriptions': Colors.purple,
@@ -46,19 +65,28 @@ const _categoryColors = <String, Color>{
   'flights': Colors.cyan,
   'gifts': Color(0xFFE91E63),
   'donations': Colors.teal,
-  'online_shopping': Colors.deepOrange,
-  'home_improvement': Colors.brown,
-  'personal_care': Colors.purple,
-  'pet': Colors.brown,
+  'charity': Color(0xFF00897B),
   'alcohol': Colors.deepPurple,
+  'tobacco': Color(0xFF6D4C41),
+  // Income
   'salary': Colors.green,
   'income': Colors.green,
+  'freelance': Color(0xFF43A047),
   'refund': Colors.green,
+  'cashback': Color(0xFF66BB6A),
+  'rewards': Color(0xFF2E7D32),
+  // Financial
   'transfer': Colors.grey,
   'atm': Colors.grey,
+  'cash': Color(0xFF757575),
   'investment': Colors.indigo,
   'savings': Colors.green,
   'loan_repayment': Colors.red,
+  // Professional
+  'professional_services': Color(0xFF5C6BC0),
+  'pet': Colors.brown,
+  'lottery': Color(0xFFFFB300),
+  // Catch-all
   'uncategorized': Colors.grey,
   'other': Colors.grey,
 };
@@ -76,23 +104,32 @@ IconData _catIcon(String cat) => switch (cat) {
       'transport' => Icons.directions_bus,
       'fuel' => Icons.local_gas_station,
       'parking' => Icons.local_parking,
+      'tolls' => Icons.toll,
+      'rideshare' => Icons.local_taxi,
       'rent' => Icons.home,
       'mortgage' => Icons.home,
       'utilities' => Icons.bolt,
+      'home_improvement' => Icons.hardware,
+      'repairs' => Icons.build,
+      'maintenance' => Icons.handyman,
       'insurance' => Icons.shield,
       'interest' => Icons.trending_up,
       'fees' => Icons.receipt,
       'bank_charges' => Icons.receipt,
+      'tax' => Icons.account_balance,
       'medical' => Icons.local_hospital,
       'pharmacy' => Icons.medication,
       'fitness' => Icons.fitness_center,
+      'personal_care' => Icons.face,
       'apparel' => Icons.checkroom,
       'electronics' => Icons.devices,
       'furniture' => Icons.chair,
       'toys' => Icons.toys,
+      'online_shopping' => Icons.shopping_bag,
       'education' => Icons.school,
       'school_fees' => Icons.school,
       'childcare' => Icons.child_care,
+      'baby' => Icons.child_friendly,
       'entertainment' => Icons.movie,
       'streaming' => Icons.live_tv,
       'subscriptions' => Icons.subscriptions,
@@ -101,19 +138,24 @@ IconData _catIcon(String cat) => switch (cat) {
       'flights' => Icons.flight,
       'gifts' => Icons.card_giftcard,
       'donations' => Icons.volunteer_activism,
-      'online_shopping' => Icons.shopping_bag,
-      'home_improvement' => Icons.hardware,
-      'personal_care' => Icons.face,
-      'pet' => Icons.pets,
+      'charity' => Icons.favorite,
       'alcohol' => Icons.wine_bar,
+      'tobacco' => Icons.smoking_rooms,
       'salary' => Icons.payments,
       'income' => Icons.account_balance_wallet,
+      'freelance' => Icons.work_outline,
       'refund' => Icons.replay,
+      'cashback' => Icons.money,
+      'rewards' => Icons.star,
       'transfer' => Icons.swap_horiz,
       'atm' => Icons.atm,
+      'cash' => Icons.money,
       'investment' => Icons.trending_up,
       'savings' => Icons.savings,
       'loan_repayment' => Icons.credit_card,
+      'professional_services' => Icons.business_center,
+      'pet' => Icons.pets,
+      'lottery' => Icons.casino,
       _ => Icons.category,
     };
 
@@ -127,23 +169,32 @@ String _catLabel(String cat) => switch (cat) {
       'transport' => 'Transport',
       'fuel' => 'Fuel',
       'parking' => 'Parking',
+      'tolls' => 'Tolls',
+      'rideshare' => 'Rideshare',
       'rent' => 'Rent',
       'mortgage' => 'Mortgage',
       'utilities' => 'Utilities',
+      'home_improvement' => 'Home Improvement',
+      'repairs' => 'Repairs',
+      'maintenance' => 'Maintenance',
       'insurance' => 'Insurance',
       'interest' => 'Interest',
       'fees' => 'Fees',
       'bank_charges' => 'Bank Charges',
+      'tax' => 'Tax',
       'medical' => 'Medical',
       'pharmacy' => 'Pharmacy',
       'fitness' => 'Fitness',
+      'personal_care' => 'Personal Care',
       'apparel' => 'Apparel',
       'electronics' => 'Electronics',
       'furniture' => 'Furniture',
       'toys' => 'Toys',
+      'online_shopping' => 'Online Shopping',
       'education' => 'Education',
       'school_fees' => 'School Fees',
       'childcare' => 'Childcare',
+      'baby' => 'Baby',
       'entertainment' => 'Entertainment',
       'streaming' => 'Streaming',
       'subscriptions' => 'Subscriptions',
@@ -152,19 +203,24 @@ String _catLabel(String cat) => switch (cat) {
       'flights' => 'Flights',
       'gifts' => 'Gifts',
       'donations' => 'Donations',
-      'online_shopping' => 'Online Shopping',
-      'home_improvement' => 'Home Improvement',
-      'personal_care' => 'Personal Care',
-      'pet' => 'Pet',
+      'charity' => 'Charity',
       'alcohol' => 'Alcohol',
+      'tobacco' => 'Tobacco',
       'salary' => 'Salary',
       'income' => 'Income',
+      'freelance' => 'Freelance',
       'refund' => 'Refund',
+      'cashback' => 'Cashback',
+      'rewards' => 'Rewards',
       'transfer' => 'Transfer',
       'atm' => 'ATM',
+      'cash' => 'Cash',
       'investment' => 'Investment',
       'savings' => 'Savings',
       'loan_repayment' => 'Loan Repayment',
+      'professional_services' => 'Professional Services',
+      'pet' => 'Pet',
+      'lottery' => 'Lottery',
       'uncategorized' => 'Uncategorized',
       'other' => 'Other',
       _ => cat[0].toUpperCase() + cat.substring(1),
@@ -173,19 +229,31 @@ String _catLabel(String cat) => switch (cat) {
 // ── All categories for edit chip selection ───────────────────────────────────
 
 const _allCategories = [
+  // Daily living
   'groceries', 'dining', 'fast_food', 'coffee',
-  'transport', 'fuel', 'parking',
-  'rent', 'mortgage', 'utilities', 'insurance',
-  'interest', 'fees', 'bank_charges',
-  'medical', 'pharmacy', 'fitness',
-  'apparel', 'electronics', 'furniture', 'toys',
-  'education', 'school_fees', 'childcare',
+  // Transport
+  'transport', 'fuel', 'parking', 'tolls', 'rideshare',
+  // Housing
+  'rent', 'mortgage', 'utilities', 'home_improvement', 'repairs', 'maintenance',
+  // Insurance & finance
+  'insurance', 'interest', 'fees', 'bank_charges', 'tax',
+  // Health
+  'medical', 'pharmacy', 'fitness', 'personal_care',
+  // Shopping
+  'apparel', 'electronics', 'furniture', 'toys', 'online_shopping',
+  // Family & education
+  'education', 'school_fees', 'childcare', 'baby',
+  // Lifestyle
   'entertainment', 'streaming', 'subscriptions',
   'travel', 'hotels', 'flights',
-  'gifts', 'donations', 'online_shopping',
-  'home_improvement', 'personal_care', 'pet', 'alcohol',
-  'salary', 'income', 'refund',
-  'transfer', 'atm', 'investment', 'savings', 'loan_repayment',
+  'gifts', 'donations', 'charity', 'alcohol', 'tobacco',
+  // Income
+  'salary', 'income', 'freelance', 'refund', 'cashback', 'rewards',
+  // Financial
+  'transfer', 'atm', 'cash', 'investment', 'savings', 'loan_repayment',
+  // Professional
+  'professional_services', 'pet', 'lottery',
+  // Catch-all
   'uncategorized', 'other',
 ];
 
@@ -388,6 +456,54 @@ class _StatementCard extends ConsumerWidget {
   final BankStatement statement;
   const _StatementCard({required this.statement});
 
+  Future<void> _deleteStatement(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Statement'),
+        content: Text(
+          'Delete "${statement.bankName ?? statement.originalFilename ?? 'this statement'}" '
+          'and all its transactions? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await apiClient.dio.delete(
+        '${ApiConstants.financeStatements}/${statement.id}',
+      );
+      ref.invalidate(financeStatementsProvider);
+      ref.invalidate(financeSpendingProvider('month'));
+      ref.invalidate(financeSpendingProvider('3month'));
+      ref.invalidate(financeSpendingProvider('6month'));
+      ref.invalidate(financeSpendingProvider('year'));
+      ref.invalidate(financeBudgetProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Statement deleted')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
@@ -397,107 +513,126 @@ class _StatementCard extends ConsumerWidget {
     final isPending = statement.status == 'pending' ||
         statement.status == 'processing';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: isDone ? () => _openDetail(context) : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: isDone
-                          ? cs.primaryContainer
-                          : cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
+    return Dismissible(
+      key: ValueKey(statement.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        await _deleteStatement(context, ref);
+        return false; // We handle removal via provider invalidation
+      },
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: isDone ? () => _openDetail(context) : null,
+          onLongPress: () => _deleteStatement(context, ref),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDone
+                            ? cs.primaryContainer
+                            : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.account_balance,
+                        size: 20,
+                        color: isDone ? cs.primary : cs.outline,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.account_balance,
-                      size: 20,
-                      color: isDone ? cs.primary : cs.outline,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            statement.bankName ?? statement.originalFilename ?? 'Statement',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _periodText(),
+                            style: TextStyle(fontSize: 12, color: cs.outline),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          statement.bankName ?? statement.originalFilename ?? 'Statement',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _periodText(),
-                          style: TextStyle(fontSize: 12, color: cs.outline),
-                        ),
+                        _StatusBadge(status: statement.status),
+                        if (isPending) ...[
+                          const SizedBox(height: 6),
+                          _PollButton(statementId: statement.id),
+                        ],
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  ],
+                ),
+                if (isDone) ...[
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  Row(
                     children: [
-                      _StatusBadge(status: statement.status),
-                      if (isPending) ...[
-                        const SizedBox(height: 6),
-                        _PollButton(statementId: statement.id),
-                      ],
+                      _InfoChip(
+                        icon: Icons.receipt_outlined,
+                        label: '${statement.transactionCount} txns',
+                        color: cs.primary,
+                      ),
+                      const SizedBox(width: 10),
+                      if (statement.totalDebits != null)
+                        _InfoChip(
+                          icon: Icons.arrow_downward,
+                          label: fmt.format(statement.totalDebits),
+                          color: Colors.red,
+                        ),
+                      const SizedBox(width: 10),
+                      if (statement.totalCredits != null)
+                        _InfoChip(
+                          icon: Icons.arrow_upward,
+                          label: fmt.format(statement.totalCredits),
+                          color: Colors.green,
+                        ),
+                      const Spacer(),
+                      Icon(Icons.chevron_right, size: 16, color: cs.outline),
                     ],
                   ),
                 ],
-              ),
-              if (isDone) ...[
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    _InfoChip(
-                      icon: Icons.receipt_outlined,
-                      label: '${statement.transactionCount} txns',
-                      color: cs.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    if (statement.totalDebits != null)
-                      _InfoChip(
-                        icon: Icons.arrow_downward,
-                        label: fmt.format(statement.totalDebits),
-                        color: Colors.red,
-                      ),
-                    const SizedBox(width: 10),
-                    if (statement.totalCredits != null)
-                      _InfoChip(
-                        icon: Icons.arrow_upward,
-                        label: fmt.format(statement.totalCredits),
-                        color: Colors.green,
-                      ),
-                    const Spacer(),
-                    Icon(Icons.chevron_right, size: 16, color: cs.outline),
-                  ],
-                ),
+                if (isFailed && statement.errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    statement.errorMessage!,
+                    style: TextStyle(fontSize: 11, color: cs.error),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
-              if (isFailed && statement.errorMessage != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  statement.errorMessage!,
-                  style: TextStyle(fontSize: 11, color: cs.error),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -1387,6 +1522,65 @@ class _AnalyticsTab extends ConsumerStatefulWidget {
 
 class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
   String _period = 'month';
+  bool _downloading = false;
+
+  Future<void> _downloadReport() async {
+    setState(() => _downloading = true);
+    try {
+      final res = await apiClient.dio.get(
+        ApiConstants.financeReport,
+        queryParameters: {'period': _period},
+      );
+      final reportText = res.data['report_text'] as String;
+
+      if (!mounted) return;
+
+      // Show bottom sheet with share/copy options
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (ctx) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (ctx, ctrl) => _ReportSheet(
+            reportText: reportText,
+            scrollController: ctrl,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate report: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  void _openCategoryDrillDown(String category) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (ctx, ctrl) => _CategoryDrillDownSheet(
+          category: category,
+          period: _period,
+          scrollController: ctrl,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1398,7 +1592,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Period selector
+          // Period selector + download button
           Row(
             children: [
               Text('Period:', style: Theme.of(context).textTheme.titleSmall),
@@ -1415,6 +1609,16 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
                   onSelectionChanged: (s) =>
                       setState(() => _period = s.first),
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _downloading ? null : _downloadReport,
+                icon: _downloading
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.download_outlined),
+                tooltip: 'Download Report',
               ),
             ],
           ),
@@ -1457,13 +1661,21 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
                   // Pie chart
                   Text('Spending by Category',
                       style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text('Tap a category to view & edit transactions',
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                   const SizedBox(height: 16),
                   _SpendingPieChart(spending: spending),
                   const SizedBox(height: 20),
 
-                  // Category list
+                  // Category list (tappable)
                   ...spending.byCategory.map(
-                      (cat) => _CategoryListItem(cat: cat, spending: spending)),
+                    (cat) => _CategoryListItem(
+                      cat: cat,
+                      spending: spending,
+                      onTap: () => _openCategoryDrillDown(cat.category),
+                    ),
+                  ),
                 ],
               );
             },
@@ -1657,7 +1869,8 @@ class _SpendingPieChart extends StatelessWidget {
 class _CategoryListItem extends StatelessWidget {
   final FinanceCategorySpend cat;
   final FinanceSpending spending;
-  const _CategoryListItem({required this.cat, required this.spending});
+  final VoidCallback? onTap;
+  const _CategoryListItem({required this.cat, required this.spending, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1669,53 +1882,59 @@ class _CategoryListItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Card(
         margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(_catIcon(cat.category), size: 18, color: color),
                 ),
-                child: Icon(_catIcon(cat.category), size: 18, color: color),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_catLabel(cat.category),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${cat.count} transaction${cat.count != 1 ? 's' : ''}',
+                        style:
+                            TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(_catLabel(cat.category),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text(fmt.format(cat.amount),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: color)),
                     const SizedBox(height: 2),
                     Text(
-                      '${cat.count} transaction${cat.count != 1 ? 's' : ''}',
+                      '${cat.percentage.toStringAsFixed(1)}%',
                       style:
                           TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(fmt.format(cat.amount),
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: color)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${cat.percentage.toStringAsFixed(1)}%',
-                    style:
-                        TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ],
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right, size: 16, color: cs.outline),
+              ],
+            ),
           ),
         ),
       ),
@@ -2146,6 +2365,258 @@ class _BudgetItemCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Category Drill-Down Sheet — tap a category in Analytics to see & edit txns
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _CategoryDrillDownSheet extends ConsumerStatefulWidget {
+  final String category;
+  final String period;
+  final ScrollController scrollController;
+  const _CategoryDrillDownSheet({
+    required this.category,
+    required this.period,
+    required this.scrollController,
+  });
+
+  @override
+  ConsumerState<_CategoryDrillDownSheet> createState() =>
+      _CategoryDrillDownSheetState();
+}
+
+class _CategoryDrillDownSheetState
+    extends ConsumerState<_CategoryDrillDownSheet> {
+  List<FinanceTransaction>? _transactions;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    try {
+      final res = await apiClient.dio.get(
+        ApiConstants.financeSpendingTxns,
+        queryParameters: {
+          'period': widget.period,
+          'category': widget.category,
+        },
+      );
+      final list = (res.data['transactions'] as List)
+          .map((e) => FinanceTransaction.fromJson(e as Map<String, dynamic>))
+          .toList();
+      if (mounted) setState(() { _transactions = list; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = '$e'; _loading = false; });
+    }
+  }
+
+  void _showEditTransaction(FinanceTransaction tx) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: _EditTransactionSheet(
+          tx: tx,
+          onSaved: () {
+            _loadTransactions();
+            // Also invalidate analytics so the pie chart updates
+            ref.invalidate(financeSpendingProvider(widget.period));
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fmt = NumberFormat.currency(symbol: '\$');
+    final color = _catColor(widget.category);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: cs.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(_catIcon(widget.category), color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _catLabel(widget.category),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Tap a transaction to edit',
+                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_transactions != null)
+                  Text(
+                    '${_transactions!.length} txns',
+                    style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: cs.outlineVariant),
+          if (_loading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (_error != null)
+            Expanded(child: Center(child: Text('Error: $_error')))
+          else if (_transactions!.isEmpty)
+            const Expanded(child: Center(child: Text('No transactions')))
+          else
+            Expanded(
+              child: ListView.builder(
+                controller: widget.scrollController,
+                padding: const EdgeInsets.only(bottom: 24),
+                itemCount: _transactions!.length,
+                itemBuilder: (_, i) => _TransactionRow(
+                  tx: _transactions![i],
+                  fmt: fmt,
+                  onEdit: () => _showEditTransaction(_transactions![i]),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Report Sheet — view, copy, or share the finance report
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _ReportSheet extends StatelessWidget {
+  final String reportText;
+  final ScrollController scrollController;
+  const _ReportSheet({required this.reportText, required this.scrollController});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: cs.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Icon(Icons.description_outlined, color: cs.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Finance Report',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy_outlined),
+                  tooltip: 'Copy to clipboard',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: reportText));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Report copied to clipboard')),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  tooltip: 'Save as PDF',
+                  onPressed: () async {
+                    final doc = pw.Document();
+                    doc.addPage(pw.MultiPage(
+                      build: (ctx) => [
+                        pw.Text(reportText,
+                          style: pw.TextStyle(
+                            font: pw.Font.courier(),
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ));
+                    await Printing.sharePdf(
+                      bytes: await doc.save(),
+                      filename: 'vitalis_finance_report.pdf',
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Divider(height: 1, color: cs.outlineVariant),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(20),
+              child: SelectableText(
+                reportText,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
