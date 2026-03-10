@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../core/api_client.dart';
 import '../core/constants.dart';
@@ -2590,21 +2591,32 @@ class _ReportSheet extends StatelessWidget {
                   icon: const Icon(Icons.picture_as_pdf_outlined),
                   tooltip: 'Save as PDF',
                   onPressed: () async {
-                    final doc = pw.Document();
-                    doc.addPage(pw.MultiPage(
-                      build: (ctx) => [
-                        pw.Text(reportText,
-                          style: pw.TextStyle(
-                            font: pw.Font.courier(),
-                            fontSize: 9,
+                    try {
+                      final doc = pw.Document();
+                      doc.addPage(pw.MultiPage(
+                        pageFormat: PdfPageFormat.a4,
+                        margin: const pw.EdgeInsets.all(32),
+                        build: (ctx) => [
+                          pw.Text(reportText,
+                            style: pw.TextStyle(
+                              font: pw.Font.courier(),
+                              fontSize: 8,
+                            ),
                           ),
-                        ),
-                      ],
-                    ));
-                    await Printing.sharePdf(
-                      bytes: await doc.save(),
-                      filename: 'vitalis_finance_report.pdf',
-                    );
+                        ],
+                      ));
+                      final bytes = await doc.save();
+                      await Printing.layoutPdf(
+                        onLayout: (_) => bytes,
+                        name: 'vitalis_finance_report',
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to generate PDF: $e')),
+                        );
+                      }
+                    }
                   },
                 ),
               ],
