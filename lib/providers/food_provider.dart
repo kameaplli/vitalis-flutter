@@ -32,3 +32,18 @@ final recentMealsProvider = FutureProvider<List<RecentMeal>>((ref) async {
       .map((m) => RecentMeal.fromJson(m))
       .toList();
 });
+
+/// Per-meal-type suggestions (breakfast, lunch, dinner, snack).
+/// Returns {meal_type: [RecentMeal]} for smart suggestions.
+final mealSuggestionsProvider =
+    FutureProvider<Map<String, List<RecentMeal>>>((ref) async {
+  final res = await apiClient.dio.get(ApiConstants.frequentFoods);
+  final suggestions = res.data['suggestions'] as Map<String, dynamic>? ?? {};
+  final result = <String, List<RecentMeal>>{};
+  for (final entry in suggestions.entries) {
+    result[entry.key] = (entry.value as List<dynamic>)
+        .map((m) => RecentMeal.fromJson(m))
+        .toList();
+  }
+  return result;
+});
