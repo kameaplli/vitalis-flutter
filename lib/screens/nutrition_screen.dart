@@ -20,6 +20,7 @@ import '../models/insight_data.dart';
 import '../core/timezone_util.dart';
 import 'entries_screen.dart' show NutritionHistoryContent;
 import '../widgets/voice_meal_sheet.dart';
+import '../widgets/nutrient_card.dart';
 
 // ─── Daily intake lookup by age / gender ─────────────────────────────────────
 
@@ -643,6 +644,7 @@ class _FoodItemTile extends StatefulWidget {
 class _FoodItemTileState extends State<_FoodItemTile> {
   late TextEditingController _ctrl;
   late int _servings;
+  bool _showBrand = false;
 
   double get _baseServing => widget.sf.food.servingSize ?? 100;
 
@@ -660,6 +662,7 @@ class _FoodItemTileState extends State<_FoodItemTile> {
     if (old.sf.food.id != widget.sf.food.id) {
       _servings = (widget.sf.grams / _baseServing).round().clamp(1, 99);
       _ctrl.text = widget.sf.grams.toStringAsFixed(0);
+      _showBrand = false;
     }
   }
 
@@ -679,118 +682,160 @@ class _FoodItemTileState extends State<_FoodItemTile> {
   @override
   Widget build(BuildContext context) {
     final sf = widget.sf;
+    final food = sf.food;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      child: Column(
         children: [
-          Text(sf.food.emoji ?? '🍽️',
-              style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(sf.food.name,
-                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                Text(
-                  '${sf.calories.toStringAsFixed(0)} kcal'
-                  '  ·  P ${sf.protein.toStringAsFixed(1)}g'
-                  '  C ${sf.carbs.toStringAsFixed(1)}g'
-                  '  F ${sf.fat.toStringAsFixed(1)}g',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          Row(
+            children: [
+              Text(food.emoji ?? '🍽️',
+                  style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Food title — tap to toggle brand
+                    GestureDetector(
+                      onTap: food.hasBrand
+                          ? () => setState(() => _showBrand = !_showBrand)
+                          : null,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(food.title,
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          if (food.hasBrand && !_showBrand)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(Icons.storefront,
+                                  size: 12,
+                                  color: Colors.grey.shade400),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Brand subtitle (tap to reveal)
+                    if (_showBrand && food.hasBrand)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Text(food.brandLabel,
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    Text(
+                      '${sf.calories.toStringAsFixed(0)} kcal'
+                      '  ·  P ${sf.protein.toStringAsFixed(1)}g'
+                      '  C ${sf.carbs.toStringAsFixed(1)}g'
+                      '  F ${sf.fat.toStringAsFixed(1)}g',
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                    ),
+                    if (food.uniqueAllergens.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Wrap(
+                          spacing: 3,
+                          runSpacing: 2,
+                          children: food.uniqueAllergens.take(4).map((a) =>
+                            _AllergenBadge(allergen: a),
+                          ).toList(),
+                        ),
+                      ),
+                  ],
                 ),
-                if (sf.food.uniqueAllergens.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Wrap(
-                      spacing: 3,
-                      runSpacing: 2,
-                      children: sf.food.uniqueAllergens.take(4).map((a) =>
-                        _AllergenBadge(allergen: a),
-                      ).toList(),
+              ),
+              const SizedBox(width: 4),
+              // Servings stepper (×N)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: _servings > 1 ? () => setState(() => _applyServings(_servings - 1)) : null,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.remove,
+                          size: 16,
+                          color: _servings > 1
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade300),
                     ),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
-          // Servings stepper (×N)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InkWell(
-                onTap: _servings > 1 ? () => setState(() => _applyServings(_servings - 1)) : null,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Icon(Icons.remove,
-                      size: 16,
-                      color: _servings > 1
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.grey.shade300),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text('${_servings}×',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary)),
+                  ),
+                  InkWell(
+                    onTap: () => setState(() => _applyServings(_servings + 1)),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.add,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 4),
+              // Grams input (edit base serving size)
+              SizedBox(
+                width: 68,
+                child: TextFormField(
+                  controller: _ctrl,
+                  textAlign: TextAlign.center,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    suffixText: 'g',
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  ),
+                  onChanged: (v) {
+                    final val = double.tryParse(v);
+                    if (val != null && val > 0) {
+                      setState(() {
+                        _servings = (val / _baseServing).round().clamp(1, 99);
+                      });
+                      widget.onGramsChanged(val);
+                    }
+                  },
+                  onTapOutside: (_) {
+                    final val = double.tryParse(_ctrl.text);
+                    if (val == null || val <= 0) {
+                      _ctrl.text = sf.grams.toStringAsFixed(0);
+                    }
+                  },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text('${_servings}×',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary)),
-              ),
-              InkWell(
-                onTap: () => setState(() => _applyServings(_servings + 1)),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Icon(Icons.add,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.primary),
-                ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                color: Colors.grey,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onPressed: widget.onRemove,
               ),
             ],
           ),
-          const SizedBox(width: 4),
-          // Grams input (edit base serving size)
-          SizedBox(
-            width: 68,
-            child: TextFormField(
-              controller: _ctrl,
-              textAlign: TextAlign.center,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                isDense: true,
-                suffixText: 'g',
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              ),
-              onChanged: (v) {
-                final val = double.tryParse(v);
-                if (val != null && val > 0) {
-                  // Update servings counter to reflect new grams
-                  setState(() {
-                    _servings = (val / _baseServing).round().clamp(1, 99);
-                  });
-                  widget.onGramsChanged(val);
-                }
-              },
-              onTapOutside: (_) {
-                final val = double.tryParse(_ctrl.text);
-                if (val == null || val <= 0) {
-                  _ctrl.text = sf.grams.toStringAsFixed(0);
-                }
-              },
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            color: Colors.grey,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            onPressed: widget.onRemove,
+          // Nutrient & Ingredients card (expandable)
+          NutrientCard(
+            foodId: food.id,
+            foodName: food.title,
+            ingredientsText: food.ingredientsText,
+            nutrientCompleteness: food.nutrientCompleteness,
           ),
         ],
       ),
@@ -1444,38 +1489,77 @@ class _FoodList extends StatelessWidget {
       itemBuilder: (ctx, i) {
         final food = items[i];
         final badges = food.uniqueAllergens;
-        return ListTile(
-          leading: Text(food.emoji ?? '🍽️',
-              style: const TextStyle(fontSize: 22)),
-          title: Text(food.name),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${food.caloriesPerServing.toStringAsFixed(0)} kcal'
-                ' · ${(food.servingSize ?? 100).toStringAsFixed(0)}g serving',
-                style: const TextStyle(fontSize: 12),
-              ),
-              if (badges.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Wrap(
-                    spacing: 3,
-                    runSpacing: 2,
-                    children: badges.take(4).map((a) =>
-                      _AllergenBadge(allergen: a),
-                    ).toList(),
-                  ),
-                ),
-            ],
-          ),
-          trailing: IconButton(
-            icon:
-                const Icon(Icons.add_circle, color: Colors.green, size: 28),
-            onPressed: () => onAdd(food),
-          ),
-        );
+        return _FoodSearchTile(food: food, badges: badges, onAdd: onAdd);
       },
+    );
+  }
+}
+
+class _FoodSearchTile extends StatefulWidget {
+  final FoodItem food;
+  final List<FoodAllergenInfo> badges;
+  final void Function(FoodItem) onAdd;
+  const _FoodSearchTile({required this.food, required this.badges, required this.onAdd});
+
+  @override
+  State<_FoodSearchTile> createState() => _FoodSearchTileState();
+}
+
+class _FoodSearchTileState extends State<_FoodSearchTile> {
+  bool _showBrand = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final food = widget.food;
+    return ListTile(
+      leading: Text(food.emoji ?? '🍽️',
+          style: const TextStyle(fontSize: 22)),
+      title: GestureDetector(
+        onTap: food.hasBrand
+            ? () => setState(() => _showBrand = !_showBrand)
+            : null,
+        child: Row(
+          children: [
+            Expanded(child: Text(food.title)),
+            if (food.hasBrand && !_showBrand)
+              Icon(Icons.storefront, size: 14, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_showBrand && food.hasBrand)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(food.brandLabel,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.7))),
+            ),
+          Text(
+            '${food.caloriesPerServing.toStringAsFixed(0)} kcal'
+            ' · ${(food.servingSize ?? 100).toStringAsFixed(0)}g serving',
+            style: const TextStyle(fontSize: 12),
+          ),
+          if (widget.badges.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Wrap(
+                spacing: 3,
+                runSpacing: 2,
+                children: widget.badges.take(4).map((a) =>
+                  _AllergenBadge(allergen: a),
+                ).toList(),
+              ),
+            ),
+        ],
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.add_circle, color: Colors.green, size: 28),
+        onPressed: () => widget.onAdd(food),
+      ),
     );
   }
 }
