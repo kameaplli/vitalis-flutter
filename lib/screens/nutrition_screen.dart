@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../core/api_client.dart';
+import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
@@ -151,7 +152,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                   icon: Icons.qr_code_scanner,
                   label: 'Barcode',
                   color: Colors.orange,
-                  onTap: () => _showFoodSearch(context, startWithBarcode: true),
+                  onTap: () => _showBarcodeScan(context),
                 ),
                 const SizedBox(width: 8),
                 _EntryMethodCard(
@@ -275,12 +276,26 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
     }
   }
 
-  void _showFoodSearch(BuildContext context, {bool startWithBarcode = false}) {
+  void _showFoodSearch(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => FoodSearchSheet(startWithBarcode: startWithBarcode),
+      builder: (_) => const FoodSearchSheet(),
+    );
+  }
+
+  void _showBarcodeScan(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _BarcodeScanSheet(
+        onFoodAdded: (food) {
+          ref.read(nutritionProvider.notifier).addFood(food);
+          ref.invalidate(foodDatabaseProvider);
+        },
+      ),
     );
   }
 
@@ -296,12 +311,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
               title: const Text('Take Photo'),
               onTap: () {
                 Navigator.pop(ctx);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (_) => const FoodSearchSheet(startWithLabelCamera: true),
-                );
+                _scanLabel(ImageSource.camera);
               },
             ),
             ListTile(
@@ -309,18 +319,124 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
               title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(ctx);
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  builder: (_) => const FoodSearchSheet(startWithLabelGallery: true),
-                );
+                _scanLabel(ImageSource.gallery);
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _scanLabel(ImageSource source) async {
+    final img = await ImagePicker().pickImage(source: source);
+    if (img == null || !mounted) return;
+
+    // Show processing overlay
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('Analyzing nutrition label...\nThis may take a moment.')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final bytes = await img.readAsBytes();
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: 'label.jpg'),
+      });
+      final res = await apiClient.dio.post(ApiConstants.foodLabelScan, data: formData);
+      final d = res.data as Map<String, dynamic>;
+
+      if (mounted) Navigator.pop(context); // dismiss processing dialog
+
+      if (mounted) {
+        final foodName = d['product_name'] as String? ?? 'Scanned Product';
+        final cal = (d['calories_per_100g'] as num?)?.toDouble() ?? 0;
+        final protein = (d['protein_per_100g'] as num?)?.toDouble() ?? 0;
+        final carbs = (d['carbs_per_100g'] as num?)?.toDouble() ?? 0;
+        final fat = (d['fat_per_100g'] as num?)?.toDouble() ?? 0;
+
+        // Save to DB immediately
+        String foodId = 'label_${DateTime.now().millisecondsSinceEpoch}';
+        try {
+          final saveRes = await apiClient.dio.post(ApiConstants.customFoods, data: {
+            'name': foodName, 'calories': cal, 'protein': protein,
+            'carbs': carbs, 'fat': fat,
+            'fiber': (d['fiber_per_100g'] as num?)?.toDouble(),
+            'sugar': (d['sugar_per_100g'] as num?)?.toDouble(),
+            'serving_size': (d['serving_size_g'] as num?)?.toDouble() ?? 100,
+          });
+          foodId = saveRes.data['food_id'] ?? foodId;
+          ref.invalidate(foodDatabaseProvider);
+        } catch (_) {}
+
+        final food = FoodItem(
+          id: foodId, name: foodName, cal: cal,
+          protein: protein, carbs: carbs, fat: fat,
+          servingSize: (d['serving_size_g'] as num?)?.toDouble() ?? 100,
+          emoji: '📋',
+        );
+
+        if (mounted) {
+          // Show result with option to edit name before adding
+          final nameCtrl = TextEditingController(text: foodName);
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Label Scan Result'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(controller: nameCtrl, decoration: const InputDecoration(
+                      labelText: 'Product name', isDense: true)),
+                  const SizedBox(height: 10),
+                  Text('Per 100g:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  Text('Calories: ${cal.toStringAsFixed(0)} kcal'),
+                  Text('Protein: ${protein.toStringAsFixed(1)} g'),
+                  Text('Carbs: ${carbs.toStringAsFixed(1)} g'),
+                  Text('Fat: ${fat.toStringAsFixed(1)} g'),
+                  const SizedBox(height: 8),
+                  Text('Saved to your food database.',
+                      style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontStyle: FontStyle.italic)),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    final editedName = nameCtrl.text.trim();
+                    final finalFood = editedName.isNotEmpty && editedName != foodName
+                        ? FoodItem(id: food.id, name: editedName, cal: food.cal,
+                            protein: food.protein, carbs: food.carbs, fat: food.fat,
+                            servingSize: food.servingSize, emoji: food.emoji)
+                        : food;
+                    ref.read(nutritionProvider.notifier).addFood(finalFood);
+                  },
+                  child: const Text('Add to Meal'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // dismiss processing dialog
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Label scan failed: ${e is DioException ? e.message : e}')),
+        );
+      }
+    }
   }
 }
 
@@ -478,6 +594,509 @@ class _EntryMethodCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Barcode scan bottom sheet ─────────────────────────────────────────────────
+
+class _BarcodeScanSheet extends ConsumerStatefulWidget {
+  final void Function(FoodItem) onFoodAdded;
+  const _BarcodeScanSheet({required this.onFoodAdded});
+  @override
+  ConsumerState<_BarcodeScanSheet> createState() => _BarcodeScanSheetState();
+}
+
+class _BarcodeScanSheetState extends ConsumerState<_BarcodeScanSheet> {
+  MobileScannerController? _scanCtrl;
+  bool _processing = false;
+  String _status = 'Point camera at a barcode';
+
+  @override
+  void initState() {
+    super.initState();
+    _scanCtrl = MobileScannerController();
+  }
+
+  @override
+  void dispose() {
+    _scanCtrl?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onDetected(String barcode) async {
+    if (_processing) return;
+    setState(() { _processing = true; _status = 'Looking up product...'; });
+    _scanCtrl?.stop();
+
+    final dio = Dio();
+    dio.options.headers['User-Agent'] = 'Vitalis/3.0 (vitalis-health-app)';
+
+    final variants = <String>[barcode];
+    if (barcode.length == 12) variants.add('0$barcode');
+    if (barcode.length == 13 && barcode.startsWith('0')) variants.add(barcode.substring(1));
+
+    Map<String, dynamic>? product;
+    for (final code in variants) {
+      try {
+        final res = await dio.get('https://world.openfoodfacts.org/api/v2/product/$code');
+        final data = res.data as Map<String, dynamic>;
+        if (data['status'] == 'product_found' || data['status'] == 1) {
+          product = data['product'] as Map<String, dynamic>?;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (product != null && mounted) {
+      setState(() { _status = 'Saving to database...'; });
+      final n = (product['nutriments'] as Map<String, dynamic>?) ?? {};
+      final productName = (product['product_name'] as String?)?.trim().isNotEmpty == true
+          ? product['product_name'] as String : 'Product $barcode';
+      final cal = (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0;
+      final protein = (n['proteins_100g'] as num?)?.toDouble() ?? 0;
+      final carbs = (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0;
+      final fat = (n['fat_100g'] as num?)?.toDouble() ?? 0;
+      final brand = product['brands'] as String?;
+
+      // Save to DB
+      String foodId = barcode;
+      try {
+        final saveRes = await apiClient.dio.post(ApiConstants.customFoods, data: {
+          'name': productName, 'calories': cal, 'protein': protein,
+          'carbs': carbs, 'fat': fat, 'serving_size': 100,
+          'barcode': barcode, 'brand': brand,
+          'ingredients_text': product['ingredients_text'] as String?,
+          'image_url': product['image_front_url'] as String?,
+        });
+        foodId = saveRes.data['food_id'] ?? barcode;
+        await AppCache.clearFoodDb();
+        ref.invalidate(foodDatabaseProvider);
+      } catch (_) {}
+
+      final food = FoodItem(
+        id: foodId, name: productName, cal: cal,
+        protein: protein, carbs: carbs, fat: fat,
+        servingSize: 100, emoji: '🏷️', brand: brand,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onFoodAdded(food);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Added: $productName'), duration: const Duration(seconds: 2)),
+        );
+      }
+    } else if (mounted) {
+      // Product not found — offer manual entry
+      _showManualBarcodeEntry(barcode);
+    }
+  }
+
+  void _showManualBarcodeEntry(String barcode) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Product Not Found'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Barcode: $barcode', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 12),
+            const Text('How would you like to add this product?', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); Navigator.pop(context); },
+            child: const Text('Cancel'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showManualNutritionEntry(barcode);
+            },
+            icon: const Icon(Icons.edit, size: 18),
+            label: const Text('Enter Manually'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showSupplementWebLookup(barcode);
+            },
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Search Online'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualNutritionEntry(String barcode) {
+    final nameCtrl = TextEditingController();
+    final calCtrl = TextEditingController();
+    final protCtrl = TextEditingController();
+    final carbCtrl = TextEditingController();
+    final fatCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Manual Entry'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Barcode: $barcode', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const SizedBox(height: 8),
+              const Text('Enter nutrition per 100g:', style: TextStyle(fontSize: 13)),
+              const SizedBox(height: 8),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Product name', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: calCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Calories', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: protCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Protein (g)', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: carbCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Carbs (g)', isDense: true)),
+              const SizedBox(height: 6),
+              TextField(controller: fatCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Fat (g)', isDense: true)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () { Navigator.pop(ctx); Navigator.pop(context); }, child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final foodName = nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : 'Product $barcode';
+              final cal = double.tryParse(calCtrl.text) ?? 0;
+              final protein = double.tryParse(protCtrl.text) ?? 0;
+              final carbs = double.tryParse(carbCtrl.text) ?? 0;
+              final fat = double.tryParse(fatCtrl.text) ?? 0;
+
+              String foodId = barcode;
+              try {
+                final saveRes = await apiClient.dio.post(ApiConstants.customFoods, data: {
+                  'name': foodName, 'calories': cal, 'protein': protein,
+                  'carbs': carbs, 'fat': fat, 'serving_size': 100, 'barcode': barcode,
+                });
+                foodId = saveRes.data['food_id'] ?? barcode;
+                await AppCache.clearFoodDb();
+                ref.invalidate(foodDatabaseProvider);
+              } catch (_) {}
+
+              final food = FoodItem(
+                id: foodId, name: foodName, cal: cal,
+                protein: protein, carbs: carbs, fat: fat,
+                servingSize: 100, emoji: '🏷️',
+              );
+              if (mounted) {
+                Navigator.pop(context);
+                widget.onFoodAdded(food);
+              }
+            },
+            child: const Text('Add Food'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSupplementWebLookup(String barcode) {
+    final nameCtrl = TextEditingController();
+    final brandCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search Supplement Online'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Barcode: $barcode', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 12),
+            const Text('Enter the supplement details to search:', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Supplement name *',
+                hintText: 'e.g. Multivitamin, Vitamin D3 5000 IU',
+                isDense: true,
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: brandCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Brand (optional)',
+                hintText: 'e.g. Nature Made, NOW Foods',
+                isDense: true,
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); Navigator.pop(context); },
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Please enter a supplement name')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              _performSupplementLookup(
+                name: name,
+                brand: brandCtrl.text.trim().isNotEmpty ? brandCtrl.text.trim() : null,
+                barcode: barcode,
+              );
+            },
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performSupplementLookup({
+    required String name,
+    String? brand,
+    String? barcode,
+  }) async {
+    setState(() { _processing = true; _status = 'Searching online for supplement info...'; });
+
+    try {
+      final res = await apiClient.dio.post(ApiConstants.supplementLookup, data: {
+        'name': name,
+        'brand': brand,
+        'barcode': barcode,
+      });
+
+      final data = res.data as Map<String, dynamic>;
+
+      if (data['success'] != true) {
+        if (mounted) {
+          setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error'] ?? 'Supplement not found'), duration: const Duration(seconds: 3)),
+          );
+          // Fall back to manual entry
+          _showManualNutritionEntry(barcode ?? '');
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+        _showSupplementConfirmation(data, barcode);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Search failed: ${e.toString().length > 80 ? '${e.toString().substring(0, 80)}...' : e}'), duration: const Duration(seconds: 3)),
+        );
+        _showManualNutritionEntry(barcode ?? '');
+      }
+    }
+  }
+
+  void _showSupplementConfirmation(Map<String, dynamic> data, String? barcode) {
+    final ingredients = (data['ingredients'] as List<dynamic>?) ?? [];
+    final supplementName = data['supplement_name'] ?? 'Unknown Supplement';
+    final brandName = data['brand'] ?? '';
+    final servingSize = data['serving_size'] ?? '1 serving';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(supplementName, style: const TextStyle(fontSize: 16)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (brandName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('Brand: $brandName', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                  ),
+                Text('Serving: $servingSize', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                const SizedBox(height: 8),
+                const Text('Supplement Facts:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const Divider(height: 12),
+                if (ingredients.isEmpty)
+                  const Text('No ingredients found', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                ...ingredients.map<Widget>((ing) {
+                  final ingMap = ing as Map<String, dynamic>;
+                  final ingName = ingMap['name'] ?? '';
+                  final amount = ingMap['amount'];
+                  final unit = ingMap['unit'] ?? '';
+                  final dv = ingMap['daily_value_percent'];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(ingName, style: const TextStyle(fontSize: 13)),
+                        ),
+                        if (amount != null)
+                          Text('$amount $unit', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        if (dv != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Text('${dv.toStringAsFixed(0)}%', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+                if (data['other_ingredients'] != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Other: ${data['other_ingredients']}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); Navigator.pop(context); },
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _saveSupplementToDb(data, barcode);
+            },
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Save & Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveSupplementToDb(Map<String, dynamic> data, String? barcode) async {
+    setState(() { _processing = true; _status = 'Saving supplement...'; });
+
+    try {
+      final ingredients = (data['ingredients'] as List<dynamic>?)
+          ?.map((i) {
+                final m = i as Map<String, dynamic>;
+                return <String, dynamic>{
+                  'name': m['name'] ?? '',
+                  'amount': m['amount'],
+                  'unit': m['unit'],
+                  'daily_value_percent': m['daily_value_percent'],
+                };
+              })
+          .toList() ?? [];
+
+      final saveRes = await apiClient.dio.post(ApiConstants.supplementSave, data: {
+        'supplement_name': data['supplement_name'] ?? 'Unknown Supplement',
+        'brand': data['brand'],
+        'barcode': barcode,
+        'serving_size': data['serving_size'],
+        'calories_per_serving': data['calories_per_serving'],
+        'ingredients': ingredients,
+        'other_ingredients': data['other_ingredients'],
+      });
+
+      final saveData = saveRes.data as Map<String, dynamic>;
+      final foodId = saveData['food_id'] ?? barcode ?? '';
+
+      await AppCache.clearFoodDb();
+      ref.invalidate(foodDatabaseProvider);
+
+      final food = FoodItem(
+        id: foodId,
+        name: data['supplement_name'] ?? 'Unknown Supplement',
+        cal: (data['calories_per_serving'] as num?)?.toDouble() ?? 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        servingSize: 100,
+        emoji: '\u{1F48A}',
+        brand: data['brand'],
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onFoodAdded(food);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added: ${data['supplement_name']} (${ingredients.length} nutrients)'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e'), duration: const Duration(seconds: 3)),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (_, __) => Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 40, height: 4,
+            decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                if (_processing)
+                  const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                if (_processing) const SizedBox(width: 8),
+                Text(_status, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          if (!_processing)
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: MobileScanner(
+                  controller: _scanCtrl!,
+                  onDetect: (capture) {
+                    final barcodes = capture.barcodes;
+                    if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                      _onDetected(barcodes.first.rawValue!);
+                    }
+                  },
+                ),
+              ),
+            ),
+          if (_processing)
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
       ),
     );
   }
@@ -1561,144 +2180,43 @@ class _IntakeRow extends StatelessWidget {
   }
 }
 
-// ─── Food search bottom sheet ─────────────────────────────────────────────────
+// ─── Food search bottom sheet (local typeahead + manual entry) ────────────────
 
 class FoodSearchSheet extends ConsumerStatefulWidget {
-  /// If provided, calls this callback instead of adding to nutritionProvider.
   final void Function(FoodItem)? onFoodPicked;
-  final bool startWithBarcode;
-  final bool startWithLabelCamera;
-  final bool startWithLabelGallery;
-  const FoodSearchSheet({
-    super.key, this.onFoodPicked,
-    this.startWithBarcode = false,
-    this.startWithLabelCamera = false,
-    this.startWithLabelGallery = false,
-  });
+  const FoodSearchSheet({super.key, this.onFoodPicked});
   @override
   ConsumerState<FoodSearchSheet> createState() => _FoodSearchSheetState();
 }
 
-class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
-    with SingleTickerProviderStateMixin {
+class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  TabController? _tabCtrl;
-  List<FoodCategory> _categories = [];
-  bool _barcodeScanning = false;
-  bool _labelScanning = false;
-  MobileScannerController? _scanCtrl;
-  bool _didAutoStart = false;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _tabCtrl?.dispose();
-    _scanCtrl?.dispose();
     super.dispose();
   }
 
-  // ── Barcode scan ────────────────────────────────────────────────────────────
-
-  void _startBarcodeScanning() {
-    _scanCtrl?.dispose();
-    _scanCtrl = MobileScannerController();
-    setState(() { _barcodeScanning = true; });
-  }
-
-  Future<void> _onBarcodeDetected(String barcode) async {
-    if (!_barcodeScanning) return;
-    setState(() { _barcodeScanning = false; });
-    _scanCtrl?.stop();
-
-    final dio = Dio();
-    dio.options.headers['User-Agent'] = 'Vitalis/3.0 (vitalis-health-app)';
-
-    // Try original barcode, then normalized variants (UPC-A ↔ EAN-13)
-    final variants = <String>[barcode];
-    if (barcode.length == 12) variants.add('0$barcode');
-    if (barcode.length == 13 && barcode.startsWith('0')) {
-      variants.add(barcode.substring(1));
-    }
-
-    Map<String, dynamic>? product;
-    for (final code in variants) {
-      try {
-        final res = await dio.get(
-          'https://world.openfoodfacts.org/api/v2/product/$code',
-        );
-        final data = res.data as Map<String, dynamic>;
-        if (data['status'] == 'product_found' || data['status'] == 1) {
-          product = data['product'] as Map<String, dynamic>?;
-          break;
+  /// Local filter across all cached food categories — instant, no API call.
+  List<FoodItem> _filterLocal(List<FoodCategory> categories) {
+    if (_query.isEmpty) return [];
+    final q = _query.toLowerCase();
+    final matches = <FoodItem>[];
+    for (final cat in categories) {
+      for (final item in cat.items) {
+        if (item.name.toLowerCase().contains(q)) {
+          matches.add(item);
+          if (matches.length >= 30) return matches;
         }
-      } catch (_) {}
+      }
     }
-
-    if (product != null && mounted) {
-      final n = (product['nutriments'] as Map<String, dynamic>?) ?? {};
-      final productName = (product['product_name'] as String?)?.trim().isNotEmpty == true
-          ? product['product_name'] as String
-          : 'Product $barcode';
-      final cal = (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0;
-      final protein = (n['proteins_100g'] as num?)?.toDouble() ?? 0;
-      final carbs = (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0;
-      final fat = (n['fat_100g'] as num?)?.toDouble() ?? 0;
-      final brand = product['brands'] as String?;
-
-      // Allergen check via backend
-      List<FoodAllergenInfo> allergens = [];
-      try {
-        final allergenRes = await apiClient.dio.get(
-          ApiConstants.foodAllergenCheck,
-          queryParameters: {'food_name': productName},
-        );
-        final rawAllergens = allergenRes.data['allergens'] as List<dynamic>? ?? [];
-        allergens = rawAllergens
-            .map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
-            .toList();
-      } catch (_) {}
-
-      // Save scanned food to database so it's searchable later
-      String foodId = barcode;
-      try {
-        final saveRes = await apiClient.dio.post(ApiConstants.customFoods, data: {
-          'name': productName,
-          'calories': cal,
-          'protein': protein,
-          'carbs': carbs,
-          'fat': fat,
-          'serving_size': 100,
-          'barcode': barcode,
-          'brand': brand,
-          'ingredients_text': product['ingredients_text'] as String?,
-          'image_url': product['image_front_url'] as String?,
-        });
-        foodId = saveRes.data['food_id'] ?? barcode;
-        ref.invalidate(foodDatabaseProvider);
-      } catch (_) {}
-
-      final food = FoodItem(
-        id: foodId,
-        name: productName,
-        cal: cal,
-        protein: protein,
-        carbs: carbs,
-        fat: fat,
-        servingSize: 100,
-        emoji: '🏷️',
-        brand: brand,
-        allergens: allergens,
-      );
-      _addFood(food);
-    } else if (mounted) {
-      // Product not found — offer manual entry
-      _showManualBarcodeEntry(barcode);
-    }
+    return matches;
   }
 
-  void _showManualBarcodeEntry(String barcode) {
-    final nameCtrl = TextEditingController();
+  void _showManualEntry() {
+    final nameCtrl = TextEditingController(text: _query);
     final calCtrl = TextEditingController();
     final protCtrl = TextEditingController();
     final carbCtrl = TextEditingController();
@@ -1706,23 +2224,18 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Product Not Found'),
+        title: const Text('Add Food Manually'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Barcode: $barcode',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              const SizedBox(height: 8),
-              const Text('Enter nutrition per 100g:',
-                  style: TextStyle(fontSize: 13)),
-              const SizedBox(height: 8),
               TextField(controller: nameCtrl, decoration: const InputDecoration(
-                  labelText: 'Product name', isDense: true)),
+                  labelText: 'Food name *', isDense: true)),
+              const SizedBox(height: 8),
+              const Text('Nutrition per 100g:', style: TextStyle(fontSize: 12)),
               const SizedBox(height: 6),
               TextField(controller: calCtrl, keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Calories', isDense: true)),
+                  decoration: const InputDecoration(labelText: 'Calories (kcal)', isDense: true)),
               const SizedBox(height: 6),
               TextField(controller: protCtrl, keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Protein (g)', isDense: true)),
@@ -1739,145 +2252,29 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
+              final foodName = nameCtrl.text.trim();
+              if (foodName.isEmpty) return;
               Navigator.pop(ctx);
-              final foodName = nameCtrl.text.trim().isNotEmpty
-                  ? nameCtrl.text.trim()
-                  : 'Product $barcode';
               final cal = double.tryParse(calCtrl.text) ?? 0;
               final protein = double.tryParse(protCtrl.text) ?? 0;
               final carbs = double.tryParse(carbCtrl.text) ?? 0;
               final fat = double.tryParse(fatCtrl.text) ?? 0;
 
-              // Save to database
-              String foodId = barcode;
+              String foodId = 'manual_${DateTime.now().millisecondsSinceEpoch}';
               try {
-                final saveRes = await apiClient.dio.post(
-                    ApiConstants.customFoods,
-                    data: {
-                      'name': foodName,
-                      'calories': cal,
-                      'protein': protein,
-                      'carbs': carbs,
-                      'fat': fat,
-                      'serving_size': 100,
-                      'barcode': barcode,
-                    });
-                foodId = saveRes.data['food_id'] ?? barcode;
-                ref.invalidate(foodDatabaseProvider);
-              } catch (_) {}
-
-              final food = FoodItem(
-                id: foodId,
-                name: foodName,
-                cal: cal,
-                protein: protein,
-                carbs: carbs,
-                fat: fat,
-                servingSize: 100,
-                emoji: '🏷️',
-              );
-              _addFood(food);
-            },
-            child: const Text('Add Food'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Food label scan ─────────────────────────────────────────────────────────
-
-  Future<void> _scanFoodLabel(ImageSource source) async {
-    final img = await ImagePicker().pickImage(source: source);
-    if (img == null) return;
-    if (mounted) setState(() { _labelScanning = true; });
-    try {
-      final bytes = await img.readAsBytes();
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(bytes, filename: 'label.jpg'),
-      });
-      final res = await apiClient.dio.post(
-        ApiConstants.foodLabelScan, data: formData);
-      final d = res.data as Map<String, dynamic>;
-      if (mounted) _showLabelResult(d);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Label scan failed: ${e is DioException ? e.message : e}')));
-      }
-    } finally {
-      if (mounted) setState(() { _labelScanning = false; });
-    }
-  }
-
-  void _showLabelResult(Map<String, dynamic> d) {
-    final nameCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Label Scan Result'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Product name', isDense: true),
-            ),
-            const SizedBox(height: 10),
-            Text('Per 100g:', style: TextStyle(
-                fontSize: 12, color: Colors.grey.shade600)),
-            Text('Calories: ${d['calories_per_100g'] ?? '—'} kcal'),
-            Text('Protein: ${d['protein_per_100g'] ?? '—'} g'),
-            Text('Carbs: ${d['carbs_per_100g'] ?? '—'} g'),
-            Text('Fat: ${d['fat_per_100g'] ?? '—'} g'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final foodName = nameCtrl.text.trim().isNotEmpty
-                  ? nameCtrl.text.trim()
-                  : d['product_name'] as String? ?? 'Scanned Product';
-              final cal = (d['calories_per_100g'] as num?)?.toDouble() ?? 0;
-              final protein = (d['protein_per_100g'] as num?)?.toDouble() ?? 0;
-              final carbs = (d['carbs_per_100g'] as num?)?.toDouble() ?? 0;
-              final fat = (d['fat_per_100g'] as num?)?.toDouble() ?? 0;
-
-              // Save to database so it's searchable later
-              String foodId = 'label_${DateTime.now().millisecondsSinceEpoch}';
-              try {
-                final saveRes = await apiClient.dio.post(
-                    ApiConstants.customFoods,
-                    data: {
-                      'name': foodName,
-                      'calories': cal,
-                      'protein': protein,
-                      'carbs': carbs,
-                      'fat': fat,
-                      'fiber': (d['fiber_per_100g'] as num?)?.toDouble(),
-                      'sugar': (d['sugar_per_100g'] as num?)?.toDouble(),
-                      'serving_size': (d['serving_size_g'] as num?)?.toDouble() ?? 100,
-                    });
+                final saveRes = await apiClient.dio.post(ApiConstants.customFoods, data: {
+                  'name': foodName, 'calories': cal, 'protein': protein,
+                  'carbs': carbs, 'fat': fat, 'serving_size': 100,
+                });
                 foodId = saveRes.data['food_id'] ?? foodId;
+                await AppCache.clearFoodDb();
                 ref.invalidate(foodDatabaseProvider);
               } catch (_) {}
 
               final food = FoodItem(
-                id: foodId,
-                name: foodName,
-                cal: cal,
-                protein: protein,
-                carbs: carbs,
-                fat: fat,
-                servingSize: (d['serving_size_g'] as num?)?.toDouble() ?? 100,
-                emoji: '📋',
+                id: foodId, name: foodName, cal: cal,
+                protein: protein, carbs: carbs, fat: fat,
+                servingSize: 100, emoji: '🍽️',
               );
               _addFood(food);
             },
@@ -1890,180 +2287,117 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final foodsAsync = ref.watch(foodDatabaseProvider);
 
-    return foodsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
-      data: (categories) {
-        if (_tabCtrl == null || _categories.length != categories.length) {
-          _tabCtrl?.dispose();
-          _categories = categories;
-          _tabCtrl = TabController(
-              length: categories.length + 1, vsync: this);
-        }
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      maxChildSize: 0.96,
+      expand: false,
+      builder: (_, scrollCtrl) {
+        // Get filtered results from cached food DB
+        final categories = foodsAsync.valueOrNull ?? [];
+        final filtered = _filterLocal(categories);
 
-        // Auto-start barcode or label scan if requested
-        if (!_didAutoStart) {
-          _didAutoStart = true;
-          if (widget.startWithBarcode) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _startBarcodeScanning());
-          } else if (widget.startWithLabelCamera) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _scanFoodLabel(ImageSource.camera));
-          } else if (widget.startWithLabelGallery) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _scanFoodLabel(ImageSource.gallery));
-          }
-        }
-
-        // Filter by search query across all categories
-        final allFiltered = <FoodItem>[];
-        for (final cat in categories) {
-          allFiltered.addAll(cat.items.where(
-              (f) => _query.isEmpty || f.name.toLowerCase().contains(_query)));
-        }
-
-        return DraggableScrollableSheet(
-          initialChildSize: 0.92,
-          maxChildSize: 0.96,
-          expand: false,
-          builder: (_, scrollCtrl) => Column(
-            children: [
-              // Handle
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2)),
+        return Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            // Search bar — clean, no scanner icons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search foods...',
+                  prefixIcon: const Icon(Icons.search),
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _query = '');
+                          })
+                      : null,
+                ),
+                onChanged: (v) => setState(() => _query = v.trim()),
               ),
-              // Search + scan buttons
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchCtrl,
-                        autofocus: false,
-                        decoration: InputDecoration(
-                          hintText: 'Search foods…',
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                          suffixIcon: _query.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    _searchCtrl.clear();
-                                    setState(() => _query = '');
-                                  })
-                              : null,
-                        ),
-                        onChanged: (v) => setState(() => _query = v.toLowerCase()),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // Barcode scan
-                    IconButton(
-                      tooltip: 'Scan barcode',
-                      icon: Icon(
-                        _barcodeScanning ? Icons.cancel_outlined : Icons.qr_code_scanner,
-                        color: _barcodeScanning
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).colorScheme.primary,
-                      ),
-                      onPressed: _barcodeScanning
-                          ? () => setState(() { _barcodeScanning = false; _scanCtrl?.stop(); })
-                          : _startBarcodeScanning,
-                    ),
-                    // Food label scan
-                    _labelScanning
-                        ? const SizedBox(
-                            width: 24, height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : PopupMenuButton<ImageSource>(
-                            icon: Icon(Icons.document_scanner_outlined,
-                                color: Theme.of(context).colorScheme.primary),
-                            tooltip: 'Scan food label',
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: ImageSource.camera,
-                                child: Row(children: [
-                                  Icon(Icons.camera_alt_outlined, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Camera'),
-                                ]),
-                              ),
-                              const PopupMenuItem(
-                                value: ImageSource.gallery,
-                                child: Row(children: [
-                                  Icon(Icons.photo_library_outlined, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Gallery'),
-                                ]),
+            ),
+            // Results area
+            Expanded(
+              child: foodsAsync.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _query.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.restaurant_menu, size: 48, color: cs.primary.withOpacity(0.3)),
+                              const SizedBox(height: 8),
+                              Text('Type to search foods',
+                                  style: TextStyle(color: Colors.grey.shade500)),
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: _showManualEntry,
+                                icon: const Icon(Icons.edit_note, size: 18),
+                                label: const Text('Enter food manually'),
                               ),
                             ],
-                            onSelected: _scanFoodLabel,
                           ),
-                  ],
-                ),
-              ),
-              // Barcode camera view
-              if (_barcodeScanning)
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: MobileScanner(
-                      controller: _scanCtrl!,
-                      onDetect: (capture) {
-                        final barcodes = capture.barcodes;
-                        if (barcodes.isNotEmpty &&
-                            barcodes.first.rawValue != null) {
-                          _onBarcodeDetected(barcodes.first.rawValue!);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              // Tabs (hidden during search or barcode scan)
-              if (_query.isEmpty && !_barcodeScanning)
-                TabBar(
-                  controller: _tabCtrl!,
-                  isScrollable: true,
-                  tabs: [
-                    const Tab(text: 'All'),
-                    ...categories.map((c) => Tab(
-                          text: c.name.length > 18
-                              ? '${c.name.substring(0, 16)}…'
-                              : c.name,
-                        )),
-                  ],
-                ),
-              // Food list (hidden while barcode camera is open)
-              if (!_barcodeScanning) Expanded(
-                child: _query.isNotEmpty
-                    ? _FoodList(
-                        items: allFiltered,
-                        scrollCtrl: scrollCtrl,
-                        onAdd: _addFood,
-                      )
-                    : TabBarView(
-                        controller: _tabCtrl!,
-                        children: [
-                          _FoodList(
-                              items: allFiltered,
-                              scrollCtrl: scrollCtrl,
-                              onAdd: _addFood),
-                          ...categories.map((c) => _FoodList(
-                                items: c.items,
-                                scrollCtrl: scrollCtrl,
-                                onAdd: _addFood,
-                              )),
-                        ],
-                      ),
-              ),
-            ],
-          ),
+                        )
+                      : filtered.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                                  const SizedBox(height: 8),
+                                  Text('No foods match "$_query"',
+                                      style: TextStyle(color: Colors.grey.shade500)),
+                                  const SizedBox(height: 16),
+                                  OutlinedButton.icon(
+                                    onPressed: _showManualEntry,
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: const Text('Add manually'),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollCtrl,
+                              itemCount: filtered.length + 1,
+                              itemBuilder: (ctx, i) {
+                                if (i == filtered.length) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Center(
+                                      child: TextButton.icon(
+                                        onPressed: _showManualEntry,
+                                        icon: const Icon(Icons.add, size: 16),
+                                        label: const Text("Can't find it? Add manually"),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                final food = filtered[i];
+                                return _FoodSearchTile(
+                                  food: food,
+                                  badges: food.uniqueAllergens,
+                                  onAdd: _addFood,
+                                );
+                              },
+                            ),
+            ),
+          ],
         );
       },
     );
@@ -2076,33 +2410,6 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
       ref.read(nutritionProvider.notifier).addFood(food);
     }
     Navigator.pop(context);
-  }
-}
-
-class _FoodList extends StatelessWidget {
-  final List<FoodItem> items;
-  final ScrollController scrollCtrl;
-  final void Function(FoodItem) onAdd;
-
-  const _FoodList(
-      {required this.items,
-      required this.scrollCtrl,
-      required this.onAdd});
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const Center(child: Text('No foods found'));
-    }
-    return ListView.builder(
-      controller: scrollCtrl,
-      itemCount: items.length,
-      itemBuilder: (ctx, i) {
-        final food = items[i];
-        final badges = food.uniqueAllergens;
-        return _FoodSearchTile(food: food, badges: badges, onAdd: onAdd);
-      },
-    );
   }
 }
 
@@ -2361,25 +2668,35 @@ class _NutritionInsightsCard extends StatelessWidget {
                       color: isAi ? Colors.purple : Colors.teal)),
             ]),
             const SizedBox(height: 10),
-            ...insight.insights.map((i) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.insights, size: 16, color: cs.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(i.title, style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13)),
-                        const SizedBox(height: 2),
-                        Text(i.body, style: const TextStyle(fontSize: 12)),
-                      ],
+            ...insight.insights.map((i) => InkWell(
+              onTap: () => _showInsightDetail(context, i),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.insights, size: 16, color: cs.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(child: Text(i.title, style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13))),
+                              Icon(Icons.chevron_right, size: 16, color: Colors.grey.shade400),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(i.body, style: const TextStyle(fontSize: 12),
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             )),
             if (insight.recommendations.isNotEmpty) ...[
@@ -2387,14 +2704,19 @@ class _NutritionInsightsCard extends StatelessWidget {
               ...insight.recommendations.map((r) {
                 final color = r.priority == 'high' ? Colors.red
                     : (r.priority == 'medium' ? Colors.orange : Colors.green);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(children: [
-                    Icon(Icons.lightbulb_outline, size: 14, color: color),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(r.action,
-                        style: const TextStyle(fontSize: 12))),
-                  ]),
+                return InkWell(
+                  onTap: () => _showRecommendationDetail(context, r),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Icon(Icons.lightbulb_outline, size: 14, color: color),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(r.action,
+                          style: const TextStyle(fontSize: 12))),
+                      Icon(Icons.chevron_right, size: 14, color: Colors.grey.shade400),
+                    ]),
+                  ),
                 );
               }),
             ],
@@ -2403,6 +2725,316 @@ class _NutritionInsightsCard extends StatelessWidget {
       ),
     );
   }
+
+  void _showInsightDetail(BuildContext context, InsightItem insight) {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.insights, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(insight.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold))),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(insight.body, style: const TextStyle(fontSize: 14, height: 1.5)),
+              const SizedBox(height: 16),
+              // Confidence indicator
+              Row(
+                children: [
+                  Text('Confidence: ', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ...List.generate(5, (i) => Icon(
+                    i < (insight.confidence * 5).round() ? Icons.circle : Icons.circle_outlined,
+                    size: 10,
+                    color: i < (insight.confidence * 5).round() ? cs.primary : Colors.grey.shade300,
+                  )),
+                ],
+              ),
+              if (_getFoodTips(insight.title).isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text('Foods that may help:', style: TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13, color: cs.primary)),
+                const SizedBox(height: 8),
+                ..._getFoodTips(insight.title).map((tip) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Text(tip.emoji, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(tip.text, style: const TextStyle(fontSize: 13))),
+                    ],
+                  ),
+                )),
+              ],
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRecommendationDetail(BuildContext context, Recommendation rec) {
+    final color = rec.priority == 'high' ? Colors.red
+        : (rec.priority == 'medium' ? Colors.orange : Colors.green);
+    final priorityLabel = rec.priority == 'high' ? 'High Priority'
+        : (rec.priority == 'medium' ? 'Suggested' : 'Good to Know');
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.lightbulb, color: color),
+                  const SizedBox(width: 8),
+                  Text('Recommendation', style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(priorityLabel, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 12),
+              Text(rec.action, style: const TextStyle(fontSize: 14, height: 1.5)),
+              if (_getFoodTips(rec.action).isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text('Helpful foods:', style: TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13, color: color)),
+                const SizedBox(height: 8),
+                ..._getFoodTips(rec.action).map((tip) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Text(tip.emoji, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(tip.text, style: const TextStyle(fontSize: 13))),
+                    ],
+                  ),
+                )),
+              ],
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Context-aware food suggestions based on insight/recommendation keywords
+  static List<_FoodTip> _getFoodTips(String text) {
+    final lower = text.toLowerCase();
+    final tips = <_FoodTip>[];
+
+    if (lower.contains('protein')) {
+      tips.addAll([
+        const _FoodTip('🥚', 'Eggs — 13g protein per 100g'),
+        const _FoodTip('🍗', 'Chicken breast — 31g protein per 100g'),
+        const _FoodTip('🫘', 'Lentils (dal) — 9g protein per 100g cooked'),
+        const _FoodTip('🥜', 'Peanuts — 26g protein per 100g'),
+      ]);
+    }
+    if (lower.contains('fiber') || lower.contains('fibre')) {
+      tips.addAll([
+        const _FoodTip('🥬', 'Broccoli — 2.6g fiber per 100g'),
+        const _FoodTip('🫘', 'Rajma (kidney beans) — 6.4g fiber per 100g'),
+        const _FoodTip('🍎', 'Apple with skin — 2.4g fiber per apple'),
+        const _FoodTip('🌾', 'Oats — 10g fiber per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin d') || lower.contains('vit d')) {
+      tips.addAll([
+        const _FoodTip('🐟', 'Salmon — rich in Vitamin D'),
+        const _FoodTip('🥛', 'Fortified milk — Vitamin D added'),
+        const _FoodTip('🥚', 'Egg yolks — natural Vitamin D source'),
+        const _FoodTip('☀️', '15 min sunlight exposure daily'),
+      ]);
+    }
+    if (lower.contains('iron')) {
+      tips.addAll([
+        const _FoodTip('🥬', 'Spinach — 2.7mg iron per 100g'),
+        const _FoodTip('🫘', 'Lentils — 3.3mg iron per 100g cooked'),
+        const _FoodTip('🥩', 'Red meat — highly bioavailable iron'),
+        const _FoodTip('🍊', 'Vitamin C foods help iron absorption'),
+      ]);
+    }
+    if (lower.contains('calcium')) {
+      tips.addAll([
+        const _FoodTip('🥛', 'Milk — 125mg calcium per 100ml'),
+        const _FoodTip('🧀', 'Paneer/cheese — calcium-rich dairy'),
+        const _FoodTip('🥬', 'Kale — 150mg calcium per 100g'),
+        const _FoodTip('🐟', 'Sardines with bones — excellent calcium'),
+      ]);
+    }
+    if (lower.contains('calorie') || lower.contains('energy') || lower.contains('kcal')) {
+      tips.addAll([
+        const _FoodTip('📊', 'Track all meals including snacks'),
+        const _FoodTip('🥗', 'Fill half your plate with vegetables'),
+        const _FoodTip('💧', 'Stay hydrated — sometimes thirst mimics hunger'),
+      ]);
+    }
+    if (lower.contains('breakfast')) {
+      tips.addAll([
+        const _FoodTip('🥣', 'Oatmeal with fruits — balanced start'),
+        const _FoodTip('🥞', 'Dosa/idli — light, nutritious South Indian breakfast'),
+        const _FoodTip('🥚', 'Eggs — protein to keep you full longer'),
+      ]);
+    }
+    if (lower.contains('carb') || lower.contains('sugar') || lower.contains('glucose')) {
+      tips.addAll([
+        const _FoodTip('🌾', 'Choose whole grains over refined'),
+        const _FoodTip('🍠', 'Sweet potato — complex carbs, lower GI'),
+        const _FoodTip('🫘', 'Legumes — slow-releasing energy'),
+      ]);
+    }
+    if (lower.contains('fat') && !lower.contains('breakfast')) {
+      tips.addAll([
+        const _FoodTip('🥑', 'Avocado — healthy monounsaturated fats'),
+        const _FoodTip('🥜', 'Almonds — heart-healthy fats'),
+        const _FoodTip('🐟', 'Fatty fish — omega-3 fatty acids'),
+      ]);
+    }
+
+    // ── Vitamins ──────────────────────────────────────────
+    if (lower.contains('vitamin a') || lower.contains('vit a') || lower.contains('retinol')) {
+      tips.addAll([
+        const _FoodTip('🥕', 'Carrots — 835µg vitamin A per 100g'),
+        const _FoodTip('🍠', 'Sweet potato — 709µg per 100g'),
+        const _FoodTip('🥬', 'Spinach — 469µg per 100g'),
+        const _FoodTip('🥭', 'Mango — 54µg + beta-carotene'),
+      ]);
+    }
+    if (lower.contains('vitamin b1') || lower.contains('vit b1') || lower.contains('thiamin')) {
+      tips.addAll([
+        const _FoodTip('🌻', 'Sunflower seeds — 1.5mg B1 per 100g'),
+        const _FoodTip('🫘', 'Black beans — 0.4mg per 100g'),
+        const _FoodTip('🌾', 'Brown rice — 0.4mg per 100g'),
+        const _FoodTip('🥜', 'Peanuts — 0.6mg per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin b2') || lower.contains('vit b2') || lower.contains('riboflavin')) {
+      tips.addAll([
+        const _FoodTip('🥛', 'Milk — 0.18mg B2 per 100ml'),
+        const _FoodTip('🥚', 'Eggs — 0.46mg per 100g'),
+        const _FoodTip('🍄', 'Mushrooms — 0.4mg per 100g'),
+        const _FoodTip('🥬', 'Spinach — 0.19mg per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin b6') || lower.contains('vit b6') || lower.contains('pyridoxine')) {
+      tips.addAll([
+        const _FoodTip('🍌', 'Banana — 0.4mg B6 per fruit'),
+        const _FoodTip('🍗', 'Chicken — 0.5mg per 100g'),
+        const _FoodTip('🥔', 'Potato — 0.3mg per 100g'),
+        const _FoodTip('🌻', 'Sunflower seeds — 1.3mg per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin b12') || lower.contains('vit b12') || lower.contains('cobalamin')) {
+      tips.addAll([
+        const _FoodTip('🐟', 'Salmon — 2.8µg B12 per 100g'),
+        const _FoodTip('🥚', 'Eggs — 0.9µg per egg'),
+        const _FoodTip('🥛', 'Milk — 0.5µg per 100ml'),
+        const _FoodTip('🧀', 'Paneer/cheese — 1.1µg per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin c') || lower.contains('vit c') || lower.contains('ascorbic')) {
+      tips.addAll([
+        const _FoodTip('🍊', 'Orange — 53mg vitamin C per fruit'),
+        const _FoodTip('🫑', 'Bell pepper — 128mg per 100g'),
+        const _FoodTip('🥝', 'Kiwi — 93mg per 100g'),
+        const _FoodTip('🍋', 'Lemon — 53mg per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin e') || lower.contains('vit e') || lower.contains('tocopherol')) {
+      tips.addAll([
+        const _FoodTip('🌻', 'Sunflower seeds — 35mg vit E per 100g'),
+        const _FoodTip('🥜', 'Almonds — 26mg per 100g'),
+        const _FoodTip('🥑', 'Avocado — 2.1mg per 100g'),
+        const _FoodTip('🥬', 'Spinach — 2mg per 100g'),
+      ]);
+    }
+    if (lower.contains('vitamin k') || lower.contains('vit k')) {
+      tips.addAll([
+        const _FoodTip('🥬', 'Kale — 390µg vitamin K per 100g'),
+        const _FoodTip('🥦', 'Broccoli — 102µg per 100g'),
+        const _FoodTip('🫛', 'Green peas — 25µg per 100g'),
+        const _FoodTip('🥒', 'Cucumber — 16µg per 100g'),
+      ]);
+    }
+
+    // ── Minerals ──────────────────────────────────────────
+    if (lower.contains('zinc')) {
+      tips.addAll([
+        const _FoodTip('🥩', 'Red meat — 4.8mg zinc per 100g'),
+        const _FoodTip('🌻', 'Pumpkin seeds — 7.8mg per 100g'),
+        const _FoodTip('🫘', 'Chickpeas — 2.5mg per 100g'),
+        const _FoodTip('🧀', 'Cheese — 3.1mg per 100g'),
+      ]);
+    }
+    if (lower.contains('magnesium')) {
+      tips.addAll([
+        const _FoodTip('🌰', 'Cashews — 292mg magnesium per 100g'),
+        const _FoodTip('🥬', 'Spinach — 79mg per 100g'),
+        const _FoodTip('🍫', 'Dark chocolate — 228mg per 100g'),
+        const _FoodTip('🍌', 'Banana — 27mg per fruit'),
+      ]);
+    }
+    if (lower.contains('potassium')) {
+      tips.addAll([
+        const _FoodTip('🍌', 'Banana — 422mg potassium per fruit'),
+        const _FoodTip('🥔', 'Potato — 421mg per medium'),
+        const _FoodTip('🫘', 'White beans — 561mg per 100g'),
+        const _FoodTip('🥑', 'Avocado — 485mg per 100g'),
+      ]);
+    }
+    if (lower.contains('folate') || lower.contains('folic')) {
+      tips.addAll([
+        const _FoodTip('🥬', 'Spinach — 194µg folate per 100g'),
+        const _FoodTip('🫘', 'Lentils — 181µg per 100g cooked'),
+        const _FoodTip('🥦', 'Broccoli — 63µg per 100g'),
+        const _FoodTip('🥑', 'Avocado — 81µg per 100g'),
+      ]);
+    }
+    if (lower.contains('omega') || lower.contains('dha') || lower.contains('epa')) {
+      tips.addAll([
+        const _FoodTip('🐟', 'Salmon — 2.3g omega-3 per 100g'),
+        const _FoodTip('🐟', 'Sardines — 1.5g omega-3 per 100g'),
+        const _FoodTip('🌰', 'Walnuts — 2.5g ALA per 28g'),
+        const _FoodTip('🌱', 'Flaxseeds — 2.4g ALA per tbsp'),
+      ]);
+    }
+
+    return tips.take(4).toList();
+  }
+}
+
+class _FoodTip {
+  final String emoji;
+  final String text;
+  const _FoodTip(this.emoji, this.text);
 }
 
 // ─── Macro donut chart ────────────────────────────────────────────────────────

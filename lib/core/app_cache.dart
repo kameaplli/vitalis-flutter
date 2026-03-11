@@ -45,6 +45,15 @@ class AppCache {
     } catch (_) {}
   }
 
+  /// Clear food database cache so next provider read fetches fresh from network.
+  static Future<void> clearFoodDb() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('food_db');
+      await prefs.remove('food_db_ts');
+    } catch (_) {}
+  }
+
   static Future<List<dynamic>?> loadFoodDb({bool stale = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
