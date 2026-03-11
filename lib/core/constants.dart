@@ -31,9 +31,11 @@ class ApiConstants {
   // Dashboard
   static const String dashboard = '/api/dashboard';
   static const String dashboardFamily = '/api/dashboard/family';
+  static const String welcome = '/api/welcome';
 
   // Foods
   static const String foodDatabase = '/api/foods/database';
+  static const String foodSearch = '/api/foods/search';
   static const String frequentFoods = '/api/foods/frequent';
   static const String customFoods = '/api/foods/custom';
   static const String foodLabelScan = '/api/foods/scan-label';
@@ -125,6 +127,10 @@ class ApiConstants {
   static const String insightsGrocery   = '/api/insights/grocery';
   static const String insightsHistory   = '/api/insights/history';
 
+  // Supplement Lookup
+  static const String supplementLookup = '/api/foods/supplements/lookup';
+  static const String supplementSave   = '/api/foods/supplements/save';
+
   // Achievements (Phase 6)
   static const String achievements = '/api/achievements';
 
@@ -137,4 +143,8 @@ class ApiConstants {
   static const String financeReprocessAll = '/api/finance/statements/reprocess-all';
   static const String financeSpendingTxns = '/api/analytics/finance/spending/transactions';
   static const String financeReport       = '/api/analytics/finance/report';
+
+  // Debug / Diagnostics (no auth required)
+  static const String debugGoogleApi      = '/api/debug/google-api';
+  static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';
 }
