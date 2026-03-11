@@ -41,6 +41,13 @@ class ApiConstants {
   static const String foodClassifyBatch = '/api/foods/classify-batch';
   static const String foodIngredients = '/api/foods/ingredients';
 
+  // Nutrients / Micronutrients
+  static const String nutrientsDri = '/api/nutrients/dri';
+  static const String nutrientsDaily = '/api/nutrients/daily';
+  static const String nutrientsCatalog = '/api/nutrients/catalog';
+  // Food nutrient profile: '/api/foods/{foodId}/nutrients'
+  static String foodNutrients(String foodId) => '/api/foods/$foodId/nutrients';
+
   // Nutrition
   static const String nutritionLog = '/api/log/nutrition';
   static const String nutritionAll = '/api/log/nutrition/all';

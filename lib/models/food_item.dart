@@ -55,25 +55,43 @@ class FoodAllergenInfo {
 class FoodItem {
   final String id;
   final String name;
+  final String? displayName;
+  final String? brand;
+  final String? brandDisplay;
   final double? cal;
   final double? protein;
   final double? carbs;
   final double? fat;
+  final double? fiber;
+  final double? sugar;
   final String? emoji;
   final String? unit;
   final double? servingSize;
+  final String? source;
+  final double? nutrientCompleteness;
+  final String? ingredientsText;
+  final String? imageUrl;
   final List<FoodAllergenInfo> allergens;
 
   FoodItem({
     required this.id,
     required this.name,
+    this.displayName,
+    this.brand,
+    this.brandDisplay,
     this.cal,
     this.protein,
     this.carbs,
     this.fat,
+    this.fiber,
+    this.sugar,
     this.emoji,
     this.unit,
     this.servingSize,
+    this.source,
+    this.nutrientCompleteness,
+    this.ingredientsText,
+    this.imageUrl,
     this.allergens = const [],
   });
 
@@ -81,19 +99,37 @@ class FoodItem {
     return FoodItem(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
+      displayName: json['display_name'],
+      brand: json['brand'],
+      brandDisplay: json['brand_display'],
       cal: (json['cal'] as num?)?.toDouble(),
       protein: (json['protein'] as num?)?.toDouble(),
       carbs: (json['carbs'] as num?)?.toDouble(),
       fat: (json['fat'] as num?)?.toDouble(),
+      fiber: (json['fiber'] as num?)?.toDouble(),
+      sugar: (json['sugar'] as num?)?.toDouble(),
       emoji: json['emoji'],
       unit: json['unit'],
       servingSize: (json['serving_size'] as num?)?.toDouble(),
+      source: json['source'],
+      nutrientCompleteness: (json['nutrient_completeness'] as num?)?.toDouble(),
+      ingredientsText: json['ingredients_text'],
+      imageUrl: json['image_url'],
       allergens: (json['allergens'] as List<dynamic>?)
               ?.map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
               .toList() ??
           const [],
     );
   }
+
+  /// Clean display title: use display_name if available, otherwise name
+  String get title => displayName ?? name;
+
+  /// Whether this food has brand info to show
+  bool get hasBrand => brand != null && brand!.isNotEmpty;
+
+  /// Formatted brand for display
+  String get brandLabel => brandDisplay ?? brand ?? '';
 
   double get caloriesPerServing {
     if (cal == null || servingSize == null) return 0;
