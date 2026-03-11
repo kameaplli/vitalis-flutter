@@ -493,11 +493,21 @@ class _MealSuggestionsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final suggestionsAsync = ref.watch(mealSuggestionsProvider);
     return suggestionsAsync.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          const SizedBox(width: 14, height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 8),
+          Text('Loading suggestions...',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        ]),
+      ),
       error: (_, __) => const SizedBox.shrink(),
       data: (suggestions) {
-        final meals = suggestions[mealType];
-        if (meals == null || meals.isEmpty) return const SizedBox.shrink();
+        final allMeals = suggestions[mealType];
+        if (allMeals == null || allMeals.isEmpty) return const SizedBox.shrink();
+        final meals = allMeals.take(3).toList();
 
         final cs = Theme.of(context).colorScheme;
         final mealLabel = mealType[0].toUpperCase() + mealType.substring(1);
