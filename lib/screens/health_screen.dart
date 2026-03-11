@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../providers/health_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/person_selector.dart';
@@ -139,6 +140,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medication_outlined,      Colors.blue,
           ref.watch(medicationsProvider('$person:7'))),
+      _CardDef('supplements', 'Supplements', Icons.spa_outlined,            Colors.amber,
+          ref.watch(supplementsProvider('$person:7'))),
       _CardDef('mood',        'Mood',        Icons.mood_outlined,            Colors.green,
           ref.watch(moodProvider(key))),
       _CardDef('weight',      'Weight',      Icons.monitor_weight_outlined,  Colors.purple,
@@ -557,6 +560,331 @@ class _MedicationsTab extends ConsumerWidget {
   }
 }
 
+// ─── Supplements ─────────────────────────────────────────────────────────────
+
+class _SupplementsTab extends ConsumerWidget {
+  final String personKey;
+  const _SupplementsTab({super.key, required this.personKey});
+
+  static const _forms = ['Tablet', 'Capsule', 'Liquid', 'Powder', 'Gummy', 'Softgel', 'Drops'];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _HealthList(
+      logsAsync: ref.watch(supplementsProvider(personKey)),
+      itemBuilder: (item) => ListTile(
+        leading: const Icon(Icons.spa_outlined, color: Colors.amber),
+        title: Text(item['supplement_name'] ?? ''),
+        subtitle: Text([
+          if (item['brand'] != null && (item['brand'] as String).isNotEmpty) item['brand'],
+          if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
+          if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
+        ].join(' · ')),
+        trailing: Switch(
+          value: item['is_active'] == true,
+          onChanged: (_) async {
+            await apiClient.dio.put(
+                '${ApiConstants.supplements}/${item['id']}/toggle');
+            ref.invalidate(supplementsProvider);
+          },
+        ),
+      ),
+      onAdd: (ctx, ref) => _showAddOptions(ctx, ref),
+      onEdit: (ctx, ref, item) => _showForm(ctx, ref, item: item),
+      onDelete: (ref, id) async {
+        await apiClient.dio.delete('${ApiConstants.supplements}/$id');
+        ref.invalidate(supplementsProvider);
+      },
+    );
+  }
+
+  void _showAddOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(width: 36, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 12),
+            Text('Add Supplement',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner),
+              title: const Text('Scan Barcode'),
+              subtitle: const Text('Scan supplement bottle barcode'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showBarcodeScanner(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Enter Manually'),
+              subtitle: const Text('Type supplement details'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showForm(context, ref);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBarcodeScanner(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: _SupplementBarcodeScanner(
+          onScanned: (barcode, productName, brand) {
+            Navigator.pop(ctx);
+            _showForm(context, ref, prefill: {
+              'supplement_name': productName ?? '',
+              'brand': brand ?? '',
+              'barcode': barcode,
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showForm(BuildContext context, WidgetRef ref,
+      {Map<String, dynamic>? item, Map<String, dynamic>? prefill}) {
+    final isEdit = item != null;
+    final source = prefill ?? item ?? {};
+    final nameCtrl = TextEditingController(
+        text: source['supplement_name'] ?? '');
+    final brandCtrl = TextEditingController(
+        text: source['brand'] ?? '');
+    final dosageCtrl = TextEditingController(
+        text: source['dosage'] ?? '');
+    final freqCtrl = TextEditingController(
+        text: source['frequency'] ?? '');
+    String selectedForm = source['form'] ?? '';
+    String selectedPerson = isEdit
+        ? (item['family_member_id'] ?? 'self')
+        : ref.read(selectedPersonProvider);
+    final barcode = source['barcode'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => AlertDialog(
+          title: Text(isEdit ? 'Edit Supplement' : 'Add Supplement'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PersonSelector(
+                  selectedId: selectedPerson,
+                  onChanged: (v) => ss(() => selectedPerson = v ?? 'self'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Supplement name')),
+                const SizedBox(height: 8),
+                TextField(
+                    controller: brandCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Brand (optional)')),
+                const SizedBox(height: 8),
+                TextField(
+                    controller: dosageCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Dosage (e.g. 1000mg)')),
+                const SizedBox(height: 8),
+                TextField(
+                    controller: freqCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Frequency (e.g. Once daily)')),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: selectedForm.isEmpty ? null : selectedForm,
+                  decoration: const InputDecoration(labelText: 'Form'),
+                  items: _forms.map((f) => DropdownMenuItem(
+                      value: f.toLowerCase(), child: Text(f))).toList(),
+                  onChanged: (v) => ss(() => selectedForm = v ?? ''),
+                ),
+                if (barcode.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text('Barcode: $barcode',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final famId =
+                    selectedPerson == 'self' ? null : selectedPerson;
+                final data = {
+                  'supplement_name': nameCtrl.text,
+                  'brand': brandCtrl.text,
+                  'dosage': dosageCtrl.text,
+                  'frequency': freqCtrl.text,
+                  'form': selectedForm,
+                  'barcode': barcode,
+                  'start_date': isEdit
+                      ? (item['start_date'] ?? _todayStr())
+                      : _todayStr(),
+                  'family_member_id': famId,
+                };
+                if (isEdit) {
+                  await apiClient.dio.put(
+                      '${ApiConstants.supplements}/${item['id']}',
+                      data: data);
+                } else {
+                  await apiClient.dio.post(
+                      ApiConstants.supplements, data: data);
+                }
+                ref.invalidate(supplementsProvider);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SupplementBarcodeScanner extends StatefulWidget {
+  final void Function(String barcode, String? productName, String? brand) onScanned;
+  const _SupplementBarcodeScanner({required this.onScanned});
+  @override
+  State<_SupplementBarcodeScanner> createState() => _SupplementBarcodeScannerState();
+}
+
+class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
+  final MobileScannerController _ctrl = MobileScannerController();
+  bool _processing = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    if (_processing) return;
+    final code = capture.barcodes.firstOrNull?.rawValue;
+    if (code == null || code.isEmpty) return;
+    setState(() => _processing = true);
+
+    // Try Open Food Facts for product info
+    String? productName;
+    String? brand;
+    try {
+      final res = await apiClient.dio.get(
+        'https://world.openfoodfacts.org/api/v2/product/$code.json',
+        queryParameters: {'fields': 'product_name,brands'},
+      );
+      if (res.data['status'] == 1) {
+        final p = res.data['product'] as Map<String, dynamic>?;
+        productName = p?['product_name'] as String?;
+        brand = p?['brands'] as String?;
+      }
+    } catch (_) {}
+
+    widget.onScanned(code, productName, brand);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2))),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text('Scan Supplement Barcode',
+              style: Theme.of(context).textTheme.titleMedium),
+        ),
+        Expanded(
+          child: _processing
+              ? const Center(child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Looking up product...'),
+                  ],
+                ))
+              : ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: MobileScanner(
+                    controller: _ctrl,
+                    onDetect: _onDetect,
+                  ),
+                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _showManualBarcode(context);
+            },
+            icon: const Icon(Icons.keyboard),
+            label: const Text('Enter barcode manually'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showManualBarcode(BuildContext context) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter Barcode'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Barcode number'),
+          keyboardType: TextInputType.number,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (ctrl.text.isNotEmpty) {
+                widget.onScanned(ctrl.text, null, null);
+              }
+            },
+            child: const Text('Look up'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Mood ─────────────────────────────────────────────────────────────────────
 
 class _MoodTab extends ConsumerWidget {
@@ -707,6 +1035,7 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
     switch (widget.category) {
       case 'symptoms':    return 'Symptoms';
       case 'medications': return 'Medications';
+      case 'supplements': return 'Supplements';
       case 'mood':        return 'Mood';
       default:            return widget.category;
     }
@@ -721,6 +1050,7 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
     switch (widget.category) {
       case 'symptoms':    body = _SymptomsTab(key: ValueKey(key), personKey: key); break;
       case 'medications': body = _MedicationsTab(key: ValueKey(key), personKey: key); break;
+      case 'supplements': body = _SupplementsTab(key: ValueKey(key), personKey: key); break;
       case 'mood':        body = _MoodTab(key: ValueKey(key), personKey: key); break;
       default:            body = Center(child: Text('Unknown: ${widget.category}')); break;
     }

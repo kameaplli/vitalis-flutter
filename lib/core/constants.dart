@@ -67,6 +67,7 @@ class ApiConstants {
   // Health
   static const String symptoms = '/api/health/symptoms';
   static const String medications = '/api/health/medications';
+  static const String supplements = '/api/health/supplements';
   static const String vitals = '/api/health/vitals';
   static const String sleep = '/api/health/sleep';
   static const String exercise = '/api/health/exercise';

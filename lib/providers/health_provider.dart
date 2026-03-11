@@ -23,6 +23,13 @@ final medicationsProvider = FutureProvider.family<List<HealthMap>, String>((ref,
   return List<HealthMap>.from(res.data['entries']);
 });
 
+final supplementsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
+  final res = await apiClient.dio.get(ApiConstants.supplements, queryParameters: {
+    'person': _person(key),
+  });
+  return List<HealthMap>.from(res.data['entries']);
+});
+
 final vitalsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
   final res = await apiClient.dio.get(ApiConstants.vitals, queryParameters: {
     'person': _person(key),

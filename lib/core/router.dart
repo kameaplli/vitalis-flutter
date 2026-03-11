@@ -95,6 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // ── Health sub-screens (pushed from Health card grid) ───────────
           GoRoute(path: '/health/symptoms',    builder: (_, __) => const HealthSubScreen(category: 'symptoms')),
           GoRoute(path: '/health/medications', builder: (_, __) => const HealthSubScreen(category: 'medications')),
+          GoRoute(path: '/health/supplements', builder: (_, __) => const HealthSubScreen(category: 'supplements')),
           GoRoute(path: '/health/mood',        builder: (_, __) => const HealthSubScreen(category: 'mood')),
           GoRoute(path: '/health/weight',      builder: (_, __) => const WeightScreen()),
           GoRoute(path: '/health/eczema',      builder: (_, __) => const EczemaScreen()),
