@@ -21,6 +21,7 @@ import '../core/timezone_util.dart';
 import 'entries_screen.dart' show NutritionHistoryContent;
 import '../widgets/voice_meal_sheet.dart';
 import '../widgets/nutrient_card.dart';
+import '../providers/nutrient_provider.dart';
 
 // ─── Daily intake lookup by age / gender ─────────────────────────────────────
 
@@ -107,6 +108,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             // ── Daily progress header ──────────────────────────────────────
             _DailyProgressHeader(nutrition: nutrition),
 
+            const SizedBox(height: 12),
+
+            // ── Daily micronutrient summary ──────────────────────────────────
+            _DailyMicronutrientSummary(),
+
             const SizedBox(height: 16),
 
             // ── Meal type + time row ───────────────────────────────────────
@@ -179,6 +185,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             ),
 
             const SizedBox(height: 20),
+
+            // ── Meal suggestions for selected meal type ───────────────────────
+            _MealSuggestionsSection(mealType: nutrition.mealType),
+
+            const SizedBox(height: 8),
 
             // ── Recent meals carousel ────────────────────────────────────────
             _RecentMealsSection(),
@@ -466,6 +477,149 @@ class _EntryMethodCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Meal suggestions for selected meal type ─────────────────────────────────
+
+class _MealSuggestionsSection extends ConsumerWidget {
+  final String mealType;
+  const _MealSuggestionsSection({required this.mealType});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final suggestionsAsync = ref.watch(mealSuggestionsProvider);
+    return suggestionsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (suggestions) {
+        final meals = suggestions[mealType];
+        if (meals == null || meals.isEmpty) return const SizedBox.shrink();
+
+        final cs = Theme.of(context).colorScheme;
+        final mealLabel = mealType[0].toUpperCase() + mealType.substring(1);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lightbulb_outline, size: 16, color: cs.primary),
+                const SizedBox(width: 4),
+                Text('Suggested for $mealLabel',
+                    style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 88,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: meals.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (ctx, i) =>
+                    _SuggestionCard(meal: meals[i]),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SuggestionCard extends ConsumerWidget {
+  final RecentMeal meal;
+  const _SuggestionCard({required this.meal});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    // Calculate total calories for the meal
+    double totalCal = 0;
+    for (final item in meal.items) {
+      final cal = item.calPer100g ?? 0;
+      totalCal += (cal / 100) * item.grams;
+    }
+    final emojis = meal.items
+        .take(3)
+        .map((i) => i.emoji ?? '🍽️')
+        .join(' ');
+
+    return InkWell(
+      onTap: () {
+        ref.read(nutritionProvider.notifier).loadRecentMeal(
+          meal.items
+              .map((item) =>
+                  SelectedFood(food: item.toFoodItem(), grams: item.grams))
+              .toList(),
+          meal.mealType,
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              cs.primaryContainer.withOpacity(0.3),
+              cs.primaryContainer.withOpacity(0.1),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: cs.primaryContainer),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(emojis, style: const TextStyle(fontSize: 14)),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${meal.count}x',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: cs.primary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: Text(
+                meal.display,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '${totalCal.round()} kcal',
+              style: TextStyle(
+                  fontSize: 10,
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
       ),
     );
@@ -843,6 +997,377 @@ class _FoodItemTileState extends State<_FoodItemTile> {
   }
 }
 
+// ─── Daily Micronutrient Summary ──────────────────────────────────────────────
+
+class _DailyMicronutrientSummary extends ConsumerStatefulWidget {
+  const _DailyMicronutrientSummary();
+  @override
+  ConsumerState<_DailyMicronutrientSummary> createState() =>
+      _DailyMicronutrientSummaryState();
+}
+
+class _DailyMicronutrientSummaryState
+    extends ConsumerState<_DailyMicronutrientSummary> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final person = ref.watch(selectedPersonProvider);
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final key = '$person|$today';
+    final asyncData = ref.watch(dailyNutrientProvider(key));
+    final cs = Theme.of(context).colorScheme;
+
+    return asyncData.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (data) {
+        if (data == null) return const SizedBox.shrink();
+        final summary = data.summary;
+        final total = summary.lowCount + summary.approachingCount +
+            summary.adequateCount + summary.excessiveCount;
+        if (total == 0) return const SizedBox.shrink();
+
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+          ),
+          child: Column(
+            children: [
+              // ── Compact header ────────────────────────────────────
+              InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.science_outlined, size: 18, color: cs.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Micronutrients Today',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onSurface)),
+                            const SizedBox(height: 4),
+                            // Status chips row
+                            Row(
+                              children: [
+                                if (summary.adequateCount > 0)
+                                  _StatusChip(
+                                    count: summary.adequateCount,
+                                    label: 'OK',
+                                    color: Colors.green,
+                                  ),
+                                if (summary.approachingCount > 0)
+                                  _StatusChip(
+                                    count: summary.approachingCount,
+                                    label: 'Low',
+                                    color: Colors.orange,
+                                  ),
+                                if (summary.lowCount > 0)
+                                  _StatusChip(
+                                    count: summary.lowCount,
+                                    label: 'Deficient',
+                                    color: Colors.red,
+                                  ),
+                                if (summary.excessiveCount > 0)
+                                  _StatusChip(
+                                    count: summary.excessiveCount,
+                                    label: 'High',
+                                    color: Colors.purple,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 20,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── Expanded detail ────────────────────────────────────
+              if (_expanded) _MicronutrientDetail(data: data),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final int count;
+  final String label;
+  final Color color;
+  const _StatusChip({required this.count, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          '$count $label',
+          style: TextStyle(
+              fontSize: 9, fontWeight: FontWeight.w600, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+class _MicronutrientDetail extends StatelessWidget {
+  final DailyNutrientAssessment data;
+  const _MicronutrientDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final vitamins = data.nutrients
+        .where((n) => n.category == 'vitamin')
+        .toList();
+    final minerals = data.nutrients
+        .where((n) => n.category == 'mineral')
+        .toList();
+    final others = data.nutrients
+        .where((n) => n.category != 'vitamin' && n.category != 'mineral' && n.category != 'macro')
+        .toList();
+
+    // Top concerns
+    final concerns = data.summary.topConcerns;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+
+          // Top concerns callout
+          if (concerns.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Top Concerns',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red.shade700)),
+                  const SizedBox(height: 4),
+                  ...concerns.take(3).map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            c['display_name'] ?? c['tagname'] ?? '',
+                            style: TextStyle(fontSize: 10, color: cs.onSurface),
+                          ),
+                        ),
+                        Text(
+                          '${((c['percent_dri'] as num?) ?? 0).toInt()}% DRI',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade600),
+                        ),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Vitamins
+          if (vitamins.isNotEmpty) ...[
+            _NutrientSectionHeader(
+                title: 'Vitamins', icon: Icons.wb_sunny_outlined, color: Colors.orange),
+            const SizedBox(height: 4),
+            ...vitamins.map((n) => _NutrientProgressRow(item: n)),
+            const SizedBox(height: 10),
+          ],
+
+          // Minerals
+          if (minerals.isNotEmpty) ...[
+            _NutrientSectionHeader(
+                title: 'Minerals', icon: Icons.diamond_outlined, color: Colors.teal),
+            const SizedBox(height: 4),
+            ...minerals.map((n) => _NutrientProgressRow(item: n)),
+            const SizedBox(height: 10),
+          ],
+
+          // Others
+          if (others.isNotEmpty) ...[
+            _NutrientSectionHeader(
+                title: 'Other', icon: Icons.more_horiz, color: Colors.blueGrey),
+            const SizedBox(height: 4),
+            ...others.map((n) => _NutrientProgressRow(item: n)),
+          ],
+
+          // Life stage label
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.person_outline, size: 12, color: Colors.grey.shade500),
+              const SizedBox(width: 4),
+              Text(
+                'DRI targets: ${_formatLifeStage(data.lifeStage)}',
+                style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLifeStage(String code) {
+    final labels = {
+      'M_19_30': 'Male 19-30y', 'M_31_50': 'Male 31-50y',
+      'M_51_70': 'Male 51-70y', 'M_71_PLUS': 'Male 71+y',
+      'F_19_30': 'Female 19-30y', 'F_31_50': 'Female 31-50y',
+      'F_51_70': 'Female 51-70y', 'F_71_PLUS': 'Female 71+y',
+      'M_14_18': 'Male 14-18y', 'F_14_18': 'Female 14-18y',
+      'M_9_13': 'Male 9-13y', 'F_9_13': 'Female 9-13y',
+      'CHILD_4_8': 'Child 4-8y', 'CHILD_1_3': 'Child 1-3y',
+      'INFANT_7_12': 'Infant 7-12m', 'INFANT_0_6': 'Infant 0-6m',
+      'PREG_14_18': 'Pregnant 14-18y', 'PREG_19_30': 'Pregnant 19-30y',
+      'PREG_31_50': 'Pregnant 31-50y',
+      'LACT_14_18': 'Lactating 14-18y', 'LACT_19_30': 'Lactating 19-30y',
+      'LACT_31_50': 'Lactating 31-50y',
+    };
+    return labels[code] ?? code;
+  }
+}
+
+class _NutrientSectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  const _NutrientSectionHeader({
+    required this.title, required this.icon, required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(title,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+      ],
+    );
+  }
+}
+
+class _NutrientProgressRow extends StatelessWidget {
+  final DailyNutrientItem item;
+  const _NutrientProgressRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final target = item.target;
+    final pct = item.percentDri ?? 0;
+    final barPct = (pct / 100).clamp(0.0, 1.5);
+
+    final statusColor = switch (item.status) {
+      'adequate' => Colors.green,
+      'approaching' => Colors.orange,
+      'low' => Colors.red,
+      'excessive' => Colors.purple,
+      _ => Colors.grey,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(item.displayName,
+                style: TextStyle(fontSize: 9, color: cs.onSurface),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: barPct.clamp(0.0, 1.0),
+                minHeight: 6,
+                backgroundColor: statusColor.withOpacity(0.12),
+                color: statusColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 64,
+            child: Text(
+              target != null
+                  ? '${_fmt(item.consumed)}/${_fmt(target)}${item.unit}'
+                  : '${_fmt(item.consumed)}${item.unit}',
+              style: TextStyle(fontSize: 8, color: cs.onSurfaceVariant),
+              textAlign: TextAlign.right,
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '${pct.toInt()}%',
+              style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  color: statusColor),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fmt(double v) {
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
+    if (v >= 100) return v.toStringAsFixed(0);
+    if (v >= 1) return v.toStringAsFixed(1);
+    return v.toStringAsFixed(2);
+  }
+}
+
 // ─── Macro breakdown card ─────────────────────────────────────────────────────
 
 class _MacroBreakdownCard extends ConsumerWidget {
@@ -1105,6 +1630,11 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
       final productName = (product['product_name'] as String?)?.trim().isNotEmpty == true
           ? product['product_name'] as String
           : 'Product $barcode';
+      final cal = (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0;
+      final protein = (n['proteins_100g'] as num?)?.toDouble() ?? 0;
+      final carbs = (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0;
+      final fat = (n['fat_100g'] as num?)?.toDouble() ?? 0;
+      final brand = product['brands'] as String?;
 
       // Allergen check via backend
       List<FoodAllergenInfo> allergens = [];
@@ -1119,15 +1649,35 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
             .toList();
       } catch (_) {}
 
+      // Save scanned food to database so it's searchable later
+      String foodId = barcode;
+      try {
+        final saveRes = await apiClient.dio.post(ApiConstants.customFoods, data: {
+          'name': productName,
+          'calories': cal,
+          'protein': protein,
+          'carbs': carbs,
+          'fat': fat,
+          'serving_size': 100,
+          'barcode': barcode,
+          'brand': brand,
+          'ingredients_text': product['ingredients_text'] as String?,
+          'image_url': product['image_front_url'] as String?,
+        });
+        foodId = saveRes.data['food_id'] ?? barcode;
+        ref.invalidate(foodDatabaseProvider);
+      } catch (_) {}
+
       final food = FoodItem(
-        id: barcode,
+        id: foodId,
         name: productName,
-        cal:      (n['energy-kcal_100g'] as num?)?.toDouble() ?? 0,
-        protein:  (n['proteins_100g']     as num?)?.toDouble() ?? 0,
-        carbs:    (n['carbohydrates_100g'] as num?)?.toDouble() ?? 0,
-        fat:      (n['fat_100g']           as num?)?.toDouble() ?? 0,
+        cal: cal,
+        protein: protein,
+        carbs: carbs,
+        fat: fat,
         servingSize: 100,
         emoji: '🏷️',
+        brand: brand,
         allergens: allergens,
       );
       _addFood(food);
@@ -1178,15 +1728,41 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
+              final foodName = nameCtrl.text.trim().isNotEmpty
+                  ? nameCtrl.text.trim()
+                  : 'Product $barcode';
+              final cal = double.tryParse(calCtrl.text) ?? 0;
+              final protein = double.tryParse(protCtrl.text) ?? 0;
+              final carbs = double.tryParse(carbCtrl.text) ?? 0;
+              final fat = double.tryParse(fatCtrl.text) ?? 0;
+
+              // Save to database
+              String foodId = barcode;
+              try {
+                final saveRes = await apiClient.dio.post(
+                    ApiConstants.customFoods,
+                    data: {
+                      'name': foodName,
+                      'calories': cal,
+                      'protein': protein,
+                      'carbs': carbs,
+                      'fat': fat,
+                      'serving_size': 100,
+                      'barcode': barcode,
+                    });
+                foodId = saveRes.data['food_id'] ?? barcode;
+                ref.invalidate(foodDatabaseProvider);
+              } catch (_) {}
+
               final food = FoodItem(
-                id: barcode,
-                name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : 'Product $barcode',
-                cal: double.tryParse(calCtrl.text) ?? 0,
-                protein: double.tryParse(protCtrl.text) ?? 0,
-                carbs: double.tryParse(carbCtrl.text) ?? 0,
-                fat: double.tryParse(fatCtrl.text) ?? 0,
+                id: foodId,
+                name: foodName,
+                cal: cal,
+                protein: protein,
+                carbs: carbs,
+                fat: fat,
                 servingSize: 100,
                 emoji: '🏷️',
               );
@@ -1254,18 +1830,43 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet>
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+              final foodName = nameCtrl.text.trim().isNotEmpty
+                  ? nameCtrl.text.trim()
+                  : d['product_name'] as String? ?? 'Scanned Product';
+              final cal = (d['calories_per_100g'] as num?)?.toDouble() ?? 0;
+              final protein = (d['protein_per_100g'] as num?)?.toDouble() ?? 0;
+              final carbs = (d['carbs_per_100g'] as num?)?.toDouble() ?? 0;
+              final fat = (d['fat_per_100g'] as num?)?.toDouble() ?? 0;
+
+              // Save to database so it's searchable later
+              String foodId = 'label_${DateTime.now().millisecondsSinceEpoch}';
+              try {
+                final saveRes = await apiClient.dio.post(
+                    ApiConstants.customFoods,
+                    data: {
+                      'name': foodName,
+                      'calories': cal,
+                      'protein': protein,
+                      'carbs': carbs,
+                      'fat': fat,
+                      'fiber': (d['fiber_per_100g'] as num?)?.toDouble(),
+                      'sugar': (d['sugar_per_100g'] as num?)?.toDouble(),
+                      'serving_size': (d['serving_size_g'] as num?)?.toDouble() ?? 100,
+                    });
+                foodId = saveRes.data['food_id'] ?? foodId;
+                ref.invalidate(foodDatabaseProvider);
+              } catch (_) {}
+
               final food = FoodItem(
-                id: 'label_${DateTime.now().millisecondsSinceEpoch}',
-                name: nameCtrl.text.trim().isNotEmpty
-                    ? nameCtrl.text.trim()
-                    : 'Scanned Product',
-                cal:     (d['calories_per_100g'] as num?)?.toDouble() ?? 0,
-                protein: (d['protein_per_100g']  as num?)?.toDouble() ?? 0,
-                carbs:   (d['carbs_per_100g']    as num?)?.toDouble() ?? 0,
-                fat:     (d['fat_per_100g']      as num?)?.toDouble() ?? 0,
-                servingSize: 100,
+                id: foodId,
+                name: foodName,
+                cal: cal,
+                protein: protein,
+                carbs: carbs,
+                fat: fat,
+                servingSize: (d['serving_size_g'] as num?)?.toDouble() ?? 100,
                 emoji: '📋',
               );
               _addFood(food);

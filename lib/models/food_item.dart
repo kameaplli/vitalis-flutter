@@ -202,12 +202,14 @@ class RecentMeal {
   final String mealType;
   final String display;
   final List<RecentMealItem> items;
+  final int count;
 
   RecentMeal({
     required this.id,
     required this.mealType,
     required this.display,
     required this.items,
+    this.count = 1,
   });
 
   factory RecentMeal.fromJson(Map<String, dynamic> json) => RecentMeal(
@@ -217,6 +219,7 @@ class RecentMeal {
         items: (json['items'] as List<dynamic>? ?? [])
             .map((i) => RecentMealItem.fromJson(i))
             .toList(),
+        count: json['count'] ?? 1,
       );
 }
 

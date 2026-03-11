@@ -52,6 +52,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   bool _savedFood = false;
   String _savedFoodName = '';
   bool _formPrefilled = false; // true after label scan pre-fills the form
+  // Extra metadata captured from Open Food Facts / label scan
+  String? _brand;
+  String? _ingredientsText;
+  String? _imageUrl;
 
   @override
   void initState() {
@@ -586,6 +590,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         final carbs     = _toDouble(nutriments['carbohydrates_100g']);
         final fat       = _toDouble(nutriments['fat_100g']);
         final serving   = _parseServingSize(product['serving_size']);
+        // Capture additional metadata from Open Food Facts
+        final brand = product['brands'] as String?;
+        final ingredients = product['ingredients_text'] as String?;
+        final imageUrl = product['image_front_url'] as String?;
 
         if (mounted) {
           setState(() {
@@ -595,6 +603,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             if (carbs   != null) _carbsCtrl.text   = carbs.toStringAsFixed(1);
             if (fat     != null) _fatCtrl.text      = fat.toStringAsFixed(1);
             if (serving != null) _servingCtrl.text  = serving.toStringAsFixed(0);
+            _brand = brand;
+            _ingredientsText = ingredients;
+            _imageUrl = imageUrl;
           });
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(name.isNotEmpty || cal != null
@@ -653,6 +664,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         'barcode': _barcodeCtrl.text.trim().isEmpty
             ? null
             : _barcodeCtrl.text.trim(),
+        'brand': _brand,
+        'ingredients_text': _ingredientsText,
+        'image_url': _imageUrl,
       });
       if (mounted) {
         ref.invalidate(foodDatabaseProvider);
@@ -669,6 +683,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           _scanned = false;
           _detectedBarcode = null;
           _formPrefilled = false;
+          _brand = null;
+          _ingredientsText = null;
+          _imageUrl = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Food saved to your database!')));
