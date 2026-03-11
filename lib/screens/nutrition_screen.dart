@@ -2233,6 +2233,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: SegmentedButton<int>(
             segments: const [
+              ButtonSegment(value: 1, label: Text('Today')),
               ButtonSegment(value: 7, label: Text('7d')),
               ButtonSegment(value: 30, label: Text('30d')),
               ButtonSegment(value: 90, label: Text('90d')),
@@ -2262,6 +2263,7 @@ class _AnalyticsContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final insightAsync = ref.watch(_nutritionInsightsProvider(personKey));
+    final microAsync = ref.watch(periodNutrientProvider(personKey));
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -2275,12 +2277,26 @@ class _AnalyticsContent extends ConsumerWidget {
         ),
         _MacroDonut(data: data),
         const SizedBox(height: 12),
+        // Micronutrient insights
+        microAsync.when(
+          loading: () => const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          ),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (micro) => micro != null
+              ? _MicronutrientSection(data: micro, days: days)
+              : const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 12),
         Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             title: Text('Meal Type Breakdown',
                 style: Theme.of(context).textTheme.titleMedium),
-            initiallyExpanded: true,
+            initiallyExpanded: false,
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(top: 4),
             children: _mealTypes.map((mt) => _MealTypeCard(
@@ -2730,3 +2746,194 @@ class _MealFoodSheet extends StatelessWidget {
     );
   }
 }
+
+// ─── Micronutrient Insights Section ──────────────────────────────────────────
+
+class _MicronutrientSection extends StatelessWidget {
+  final PeriodNutrientData data;
+  final int days;
+  const _MicronutrientSection({required this.data, required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s = data.summary;
+    final periodLabel = days == 1 ? 'Today' : '${days}d avg';
+
+    // Top 3 lowest + top 3 highest = 6 key nutrients
+    final topLow = data.consumedLess.take(3).toList();
+    final topHigh = data.consumedMore.take(3).toList();
+
+    if (s.daysWithData == 0) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.science_outlined, size: 18, color: cs.primary),
+              const SizedBox(width: 6),
+              Text('Micronutrient Status',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(periodLabel,
+                    style: TextStyle(fontSize: 11, color: cs.onPrimaryContainer)),
+              ),
+            ]),
+            const SizedBox(height: 10),
+            // Compact summary row
+            Row(
+              children: [
+                _summaryChip(Icons.check_circle, Colors.green, '${s.adequateCount} OK'),
+                const SizedBox(width: 8),
+                _summaryChip(Icons.warning_amber, Colors.orange, '${s.approachingCount} Near'),
+                const SizedBox(width: 8),
+                _summaryChip(Icons.arrow_downward, Colors.red, '${s.lowCount} Low'),
+                if (s.excessiveCount > 0) ...[
+                  const SizedBox(width: 8),
+                  _summaryChip(Icons.arrow_upward, Colors.deepPurple, '${s.excessiveCount} High'),
+                ],
+              ],
+            ),
+            // Top low nutrients
+            if (topLow.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Row(children: [
+                Icon(Icons.trending_down, size: 14, color: Colors.red.shade600),
+                const SizedBox(width: 4),
+                Text('Needs Attention', style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600,
+                    color: Colors.red.shade600)),
+              ]),
+              const SizedBox(height: 6),
+              ...topLow.map((item) => _NutrientRow(item: item, isDeficient: true)),
+            ],
+            // Top high nutrients
+            if (topHigh.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(children: [
+                Icon(Icons.trending_up, size: 14, color: Colors.green.shade600),
+                const SizedBox(width: 4),
+                Text('Above Target', style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w600,
+                    color: Colors.green.shade600)),
+              ]),
+              const SizedBox(height: 6),
+              ...topHigh.map((item) => _NutrientRow(item: item, isDeficient: false)),
+            ],
+            if (topLow.isEmpty && topHigh.isEmpty) ...[
+              const SizedBox(height: 10),
+              Text('All tracked nutrients are within range',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            ],
+            const SizedBox(height: 6),
+            Text(
+              '${s.daysWithData} day${s.daysWithData > 1 ? 's' : ''} of data · ${s.totalTracked} nutrients tracked',
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryChip(IconData icon, Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 2),
+        Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+}
+
+class _NutrientRow extends StatelessWidget {
+  final PeriodNutrientItem item;
+  final bool isDeficient;
+  const _NutrientRow({required this.item, required this.isDeficient});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = item.percentDri;
+    final pctText = pct != null ? '${pct.toStringAsFixed(0)}%' : '--';
+    final barFrac = pct != null ? (pct / 100).clamp(0.0, 1.5) / 1.5 : 0.0;
+
+    Color barColor;
+    if (pct == null) {
+      barColor = Colors.grey;
+    } else if (pct > 150) {
+      barColor = Colors.deepPurple;
+    } else if (pct >= 100) {
+      barColor = Colors.green;
+    } else if (pct >= 50) {
+      barColor = Colors.orange;
+    } else {
+      barColor = Colors.red;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              item.shortName ?? item.displayName,
+              style: const TextStyle(fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: barFrac,
+                minHeight: 6,
+                backgroundColor: Colors.grey.shade200,
+                color: barColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 40,
+            child: Text(pctText,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: barColor,
+                ),
+                textAlign: TextAlign.right),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 60,
+            child: Text(
+              '${_formatValue(item.avgDaily)} ${item.unit}',
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatValue(double v) {
+    if (v >= 100) return v.toStringAsFixed(0);
+    if (v >= 1) return v.toStringAsFixed(1);
+    return v.toStringAsFixed(2);
+  }
+}
+
