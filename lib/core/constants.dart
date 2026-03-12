@@ -134,6 +134,11 @@ class ApiConstants {
   static const String supplementImportBrand = '/api/foods/supplements/import-brand';
   static String supplementLogIntake(String id) => '/api/health/supplements/$id/log-intake';
 
+  // USDA FDC Import
+  static const String usdaSearch       = '/api/foods/usda/search';
+  static String usdaImport(int fdcId)  => '/api/foods/usda/import/$fdcId';
+  static const String usdaBulkImport   = '/api/foods/usda/bulk-import';
+
   // Favorites
   static const String foodFavorites     = '/api/foods/favorites';
   static String foodFavorite(String id) => '/api/foods/favorites/$id';
