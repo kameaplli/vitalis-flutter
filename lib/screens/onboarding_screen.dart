@@ -131,11 +131,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     if (_dismissing) return;
     final h = MediaQuery.of(context).size.height;
     final velocity = d.primaryVelocity ?? 0;
-    if (_dismissDy < -h * 0.25 || velocity < -800) {
+    // Light swipe: 12% of screen height OR gentle flick (300 px/s)
+    if (_dismissDy < -h * 0.12 || velocity < -300) {
       _dismiss();
     } else {
-      setState(() => _dismissDy = 0);
+      // Spring back smoothly instead of snapping
+      _springBack();
     }
+  }
+
+  void _springBack() {
+    final start = _dismissDy;
+    final ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+    final anim = Tween(begin: start, end: 0.0)
+        .animate(CurvedAnimation(parent: ctrl, curve: Curves.easeOutCubic));
+    anim.addListener(() => setState(() => _dismissDy = anim.value));
+    ctrl.addStatusListener((s) {
+      if (s == AnimationStatus.completed) ctrl.dispose();
+    });
+    ctrl.forward();
   }
 
   void _dismiss() {
