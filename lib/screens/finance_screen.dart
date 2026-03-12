@@ -564,6 +564,7 @@ class _StatementCard extends ConsumerWidget {
     return Dismissible(
       key: ValueKey(statement.id),
       direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: 0.3},
       confirmDismiss: (_) async {
         await _deleteStatement(context, ref);
         return false; // We handle removal via provider invalidation

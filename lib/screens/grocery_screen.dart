@@ -229,6 +229,7 @@ class _DismissibleReceiptCard extends ConsumerWidget {
     return Dismissible(
       key: ValueKey(receipt.id),
       direction: DismissDirection.endToStart,
+      dismissThresholds: const {DismissDirection.endToStart: 0.3},
       background: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
