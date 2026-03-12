@@ -653,11 +653,28 @@ class _SupplementsTab extends ConsumerWidget {
       itemBuilder: (item) => ListTile(
         leading: const Icon(Icons.spa_rounded, color: Colors.amber),
         title: Text(item['supplement_name'] ?? ''),
-        subtitle: Text([
-          if (item['brand'] != null && (item['brand'] as String).isNotEmpty) item['brand'],
-          if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
-          if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
-        ].join(' · ')),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text([
+              if (item['brand'] != null && (item['brand'] as String).isNotEmpty) item['brand'],
+              if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
+              if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
+            ].join(' · ')),
+            if (item['last_intake_date'] != null || (item['intake_count'] ?? 0) > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  [
+                    if (item['last_intake_date'] != null) 'Last: ${item['last_intake_date']}',
+                    if ((item['intake_count'] ?? 0) > 0) '${item['intake_count']}x taken',
+                  ].join(' · '),
+                  style: TextStyle(fontSize: 11, color: Colors.green.shade600),
+                ),
+              ),
+          ],
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -673,9 +690,10 @@ class _SupplementsTab extends ConsumerWidget {
                   );
                   final data = res.data as Map<String, dynamic>;
                   if (context.mounted) {
+                    final nutrients = data['nutrients_matched'] as int? ?? 0;
                     final msg = data['already_logged'] == true
                         ? '${item['supplement_name']} already logged today'
-                        : 'Logged ${item['supplement_name']} intake';
+                        : 'Logged ${item['supplement_name']} intake ($nutrients nutrients tracked)';
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(msg),
@@ -683,6 +701,8 @@ class _SupplementsTab extends ConsumerWidget {
                         duration: const Duration(seconds: 2),
                       ),
                     );
+                    // Refresh supplement list to show updated intake count
+                    ref.invalidate(supplementsProvider(personKey));
                   }
                 } catch (e) {
                   if (context.mounted) {
