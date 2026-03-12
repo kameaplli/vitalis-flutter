@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum AppSkin {
   light('Daylight', Icons.wb_sunny_outlined),
   dark('Dark Mode', Icons.dark_mode_outlined),
-  sunset('Sunset Glow', Icons.gradient_outlined);
+  sunset('Sunset Glow', Icons.gradient_outlined),
+  ocean('Ocean Blue', Icons.water_outlined),
+  lavender('Lavender', Icons.local_florist_outlined);
 
   final String label;
   final IconData icon;

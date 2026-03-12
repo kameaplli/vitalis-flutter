@@ -13,6 +13,16 @@ class AppTheme {
   static const Color _sunsetSecondary = Color(0xFF9B2C6E); // Magenta rose
   static const Color _sunsetTertiary  = Color(0xFF6D28D9); // Violet
 
+  // ── Ocean Blue skin colours ────────────────────────────────────────────────
+  static const Color _oceanPrimary    = Color(0xFF1565C0); // Strong blue
+  static const Color _oceanSecondary  = Color(0xFF00897B); // Teal accent
+  static const Color _oceanTertiary   = Color(0xFFFF8F00); // Warm amber
+
+  // ── Lavender skin colours ──────────────────────────────────────────────────
+  static const Color _lavenderPrimary   = Color(0xFF7B1FA2); // Deep purple
+  static const Color _lavenderSecondary = Color(0xFFE91E63); // Pink accent
+  static const Color _lavenderTertiary  = Color(0xFF00ACC1); // Cyan
+
   // ── Typography ─────────────────────────────────────────────────────────────
   static TextTheme _textTheme(Brightness brightness) {
     final base = brightness == Brightness.dark
@@ -30,6 +40,10 @@ class AppTheme {
         return darkTheme;
       case AppSkin.sunset:
         return sunsetTheme;
+      case AppSkin.ocean:
+        return oceanTheme;
+      case AppSkin.lavender:
+        return lavenderTheme;
     }
   }
 
@@ -128,6 +142,28 @@ class AppTheme {
           seedColor: _sunsetPrimary,
           secondary: _sunsetSecondary,
           tertiary: _sunsetTertiary,
+          brightness: Brightness.light,
+        ),
+        Brightness.light,
+      );
+
+  // ── Ocean Blue theme ──────────────────────────────────────────────────────
+  static ThemeData get oceanTheme => _build(
+        ColorScheme.fromSeed(
+          seedColor: _oceanPrimary,
+          secondary: _oceanSecondary,
+          tertiary: _oceanTertiary,
+          brightness: Brightness.light,
+        ),
+        Brightness.light,
+      );
+
+  // ── Lavender theme ────────────────────────────────────────────────────────
+  static ThemeData get lavenderTheme => _build(
+        ColorScheme.fromSeed(
+          seedColor: _lavenderPrimary,
+          secondary: _lavenderSecondary,
+          tertiary: _lavenderTertiary,
           brightness: Brightness.light,
         ),
         Brightness.light,
