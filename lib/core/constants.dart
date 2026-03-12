@@ -126,6 +126,7 @@ class ApiConstants {
   static const String insightsNutrition = '/api/insights/nutrition';
   static const String insightsGrocery   = '/api/insights/grocery';
   static const String insightsHistory   = '/api/insights/history';
+  static const String insightsHealthReport = '/api/insights/health-report';
 
   // Supplement Lookup, Intake & Import
   static const String supplementLookup     = '/api/foods/supplements/lookup';
