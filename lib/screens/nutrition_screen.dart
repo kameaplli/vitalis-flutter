@@ -2378,6 +2378,8 @@ class FoodSearchSheet extends ConsumerStatefulWidget {
 class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  List<FoodItem>? _serverResults;
+  bool _serverSearching = false;
 
   @override
   void dispose() {
@@ -2399,6 +2401,46 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       }
     }
     return matches;
+  }
+
+  /// Server-side fuzzy search when local results are empty or insufficient.
+  Future<void> _searchServer(String query) async {
+    if (query.length < 2) return;
+    setState(() => _serverSearching = true);
+    try {
+      final res = await apiClient.dio.get(
+        ApiConstants.foodSearch,
+        queryParameters: {'q': query, 'limit': 20},
+      );
+      final data = res.data as Map<String, dynamic>;
+      final results = (data['results'] as List? ?? []).map((r) {
+        final m = r as Map<String, dynamic>;
+        return FoodItem(
+          id: m['id'] ?? '',
+          name: m['name'] ?? '',
+          displayName: m['display_name'],
+          brand: m['brand'],
+          brandDisplay: m['brand_display'],
+          cal: (m['cal'] as num?)?.toDouble(),
+          protein: (m['protein'] as num?)?.toDouble(),
+          carbs: (m['carbs'] as num?)?.toDouble(),
+          fat: (m['fat'] as num?)?.toDouble(),
+          emoji: m['emoji'],
+          unit: m['unit'],
+          servingSize: (m['serving_size'] as num?)?.toDouble(),
+          category: m['category'],
+          source: m['source'],
+          imageUrl: m['image_url'],
+        );
+      }).toList();
+      if (mounted && _query == query) {
+        setState(() => _serverResults = results);
+      }
+    } catch (_) {
+      // Silently fail — local results still available
+    } finally {
+      if (mounted) setState(() => _serverSearching = false);
+    }
   }
 
   void _showManualEntry() {
@@ -2820,7 +2862,19 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                           })
                       : null,
                 ),
-                onChanged: (v) => setState(() => _query = v.trim()),
+                onChanged: (v) {
+                  final trimmed = v.trim();
+                  setState(() {
+                    _query = trimmed;
+                    _serverResults = null;
+                  });
+                  // Trigger server search after typing pauses
+                  if (trimmed.length >= 2) {
+                    Future.delayed(const Duration(milliseconds: 400), () {
+                      if (mounted && _query == trimmed) _searchServer(trimmed);
+                    });
+                  }
+                },
               ),
             ),
             // Results area
@@ -2829,25 +2883,29 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                   ? _buildShimmerSection()
                   : _query.isEmpty
                       ? _buildPreSearchView(scrollCtrl)
-                      : filtered.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-                                  const SizedBox(height: 8),
-                                  Text('No foods match "$_query"',
-                                      style: TextStyle(color: Colors.grey.shade500)),
-                                  const SizedBox(height: 16),
-                                  OutlinedButton.icon(
-                                    onPressed: _showManualEntry,
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: const Text('Add manually'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : _buildGroupedResults(filtered, scrollCtrl),
+                      : filtered.isNotEmpty
+                          ? _buildGroupedResults(filtered, scrollCtrl)
+                          : _serverSearching
+                              ? const Center(child: CircularProgressIndicator())
+                              : (_serverResults != null && _serverResults!.isNotEmpty)
+                                  ? _buildGroupedResults(_serverResults!, scrollCtrl)
+                                  : Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                                          const SizedBox(height: 8),
+                                          Text('No foods match "$_query"',
+                                              style: TextStyle(color: Colors.grey.shade500)),
+                                          const SizedBox(height: 16),
+                                          OutlinedButton.icon(
+                                            onPressed: _showManualEntry,
+                                            icon: const Icon(Icons.add, size: 18),
+                                            label: const Text('Add manually'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
             ),
           ],
         );
