@@ -19,7 +19,9 @@ class MacroFood {
   const MacroFood({required this.foodName, required this.total, required this.occurrences});
   factory MacroFood.fromJson(Map<String, dynamic> j) => MacroFood(
     foodName: j['food_name'] as String? ?? '',
-    total: (j['total'] as num?)?.toDouble() ?? 0,
+    total: (j['calories'] as num?)?.toDouble()
+        ?? (j['total'] as num?)?.toDouble()
+        ?? 0,
     occurrences: (j['occurrences'] as num?)?.toInt() ?? 0,
   );
 }

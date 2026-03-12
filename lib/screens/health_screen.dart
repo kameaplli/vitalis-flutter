@@ -8,6 +8,7 @@ import '../providers/selected_person_provider.dart';
 import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../services/notification_service.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -557,12 +558,13 @@ class _MedicationInsights extends StatelessWidget {
   }
 }
 
-class _SupplementInsights extends StatelessWidget {
+class _SupplementInsights extends ConsumerWidget {
   final AsyncValue<List<Map<String, dynamic>>> logsAsync;
-  const _SupplementInsights({required this.logsAsync});
+  final String personKey;
+  const _SupplementInsights({required this.logsAsync, required this.personKey});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final entries = logsAsync.valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
@@ -570,6 +572,9 @@ class _SupplementInsights extends StatelessWidget {
     final today = DateTime.now().toIso8601String().substring(0, 10);
     final takenToday = entries.where((e) => e['last_intake_date'] == today).length;
     final totalIntakes = entries.fold<int>(0, (sum, e) => sum + ((e['intake_count'] as int?) ?? 0));
+    final remaining = entries
+        .where((e) => e['is_active'] == true && e['last_intake_date'] != today)
+        .toList();
 
     // Adherence: supplements taken today / active supplements
     final adherencePct = active > 0 ? ((takenToday / active) * 100).round() : 0;
@@ -597,24 +602,47 @@ class _SupplementInsights extends StatelessWidget {
               )),
             ],
           ),
-          // Not-taken-today list
-          if (active > takenToday) ...[
+          // Remaining today — tap to quick-log
+          if (remaining.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text('Not taken today:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange.shade700)),
+            Text('Remaining today — tap to log:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange.shade700)),
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
               runSpacing: 4,
-              children: entries
-                  .where((e) => e['is_active'] == true && e['last_intake_date'] != today)
-                  .take(8)
-                  .map((e) => Chip(
-                    label: Text(e['supplement_name'] ?? '', style: const TextStyle(fontSize: 11)),
-                    backgroundColor: Colors.orange.shade50,
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ))
-                  .toList(),
+              children: remaining.take(8).map((e) => ActionChip(
+                avatar: Icon(Icons.check_circle_outline, size: 14, color: Colors.orange.shade600),
+                label: Text(e['supplement_name'] ?? '', style: const TextStyle(fontSize: 11)),
+                backgroundColor: Colors.orange.shade50,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onPressed: () async {
+                  final id = e['id']?.toString() ?? '';
+                  if (id.isEmpty) return;
+                  try {
+                    final res = await apiClient.dio.post(
+                      ApiConstants.supplementLogIntake(id),
+                    );
+                    final data = res.data as Map<String, dynamic>;
+                    if (context.mounted) {
+                      final nutrients = data['nutrients_matched'] as int? ?? 0;
+                      final msg = data['already_logged'] == true
+                          ? '${e['supplement_name']} already logged today'
+                          : 'Logged ${e['supplement_name']} ($nutrients nutrients tracked)';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
+                      );
+                      ref.invalidate(supplementsProvider(personKey));
+                    }
+                  } catch (err) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed: $err')),
+                      );
+                    }
+                  }
+                },
+              )).toList(),
             ),
           ],
           const Divider(height: 16),
@@ -909,7 +937,7 @@ class _SupplementsTab extends ConsumerWidget {
     final logsAsync = ref.watch(supplementsProvider(personKey));
     return _HealthList(
       logsAsync: logsAsync,
-      headerBuilder: () => _SupplementInsights(logsAsync: logsAsync),
+      headerBuilder: () => _SupplementInsights(logsAsync: logsAsync, personKey: personKey),
       itemBuilder: (item) => ListTile(
         leading: const Icon(Icons.spa_rounded, color: Colors.amber),
         title: Text(item['supplement_name'] ?? ''),
@@ -922,17 +950,18 @@ class _SupplementsTab extends ConsumerWidget {
               if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
               if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
             ].join(' · ')),
-            if (item['last_intake_date'] != null || (item['intake_count'] ?? 0) > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  [
-                    if (item['last_intake_date'] != null) 'Last: ${item['last_intake_date']}',
-                    if ((item['intake_count'] ?? 0) > 0) '${item['intake_count']}x taken',
-                  ].join(' · '),
-                  style: TextStyle(fontSize: 11, color: Colors.green.shade600),
-                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                [
+                  if (item['start_date'] != null) 'Started: ${item['start_date']}',
+                  if (item['end_date'] != null) 'Until: ${item['end_date']}',
+                  if (item['last_intake_date'] != null) 'Last: ${item['last_intake_date']}',
+                  if ((item['intake_count'] ?? 0) > 0) '${item['intake_count']}x taken',
+                ].join(' · '),
+                style: TextStyle(fontSize: 11, color: Colors.green.shade600),
               ),
+            ),
           ],
         ),
         trailing: Row(
@@ -1028,6 +1057,17 @@ class _SupplementsTab extends ConsumerWidget {
     );
   }
 
+  static const _courseDurations = <String, int?>{
+    'No end date': null,
+    '1 week': 7,
+    '2 weeks': 14,
+    '3 weeks': 21,
+    '1 month': 30,
+    '2 months': 60,
+    '3 months': 90,
+    '6 months': 180,
+  };
+
   void _showForm(BuildContext context, WidgetRef ref,
       {Map<String, dynamic>? item, Map<String, dynamic>? prefill}) {
     final isEdit = item != null;
@@ -1045,6 +1085,10 @@ class _SupplementsTab extends ConsumerWidget {
         ? (item['family_member_id'] ?? 'self')
         : ref.read(selectedPersonProvider);
     final barcode = source['barcode'] ?? '';
+    String? selectedCourse = source['end_date'] != null ? 'custom' : 'No end date';
+    String? endDate = source['end_date'];
+    bool enableReminder = source['reminder_enabled'] == true;
+    String reminderTime = source['reminder_time'] ?? '09:00';
 
     showDialog(
       context: context,
@@ -1087,6 +1131,65 @@ class _SupplementsTab extends ConsumerWidget {
                       value: f.toLowerCase(), child: Text(f))).toList(),
                   onChanged: (v) => ss(() => selectedForm = v ?? ''),
                 ),
+                const SizedBox(height: 8),
+                // Course duration
+                DropdownButtonFormField<String>(
+                  value: selectedCourse,
+                  decoration: const InputDecoration(labelText: 'Course duration'),
+                  items: _courseDurations.keys.map((k) => DropdownMenuItem(
+                      value: k, child: Text(k))).toList(),
+                  onChanged: (v) {
+                    ss(() {
+                      selectedCourse = v;
+                      final days = _courseDurations[v];
+                      if (days != null) {
+                        final end = DateTime.now().add(Duration(days: days));
+                        endDate = end.toIso8601String().substring(0, 10);
+                      } else {
+                        endDate = null;
+                      }
+                    });
+                  },
+                ),
+                if (endDate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Ends: $endDate',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ),
+                const SizedBox(height: 8),
+                // Reminder toggle
+                SwitchListTile(
+                  title: const Text('Daily reminder', style: TextStyle(fontSize: 14)),
+                  subtitle: enableReminder
+                      ? Text('At $reminderTime', style: const TextStyle(fontSize: 12))
+                      : null,
+                  value: enableReminder,
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (v) => ss(() => enableReminder = v),
+                ),
+                if (enableReminder)
+                  InkWell(
+                    onTap: () async {
+                      final parts = reminderTime.split(':');
+                      final picked = await showTimePicker(
+                        context: ctx,
+                        initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+                      );
+                      if (picked != null) {
+                        ss(() => reminderTime = _timeStr(picked));
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Reminder time',
+                        isDense: true,
+                        suffixIcon: Icon(Icons.access_time, size: 18),
+                      ),
+                      child: Text(reminderTime),
+                    ),
+                  ),
                 if (barcode.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -1115,7 +1218,10 @@ class _SupplementsTab extends ConsumerWidget {
                   'start_date': isEdit
                       ? (item['start_date'] ?? _todayStr())
                       : _todayStr(),
+                  'end_date': endDate,
                   'family_member_id': famId,
+                  'reminder_enabled': enableReminder,
+                  'reminder_time': enableReminder ? reminderTime : null,
                 };
                 if (isEdit) {
                   await apiClient.dio.put(
@@ -1126,6 +1232,19 @@ class _SupplementsTab extends ConsumerWidget {
                       ApiConstants.supplements, data: data);
                 }
                 ref.invalidate(supplementsProvider);
+                // Persist and schedule supplement reminder
+                final supId = isEdit ? item['id'].toString() : nameCtrl.text;
+                if (enableReminder) {
+                  await NotificationPrefs.addSupplementReminder(
+                    supplementId: supId,
+                    name: nameCtrl.text,
+                    time: reminderTime,
+                    endDate: endDate,
+                  );
+                } else {
+                  await NotificationPrefs.removeSupplementReminder(supId);
+                }
+                await NotificationService.scheduleAll();
               },
               child: const Text('Save'),
             ),
@@ -1241,6 +1360,60 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
               ],
             ),
           ),
+          // Quick-log: active supplements not yet taken today
+          Builder(builder: (_) {
+            final today = DateTime.now().toIso8601String().substring(0, 10);
+            final quickLog = allSupplements
+                .where((s) => s['is_active'] == true && s['last_intake_date'] != today)
+                .toList();
+            if (quickLog.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Quick log:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cs.primary)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: quickLog.take(10).map((s) => ActionChip(
+                      avatar: Icon(Icons.add_circle, size: 16, color: Colors.green.shade600),
+                      label: Text(s['supplement_name'] ?? '', style: const TextStyle(fontSize: 11)),
+                      backgroundColor: Colors.green.shade50,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onPressed: () async {
+                        final id = s['id']?.toString() ?? '';
+                        if (id.isEmpty) return;
+                        try {
+                          final res = await apiClient.dio.post(ApiConstants.supplementLogIntake(id));
+                          final data = res.data as Map<String, dynamic>;
+                          if (context.mounted) {
+                            final nutrients = data['nutrients_matched'] as int? ?? 0;
+                            final msg = data['already_logged'] == true
+                                ? '${s['supplement_name']} already logged today'
+                                : 'Logged ${s['supplement_name']} ($nutrients nutrients)';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
+                            );
+                            ref.invalidate(supplementsProvider(widget.personKey));
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                          }
+                        }
+                      },
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  const SizedBox(height: 4),
+                ],
+              ),
+            );
+          }),
           // Results
           Expanded(
             child: unique.isEmpty
