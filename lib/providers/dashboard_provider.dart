@@ -54,9 +54,11 @@ class MoodSummary {
   final bool hasData;
   final double? averageScore;
   final String? dominantMood;
+  final List<String> allMoods;
   final String? trend;
   final double? averageEnergy;
   final double? averageStress;
+  final Map<String, double> timePatterns;
   final String insight;
   final String insightType;
   final String emoji;
@@ -65,9 +67,11 @@ class MoodSummary {
     required this.hasData,
     this.averageScore,
     this.dominantMood,
+    this.allMoods = const [],
     this.trend,
     this.averageEnergy,
     this.averageStress,
+    this.timePatterns = const {},
     required this.insight,
     required this.insightType,
     required this.emoji,
@@ -77,9 +81,16 @@ class MoodSummary {
         hasData: json['has_data'] ?? false,
         averageScore: (json['average_score'] as num?)?.toDouble(),
         dominantMood: json['dominant_mood'],
+        allMoods: (json['all_moods'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
         trend: json['trend'],
         averageEnergy: (json['average_energy'] as num?)?.toDouble(),
         averageStress: (json['average_stress'] as num?)?.toDouble(),
+        timePatterns: (json['time_patterns'] as Map<String, dynamic>?)
+                ?.map((k, v) => MapEntry(k, (v as num).toDouble())) ??
+            {},
         insight: json['insight'] ?? '',
         insightType: json['insight_type'] ?? 'tip',
         emoji: json['emoji'] ?? '',
@@ -120,10 +131,12 @@ class WelcomeData {
 final welcomeProvider =
     FutureProvider.family<WelcomeData, String>((ref, person) async {
   try {
+    final utcOffset = DateTime.now().timeZoneOffset.inMinutes;
     final res = await apiClient.dio.get(
       ApiConstants.welcome,
       queryParameters: {
         if (person != 'self') 'person': person,
+        'utc_offset': utcOffset,
       },
     );
     return WelcomeData.fromJson(res.data);

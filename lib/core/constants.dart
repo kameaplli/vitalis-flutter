@@ -131,6 +131,17 @@ class ApiConstants {
   static const String supplementLookup = '/api/foods/supplements/lookup';
   static const String supplementSave   = '/api/foods/supplements/save';
 
+  // Favorites
+  static const String foodFavorites     = '/api/foods/favorites';
+  static String foodFavorite(String id) => '/api/foods/favorites/$id';
+
+  // Copy Yesterday / Recent-Frequent
+  static const String yesterdayMeals    = '/api/foods/yesterday-meals';
+  static const String recentFrequent    = '/api/foods/recent-frequent';
+
+  // Photo Food Recognition
+  static const String foodPhotoRecognize = '/api/foods/photo-recognize';
+
   // Achievements (Phase 6)
   static const String achievements = '/api/achievements';
 

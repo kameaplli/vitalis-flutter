@@ -102,12 +102,18 @@ class FoodItem {
       displayName: json['display_name'],
       brand: json['brand'],
       brandDisplay: json['brand_display'],
-      cal: (json['cal'] as num?)?.toDouble(),
-      protein: (json['protein'] as num?)?.toDouble(),
-      carbs: (json['carbs'] as num?)?.toDouble(),
-      fat: (json['fat'] as num?)?.toDouble(),
-      fiber: (json['fiber'] as num?)?.toDouble(),
-      sugar: (json['sugar'] as num?)?.toDouble(),
+      cal: (json['cal'] as num?)?.toDouble() ??
+          (json['calories_per_100g'] as num?)?.toDouble(),
+      protein: (json['protein'] as num?)?.toDouble() ??
+          (json['protein_per_100g'] as num?)?.toDouble(),
+      carbs: (json['carbs'] as num?)?.toDouble() ??
+          (json['carbs_per_100g'] as num?)?.toDouble(),
+      fat: (json['fat'] as num?)?.toDouble() ??
+          (json['fat_per_100g'] as num?)?.toDouble(),
+      fiber: (json['fiber'] as num?)?.toDouble() ??
+          (json['fiber_per_100g'] as num?)?.toDouble(),
+      sugar: (json['sugar'] as num?)?.toDouble() ??
+          (json['sugar_per_100g'] as num?)?.toDouble(),
       emoji: json['emoji'],
       unit: json['unit'],
       servingSize: (json['serving_size'] as num?)?.toDouble(),
