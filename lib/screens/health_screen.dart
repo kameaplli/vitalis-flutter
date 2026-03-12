@@ -563,13 +563,12 @@ class _MedicationInsights extends StatelessWidget {
 }
 
 class _SupplementInsights extends ConsumerWidget {
-  final AsyncValue<List<Map<String, dynamic>>> logsAsync;
   final String personKey;
-  const _SupplementInsights({required this.logsAsync, required this.personKey});
+  const _SupplementInsights({required this.personKey});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entries = logsAsync.valueOrNull ?? [];
+    final entries = ref.watch(supplementsProvider(personKey)).valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
     final active = entries.where((e) => e['is_active'] == true).toList();
@@ -658,7 +657,7 @@ class _SupplementInsights extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
                       );
-                      ref.invalidate(supplementsProvider);
+                      ref.invalidate(supplementsProvider(personKey));
                       ref.invalidate(supplementsCatalogProvider);
                     }
                   } catch (err) {
@@ -986,7 +985,7 @@ class _SupplementsTab extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 80),
             children: [
               // ── Today score + quick-log ───────────────────────────────
-              _SupplementInsights(logsAsync: logsAsync, personKey: personKey),
+              _SupplementInsights(personKey: personKey),
 
               // ── All supplements list ─────────────────────────────────
               Padding(
@@ -1042,7 +1041,7 @@ class _SupplementsTab extends ConsumerWidget {
                   onDismissed: (dir) async {
                     if (dir == DismissDirection.endToStart) {
                       await apiClient.dio.delete('${ApiConstants.supplements}/$id');
-                      ref.invalidate(supplementsProvider);
+                      ref.invalidate(supplementsProvider(personKey));
                       ref.invalidate(supplementsCatalogProvider);
                     }
                   },
@@ -1056,7 +1055,7 @@ class _SupplementsTab extends ConsumerWidget {
                         onChanged: (_) async {
                           await apiClient.dio.put(
                               '${ApiConstants.supplements}/$id/toggle');
-                          ref.invalidate(supplementsProvider);
+                          ref.invalidate(supplementsProvider(personKey));
                           ref.invalidate(supplementsCatalogProvider);
                         },
                       ),
@@ -1086,7 +1085,7 @@ class _SupplementsTab extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  'Swipe right to edit · left to delete · tap circle to toggle tracking',
+                  'Swipe right to edit · left to delete · tap checkbox to toggle tracking',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ),
