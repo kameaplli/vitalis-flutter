@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -136,23 +137,23 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
 
     // Card definitions: (route-category, label, icon, color, provider)
     final cards = [
-      _CardDef('symptoms',    'Symptoms',    Icons.sick_outlined,            Colors.red,
+      _CardDef('symptoms',    'Symptoms',    Icons.sick,                     Colors.red,
           ref.watch(symptomsProvider(key))),
-      _CardDef('medications', 'Medications', Icons.medication_outlined,      Colors.blue,
+      _CardDef('medications', 'Medications', Icons.medication_rounded,       Colors.blue,
           ref.watch(medicationsProvider('$person:7'))),
-      _CardDef('supplements', 'Supplements', Icons.spa_outlined,            Colors.amber,
+      _CardDef('supplements', 'Supplements', Icons.spa_rounded,             Colors.amber,
           ref.watch(supplementsProvider('$person:7'))),
-      _CardDef('mood',        'Mood',        Icons.mood_outlined,            Colors.green,
+      _CardDef('mood',        'Mood',        Icons.mood_rounded,             Colors.green,
           ref.watch(moodProvider(key))),
-      _CardDef('weight',      'Weight',      Icons.monitor_weight_outlined,  Colors.purple,
+      _CardDef('weight',      'Weight',      Icons.monitor_weight_rounded,   Colors.purple,
           const AsyncValue.data([])),
-      _CardDef('eczema',      'Eczema',      Icons.healing_outlined,         Colors.teal,
+      _CardDef('eczema',      'Eczema',      Icons.healing_rounded,          Colors.teal,
           const AsyncValue.data([])),
-      _CardDef('skin-photos', 'Skin Photos', Icons.camera_alt_outlined,     Colors.brown,
+      _CardDef('skin-photos', 'Skin Photos', Icons.camera_alt_rounded,      Colors.brown,
           const AsyncValue.data([])),
-      _CardDef('products',    'Products',    Icons.inventory_2_outlined,     Colors.indigo,
+      _CardDef('products',    'Products',    Icons.inventory_2_rounded,      Colors.indigo,
           const AsyncValue.data([])),
-      _CardDef('insights',    'Insights',    Icons.psychology_outlined,      Colors.deepPurple,
+      _CardDef('insights',    'Insights',    Icons.psychology_rounded,       Colors.deepPurple,
           const AsyncValue.data([])),
     ];
 
@@ -223,71 +224,148 @@ class _CardDef {
 
 // ─── Health category card ──────────────────────────────────────────────────────
 
-class _HealthCard extends StatelessWidget {
+class _HealthCard extends StatefulWidget {
   final _CardDef def;
   final VoidCallback onTap;
   const _HealthCard({required this.def, required this.onTap});
 
   @override
+  State<_HealthCard> createState() => _HealthCardState();
+}
+
+class _HealthCardState extends State<_HealthCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final def = widget.def;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final entryCount = def.logsAsync.whenOrNull(data: (list) => list.length);
-    final subtitle   = entryCount != null
-        ? (entryCount == 0 ? 'No entries' : '$entryCount entr${entryCount == 1 ? 'y' : 'ies'}')
+    final subtitle = entryCount != null
+        ? (entryCount == 0
+            ? 'No entries'
+            : '$entryCount entr${entryCount == 1 ? 'y' : 'ies'}')
         : null;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: def.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(def.icon, color: def.color, size: 22),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.arrow_forward_ios_rounded,
-                      size: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+    return AnimatedBuilder(
+      animation: _pulseAnim,
+      builder: (context, child) {
+        final pulse = _pulseAnim.value;
+        final glowOpacity = 0.08 + (pulse * 0.07);
+        final iconScale = 1.0 + (pulse * 0.06);
+
+        return Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          elevation: 1 + (pulse * 1.5),
+          shadowColor: def.color.withValues(alpha: 0.3),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  isDark
+                      ? cs.surface
+                      : Colors.white,
+                  def.color.withValues(alpha: glowOpacity),
                 ],
               ),
-              const Spacer(),
-              Text(
-                def.label,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+            ),
+            child: InkWell(
+              onTap: widget.onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Transform.scale(
+                          scale: iconScale,
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  def.color.withValues(alpha: 0.15 + pulse * 0.1),
+                                  def.color.withValues(alpha: 0.25 + pulse * 0.1),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: def.color.withValues(alpha: 0.2 + pulse * 0.15),
+                                  blurRadius: 8 + (pulse * 6),
+                                  spreadRadius: pulse * 2,
+                                ),
+                              ],
+                            ),
+                            child: Icon(def.icon, color: def.color, size: 28),
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      def.label,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    if (subtitle != null)
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 12,
+                        width: 12,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5, color: def.color),
+                      ),
+                  ],
                 ),
               ),
-              if (subtitle != null)
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: cs.onSurfaceVariant,
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 12,
-                  width: 12,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 1.5, color: def.color),
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -573,20 +651,57 @@ class _SupplementsTab extends ConsumerWidget {
     return _HealthList(
       logsAsync: ref.watch(supplementsProvider(personKey)),
       itemBuilder: (item) => ListTile(
-        leading: const Icon(Icons.spa_outlined, color: Colors.amber),
+        leading: const Icon(Icons.spa_rounded, color: Colors.amber),
         title: Text(item['supplement_name'] ?? ''),
         subtitle: Text([
           if (item['brand'] != null && (item['brand'] as String).isNotEmpty) item['brand'],
           if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
           if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
         ].join(' · ')),
-        trailing: Switch(
-          value: item['is_active'] == true,
-          onChanged: (_) async {
-            await apiClient.dio.put(
-                '${ApiConstants.supplements}/${item['id']}/toggle');
-            ref.invalidate(supplementsProvider);
-          },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+              tooltip: 'Log intake today',
+              onPressed: () async {
+                final id = item['id']?.toString() ?? '';
+                if (id.isEmpty) return;
+                try {
+                  final res = await apiClient.dio.post(
+                    ApiConstants.supplementLogIntake(id),
+                  );
+                  final data = res.data as Map<String, dynamic>;
+                  if (context.mounted) {
+                    final msg = data['already_logged'] == true
+                        ? '${item['supplement_name']} already logged today'
+                        : 'Logged ${item['supplement_name']} intake';
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(msg),
+                        backgroundColor: Colors.green.shade700,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+            Switch(
+              value: item['is_active'] == true,
+              onChanged: (_) async {
+                await apiClient.dio.put(
+                    '${ApiConstants.supplements}/${item['id']}/toggle');
+                ref.invalidate(supplementsProvider);
+              },
+            ),
+          ],
         ),
       ),
       onAdd: (ctx, ref) => _showAddOptions(ctx, ref),
@@ -823,22 +938,24 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
           // Quick actions row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () { Navigator.pop(context); widget.onBarcode(); },
-                    icon: const Icon(Icons.qr_code_scanner, size: 16),
-                    label: const Text('Scan Barcode', style: TextStyle(fontSize: 12)),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: () { Navigator.pop(context); widget.onBarcode(); },
+                  icon: const Icon(Icons.qr_code_scanner, size: 16),
+                  label: const Text('Scan Barcode', style: TextStyle(fontSize: 12)),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () { Navigator.pop(context); widget.onManual(); },
-                    icon: const Icon(Icons.edit_note, size: 16),
-                    label: const Text('Enter Manually', style: TextStyle(fontSize: 12)),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: () { Navigator.pop(context); widget.onManual(); },
+                  icon: const Icon(Icons.edit_note, size: 16),
+                  label: const Text('Enter Manually', style: TextStyle(fontSize: 12)),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _showImportBrand(context),
+                  icon: const Icon(Icons.cloud_download_outlined, size: 16),
+                  label: const Text('Import Brand', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -850,7 +967,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.spa_outlined, size: 48, color: cs.primary.withOpacity(0.3)),
+                        Icon(Icons.spa_outlined, size: 48, color: cs.primary.withValues(alpha: 0.3)),
                         const SizedBox(height: 8),
                         Text('No supplements logged yet',
                             style: TextStyle(color: Colors.grey.shade500)),
@@ -908,18 +1025,161 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
       ),
     );
   }
+
+  void _showImportBrand(BuildContext context) {
+    final brandCtrl = TextEditingController();
+    final majorBrands = [
+      'Nature Made', 'NOW Foods', "Nature's Bounty", 'Garden of Life',
+      'Centrum', 'One A Day', 'Kirkland Signature', 'Nordic Naturals',
+      'Solgar', 'MegaFood', 'Thorne', 'Pure Encapsulations',
+      'Life Extension', 'Jarrow Formulas', "Doctor's Best", 'Swanson',
+      'GNC', 'Spring Valley', 'Natrol',
+    ];
+    String? selectedBrand;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => AlertDialog(
+          title: const Text('Import Supplements'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Import all common supplements from a brand. '
+                    'Uses AI to find supplement facts online.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: brandCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Brand name',
+                      hintText: 'e.g. Nature Made',
+                      isDense: true,
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    onChanged: (v) => ss(() => selectedBrand = null),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Or select a major brand:',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: majorBrands.map((b) => ChoiceChip(
+                      label: Text(b, style: const TextStyle(fontSize: 11)),
+                      selected: selectedBrand == b,
+                      onSelected: (sel) {
+                        ss(() {
+                          selectedBrand = sel ? b : null;
+                          brandCtrl.text = sel ? b : '';
+                        });
+                      },
+                      visualDensity: VisualDensity.compact,
+                    )).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                final brand = brandCtrl.text.trim();
+                if (brand.isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Please enter a brand name')),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx);
+                _runBrandImport(brand);
+              },
+              icon: const Icon(Icons.cloud_download, size: 18),
+              label: const Text('Import'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _runBrandImport(String brand) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Importing $brand supplements...',
+                style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
+            Text('Searching online for supplement facts.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final res = await apiClient.dio.post(
+        ApiConstants.supplementImportBrand,
+        data: {'brand': brand},
+      );
+      if (context.mounted) Navigator.pop(context); // dismiss loading
+
+      final data = res.data as Map<String, dynamic>;
+      final imported = data['imported'] ?? 0;
+      final existing = data['existing'] ?? 0;
+      final found = data['found'] ?? 0;
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$brand: $found found, $imported imported, $existing already in DB',
+            ),
+            backgroundColor: imported > 0 ? Colors.green.shade700 : null,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context); // dismiss loading
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Import failed: $e'), duration: const Duration(seconds: 3)),
+        );
+      }
+    }
+  }
 }
 
-class _SupplementBarcodeScanner extends StatefulWidget {
+class _SupplementBarcodeScanner extends ConsumerStatefulWidget {
   final void Function(String barcode, String? productName, String? brand) onScanned;
   const _SupplementBarcodeScanner({required this.onScanned});
   @override
-  State<_SupplementBarcodeScanner> createState() => _SupplementBarcodeScannerState();
+  ConsumerState<_SupplementBarcodeScanner> createState() => _SupplementBarcodeScannerState();
 }
 
-class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
+class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeScanner> {
   final MobileScannerController _ctrl = MobileScannerController();
   bool _processing = false;
+  String _status = 'Point camera at a barcode';
 
   @override
   void dispose() {
@@ -931,24 +1191,280 @@ class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
     if (_processing) return;
     final code = capture.barcodes.firstOrNull?.rawValue;
     if (code == null || code.isEmpty) return;
-    setState(() => _processing = true);
+    _lookupBarcode(code);
+  }
 
-    // Try Open Food Facts for product info
+  Future<void> _lookupBarcode(String code) async {
+    if (_processing) return;
+    setState(() { _processing = true; _status = 'Looking up product...'; });
+    _ctrl.stop();
+
+    // Try Open Food Facts with UPC-A/EAN-13 variants
+    final variants = <String>[code];
+    if (code.length == 12) variants.add('0$code');
+    if (code.length == 13 && code.startsWith('0')) variants.add(code.substring(1));
+
     String? productName;
     String? brand;
-    try {
-      final res = await apiClient.dio.get(
-        'https://world.openfoodfacts.org/api/v2/product/$code.json',
-        queryParameters: {'fields': 'product_name,brands'},
-      );
-      if (res.data['status'] == 1) {
-        final p = res.data['product'] as Map<String, dynamic>?;
-        productName = p?['product_name'] as String?;
-        brand = p?['brands'] as String?;
-      }
-    } catch (_) {}
+    bool found = false;
 
-    widget.onScanned(code, productName, brand);
+    for (final variant in variants) {
+      try {
+        final dio = Dio();
+        dio.options.headers['User-Agent'] = 'Vitalis/3.0 (vitalis-health-app)';
+        final res = await dio.get(
+          'https://world.openfoodfacts.org/api/v2/product/$variant',
+        );
+        final data = res.data as Map<String, dynamic>;
+        if (data['status'] == 'product_found' || data['status'] == 1) {
+          final p = data['product'] as Map<String, dynamic>?;
+          productName = p?['product_name'] as String?;
+          brand = p?['brands'] as String?;
+          found = true;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (found && mounted) {
+      widget.onScanned(code, productName, brand);
+    } else if (mounted) {
+      // Product not found in OpenFoodFacts — offer online AI search
+      _showNotFoundOptions(code);
+    }
+  }
+
+  void _showNotFoundOptions(String barcode) {
+    setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Product Not Found'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Barcode: $barcode', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 12),
+            const Text('Not found in product databases. How would you like to proceed?', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _ctrl.start();
+            },
+            child: const Text('Scan Again'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onScanned(barcode, null, null);
+            },
+            icon: const Icon(Icons.edit, size: 18),
+            label: const Text('Enter Manually'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showSupplementWebLookup(barcode);
+            },
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Search Online'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSupplementWebLookup(String barcode) {
+    final nameCtrl = TextEditingController();
+    final brandCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search Supplement Online'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Barcode: $barcode', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            const SizedBox(height: 12),
+            const Text('Enter the supplement details to search:', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Supplement name *',
+                hintText: 'e.g. Multivitamin, Vitamin D3 5000 IU',
+                isDense: true,
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: brandCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Brand (optional)',
+                hintText: 'e.g. Nature Made, NOW Foods',
+                isDense: true,
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _ctrl.start(); },
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Please enter a supplement name')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              _performSupplementLookup(
+                name: name,
+                brand: brandCtrl.text.trim().isNotEmpty ? brandCtrl.text.trim() : null,
+                barcode: barcode,
+              );
+            },
+            icon: const Icon(Icons.search, size: 18),
+            label: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performSupplementLookup({
+    required String name,
+    String? brand,
+    String? barcode,
+  }) async {
+    setState(() { _processing = true; _status = 'Searching online for supplement info...'; });
+
+    try {
+      final res = await apiClient.dio.post(ApiConstants.supplementLookup, data: {
+        'name': name,
+        'brand': brand,
+        'barcode': barcode,
+      });
+
+      final data = res.data as Map<String, dynamic>;
+
+      if (data['success'] != true) {
+        if (mounted) {
+          setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['error'] ?? 'Supplement not found'), duration: const Duration(seconds: 3)),
+          );
+          widget.onScanned(barcode ?? '', null, null);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+        _showSupplementConfirmation(data, barcode);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _processing = false; _status = 'Point camera at a barcode'; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Search failed: ${e.toString().length > 80 ? '${e.toString().substring(0, 80)}...' : e}'), duration: const Duration(seconds: 3)),
+        );
+        widget.onScanned(barcode ?? '', null, null);
+      }
+    }
+  }
+
+  void _showSupplementConfirmation(Map<String, dynamic> data, String? barcode) {
+    final ingredients = (data['ingredients'] as List<dynamic>?) ?? [];
+    final supplementName = data['supplement_name'] ?? 'Unknown Supplement';
+    final brandName = data['brand'] ?? '';
+    final servingSize = data['serving_size'] ?? '1 serving';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(supplementName, style: const TextStyle(fontSize: 16)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (brandName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('Brand: $brandName', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                  ),
+                Text('Serving: $servingSize', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                const SizedBox(height: 8),
+                const Text('Supplement Facts:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const Divider(height: 12),
+                if (ingredients.isEmpty)
+                  const Text('No ingredients found', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                ...ingredients.map<Widget>((ing) {
+                  final ingMap = ing as Map<String, dynamic>;
+                  final ingName = ingMap['name'] ?? '';
+                  final amount = ingMap['amount'];
+                  final unit = ingMap['unit'] ?? '';
+                  final dv = ingMap['daily_value_percent'];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(ingName, style: const TextStyle(fontSize: 13))),
+                        if (amount != null)
+                          Text('$amount $unit', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                        if (dv != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Text('${dv.toStringAsFixed(0)}%', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+                if (data['other_ingredients'] != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Other: ${data['other_ingredients']}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); Navigator.pop(context); },
+            child: const Text('Cancel'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              // Pass the AI-found data back to supplement form
+              widget.onScanned(
+                barcode ?? '',
+                data['supplement_name'] as String?,
+                data['brand'] as String?,
+              );
+            },
+            icon: const Icon(Icons.check, size: 18),
+            label: const Text('Use This'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -962,19 +1478,19 @@ class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
                 borderRadius: BorderRadius.circular(2))),
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Text('Scan Supplement Barcode',
-              style: Theme.of(context).textTheme.titleMedium),
+          child: Row(
+            children: [
+              if (_processing)
+                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+              if (_processing) const SizedBox(width: 8),
+              Text(_processing ? _status : 'Scan Supplement Barcode',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
         ),
         Expanded(
           child: _processing
-              ? const Center(child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 12),
-                    Text('Looking up product...'),
-                  ],
-                ))
+              ? const Center(child: CircularProgressIndicator())
               : ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: MobileScanner(
@@ -987,8 +1503,7 @@ class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
           padding: const EdgeInsets.all(12),
           child: TextButton.icon(
             onPressed: () {
-              Navigator.pop(context);
-              _showManualBarcode(context);
+              _showManualBarcode();
             },
             icon: const Icon(Icons.keyboard),
             label: const Text('Enter barcode manually'),
@@ -998,7 +1513,7 @@ class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
     );
   }
 
-  void _showManualBarcode(BuildContext context) {
+  void _showManualBarcode() {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
@@ -1017,7 +1532,7 @@ class _SupplementBarcodeScannerState extends State<_SupplementBarcodeScanner> {
             onPressed: () {
               Navigator.pop(ctx);
               if (ctrl.text.isNotEmpty) {
-                widget.onScanned(ctrl.text, null, null);
+                _lookupBarcode(ctrl.text);
               }
             },
             child: const Text('Look up'),
