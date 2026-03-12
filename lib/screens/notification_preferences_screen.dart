@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../services/notification_service.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
@@ -105,7 +106,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Notification preferences saved!'), duration: Duration(seconds: 2)),
       );
-      Navigator.of(context).pop();
+      context.go('/profile');
     }
   }
 
