@@ -1,7 +1,7 @@
 name: vitalis
 description: Vitalis - Health & Nutrition Tracking App
 publish_to: "none"
-version: 3.7.0+1
+version: 4.1.0+1
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
