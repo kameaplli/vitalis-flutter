@@ -128,14 +128,13 @@ class HealthScreen extends ConsumerStatefulWidget {
 }
 
 class _HealthScreenState extends ConsumerState<HealthScreen> {
-  int _days = 30;
+  static const _days = 30;
 
   @override
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
     final key    = '$person:$_days';
 
-    // Card definitions: (route-category, label, icon, color, provider)
     final cards = [
       _CardDef('symptoms',    'Symptoms',    Icons.thermostat_rounded,       const Color(0xFFE53935),
           ref.watch(symptomsProvider(key))),
@@ -158,51 +157,31 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Health'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 7,  label: Text('7d')),
-                ButtonSegment(value: 30, label: Text('30d')),
-                ButtonSegment(value: 90, label: Text('90d')),
-              ],
-              selected: {_days},
-              onSelectionChanged: (s) => setState(() => _days = s.first),
-              style: ButtonStyle(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 6)),
-                visualDensity: VisualDensity.compact,
-              ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+          child: GridView.builder(
+            itemCount: cards.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.85,
             ),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: GridView.builder(
-          itemCount: cards.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.25,
-          ),
-          itemBuilder: (context, i) => _HealthCard(
-            def: cards[i],
-            onTap: () {
-              final cat = cards[i].category;
-              final route = cat == 'weight' ? '/health/weight'
-                  : cat == 'eczema' ? '/health/eczema'
-                  : cat == 'skin-photos' ? '/skin-photos'
-                  : cat == 'products' ? '/products'
-                  : cat == 'insights' ? '/insights'
-                  : '/health/$cat';
-              context.push(route);
-            },
+            itemBuilder: (context, i) => _HealthCard(
+              def: cards[i],
+              index: i,
+              onTap: () {
+                final cat = cards[i].category;
+                final route = cat == 'weight' ? '/health/weight'
+                    : cat == 'eczema' ? '/health/eczema'
+                    : cat == 'skin-photos' ? '/skin-photos'
+                    : cat == 'products' ? '/products'
+                    : cat == 'insights' ? '/insights'
+                    : '/health/$cat';
+                context.push(route);
+              },
+            ),
           ),
         ),
       ),
@@ -226,24 +205,41 @@ class _CardDef {
 
 class _HealthCard extends StatefulWidget {
   final _CardDef def;
+  final int index;
   final VoidCallback onTap;
-  const _HealthCard({required this.def, required this.onTap});
+  const _HealthCard({required this.def, required this.index, required this.onTap});
 
   @override
   State<_HealthCard> createState() => _HealthCardState();
 }
 
 class _HealthCardState extends State<_HealthCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  late final AnimationController _entryCtrl;
+  late final Animation<double> _entryAnim;
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseAnim;
 
   @override
   void initState() {
     super.initState();
+    // Staggered entrance
+    _entryCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _entryAnim = CurvedAnimation(
+      parent: _entryCtrl,
+      curve: Curves.easeOutBack,
+    );
+    Future.delayed(Duration(milliseconds: 60 * widget.index), () {
+      if (mounted) _entryCtrl.forward();
+    });
+
+    // Subtle breathing
     _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 3000),
     )..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
@@ -252,6 +248,7 @@ class _HealthCardState extends State<_HealthCard>
 
   @override
   void dispose() {
+    _entryCtrl.dispose();
     _pulseCtrl.dispose();
     super.dispose();
   }
@@ -263,98 +260,121 @@ class _HealthCardState extends State<_HealthCard>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final entryCount = def.logsAsync.whenOrNull(data: (list) => list.length);
-    final subtitle = entryCount != null
-        ? (entryCount == 0
-            ? 'No entries'
-            : '$entryCount entr${entryCount == 1 ? 'y' : 'ies'}')
-        : null;
+    final badge = entryCount != null && entryCount > 0 ? '$entryCount' : null;
 
-    return AnimatedBuilder(
-      animation: _pulseAnim,
-      builder: (context, child) {
-        final pulse = _pulseAnim.value;
-        final glowOpacity = 0.08 + (pulse * 0.07);
-        final iconScale = 1.0 + (pulse * 0.06);
+    return ScaleTransition(
+      scale: _entryAnim,
+      child: FadeTransition(
+        opacity: _entryAnim,
+        child: AnimatedBuilder(
+          animation: _pulseAnim,
+          builder: (context, _) {
+            final p = _pulseAnim.value;
 
-        return Card(
-          margin: EdgeInsets.zero,
-          clipBehavior: Clip.antiAlias,
-          elevation: 1 + (pulse * 1.5),
-          shadowColor: def.color.withValues(alpha: 0.3),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  isDark ? cs.surface : Colors.white,
-                  def.color.withValues(alpha: glowOpacity),
-                ],
-              ),
-            ),
-            child: InkWell(
+            return GestureDetector(
               onTap: widget.onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      isDark
+                          ? cs.surface
+                          : Colors.white,
+                      def.color.withValues(alpha: 0.06 + p * 0.04),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: def.color.withValues(alpha: 0.12 + p * 0.06),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: def.color.withValues(alpha: 0.08 + p * 0.04),
+                      blurRadius: 10 + p * 4,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Stack(
                   children: [
-                    Transform.scale(
-                      scale: iconScale,
+                    // Accent dot top-right
+                    Positioned(
+                      top: 10,
+                      right: 10,
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        width: 6 + p * 2,
+                        height: 6 + p * 2,
                         decoration: BoxDecoration(
-                          gradient: RadialGradient(
-                            colors: [
-                              def.color.withValues(alpha: 0.20 + pulse * 0.1),
-                              def.color.withValues(alpha: 0.08),
-                            ],
-                          ),
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: def.color.withValues(alpha: 0.18 + pulse * 0.12),
-                              blurRadius: 12 + (pulse * 6),
-                              spreadRadius: pulse * 2,
+                          color: def.color.withValues(alpha: 0.25 + p * 0.15),
+                        ),
+                      ),
+                    ),
+                    // Badge
+                    if (badge != null)
+                      Positioned(
+                        top: 8,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: def.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(badge,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: def.color)),
+                        ),
+                      ),
+                    // Center content
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Transform.scale(
+                              scale: 1.0 + p * 0.04,
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      def.color.withValues(alpha: 0.18 + p * 0.08),
+                                      def.color.withValues(alpha: 0.04),
+                                    ],
+                                    radius: 0.85,
+                                  ),
+                                ),
+                                child: Icon(def.icon, color: def.color, size: 30),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              def.label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? cs.onSurface : Colors.grey.shade800,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
-                        child: Icon(def.icon, color: def.color, size: 36),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      def.label,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 2),
-                    if (subtitle != null)
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      )
-                    else
-                      SizedBox(
-                        height: 12,
-                        width: 12,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 1.5, color: def.color),
-                      ),
                   ],
                 ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 }
