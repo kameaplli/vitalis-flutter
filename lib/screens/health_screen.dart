@@ -17,6 +17,7 @@ class _HealthList extends ConsumerWidget {
   final void Function(BuildContext, WidgetRef) onAdd;
   final void Function(BuildContext, WidgetRef, Map<String, dynamic>)? onEdit;
   final Future<void> Function(WidgetRef, String) onDelete;
+  final Widget Function()? headerBuilder;
 
   const _HealthList({
     required this.logsAsync,
@@ -24,6 +25,7 @@ class _HealthList extends ConsumerWidget {
     required this.onAdd,
     required this.onDelete,
     this.onEdit,
+    this.headerBuilder,
   });
 
   @override
@@ -38,61 +40,70 @@ class _HealthList extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
         data: (entries) {
-          if (entries.isEmpty) {
+          if (entries.isEmpty && headerBuilder == null) {
             return const Center(
                 child: Text('No entries yet. Tap + to add.'));
           }
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-                child: Row(children: [
-                  Icon(Icons.swipe, size: 12, color: Colors.grey.shade400),
-                  const SizedBox(width: 4),
-                  Text('Swipe right to edit · left to delete',
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade400)),
-                ]),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: entries.length,
-                  itemBuilder: (ctx, i) {
-                    final item = entries[i];
-                    final id = item['id']?.toString() ?? '$i';
-                    return Dismissible(
-                      key: Key(id),
-                      direction: DismissDirection.horizontal,
-                      background: Container(
-                        color: Colors.blue,
-                        alignment: Alignment.centerLeft,
-                        padding: const EdgeInsets.only(left: 16),
-                        child: const Icon(Icons.edit, color: Colors.white),
-                      ),
-                      secondaryBackground: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child:
-                            const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      confirmDismiss: (dir) async {
-                        if (dir == DismissDirection.startToEnd) {
-                          onEdit?.call(ctx, ref, item);
-                          return false;
-                        }
-                        return _confirmDelete(ctx);
-                      },
-                      onDismissed: (dir) {
-                        if (dir == DismissDirection.endToStart) {
-                          onDelete(ref, id);
-                        }
-                      },
-                      child: itemBuilder(item),
-                    );
-                  },
+          return CustomScrollView(
+            slivers: [
+              if (headerBuilder != null)
+                SliverToBoxAdapter(child: headerBuilder!()),
+              if (entries.isEmpty)
+                const SliverFillRemaining(
+                  child: Center(child: Text('No entries yet. Tap + to add.')),
+                )
+              else ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+                    child: Row(children: [
+                      Icon(Icons.swipe, size: 12, color: Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text('Swipe right to edit · left to delete',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade400)),
+                    ]),
+                  ),
                 ),
-              ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) {
+                      final item = entries[i];
+                      final id = item['id']?.toString() ?? '$i';
+                      return Dismissible(
+                        key: Key(id),
+                        direction: DismissDirection.horizontal,
+                        background: Container(
+                          color: Colors.blue,
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 16),
+                          child: const Icon(Icons.edit, color: Colors.white),
+                        ),
+                        secondaryBackground: Container(
+                          color: Colors.red,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 16),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        confirmDismiss: (dir) async {
+                          if (dir == DismissDirection.startToEnd) {
+                            onEdit?.call(ctx, ref, item);
+                            return false;
+                          }
+                          return _confirmDelete(ctx);
+                        },
+                        onDismissed: (dir) {
+                          if (dir == DismissDirection.endToStart) {
+                            onDelete(ref, id);
+                          }
+                        },
+                        child: itemBuilder(item),
+                      );
+                    },
+                    childCount: entries.length,
+                  ),
+                ),
+              ],
             ],
           );
         },
@@ -379,6 +390,240 @@ class _HealthCardState extends State<_HealthCard>
   }
 }
 
+// ─── Insight widgets (computed from local data, no extra API calls) ───────────
+
+class _InsightChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  const _InsightChip({required this.icon, required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SymptomInsights extends StatelessWidget {
+  final AsyncValue<List<Map<String, dynamic>>> logsAsync;
+  const _SymptomInsights({required this.logsAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = logsAsync.valueOrNull ?? [];
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    // Compute stats
+    final total = entries.length;
+    final severities = entries.map((e) => (e['severity'] as num?)?.toDouble() ?? 0).toList();
+    final avgSeverity = severities.isEmpty ? 0.0 : severities.reduce((a, b) => a + b) / severities.length;
+
+    // Most common symptom
+    final freq = <String, int>{};
+    for (final e in entries) {
+      final t = (e['symptom_type'] ?? '') as String;
+      if (t.isNotEmpty) freq[t] = (freq[t] ?? 0) + 1;
+    }
+    final sortedSymptoms = freq.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final topSymptom = sortedSymptoms.isNotEmpty ? sortedSymptoms.first.key : '—';
+
+    // High severity count (>= 7)
+    final highSev = severities.where((s) => s >= 7).length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _InsightChip(
+                icon: Icons.numbers, label: 'Total', value: '$total',
+                color: const Color(0xFFE53935),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _InsightChip(
+                icon: Icons.speed, label: 'Avg severity', value: avgSeverity.toStringAsFixed(1),
+                color: const Color(0xFFFF9800),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _InsightChip(
+                icon: Icons.warning_amber_rounded, label: 'Severe', value: '$highSev',
+                color: const Color(0xFFD32F2F),
+              )),
+            ],
+          ),
+          if (sortedSymptoms.length > 1) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: sortedSymptoms.take(5).map((e) => Chip(
+                avatar: Text('${e.value}x', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                label: Text(e.key, style: const TextStyle(fontSize: 11)),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              )).toList(),
+            ),
+          ] else if (topSymptom != '—') ...[
+            const SizedBox(height: 6),
+            Text('Most common: $topSymptom', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          ],
+          const Divider(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _MedicationInsights extends StatelessWidget {
+  final AsyncValue<List<Map<String, dynamic>>> logsAsync;
+  const _MedicationInsights({required this.logsAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = logsAsync.valueOrNull ?? [];
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    final active = entries.where((e) => e['is_active'] == true).length;
+    final inactive = entries.length - active;
+
+    // Group by frequency
+    final freqMap = <String, int>{};
+    for (final e in entries) {
+      if (e['is_active'] == true) {
+        final f = (e['frequency'] ?? 'unknown') as String;
+        freqMap[f] = (freqMap[f] ?? 0) + 1;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _InsightChip(
+                icon: Icons.check_circle, label: 'Active', value: '$active',
+                color: const Color(0xFF43A047),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _InsightChip(
+                icon: Icons.pause_circle, label: 'Stopped', value: '$inactive',
+                color: const Color(0xFF9E9E9E),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _InsightChip(
+                icon: Icons.medication_rounded, label: 'Total', value: '${entries.length}',
+                color: const Color(0xFF1E88E5),
+              )),
+            ],
+          ),
+          if (freqMap.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: freqMap.entries.map((e) => Chip(
+                avatar: Text('${e.value}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                label: Text(e.key, style: const TextStyle(fontSize: 11)),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              )).toList(),
+            ),
+          ],
+          const Divider(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupplementInsights extends StatelessWidget {
+  final AsyncValue<List<Map<String, dynamic>>> logsAsync;
+  const _SupplementInsights({required this.logsAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = logsAsync.valueOrNull ?? [];
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    final active = entries.where((e) => e['is_active'] == true).length;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final takenToday = entries.where((e) => e['last_intake_date'] == today).length;
+    final totalIntakes = entries.fold<int>(0, (sum, e) => sum + ((e['intake_count'] as int?) ?? 0));
+
+    // Adherence: supplements taken today / active supplements
+    final adherencePct = active > 0 ? ((takenToday / active) * 100).round() : 0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _InsightChip(
+                icon: Icons.today, label: 'Today', value: '$takenToday/$active',
+                color: takenToday >= active ? const Color(0xFF43A047) : const Color(0xFFF9A825),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _InsightChip(
+                icon: Icons.trending_up, label: 'Adherence', value: '$adherencePct%',
+                color: adherencePct >= 80 ? const Color(0xFF43A047) : adherencePct >= 50 ? const Color(0xFFF9A825) : const Color(0xFFE53935),
+              )),
+              const SizedBox(width: 8),
+              Expanded(child: _InsightChip(
+                icon: Icons.repeat, label: 'All intakes', value: '$totalIntakes',
+                color: const Color(0xFF1E88E5),
+              )),
+            ],
+          ),
+          // Not-taken-today list
+          if (active > takenToday) ...[
+            const SizedBox(height: 8),
+            Text('Not taken today:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange.shade700)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: entries
+                  .where((e) => e['is_active'] == true && e['last_intake_date'] != today)
+                  .take(8)
+                  .map((e) => Chip(
+                    label: Text(e['supplement_name'] ?? '', style: const TextStyle(fontSize: 11)),
+                    backgroundColor: Colors.orange.shade50,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ))
+                  .toList(),
+            ),
+          ],
+          const Divider(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 TimeOfDay _nowTime() => TimeOfDay.now();
@@ -395,8 +640,10 @@ class _SymptomsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final logsAsync = ref.watch(symptomsProvider(personKey));
     return _HealthList(
-      logsAsync: ref.watch(symptomsProvider(personKey)),
+      logsAsync: logsAsync,
+      headerBuilder: () => _SymptomInsights(logsAsync: logsAsync),
       itemBuilder: (item) => ListTile(
         leading: const Icon(Icons.sick_outlined, color: Colors.orange),
         title: Text(item['symptom_type'] ?? ''),
@@ -540,8 +787,10 @@ class _MedicationsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final logsAsync = ref.watch(medicationsProvider(personKey));
     return _HealthList(
-      logsAsync: ref.watch(medicationsProvider(personKey)),
+      logsAsync: logsAsync,
+      headerBuilder: () => _MedicationInsights(logsAsync: logsAsync),
       itemBuilder: (item) => ListTile(
         leading:
             const Icon(Icons.medication_outlined, color: Colors.blue),
@@ -657,8 +906,10 @@ class _SupplementsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final logsAsync = ref.watch(supplementsProvider(personKey));
     return _HealthList(
-      logsAsync: ref.watch(supplementsProvider(personKey)),
+      logsAsync: logsAsync,
+      headerBuilder: () => _SupplementInsights(logsAsync: logsAsync),
       itemBuilder: (item) => ListTile(
         leading: const Icon(Icons.spa_rounded, color: Colors.amber),
         title: Text(item['supplement_name'] ?? ''),
