@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -136,7 +137,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
 
             const SizedBox(height: 16),
 
-            // ── 4-method food entry hub ────────────────────────────────────
+            // ── 5-method food entry hub ────────────────────────────────────
             Text('Add Food', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Row(
@@ -157,9 +158,16 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                 const SizedBox(width: 8),
                 _EntryMethodCard(
                   icon: Icons.camera_alt_outlined,
-                  label: 'Label Scan',
+                  label: 'Label',
                   color: Colors.green,
                   onTap: () => _showLabelScanOptions(context),
+                ),
+                const SizedBox(width: 8),
+                _EntryMethodCard(
+                  icon: Icons.restaurant,
+                  label: 'Photo AI',
+                  color: Colors.teal,
+                  onTap: () => _showPhotoFoodRecognition(context),
                 ),
                 const SizedBox(width: 8),
                 _EntryMethodCard(
@@ -263,10 +271,24 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
     final isEdit = ref.read(nutritionProvider).editEntryId != null;
     final ok = await ref.read(nutritionProvider.notifier).logNutrition(personId: personId);
     if (!mounted) return;
+    if (ok) {
+      HapticFeedback.heavyImpact();
+    }
     messenger.showSnackBar(
-      SnackBar(content: Text(ok
-          ? (isEdit ? 'Entry updated!' : 'Meal logged!')
-          : 'Failed to save')),
+      SnackBar(
+        content: Row(
+          children: [
+            if (ok) const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            if (ok) const SizedBox(width: 8),
+            Text(ok
+                ? (isEdit ? 'Entry updated!' : 'Meal logged successfully!')
+                : 'Failed to save'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ok ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
     );
     if (ok && mounted) {
       // Always refresh entries list and dashboard after any successful log/edit
@@ -295,6 +317,169 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
           ref.read(nutritionProvider.notifier).addFood(food);
           ref.invalidate(foodDatabaseProvider);
         },
+      ),
+    );
+  }
+
+  void _showPhotoFoodRecognition(BuildContext context) async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final image = await picker.pickImage(source: source, maxWidth: 1200, imageQuality: 85);
+    if (image == null || !mounted) return;
+
+    HapticFeedback.mediumImpact();
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('Analyzing your meal...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final bytes = await image.readAsBytes();
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: 'meal.jpg'),
+      });
+      final res = await apiClient.dio.post(
+        ApiConstants.foodPhotoRecognize,
+        data: formData,
+      );
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      final foods = res.data['foods'] as List<dynamic>? ?? [];
+      final desc = res.data['meal_description'] ?? '';
+      if (foods.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not identify foods in this photo')),
+        );
+        return;
+      }
+
+      // Show recognized foods for confirmation
+      if (!mounted) return;
+      _showRecognizedFoods(foods, desc);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Photo recognition failed: $e')),
+      );
+    }
+  }
+
+  void _showRecognizedFoods(List<dynamic> foods, String description) {
+    final selected = List<bool>.filled(foods.length, true);
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => AlertDialog(
+          title: const Text('Recognized Foods'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (description.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(description,
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600)),
+                  ),
+                ...List.generate(foods.length, (i) {
+                  final f = foods[i] as Map<String, dynamic>;
+                  final conf = ((f['confidence'] as num?) ?? 0) * 100;
+                  return CheckboxListTile(
+                    dense: true,
+                    value: selected[i],
+                    onChanged: (v) => ss(() => selected[i] = v ?? true),
+                    title: Text(
+                        '${f['emoji'] ?? '🍽️'} ${f['name']}'),
+                    subtitle: Text(
+                      '~${f['estimated_grams']}g · '
+                      '${((f['calories_per_100g'] as num? ?? 0) * (f['estimated_grams'] as num? ?? 100) / 100).toStringAsFixed(0)} kcal · '
+                      '${conf.toStringAsFixed(0)}% confidence',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                HapticFeedback.heavyImpact();
+                for (int i = 0; i < foods.length; i++) {
+                  if (!selected[i]) continue;
+                  final f = foods[i] as Map<String, dynamic>;
+                  final food = FoodItem(
+                    id: 'photo_${DateTime.now().millisecondsSinceEpoch}_$i',
+                    name: f['name'] ?? 'Unknown',
+                    cal: (f['calories_per_100g'] as num?)?.toDouble(),
+                    protein: (f['protein_per_100g'] as num?)?.toDouble(),
+                    carbs: (f['carbs_per_100g'] as num?)?.toDouble(),
+                    fat: (f['fat_per_100g'] as num?)?.toDouble(),
+                    servingSize: (f['estimated_grams'] as num?)?.toDouble() ?? 100,
+                    emoji: f['emoji'],
+                  );
+                  ref.read(nutritionProvider.notifier).addFood(food);
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text('${selected.where((s) => s).length} foods added!'),
+                      ],
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Text(
+                  'Add ${selected.where((s) => s).length} Foods'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -650,6 +835,7 @@ class _BarcodeScanSheetState extends ConsumerState<_BarcodeScanSheet> {
     }
 
     if (product != null && mounted) {
+      HapticFeedback.heavyImpact();
       setState(() { _status = 'Saving to database...'; });
       final n = (product['nutriments'] as Map<String, dynamic>?) ?? {};
       final productName = (product['product_name'] as String?)?.trim().isNotEmpty == true
@@ -2285,9 +2471,315 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     );
   }
 
+  Future<void> _toggleFavorite(FoodItem food) async {
+    HapticFeedback.lightImpact();
+    final favIds = ref.read(favoriteIdsProvider);
+    try {
+      if (favIds.contains(food.id)) {
+        await apiClient.dio.delete(ApiConstants.foodFavorite(food.id));
+      } else {
+        await apiClient.dio.post(ApiConstants.foodFavorite(food.id));
+      }
+      ref.invalidate(favoriteFoodsProvider);
+    } catch (_) {}
+  }
+
+  /// Build the pre-search view: Favorites, Recent, Frequent sections
+  Widget _buildPreSearchView(ScrollController scrollCtrl) {
+    final cs = Theme.of(context).colorScheme;
+    final person = ref.watch(selectedPersonProvider);
+    final favAsync = ref.watch(favoriteFoodsProvider);
+    final recentFreqAsync = ref.watch(recentFrequentProvider(person));
+    final yesterdayAsync = ref.watch(yesterdayMealsProvider(person));
+
+    return ListView(
+      controller: scrollCtrl,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        // ── Copy Yesterday's Meals ──
+        yesterdayAsync.maybeWhen(
+          data: (meals) {
+            if (meals.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('Copy Yesterday\'s Meals', Icons.content_copy),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 68,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: meals.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) {
+                      final meal = meals[i];
+                      final label = meal.mealType[0].toUpperCase() +
+                          meal.mealType.substring(1);
+                      final itemNames = meal.items
+                          .map((f) => f['food_name'] ?? '')
+                          .take(3)
+                          .join(', ');
+                      return ActionChip(
+                        avatar: Icon(Icons.copy_rounded, size: 16, color: cs.primary),
+                        label: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(label,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 13)),
+                            Text(
+                              '${meal.totalCalories.toStringAsFixed(0)} kcal · $itemNames',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          _copyYesterdayMeal(meal);
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+          orElse: () => const SizedBox.shrink(),
+        ),
+
+        // ── Favorites ──
+        favAsync.maybeWhen(
+          data: (favs) {
+            if (favs.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('Favorites', Icons.star_rounded),
+                const SizedBox(height: 6),
+                ...favs.take(5).map((food) => _FoodSearchTile(
+                      food: food,
+                      badges: food.uniqueAllergens,
+                      onAdd: _addFood,
+                      isFavorite: true,
+                      onToggleFavorite: () => _toggleFavorite(food),
+                    )),
+                const SizedBox(height: 12),
+              ],
+            );
+          },
+          orElse: () => const SizedBox.shrink(),
+        ),
+
+        // ── Recent Foods ──
+        recentFreqAsync.maybeWhen(
+          data: (data) {
+            if (data.recent.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('Recent', Icons.history),
+                const SizedBox(height: 6),
+                ...data.recent.take(5).map((food) {
+                  final favIds = ref.watch(favoriteIdsProvider);
+                  return _FoodSearchTile(
+                    food: food,
+                    badges: food.uniqueAllergens,
+                    onAdd: _addFood,
+                    isFavorite: favIds.contains(food.id),
+                    onToggleFavorite: () => _toggleFavorite(food),
+                  );
+                }),
+                const SizedBox(height: 12),
+              ],
+            );
+          },
+          orElse: () => _buildShimmerSection(),
+        ),
+
+        // ── Frequent Foods ──
+        recentFreqAsync.maybeWhen(
+          data: (data) {
+            if (data.frequent.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionHeader('Most Used', Icons.trending_up),
+                const SizedBox(height: 6),
+                ...data.frequent.take(5).map((food) {
+                  final favIds = ref.watch(favoriteIdsProvider);
+                  return _FoodSearchTile(
+                    food: food,
+                    badges: food.uniqueAllergens,
+                    onAdd: _addFood,
+                    isFavorite: favIds.contains(food.id),
+                    onToggleFavorite: () => _toggleFavorite(food),
+                  );
+                }),
+                const SizedBox(height: 12),
+              ],
+            );
+          },
+          orElse: () => const SizedBox.shrink(),
+        ),
+
+        // ── Manual entry fallback ──
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: OutlinedButton.icon(
+              onPressed: _showManualEntry,
+              icon: const Icon(Icons.edit_note, size: 18),
+              label: const Text('Enter food manually'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _sectionHeader(String title, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                letterSpacing: 0.5,
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShimmerSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(3, (i) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      )),
+    );
+  }
+
+  /// Build grouped search results: Favorites > Recent > All
+  Widget _buildGroupedResults(
+    List<FoodItem> allResults,
+    ScrollController scrollCtrl,
+  ) {
+    final favIds = ref.watch(favoriteIdsProvider);
+    final person = ref.watch(selectedPersonProvider);
+    final recentFreqData = ref.watch(recentFrequentProvider(person)).valueOrNull;
+
+    final recentIds = recentFreqData?.recent.map((f) => f.id).toSet() ?? <String>{};
+
+    // Split results into groups
+    final favMatches = <FoodItem>[];
+    final recentMatches = <FoodItem>[];
+    final otherMatches = <FoodItem>[];
+
+    for (final food in allResults) {
+      if (favIds.contains(food.id)) {
+        favMatches.add(food);
+      } else if (recentIds.contains(food.id)) {
+        recentMatches.add(food);
+      } else {
+        otherMatches.add(food);
+      }
+    }
+
+    final sections = <Widget>[];
+
+    if (favMatches.isNotEmpty) {
+      sections.add(_sectionHeader('Favorites', Icons.star_rounded));
+      sections.addAll(favMatches.map((f) => _FoodSearchTile(
+            food: f, badges: f.uniqueAllergens, onAdd: _addFood,
+            isFavorite: true, onToggleFavorite: () => _toggleFavorite(f),
+          )));
+    }
+    if (recentMatches.isNotEmpty) {
+      sections.add(_sectionHeader('Recent', Icons.history));
+      sections.addAll(recentMatches.map((f) => _FoodSearchTile(
+            food: f, badges: f.uniqueAllergens, onAdd: _addFood,
+            isFavorite: false, onToggleFavorite: () => _toggleFavorite(f),
+          )));
+    }
+    if (otherMatches.isNotEmpty) {
+      sections.add(_sectionHeader('All Results', Icons.restaurant_menu));
+      sections.addAll(otherMatches.map((f) => _FoodSearchTile(
+            food: f, badges: f.uniqueAllergens, onAdd: _addFood,
+            isFavorite: favIds.contains(f.id),
+            onToggleFavorite: () => _toggleFavorite(f),
+          )));
+    }
+
+    sections.add(
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: TextButton.icon(
+            onPressed: _showManualEntry,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text("Can't find it? Add manually"),
+          ),
+        ),
+      ),
+    );
+
+    return ListView(
+      controller: scrollCtrl,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: sections,
+    );
+  }
+
+  void _copyYesterdayMeal(YesterdayMeal meal) {
+    for (final item in meal.items) {
+      final food = FoodItem(
+        id: item['food_id'] ?? '',
+        name: item['food_name'] ?? '',
+        cal: (item['calories'] as num?)?.toDouble(),
+        protein: (item['protein'] as num?)?.toDouble(),
+        carbs: (item['carbs'] as num?)?.toDouble(),
+        fat: (item['fat'] as num?)?.toDouble(),
+        servingSize: (item['serving_size'] as num?)?.toDouble() ?? 100,
+        emoji: item['emoji'],
+        unit: item['unit'],
+      );
+      final qty = (item['quantity'] as num?)?.toDouble() ?? 1;
+      ref.read(nutritionProvider.notifier).addFood(food,
+          grams: (food.servingSize ?? 100) * qty);
+    }
+    ref.read(nutritionProvider.notifier).setMealType(meal.mealType);
+    Navigator.pop(context);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Copied yesterday\'s ${meal.mealType}!'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final foodsAsync = ref.watch(foodDatabaseProvider);
 
     return DraggableScrollableSheet(
@@ -2295,7 +2787,6 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
       maxChildSize: 0.96,
       expand: false,
       builder: (_, scrollCtrl) {
-        // Get filtered results from cached food DB
         final categories = foodsAsync.valueOrNull ?? [];
         final filtered = _filterLocal(categories);
 
@@ -2309,7 +2800,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                   color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2)),
             ),
-            // Search bar — clean, no scanner icons
+            // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: TextField(
@@ -2335,25 +2826,9 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
             // Results area
             Expanded(
               child: foodsAsync.isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? _buildShimmerSection()
                   : _query.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.restaurant_menu, size: 48, color: cs.primary.withOpacity(0.3)),
-                              const SizedBox(height: 8),
-                              Text('Type to search foods',
-                                  style: TextStyle(color: Colors.grey.shade500)),
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                onPressed: _showManualEntry,
-                                icon: const Icon(Icons.edit_note, size: 18),
-                                label: const Text('Enter food manually'),
-                              ),
-                            ],
-                          ),
-                        )
+                      ? _buildPreSearchView(scrollCtrl)
                       : filtered.isEmpty
                           ? Center(
                               child: Column(
@@ -2372,30 +2847,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                                 ],
                               ),
                             )
-                          : ListView.builder(
-                              controller: scrollCtrl,
-                              itemCount: filtered.length + 1,
-                              itemBuilder: (ctx, i) {
-                                if (i == filtered.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    child: Center(
-                                      child: TextButton.icon(
-                                        onPressed: _showManualEntry,
-                                        icon: const Icon(Icons.add, size: 16),
-                                        label: const Text("Can't find it? Add manually"),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                final food = filtered[i];
-                                return _FoodSearchTile(
-                                  food: food,
-                                  badges: food.uniqueAllergens,
-                                  onAdd: _addFood,
-                                );
-                              },
-                            ),
+                          : _buildGroupedResults(filtered, scrollCtrl),
             ),
           ],
         );
@@ -2404,6 +2856,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
   }
 
   void _addFood(FoodItem food) {
+    HapticFeedback.mediumImpact();
     if (widget.onFoodPicked != null) {
       widget.onFoodPicked!(food);
     } else {
@@ -2417,66 +2870,112 @@ class _FoodSearchTile extends StatefulWidget {
   final FoodItem food;
   final List<FoodAllergenInfo> badges;
   final void Function(FoodItem) onAdd;
-  const _FoodSearchTile({required this.food, required this.badges, required this.onAdd});
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
+  const _FoodSearchTile({
+    required this.food, required this.badges, required this.onAdd,
+    this.isFavorite = false, this.onToggleFavorite,
+  });
 
   @override
   State<_FoodSearchTile> createState() => _FoodSearchTileState();
 }
 
-class _FoodSearchTileState extends State<_FoodSearchTile> {
+class _FoodSearchTileState extends State<_FoodSearchTile>
+    with SingleTickerProviderStateMixin {
   bool _showBrand = false;
+  late final AnimationController _slideCtrl;
+  late final Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _slideCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 250));
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0.05, 0), end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut));
+    _slideCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _slideCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final food = widget.food;
-    return ListTile(
-      leading: Text(food.emoji ?? '🍽️',
-          style: const TextStyle(fontSize: 22)),
-      title: GestureDetector(
-        onTap: food.hasBrand
-            ? () => setState(() => _showBrand = !_showBrand)
-            : null,
-        child: Row(
-          children: [
-            Expanded(child: Text(food.title)),
-            if (food.hasBrand && !_showBrand)
-              Icon(Icons.storefront, size: 14, color: Colors.grey.shade400),
-          ],
-        ),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_showBrand && food.hasBrand)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(food.brandLabel,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.7))),
+    return SlideTransition(
+      position: _slideAnim,
+      child: FadeTransition(
+        opacity: _slideCtrl,
+        child: ListTile(
+          leading: Text(food.emoji ?? '🍽️',
+              style: const TextStyle(fontSize: 22)),
+          title: GestureDetector(
+            onTap: food.hasBrand
+                ? () => setState(() => _showBrand = !_showBrand)
+                : null,
+            child: Row(
+              children: [
+                Expanded(child: Text(food.title)),
+                if (food.hasBrand && !_showBrand)
+                  Icon(Icons.storefront, size: 14, color: Colors.grey.shade400),
+              ],
             ),
-          Text(
-            '${food.caloriesPerServing.toStringAsFixed(0)} kcal'
-            ' · ${(food.servingSize ?? 100).toStringAsFixed(0)}g serving',
-            style: const TextStyle(fontSize: 12),
           ),
-          if (widget.badges.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Wrap(
-                spacing: 3,
-                runSpacing: 2,
-                children: widget.badges.take(4).map((a) =>
-                  _AllergenBadge(allergen: a),
-                ).toList(),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_showBrand && food.hasBrand)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(food.brandLabel,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.7))),
+                ),
+              Text(
+                '${food.caloriesPerServing.toStringAsFixed(0)} kcal'
+                ' · ${(food.servingSize ?? 100).toStringAsFixed(0)}g serving',
+                style: const TextStyle(fontSize: 12),
               ),
-            ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.add_circle, color: Colors.green, size: 28),
-        onPressed: () => widget.onAdd(food),
+              if (widget.badges.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 3,
+                    runSpacing: 2,
+                    children: widget.badges.take(4).map((a) =>
+                      _AllergenBadge(allergen: a),
+                    ).toList(),
+                  ),
+                ),
+            ],
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.onToggleFavorite != null)
+                GestureDetector(
+                  onTap: widget.onToggleFavorite,
+                  child: Icon(
+                    widget.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: widget.isFavorite ? Colors.amber : Colors.grey.shade400,
+                    size: 22,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: Colors.green, size: 28),
+                onPressed: () => widget.onAdd(food),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

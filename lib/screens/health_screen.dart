@@ -601,40 +601,13 @@ class _SupplementsTab extends ConsumerWidget {
   void _showAddOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(width: 36, height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 12),
-            Text('Add Supplement',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner),
-              title: const Text('Scan Barcode'),
-              subtitle: const Text('Scan supplement bottle barcode'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showBarcodeScanner(context, ref);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('Enter Manually'),
-              subtitle: const Text('Type supplement details'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showForm(context, ref);
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _SupplementSearchSheet(
+        personKey: personKey,
+        onSelect: (prefill) => _showForm(context, ref, prefill: prefill),
+        onBarcode: () => _showBarcodeScanner(context, ref),
+        onManual: () => _showForm(context, ref),
       ),
     );
   }
@@ -767,6 +740,176 @@ class _SupplementsTab extends ConsumerWidget {
   }
 }
 
+// ─── Supplement search sheet (searches previously logged supplements) ─────────
+
+class _SupplementSearchSheet extends ConsumerStatefulWidget {
+  final String personKey;
+  final void Function(Map<String, dynamic> prefill) onSelect;
+  final VoidCallback onBarcode;
+  final VoidCallback onManual;
+  const _SupplementSearchSheet({
+    required this.personKey,
+    required this.onSelect,
+    required this.onBarcode,
+    required this.onManual,
+  });
+  @override
+  ConsumerState<_SupplementSearchSheet> createState() => _SupplementSearchSheetState();
+}
+
+class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final supplementsAsync = ref.watch(supplementsProvider(widget.personKey));
+    final allSupplements = supplementsAsync.valueOrNull ?? [];
+
+    // Deduplicate by supplement_name (case-insensitive) — show unique supplements
+    final seen = <String>{};
+    final unique = <Map<String, dynamic>>[];
+    for (final s in allSupplements) {
+      final key = (s['supplement_name'] as String? ?? '').toLowerCase();
+      if (key.isNotEmpty && seen.add(key)) unique.add(s);
+    }
+
+    // Filter by query
+    final filtered = _query.isEmpty ? unique : unique.where((s) {
+      final name = (s['supplement_name'] as String? ?? '').toLowerCase();
+      final brand = (s['brand'] as String? ?? '').toLowerCase();
+      return name.contains(_query) || brand.contains(_query);
+    }).toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.96,
+      expand: false,
+      builder: (_, scrollCtrl) => Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+                color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+          ),
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search supplements...',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () { _searchCtrl.clear(); setState(() => _query = ''); })
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+            ),
+          ),
+          // Quick actions row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () { Navigator.pop(context); widget.onBarcode(); },
+                    icon: const Icon(Icons.qr_code_scanner, size: 16),
+                    label: const Text('Scan Barcode', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () { Navigator.pop(context); widget.onManual(); },
+                    icon: const Icon(Icons.edit_note, size: 16),
+                    label: const Text('Enter Manually', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Results
+          Expanded(
+            child: unique.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.spa_outlined, size: 48, color: cs.primary.withOpacity(0.3)),
+                        const SizedBox(height: 8),
+                        Text('No supplements logged yet',
+                            style: TextStyle(color: Colors.grey.shade500)),
+                        const SizedBox(height: 4),
+                        Text('Scan a barcode or add manually to get started',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                      ],
+                    ),
+                  )
+                : filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 8),
+                            Text('No match for "$_query"',
+                                style: TextStyle(color: Colors.grey.shade500)),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        controller: scrollCtrl,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final s = filtered[i];
+                          final name = s['supplement_name'] as String? ?? '';
+                          final brand = s['brand'] as String? ?? '';
+                          final dosage = s['dosage'] as String? ?? '';
+                          final form = s['form'] as String? ?? '';
+                          final subtitle = [brand, dosage, form].where((e) => e.isNotEmpty).join(' · ');
+                          return ListTile(
+                            leading: const Icon(Icons.spa_outlined, color: Colors.amber),
+                            title: Text(name),
+                            subtitle: subtitle.isNotEmpty ? Text(subtitle, style: const TextStyle(fontSize: 12)) : null,
+                            trailing: const Icon(Icons.add_circle, color: Colors.green, size: 28),
+                            onTap: () {
+                              Navigator.pop(context);
+                              widget.onSelect({
+                                'supplement_name': name,
+                                'brand': brand,
+                                'dosage': dosage,
+                                'frequency': s['frequency'] ?? '',
+                                'form': form,
+                                'barcode': s['barcode'] ?? '',
+                              });
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SupplementBarcodeScanner extends StatefulWidget {
   final void Function(String barcode, String? productName, String? brand) onScanned;
   const _SupplementBarcodeScanner({required this.onScanned});
@@ -892,36 +1035,57 @@ class _MoodTab extends ConsumerWidget {
   const _MoodTab({super.key, required this.personKey});
 
   static const _moods = [
+    // Positive / energized
     '😊 Happy',
+    '🤩 Excited',
+    '🔥 Pumped Up',
+    '💪 Motivated',
+    '🙏 Grateful',
+    '💕 Loved',
+    '😌 Calm',
+    '🧘 Peaceful',
+    // Neutral / mixed
     '😐 Neutral',
+    '🤔 Confused',
+    '😬 Nervous',
+    '🧠 Focused',
+    '😏 Horny',
+    // Low energy / rest
+    '😴 Sleepy',
+    '🥱 Tired',
+    '😮‍💨 Exhausted',
+    // Negative / stressed
     '😔 Sad',
     '😰 Anxious',
     '😤 Stressed',
-    '😴 Tired',
-    '🤗 Excited',
-    '😪 Sleepy',
-    '😏 Horny',
-    '😌 Calm',
     '😠 Irritated',
-    '🧠 Focused',
-    '😕 Confused',
-    '🙏 Grateful',
-    '😤 Overwhelmed',
+    '🤯 Overwhelmed',
+    '😞 Lonely',
+    '😡 Angry',
+    '😢 Frustrated',
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return _HealthList(
       logsAsync: ref.watch(moodProvider(personKey)),
-      itemBuilder: (item) => ListTile(
-        leading: const Icon(Icons.sentiment_satisfied_alt,
-            color: Colors.amber),
-        title: Text(item['mood'] ?? ''),
-        subtitle: Text(
-            'Score: ${item['score'] ?? '?'}/10  •  Energy: ${item['energy_level'] ?? '?'}'),
-        trailing: Text(item['date'] ?? '',
-            style: const TextStyle(fontSize: 11)),
-      ),
+      itemBuilder: (item) {
+        // Display all moods if available, fallback to single mood
+        final moodsList = item['moods'] as List<dynamic>?;
+        final moodDisplay = moodsList != null && moodsList.isNotEmpty
+            ? moodsList.join(', ')
+            : (item['mood'] ?? '');
+        return ListTile(
+          leading: const Icon(Icons.sentiment_satisfied_alt,
+              color: Colors.amber),
+          title: Text(moodDisplay,
+              maxLines: 2, overflow: TextOverflow.ellipsis),
+          subtitle: Text(
+              'Score: ${item['score'] ?? '?'}/10  •  Energy: ${item['energy_level'] ?? '?'}'),
+          trailing: Text(item['date'] ?? '',
+              style: const TextStyle(fontSize: 11)),
+        );
+      },
       onAdd: (ctx, ref) => _showForm(ctx, ref),
       onEdit: (ctx, ref, item) => _showForm(ctx, ref, item: item),
       onDelete: (ref, id) async {
@@ -934,10 +1098,23 @@ class _MoodTab extends ConsumerWidget {
   void _showForm(BuildContext context, WidgetRef ref,
       {Map<String, dynamic>? item}) {
     final isEdit = item != null;
-    String selectedMood =
-        isEdit ? (item['mood'] ?? _moods[0]) : _moods[0];
-    // ensure selectedMood is in the list
-    if (!_moods.contains(selectedMood)) selectedMood = _moods[0];
+    // Multi-mood support: initialize from moods array or fallback to single mood
+    final Set<String> selectedMoods = {};
+    if (isEdit) {
+      final existingMoods = item['moods'] as List<dynamic>?;
+      if (existingMoods != null && existingMoods.isNotEmpty) {
+        for (final m in existingMoods) {
+          final s = m.toString();
+          if (_moods.contains(s)) selectedMoods.add(s);
+        }
+      }
+      if (selectedMoods.isEmpty) {
+        final single = item['mood'] ?? _moods[0];
+        if (_moods.contains(single)) selectedMoods.add(single);
+      }
+    }
+    if (selectedMoods.isEmpty) selectedMoods.add(_moods[0]);
+
     int score = isEdit ? (item['score'] as int? ?? 7) : 7;
     String selectedPerson = isEdit
         ? (item['family_member_id'] ?? 'self')
@@ -946,41 +1123,65 @@ class _MoodTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, ss) => AlertDialog(
-          title: Text(isEdit ? 'Edit Mood' : 'Log Mood'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PersonSelector(
-                selectedId: selectedPerson,
-                onChanged: (v) => ss(() => selectedPerson = v ?? 'self'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: selectedMood,
-                items: _moods
-                    .map((m) => DropdownMenuItem(
-                        value: m, child: Text(m)))
-                    .toList(),
-                onChanged: (v) =>
-                    ss(() => selectedMood = v ?? _moods[0]),
-                decoration:
-                    const InputDecoration(labelText: 'Mood'),
-              ),
-              Row(children: [
-                const Text('Score: '),
-                Expanded(
-                  child: Slider(
-                    value: score.toDouble(),
-                    min: 1,
-                    max: 10,
-                    divisions: 9,
-                    label: '$score',
-                    onChanged: (v) => ss(() => score = v.round()),
-                  ),
+          title: Text(isEdit ? 'Edit Mood' : 'How are you feeling?'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PersonSelector(
+                  selectedId: selectedPerson,
+                  onChanged: (v) => ss(() => selectedPerson = v ?? 'self'),
                 ),
-                Text('$score'),
-              ]),
-            ],
+                const SizedBox(height: 12),
+                Text('Select all that apply:',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _moods.map((m) {
+                    final selected = selectedMoods.contains(m);
+                    return FilterChip(
+                      label: Text(m, style: const TextStyle(fontSize: 13)),
+                      selected: selected,
+                      onSelected: (val) {
+                        ss(() {
+                          if (val) {
+                            selectedMoods.add(m);
+                          } else if (selectedMoods.length > 1) {
+                            selectedMoods.remove(m);
+                          }
+                        });
+                      },
+                      selectedColor: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer,
+                      checkmarkColor: Theme.of(context)
+                          .colorScheme
+                          .onPrimaryContainer,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  const Text('Score: '),
+                  Expanded(
+                    child: Slider(
+                      value: score.toDouble(),
+                      min: 1,
+                      max: 10,
+                      divisions: 9,
+                      label: '$score',
+                      onChanged: (v) => ss(() => score = v.round()),
+                    ),
+                  ),
+                  Text('$score'),
+                ]),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -991,8 +1192,11 @@ class _MoodTab extends ConsumerWidget {
                 Navigator.pop(ctx);
                 final famId =
                     selectedPerson == 'self' ? null : selectedPerson;
+                final moodsList = selectedMoods.toList();
+                final primaryMood = moodsList.first;
                 final data = {
-                  'mood': selectedMood,
+                  'mood': primaryMood,
+                  'moods': moodsList,
                   'score': score,
                   'date': _todayStr(),
                   'time': _timeStr(_nowTime()),

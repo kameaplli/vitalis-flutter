@@ -32,7 +32,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with SingleTickerProviderStateMixin {
   // 0 = Today, 7 = 7d, 30 = 30d
   int _days = 0;
-  bool _showWelcome = true;
+
+  // Session-level flag: welcome shows only once per app launch
+  static bool _welcomeShownThisSession = false;
+  bool _showWelcome = !_welcomeShownThisSession;
 
   // Swipe-up dismiss animation
   late final AnimationController _dismissCtrl;
@@ -45,6 +48,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       vsync: this, duration: const Duration(milliseconds: 400));
     _dismissCtrl.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
+        _welcomeShownThisSession = true;
         setState(() => _showWelcome = false);
       }
     });
@@ -1202,6 +1206,7 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
         moodEmoji: welcome.moodSummary.emoji,
         moodInsightType: welcome.moodSummary.insightType,
         dominantMood: welcome.moodSummary.dominantMood,
+        allMoods: welcome.moodSummary.allMoods,
         averageScore: welcome.moodSummary.averageScore,
         screenSize: screenSize,
       ),
@@ -1211,7 +1216,8 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
   Widget _buildScreen({
     required String greeting, required String name,
     String? moodInsight, String? moodEmoji, String? moodInsightType,
-    String? dominantMood, double? averageScore, required Size screenSize,
+    String? dominantMood, List<String> allMoods = const [],
+    double? averageScore, required Size screenSize,
   }) {
     final gradColors = _moodGradient(moodInsightType, dominantMood);
     final isDark = _isDarkPeriod() || moodInsightType == 'care';
@@ -1299,7 +1305,7 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                   moodInsight: moodInsight, moodEmoji: moodEmoji,
                   moodInsightType: moodInsightType, isDark: isDark,
                   accent: accent, averageScore: averageScore,
-                  dominantMood: dominantMood,
+                  dominantMood: dominantMood, allMoods: allMoods,
                 ),
               ),
             ),
@@ -1359,6 +1365,7 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     String? moodInsight, String? moodEmoji, String? moodInsightType,
     required bool isDark, required Color accent,
     double? averageScore, String? dominantMood,
+    List<String> allMoods = const [],
   }) {
     final hour = DateTime.now().hour;
     // Mood-driven emoji (prioritize mood over time)
@@ -1557,12 +1564,16 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                                     if (dominantMood != null) ...[
                                       const SizedBox(height: 2),
                                       Text(
-                                        'Feeling ${dominantMood.toLowerCase()}',
+                                        allMoods.length > 1
+                                            ? 'Feeling ${allMoods.map((m) => m.toLowerCase()).join(', ')}'
+                                            : 'Feeling ${dominantMood.toLowerCase()}',
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: textCol.withValues(alpha: 0.6),
                                           fontWeight: FontWeight.w500,
                                         ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ],
@@ -1595,21 +1606,30 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
 
   String _moodToEmoji(String mood) {
     switch (mood.toLowerCase()) {
-      case 'happy': return '😄';
+      case 'happy': return '😊';
       case 'excited': return '🤩';
+      case 'pumped up': return '🔥';
+      case 'motivated': return '💪';
       case 'grateful': return '🙏';
+      case 'loved': return '💕';
       case 'calm': return '😌';
-      case 'focused': return '🎯';
+      case 'peaceful': return '🧘';
       case 'neutral': return '😐';
-      case 'tired': return '😴';
-      case 'sleepy': return '🥱';
-      case 'sad': return '😢';
+      case 'confused': return '🤔';
+      case 'nervous': return '😬';
+      case 'focused': return '🧠';
+      case 'horny': return '😏';
+      case 'sleepy': return '😴';
+      case 'tired': return '🥱';
+      case 'exhausted': return '😮‍💨';
+      case 'sad': return '😔';
       case 'anxious': return '😰';
       case 'stressed': return '😤';
       case 'irritated': return '😠';
-      case 'confused': return '😵‍💫';
       case 'overwhelmed': return '🤯';
-      case 'horny': return '😏';
+      case 'lonely': return '😞';
+      case 'angry': return '😡';
+      case 'frustrated': return '😢';
       default: return '✨';
     }
   }
