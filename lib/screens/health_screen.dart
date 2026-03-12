@@ -137,23 +137,23 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
 
     // Card definitions: (route-category, label, icon, color, provider)
     final cards = [
-      _CardDef('symptoms',    'Symptoms',    Icons.sick,                     Colors.red,
+      _CardDef('symptoms',    'Symptoms',    Icons.thermostat_rounded,       const Color(0xFFE53935),
           ref.watch(symptomsProvider(key))),
-      _CardDef('medications', 'Medications', Icons.medication_rounded,       Colors.blue,
+      _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
           ref.watch(medicationsProvider('$person:7'))),
-      _CardDef('supplements', 'Supplements', Icons.spa_rounded,             Colors.amber,
+      _CardDef('supplements', 'Supplements', Icons.science_rounded,         const Color(0xFFF9A825),
           ref.watch(supplementsProvider('$person:7'))),
-      _CardDef('mood',        'Mood',        Icons.mood_rounded,             Colors.green,
+      _CardDef('mood',        'Mood',        Icons.self_improvement_rounded, const Color(0xFF43A047),
           ref.watch(moodProvider(key))),
-      _CardDef('weight',      'Weight',      Icons.monitor_weight_rounded,   Colors.purple,
+      _CardDef('weight',      'Weight',      Icons.fitness_center_rounded,   const Color(0xFF8E24AA),
           const AsyncValue.data([])),
-      _CardDef('eczema',      'Eczema',      Icons.healing_rounded,          Colors.teal,
+      _CardDef('eczema',      'Eczema',      Icons.dry_rounded,             const Color(0xFF00897B),
           const AsyncValue.data([])),
-      _CardDef('skin-photos', 'Skin Photos', Icons.camera_alt_rounded,      Colors.brown,
+      _CardDef('skin-photos', 'Skin Photos', Icons.photo_camera_rounded,    const Color(0xFF6D4C41),
           const AsyncValue.data([])),
-      _CardDef('products',    'Products',    Icons.inventory_2_rounded,      Colors.indigo,
+      _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   const Color(0xFF3949AB),
           const AsyncValue.data([])),
-      _CardDef('insights',    'Insights',    Icons.psychology_rounded,       Colors.deepPurple,
+      _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
           const AsyncValue.data([])),
     ];
 
@@ -287,9 +287,7 @@ class _HealthCardState extends State<_HealthCard>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  isDark
-                      ? cs.surface
-                      : Colors.white,
+                  isDark ? cs.surface : Colors.white,
                   def.color.withValues(alpha: glowOpacity),
                 ],
               ),
@@ -297,51 +295,41 @@ class _HealthCardState extends State<_HealthCard>
             child: InkWell(
               onTap: widget.onTap,
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Transform.scale(
-                          scale: iconScale,
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  def.color.withValues(alpha: 0.15 + pulse * 0.1),
-                                  def.color.withValues(alpha: 0.25 + pulse * 0.1),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: def.color.withValues(alpha: 0.2 + pulse * 0.15),
-                                  blurRadius: 8 + (pulse * 6),
-                                  spreadRadius: pulse * 2,
-                                ),
-                              ],
-                            ),
-                            child: Icon(def.icon, color: def.color, size: 28),
+                    Transform.scale(
+                      scale: iconScale,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            colors: [
+                              def.color.withValues(alpha: 0.20 + pulse * 0.1),
+                              def.color.withValues(alpha: 0.08),
+                            ],
                           ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: def.color.withValues(alpha: 0.18 + pulse * 0.12),
+                              blurRadius: 12 + (pulse * 6),
+                              spreadRadius: pulse * 2,
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        Icon(Icons.arrow_forward_ios_rounded,
-                            size: 13,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                      ],
+                        child: Icon(def.icon, color: def.color, size: 36),
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 10),
                     Text(
                       def.label,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 2),
                     if (subtitle != null)
@@ -351,6 +339,7 @@ class _HealthCardState extends State<_HealthCard>
                           fontSize: 11,
                           color: cs.onSurfaceVariant,
                         ),
+                        textAlign: TextAlign.center,
                       )
                     else
                       SizedBox(
@@ -754,12 +743,13 @@ class _SupplementsTab extends ConsumerWidget {
       builder: (ctx) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.6,
         child: _SupplementBarcodeScanner(
-          onScanned: (barcode, productName, brand) {
+          onScanned: (barcode, productName, brand, {String? servingSize}) {
             Navigator.pop(ctx);
             _showForm(context, ref, prefill: {
               'supplement_name': productName ?? '',
               'brand': brand ?? '',
               'barcode': barcode,
+              if (servingSize != null) 'dosage': servingSize,
             });
           },
         ),
@@ -1135,45 +1125,44 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
   }
 
   Future<void> _runBrandImport(String brand) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+    // Show non-blocking snackbar so user can navigate away
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
           children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text('Importing $brand supplements...',
-                style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 4),
-            Text('Searching online for supplement facts.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            const SizedBox(width: 18, height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Importing $brand supplements in background...')),
           ],
         ),
+        duration: const Duration(seconds: 60),
+        behavior: SnackBarBehavior.floating,
       ),
     );
+
+    // Close the bottom sheet so user can use the app
+    if (context.mounted) Navigator.of(context).pop();
 
     try {
       final res = await apiClient.dio.post(
         ApiConstants.supplementImportBrand,
         data: {'brand': brand},
       );
-      if (context.mounted) Navigator.pop(context); // dismiss loading
+
+      messenger.hideCurrentSnackBar();
 
       final data = res.data as Map<String, dynamic>;
 
       if (data['success'] == false) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['error'] ?? 'Import failed for $brand'),
-              backgroundColor: Colors.red.shade700,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(data['error'] ?? 'Import failed for $brand'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
         return;
       }
 
@@ -1181,30 +1170,29 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
       final existing = data['existing'] ?? 0;
       final found = data['found'] ?? 0;
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '$brand: $found found, $imported imported, $existing already in DB',
-            ),
-            backgroundColor: imported > 0 ? Colors.green.shade700 : null,
-            duration: const Duration(seconds: 4),
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '$brand: $found found, $imported imported, $existing already in DB',
           ),
-        );
-      }
+          backgroundColor: imported > 0 ? Colors.green.shade700 : null,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      // Refresh supplement list
+      ref.invalidate(supplementsProvider);
     } catch (e) {
-      if (context.mounted) Navigator.pop(context); // dismiss loading
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e'), duration: const Duration(seconds: 3)),
-        );
-      }
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Import failed: $e'), duration: const Duration(seconds: 3)),
+      );
     }
   }
 }
 
 class _SupplementBarcodeScanner extends ConsumerStatefulWidget {
-  final void Function(String barcode, String? productName, String? brand) onScanned;
+  final void Function(String barcode, String? productName, String? brand, {String? servingSize}) onScanned;
   const _SupplementBarcodeScanner({required this.onScanned});
   @override
   ConsumerState<_SupplementBarcodeScanner> createState() => _SupplementBarcodeScannerState();
@@ -1484,13 +1472,18 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
             child: const Text('Cancel'),
           ),
           FilledButton.icon(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              // Pass the AI-found data back to supplement form
+              // Save the supplement to DB first so nutrients are stored
+              try {
+                await apiClient.dio.post(ApiConstants.supplementSave, data: data);
+              } catch (_) {}
+              // Pass the AI-found data back to supplement form with serving info
               widget.onScanned(
                 barcode ?? '',
                 data['supplement_name'] as String?,
                 data['brand'] as String?,
+                servingSize: data['serving_size'] as String?,
               );
             },
             icon: const Icon(Icons.check, size: 18),
