@@ -139,6 +139,12 @@ class ApiConstants {
   static String usdaImport(int fdcId)  => '/api/foods/usda/import/$fdcId';
   static const String usdaBulkImport   = '/api/foods/usda/bulk-import';
 
+  // ML Features — Nutrient Intelligence
+  static const String nutrientGaps            = '/api/nutrients/gaps';
+  static const String nutrientRecommendations = '/api/nutrients/recommendations';
+  static String foodSimilar(String id)        => '/api/foods/$id/similar';
+  static String foodVector(String id)         => '/api/foods/$id/vector';
+
   // OpenFoodFacts Import
   static const String offSearch               = '/api/foods/off/search';
   static String offImport(String barcode)     => '/api/foods/off/import/$barcode';
