@@ -568,54 +568,78 @@ class _SupplementInsights extends ConsumerWidget {
     final entries = logsAsync.valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
-    final active = entries.where((e) => e['is_active'] == true).length;
+    final active = entries.where((e) => e['is_active'] == true).toList();
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    final takenToday = entries.where((e) => e['last_intake_date'] == today).length;
-    final totalIntakes = entries.fold<int>(0, (sum, e) => sum + ((e['intake_count'] as int?) ?? 0));
-    final remaining = entries
-        .where((e) => e['is_active'] == true && e['last_intake_date'] != today)
+    final takenToday = active.where((e) => e['last_intake_date'] == today).length;
+    final remaining = active
+        .where((e) => e['last_intake_date'] != today)
         .toList();
-
-    // Adherence: supplements taken today / active supplements
-    final adherencePct = active > 0 ? ((takenToday / active) * 100).round() : 0;
+    final total = active.length;
+    final allDone = total > 0 && takenToday >= total;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(child: _InsightChip(
-                icon: Icons.today, label: 'Today', value: '$takenToday/$active',
-                color: takenToday >= active ? const Color(0xFF43A047) : const Color(0xFFF9A825),
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: _InsightChip(
-                icon: Icons.trending_up, label: 'Adherence', value: '$adherencePct%',
-                color: adherencePct >= 80 ? const Color(0xFF43A047) : adherencePct >= 50 ? const Color(0xFFF9A825) : const Color(0xFFE53935),
-              )),
-              const SizedBox(width: 8),
-              Expanded(child: _InsightChip(
-                icon: Icons.repeat, label: 'All intakes', value: '$totalIntakes',
-                color: const Color(0xFF1E88E5),
-              )),
-            ],
+          // ── Today score card ──────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: allDone ? Colors.green.shade50 : Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: allDone ? Colors.green.shade300 : Colors.amber.shade300,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  allDone ? Icons.check_circle : Icons.pending,
+                  color: allDone ? Colors.green.shade700 : Colors.amber.shade700,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Today: $takenToday / $total',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: allDone ? Colors.green.shade800 : Colors.amber.shade800,
+                      ),
+                    ),
+                    Text(
+                      allDone
+                          ? 'All supplements taken!'
+                          : '${remaining.length} remaining',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: allDone ? Colors.green.shade600 : Colors.amber.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          // Remaining today — tap to quick-log
+
+          // ── Remaining — tap to log ───────────────────────────────────
           if (remaining.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('Remaining today — tap to log:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange.shade700)),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
+            Text('Tap to log:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+            const SizedBox(height: 6),
             Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: remaining.take(8).map((e) => ActionChip(
-                avatar: Icon(Icons.check_circle_outline, size: 14, color: Colors.orange.shade600),
-                label: Text(e['supplement_name'] ?? '', style: const TextStyle(fontSize: 11)),
-                backgroundColor: Colors.orange.shade50,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              spacing: 8,
+              runSpacing: 8,
+              children: remaining.map((e) => ActionChip(
+                avatar: Icon(Icons.add_circle_outline, size: 16, color: Colors.amber.shade700),
+                label: Text(e['supplement_name'] ?? '', style: const TextStyle(fontSize: 12)),
+                backgroundColor: Colors.amber.shade50,
+                side: BorderSide(color: Colors.amber.shade200),
                 onPressed: () async {
                   final id = e['id']?.toString() ?? '';
                   if (id.isEmpty) return;
@@ -935,92 +959,241 @@ class _SupplementsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logsAsync = ref.watch(supplementsProvider(personKey));
-    return _HealthList(
-      logsAsync: logsAsync,
-      headerBuilder: () => _SupplementInsights(logsAsync: logsAsync, personKey: personKey),
-      itemBuilder: (item) => ListTile(
-        leading: const Icon(Icons.spa_rounded, color: Colors.amber),
-        title: Text(item['supplement_name'] ?? ''),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text([
-              if (item['brand'] != null && (item['brand'] as String).isNotEmpty) item['brand'],
-              if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
-              if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
-            ].join(' · ')),
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                [
-                  if (item['start_date'] != null) 'Started: ${item['start_date']}',
-                  if (item['end_date'] != null) 'Until: ${item['end_date']}',
-                  if (item['last_intake_date'] != null) 'Last: ${item['last_intake_date']}',
-                  if ((item['intake_count'] ?? 0) > 0) '${item['intake_count']}x taken',
-                ].join(' · '),
-                style: TextStyle(fontSize: 11, color: Colors.green.shade600),
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddOptions(context, ref),
+        child: const Icon(Icons.add),
+      ),
+      body: logsAsync.when(
+        skipLoadingOnReload: true,
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('$e')),
+        data: (entries) {
+          if (entries.isEmpty) {
+            return const Center(child: Text('No supplements yet. Tap + to add.'));
+          }
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 80),
+            children: [
+              // ── Today score + quick-log ───────────────────────────────
+              _SupplementInsights(logsAsync: logsAsync, personKey: personKey),
+
+              // ── All supplements list ─────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                child: Text('All Supplements', style: Theme.of(context).textTheme.titleSmall),
               ),
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-              tooltip: 'Log intake today',
+              ...entries.map((item) {
+                final isActive = item['is_active'] == true;
+                final takenToday = item['last_intake_date'] == today;
+                final name = item['supplement_name'] ?? '';
+                final subtitle = [
+                  if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
+                  if (item['frequency'] != null && (item['frequency'] as String).isNotEmpty) item['frequency'],
+                ].join(' · ');
+                final id = item['id']?.toString() ?? '';
+
+                return Dismissible(
+                  key: Key(id),
+                  direction: DismissDirection.horizontal,
+                  background: Container(
+                    color: Colors.blue,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: 16),
+                    child: const Icon(Icons.edit, color: Colors.white),
+                  ),
+                  secondaryBackground: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  confirmDismiss: (dir) async {
+                    if (dir == DismissDirection.startToEnd) {
+                      _showForm(context, ref, item: item);
+                      return false;
+                    }
+                    return await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete supplement?'),
+                        content: const Text('This cannot be undone.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                        ],
+                      ),
+                    ) ?? false;
+                  },
+                  onDismissed: (dir) async {
+                    if (dir == DismissDirection.endToStart) {
+                      await apiClient.dio.delete('${ApiConstants.supplements}/$id');
+                      ref.invalidate(supplementsProvider);
+                      ref.invalidate(supplementsCatalogProvider);
+                    }
+                  },
+                  child: ListTile(
+                    leading: GestureDetector(
+                      onTap: () async {
+                        // Toggle active/inactive
+                        final wasActive = isActive;
+                        await apiClient.dio.put(
+                            '${ApiConstants.supplements}/$id/toggle');
+                        ref.invalidate(supplementsProvider);
+                        ref.invalidate(supplementsCatalogProvider);
+                        // If turning ON, offer to set course/reminder
+                        if (!wasActive && context.mounted) {
+                          _showCourseDialog(context, ref, item);
+                        }
+                      },
+                      child: Container(
+                        width: 32, height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isActive ? Colors.amber.shade100 : Colors.grey.shade100,
+                          border: Border.all(
+                            color: isActive ? Colors.amber.shade600 : Colors.grey.shade400,
+                            width: 2,
+                          ),
+                        ),
+                        child: isActive
+                            ? Icon(Icons.check, size: 18, color: Colors.amber.shade700)
+                            : null,
+                      ),
+                    ),
+                    title: Text(
+                      name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: isActive ? null : Colors.grey,
+                        decoration: isActive ? null : TextDecoration.lineThrough,
+                      ),
+                    ),
+                    subtitle: subtitle.isNotEmpty
+                        ? Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600))
+                        : null,
+                    trailing: isActive
+                        ? (takenToday
+                            ? Icon(Icons.check_circle, color: Colors.green.shade400, size: 22)
+                            : Text('not taken', style: TextStyle(fontSize: 11, color: Colors.orange.shade400)))
+                        : Text('off', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                    onTap: () => _showForm(context, ref, item: item),
+                  ),
+                );
+              }),
+
+              // Swipe hint
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'Swipe right to edit · left to delete · tap circle to toggle tracking',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// Quick dialog to set course duration and reminder when toggling a supplement ON.
+  void _showCourseDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> item) {
+    String? selectedCourse = 'No end date';
+    String? endDate;
+    bool enableReminder = false;
+    String reminderTime = '09:00';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => AlertDialog(
+          title: Text(item['supplement_name'] ?? 'Supplement'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Set tracking period and reminder', style: TextStyle(fontSize: 13)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedCourse,
+                decoration: const InputDecoration(labelText: 'Course duration', isDense: true),
+                items: _courseDurations.keys.map((k) => DropdownMenuItem(
+                    value: k, child: Text(k))).toList(),
+                onChanged: (v) {
+                  ss(() {
+                    selectedCourse = v;
+                    final days = _courseDurations[v];
+                    if (days != null) {
+                      endDate = DateTime.now().add(Duration(days: days)).toIso8601String().substring(0, 10);
+                    } else {
+                      endDate = null;
+                    }
+                  });
+                },
+              ),
+              if (endDate != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('Ends: $endDate', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                title: const Text('Daily reminder', style: TextStyle(fontSize: 14)),
+                subtitle: enableReminder ? Text('At $reminderTime', style: const TextStyle(fontSize: 12)) : null,
+                value: enableReminder,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (v) => ss(() => enableReminder = v),
+              ),
+              if (enableReminder)
+                InkWell(
+                  onTap: () async {
+                    final parts = reminderTime.split(':');
+                    final picked = await showTimePicker(
+                      context: ctx,
+                      initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+                    );
+                    if (picked != null) ss(() => reminderTime = _timeStr(picked));
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Reminder time', isDense: true, suffixIcon: Icon(Icons.access_time, size: 18)),
+                    child: Text(reminderTime),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Skip')),
+            FilledButton(
               onPressed: () async {
+                Navigator.pop(ctx);
                 final id = item['id']?.toString() ?? '';
                 if (id.isEmpty) return;
-                try {
-                  final res = await apiClient.dio.post(
-                    ApiConstants.supplementLogIntake(id),
+                // Update course dates and reminder
+                await apiClient.dio.put('${ApiConstants.supplements}/$id', data: {
+                  'supplement_name': item['supplement_name'],
+                  'end_date': endDate,
+                  'reminder_enabled': enableReminder,
+                  'reminder_time': enableReminder ? reminderTime : null,
+                });
+                ref.invalidate(supplementsProvider);
+                if (enableReminder) {
+                  await NotificationPrefs.addSupplementReminder(
+                    supplementId: id,
+                    name: item['supplement_name'] ?? '',
+                    time: reminderTime,
+                    endDate: endDate,
                   );
-                  final data = res.data as Map<String, dynamic>;
-                  if (context.mounted) {
-                    final nutrients = data['nutrients_matched'] as int? ?? 0;
-                    final msg = data['already_logged'] == true
-                        ? '${item['supplement_name']} already logged today'
-                        : 'Logged ${item['supplement_name']} intake ($nutrients nutrients tracked)';
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(msg),
-                        backgroundColor: Colors.green.shade700,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                    // Refresh supplement list to show updated intake count
-                    ref.invalidate(supplementsProvider(personKey));
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed: $e')),
-                    );
-                  }
+                  try { await NotificationService.scheduleAll(); } catch (_) {}
                 }
               },
-            ),
-            Switch(
-              value: item['is_active'] == true,
-              onChanged: (_) async {
-                await apiClient.dio.put(
-                    '${ApiConstants.supplements}/${item['id']}/toggle');
-                ref.invalidate(supplementsProvider);
-                ref.invalidate(supplementsCatalogProvider);
-              },
+              child: const Text('Save'),
             ),
           ],
         ),
       ),
-      onAdd: (ctx, ref) => _showAddOptions(ctx, ref),
-      onEdit: (ctx, ref, item) => _showForm(ctx, ref, item: item),
-      onDelete: (ref, id) async {
-        await apiClient.dio.delete('${ApiConstants.supplements}/$id');
-        ref.invalidate(supplementsProvider);
-        ref.invalidate(supplementsCatalogProvider);
-      },
     );
   }
 
