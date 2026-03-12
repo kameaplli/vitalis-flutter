@@ -5,9 +5,11 @@ import 'package:intl/intl.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../core/api_client.dart';
+import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../models/nutrition_log.dart';
 import '../models/food_item.dart';
+import '../providers/nutrition_analytics_provider.dart';
 
 /// Standalone route screen — wraps NutritionHistoryContent in a Scaffold.
 class EntriesScreen extends ConsumerWidget {
@@ -141,6 +143,8 @@ class _NutritionHistoryContentState
                                 await apiClient.dio.delete(
                                     '${ApiConstants.nutritionLog}/${entry.id}');
                                 ref.invalidate(nutritionEntriesProvider);
+                                ref.invalidate(nutritionAnalyticsProvider);
+                                AppCache.clearAnalytics();
                               }
                             },
                             child: ListTile(

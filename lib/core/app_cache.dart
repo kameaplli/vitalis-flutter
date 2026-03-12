@@ -35,6 +35,18 @@ class AppCache {
           {bool stale = false}) =>
       _loadMap('analytics_$key', stale ? null : _analyticsTtl);
 
+  /// Clear all analytics cache entries so next provider read fetches fresh.
+  static Future<void> clearAnalytics() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((k) => k.startsWith('analytics_'));
+      for (final k in keys) {
+        await prefs.remove(k);
+        await prefs.remove('${k}_ts');
+      }
+    } catch (_) {}
+  }
+
   // ── Food database ────────────────────────────────────────────────────────────
 
   static Future<void> saveFoodDb(List<dynamic> list) async {
