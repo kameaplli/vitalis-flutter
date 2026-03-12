@@ -71,6 +71,9 @@ class FoodItem {
   final double? nutrientCompleteness;
   final String? ingredientsText;
   final String? imageUrl;
+  final String? category;
+  final String? nutriscore;
+  final int? novaGroup;
   final List<FoodAllergenInfo> allergens;
 
   FoodItem({
@@ -92,6 +95,9 @@ class FoodItem {
     this.nutrientCompleteness,
     this.ingredientsText,
     this.imageUrl,
+    this.category,
+    this.nutriscore,
+    this.novaGroup,
     this.allergens = const [],
   });
 
@@ -121,6 +127,9 @@ class FoodItem {
       nutrientCompleteness: (json['nutrient_completeness'] as num?)?.toDouble(),
       ingredientsText: json['ingredients_text'],
       imageUrl: json['image_url'],
+      category: json['category'],
+      nutriscore: json['nutriscore'],
+      novaGroup: (json['nova_group'] as num?)?.toInt(),
       allergens: (json['allergens'] as List<dynamic>?)
               ?.map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
               .toList() ??
