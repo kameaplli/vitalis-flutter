@@ -400,9 +400,12 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     if (_weightCtrl.text.isEmpty) return;
     setState(() => _isSaving = true);
     try {
+      final person = ref.read(selectedPersonProvider);
+      final famId = person == 'self' ? null : person;
       await apiClient.dio.post(ApiConstants.weightLog, data: {
         'weight': double.parse(_weightCtrl.text),
         'notes': _notesCtrl.text,
+        if (famId != null) 'family_member_id': famId,
       });
       _weightCtrl.clear();
       _notesCtrl.clear();

@@ -110,11 +110,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             // ── Daily progress header ──────────────────────────────────────
             _DailyProgressHeader(nutrition: nutrition),
 
-            const SizedBox(height: 12),
-
-            // ── Daily micronutrient summary ──────────────────────────────────
-            _DailyMicronutrientSummary(),
-
             const SizedBox(height: 16),
 
             // ── Meal type + time row ───────────────────────────────────────
@@ -233,8 +228,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                       ref.read(nutritionProvider.notifier).updateGrams(sf.food.id, g),
                 )).toList(),
               ),
-              const SizedBox(height: 16),
-              _MacroBreakdownCard(nutrition: nutrition),
             ] else ...[
               const SizedBox(height: 8),
               Container(

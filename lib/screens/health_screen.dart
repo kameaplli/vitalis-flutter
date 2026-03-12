@@ -1008,6 +1008,7 @@ class _SupplementsTab extends ConsumerWidget {
                 await apiClient.dio.put(
                     '${ApiConstants.supplements}/${item['id']}/toggle');
                 ref.invalidate(supplementsProvider);
+                ref.invalidate(supplementsCatalogProvider);
               },
             ),
           ],
@@ -1018,6 +1019,7 @@ class _SupplementsTab extends ConsumerWidget {
       onDelete: (ref, id) async {
         await apiClient.dio.delete('${ApiConstants.supplements}/$id');
         ref.invalidate(supplementsProvider);
+        ref.invalidate(supplementsCatalogProvider);
       },
     );
   }
@@ -1232,6 +1234,7 @@ class _SupplementsTab extends ConsumerWidget {
                       ApiConstants.supplements, data: data);
                 }
                 ref.invalidate(supplementsProvider);
+                ref.invalidate(supplementsCatalogProvider);
                 // Persist and schedule supplement reminder
                 final supId = isEdit ? item['id'].toString() : nameCtrl.text;
                 if (enableReminder) {
@@ -1285,8 +1288,12 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final supplementsAsync = ref.watch(supplementsProvider(widget.personKey));
-    final allSupplements = supplementsAsync.valueOrNull ?? [];
+    // Use the shared catalogue (all family members) for the search list
+    final catalogAsync = ref.watch(supplementsCatalogProvider);
+    final allSupplements = catalogAsync.valueOrNull ?? [];
+    // Current person's supplements for quick-log
+    final personSupsAsync = ref.watch(supplementsProvider(widget.personKey));
+    final personSupplements = personSupsAsync.valueOrNull ?? [];
 
     // Deduplicate by supplement_name (case-insensitive) — show unique supplements
     final seen = <String>{};
@@ -1360,10 +1367,10 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
               ],
             ),
           ),
-          // Quick-log: active supplements not yet taken today
+          // Quick-log: active supplements for this person not yet taken today
           Builder(builder: (_) {
             final today = DateTime.now().toIso8601String().substring(0, 10);
-            final quickLog = allSupplements
+            final quickLog = personSupplements
                 .where((s) => s['is_active'] == true && s['last_intake_date'] != today)
                 .toList();
             if (quickLog.isEmpty) return const SizedBox.shrink();
@@ -1398,6 +1405,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                               SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
                             );
                             ref.invalidate(supplementsProvider(widget.personKey));
+                            ref.invalidate(supplementsCatalogProvider);
                           }
                         } catch (e) {
                           if (context.mounted) {
@@ -1626,6 +1634,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
 
       // Refresh supplement list
       ref.invalidate(supplementsProvider);
+      ref.invalidate(supplementsCatalogProvider);
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(

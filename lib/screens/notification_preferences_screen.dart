@@ -105,6 +105,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Notification preferences saved!'), duration: Duration(seconds: 2)),
       );
+      Navigator.of(context).pop();
     }
   }
 

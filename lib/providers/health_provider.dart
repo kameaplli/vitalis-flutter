@@ -30,6 +30,14 @@ final supplementsProvider = FutureProvider.family<List<HealthMap>, String>((ref,
   return List<HealthMap>.from(res.data['entries']);
 });
 
+/// All supplements across all family members — used as a shared catalogue.
+final supplementsCatalogProvider = FutureProvider<List<HealthMap>>((ref) async {
+  final res = await apiClient.dio.get(ApiConstants.supplements, queryParameters: {
+    'person': 'all',
+  });
+  return List<HealthMap>.from(res.data['entries']);
+});
+
 final vitalsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
   final res = await apiClient.dio.get(ApiConstants.vitals, queryParameters: {
     'person': _person(key),
