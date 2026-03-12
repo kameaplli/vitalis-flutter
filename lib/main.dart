@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'providers/theme_provider.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -26,11 +27,10 @@ class VitalisApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final skin = ref.watch(themeProvider);
     return MaterialApp.router(
       title: 'Vitalis',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      theme: AppTheme.forSkin(skin),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

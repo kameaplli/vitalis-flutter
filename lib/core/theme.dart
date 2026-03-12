@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/theme_provider.dart';
 
 class AppTheme {
   // ── Brand colours ────────────────────────────────────────────────────────────
@@ -7,7 +8,12 @@ class AppTheme {
   static const Color secondarySeed = Color(0xFFD97706); // Amber
   static const Color tertiarySeed  = Color(0xFF4F46E5); // Indigo
 
-  // ── Typography ───────────────────────────────────────────────────────────────
+  // ── Sunset skin colours ──────────────────────────────────────────────────────
+  static const Color _sunsetPrimary   = Color(0xFFB5451B); // Burnt orange
+  static const Color _sunsetSecondary = Color(0xFF9B2C6E); // Magenta rose
+  static const Color _sunsetTertiary  = Color(0xFF6D28D9); // Violet
+
+  // ── Typography ─────────────────────────────────────────────────────────────
   static TextTheme _textTheme(Brightness brightness) {
     final base = brightness == Brightness.dark
         ? ThemeData.dark().textTheme
@@ -15,21 +21,27 @@ class AppTheme {
     return GoogleFonts.plusJakartaSansTextTheme(base);
   }
 
-  // ── Light theme ──────────────────────────────────────────────────────────────
-  static ThemeData get lightTheme {
-    final cs = ColorScheme.fromSeed(
-      seedColor: primarySeed,
-      secondary: secondarySeed,
-      tertiary: tertiarySeed,
-      brightness: Brightness.light,
-    );
+  // ── Resolve skin → ThemeData ───────────────────────────────────────────────
+  static ThemeData forSkin(AppSkin skin) {
+    switch (skin) {
+      case AppSkin.light:
+        return lightTheme;
+      case AppSkin.dark:
+        return darkTheme;
+      case AppSkin.sunset:
+        return sunsetTheme;
+    }
+  }
+
+  // ── Shared component config ────────────────────────────────────────────────
+  static ThemeData _build(ColorScheme cs, Brightness brightness) {
     return ThemeData(
-      useMaterial3:  true,
-      colorScheme:   cs,
-      textTheme:     _textTheme(Brightness.light),
+      useMaterial3: true,
+      colorScheme: cs,
+      textTheme: _textTheme(brightness),
       appBarTheme: AppBarTheme(
-        centerTitle:     true,
-        elevation:       0,
+        centerTitle: true,
+        elevation: 0,
         backgroundColor: cs.surface,
         foregroundColor: cs.onSurface,
         surfaceTintColor: Colors.transparent,
@@ -88,76 +100,36 @@ class AppTheme {
     );
   }
 
-  // ── Dark theme ───────────────────────────────────────────────────────────────
-  static ThemeData get darkTheme {
-    final cs = ColorScheme.fromSeed(
-      seedColor: primarySeed,
-      secondary: secondarySeed,
-      tertiary: tertiarySeed,
-      brightness: Brightness.dark,
-    );
-    return ThemeData(
-      useMaterial3:  true,
-      colorScheme:   cs,
-      textTheme:     _textTheme(Brightness.dark),
-      appBarTheme: AppBarTheme(
-        centerTitle:     true,
-        elevation:       0,
-        backgroundColor: cs.surface,
-        foregroundColor: cs.onSurface,
-        surfaceTintColor: Colors.transparent,
-      ),
-      cardTheme: CardThemeData(
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+  // ── Light theme (Daylight) ─────────────────────────────────────────────────
+  static ThemeData get lightTheme => _build(
+        ColorScheme.fromSeed(
+          seedColor: primarySeed,
+          secondary: secondarySeed,
+          tertiary: tertiarySeed,
+          brightness: Brightness.light,
         ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        Brightness.light,
+      );
+
+  // ── Dark theme ─────────────────────────────────────────────────────────────
+  static ThemeData get darkTheme => _build(
+        ColorScheme.fromSeed(
+          seedColor: primarySeed,
+          secondary: secondarySeed,
+          tertiary: tertiarySeed,
+          brightness: Brightness.dark,
         ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        Brightness.dark,
+      );
+
+  // ── Sunset Glow theme ──────────────────────────────────────────────────────
+  static ThemeData get sunsetTheme => _build(
+        ColorScheme.fromSeed(
+          seedColor: _sunsetPrimary,
+          secondary: _sunsetSecondary,
+          tertiary: _sunsetTertiary,
+          brightness: Brightness.light,
         ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        elevation: 3,
-        indicatorColor: cs.primaryContainer,
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return IconThemeData(color: cs.onPrimaryContainer);
-          }
-          return IconThemeData(color: cs.onSurfaceVariant);
-        }),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final font = GoogleFonts.plusJakartaSans(fontSize: 11);
-          if (states.contains(WidgetState.selected)) {
-            return font.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurface,
-            );
-          }
-          return font.copyWith(color: cs.onSurfaceVariant);
-        }),
-      ),
-      chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
+        Brightness.light,
+      );
 }

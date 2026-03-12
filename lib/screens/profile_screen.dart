@@ -11,6 +11,7 @@ import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 import '../providers/achievements_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/achievement_badges.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -228,6 +229,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),
+            _ThemePicker(),
             const Divider(height: 32),
             // Achievements section
             _AchievementsSection(),
@@ -577,6 +579,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to remove family member')));
     }
+  }
+}
+
+class _ThemePicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(themeProvider);
+    return ListTile(
+      leading: Icon(current.icon),
+      title: const Text('App theme'),
+      subtitle: Text(current.label),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text('Choose Theme',
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                ...AppSkin.values.map((skin) => RadioListTile<AppSkin>(
+                      value: skin,
+                      groupValue: current,
+                      title: Text(skin.label),
+                      secondary: Icon(skin.icon),
+                      onChanged: (v) {
+                        if (v != null) {
+                          ref.read(themeProvider.notifier).setSkin(v);
+                        }
+                        Navigator.pop(ctx);
+                      },
+                    )),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
