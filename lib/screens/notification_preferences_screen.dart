@@ -76,38 +76,50 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
   }
 
   Future<void> _save() async {
-    await NotificationPrefs.setHydrationEnabled(_hydrationEnabled);
-    await NotificationPrefs.setHydrationStart(
-        NotificationPrefs.formatTime(_hydrationStart.hour, _hydrationStart.minute));
-    await NotificationPrefs.setHydrationEnd(
-        NotificationPrefs.formatTime(_hydrationEnd.hour, _hydrationEnd.minute));
-    await NotificationPrefs.setHydrationInterval(_hydrationInterval);
+    try {
+      await NotificationPrefs.setHydrationEnabled(_hydrationEnabled);
+      await NotificationPrefs.setHydrationStart(
+          NotificationPrefs.formatTime(_hydrationStart.hour, _hydrationStart.minute));
+      await NotificationPrefs.setHydrationEnd(
+          NotificationPrefs.formatTime(_hydrationEnd.hour, _hydrationEnd.minute));
+      await NotificationPrefs.setHydrationInterval(_hydrationInterval);
 
-    await NotificationPrefs.setMealsEnabled(_mealsEnabled);
-    await NotificationPrefs.setBreakfastTime(
-        NotificationPrefs.formatTime(_breakfastTime.hour, _breakfastTime.minute));
-    await NotificationPrefs.setLunchTime(
-        NotificationPrefs.formatTime(_lunchTime.hour, _lunchTime.minute));
-    await NotificationPrefs.setDinnerTime(
-        NotificationPrefs.formatTime(_dinnerTime.hour, _dinnerTime.minute));
-    await NotificationPrefs.setSnackTime(
-        NotificationPrefs.formatTime(_snackTime.hour, _snackTime.minute));
-    await NotificationPrefs.setSnackEnabled(_snackEnabled);
+      await NotificationPrefs.setMealsEnabled(_mealsEnabled);
+      await NotificationPrefs.setBreakfastTime(
+          NotificationPrefs.formatTime(_breakfastTime.hour, _breakfastTime.minute));
+      await NotificationPrefs.setLunchTime(
+          NotificationPrefs.formatTime(_lunchTime.hour, _lunchTime.minute));
+      await NotificationPrefs.setDinnerTime(
+          NotificationPrefs.formatTime(_dinnerTime.hour, _dinnerTime.minute));
+      await NotificationPrefs.setSnackTime(
+          NotificationPrefs.formatTime(_snackTime.hour, _snackTime.minute));
+      await NotificationPrefs.setSnackEnabled(_snackEnabled);
 
-    await NotificationPrefs.setEczemaEnabled(_eczemaEnabled);
-    await NotificationPrefs.setEczemaThreshold(_eczemaThreshold);
-    await NotificationPrefs.setSmartEnabled(_smartEnabled);
-    await NotificationPrefs.setSupplementsEnabled(_supplementsEnabled);
-    await NotificationPrefs.setSupplementReminders(_supplementReminders);
+      await NotificationPrefs.setEczemaEnabled(_eczemaEnabled);
+      await NotificationPrefs.setEczemaThreshold(_eczemaThreshold);
+      await NotificationPrefs.setSmartEnabled(_smartEnabled);
+      await NotificationPrefs.setSupplementsEnabled(_supplementsEnabled);
+      await NotificationPrefs.setSupplementReminders(_supplementReminders);
 
-    await NotificationService.scheduleAll();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Notification preferences saved!'), duration: Duration(seconds: 2)),
-      );
-      context.go('/profile');
+      try {
+        await NotificationService.scheduleAll();
+      } catch (_) {
+        // Scheduling may fail on some devices — don't block save+navigate
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving: $e')),
+        );
+      }
+      return;
     }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Notification preferences saved!'), duration: Duration(seconds: 1)),
+    );
+    context.go('/profile');
   }
 
   Future<TimeOfDay?> _pickTime(TimeOfDay initial) {
