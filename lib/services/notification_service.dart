@@ -30,7 +30,7 @@ class NotificationPrefs {
   // Defaults
   static const defaultHydrationStart    = '08:00';
   static const defaultHydrationEnd      = '21:00';
-  static const defaultHydrationInterval = 90; // minutes
+  static const defaultHydrationInterval = 60; // minutes
   static const defaultBreakfastTime     = '08:00';
   static const defaultLunchTime         = '12:30';
   static const defaultDinnerTime        = '18:30';
@@ -76,6 +76,44 @@ class NotificationPrefs {
   static Future<bool> smartEnabled() async => (await _prefs()).getBool(kSmartEnabled) ?? true;
   static Future<void> setSmartEnabled(bool v) async => (await _prefs()).setBool(kSmartEnabled, v);
 
+  // Supplements
+  static const kSupplementsEnabled = '${_prefix}supplements_enabled';
+  static Future<bool> supplementsEnabled() async => (await _prefs()).getBool(kSupplementsEnabled) ?? true;
+  static Future<void> setSupplementsEnabled(bool v) async => (await _prefs()).setBool(kSupplementsEnabled, v);
+
+  /// Store supplement reminders as JSON list: [{"id":"...", "name":"...", "time":"09:00", "end_date":"2026-04-01"}]
+  static const kSupplementReminders = '${_prefix}supplement_reminders';
+
+  static Future<List<Map<String, dynamic>>> supplementReminders() async {
+    final raw = (await _prefs()).getString(kSupplementReminders);
+    if (raw == null || raw.isEmpty) return [];
+    final list = jsonDecode(raw) as List;
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  static Future<void> setSupplementReminders(List<Map<String, dynamic>> reminders) async {
+    (await _prefs()).setString(kSupplementReminders, jsonEncode(reminders));
+  }
+
+  static Future<void> addSupplementReminder({
+    required String supplementId,
+    required String name,
+    required String time,
+    String? endDate,
+  }) async {
+    final list = await supplementReminders();
+    // Remove existing for same supplement
+    list.removeWhere((r) => r['id'] == supplementId);
+    list.add({'id': supplementId, 'name': name, 'time': time, 'end_date': endDate});
+    await setSupplementReminders(list);
+  }
+
+  static Future<void> removeSupplementReminder(String supplementId) async {
+    final list = await supplementReminders();
+    list.removeWhere((r) => r['id'] == supplementId);
+    await setSupplementReminders(list);
+  }
+
   /// Helper: parse "HH:mm" → (hour, minute)
   static (int, int) parseTime(String t) {
     final parts = t.split(':');
@@ -88,10 +126,11 @@ class NotificationPrefs {
 }
 
 // ─── Notification ID Ranges ──────────────────────────────────────────────────
-// Hydration:   1000 – 1099
-// Meals:       2000 – 2010
-// Eczema:      3000 – 3010
-// Smart:       4000 – 4010
+// Hydration:    1000 – 1099
+// Meals:        2000 – 2010
+// Eczema:       3000 – 3010
+// Smart:        4000 – 4010
+// Supplements:  5000 – 5099
 
 // ─── Notification Channels ───────────────────────────────────────────────────
 
@@ -133,6 +172,15 @@ const _smartChannel = AndroidNotificationDetails(
   channelDescription: 'Personalized logging suggestions based on your patterns',
   importance: Importance.low,
   priority: Priority.low,
+  icon: '@mipmap/ic_launcher',
+);
+
+const _supplementChannel = AndroidNotificationDetails(
+  'vitalis_supplements',
+  'Supplement Reminders',
+  channelDescription: 'Daily reminders to take your supplements',
+  importance: Importance.defaultImportance,
+  priority: Priority.defaultPriority,
   icon: '@mipmap/ic_launcher',
 );
 
@@ -193,11 +241,13 @@ class NotificationService {
   static Future<void> scheduleAll() async {
     await _plugin.cancelAll();
 
-    final hydrationOn = await NotificationPrefs.hydrationEnabled();
-    final mealsOn     = await NotificationPrefs.mealsEnabled();
+    final hydrationOn    = await NotificationPrefs.hydrationEnabled();
+    final mealsOn        = await NotificationPrefs.mealsEnabled();
+    final supplementsOn  = await NotificationPrefs.supplementsEnabled();
 
-    if (hydrationOn) await _scheduleHydration();
-    if (mealsOn)     await _scheduleMeals();
+    if (hydrationOn)   await _scheduleHydration();
+    if (mealsOn)       await _scheduleMeals();
+    if (supplementsOn) await _scheduleSupplements();
     // Eczema alerts are triggered by background weather check on app open,
     // not scheduled. The pref is read when the check runs.
   }
@@ -296,6 +346,59 @@ class NotificationService {
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
         payload: 'meal',
+      );
+
+      // Gentle reminder 30 minutes later
+      final reminderMin = h * 60 + m + 30;
+      final rH = reminderMin ~/ 60;
+      final rM = reminderMin % 60;
+      if (rH < 24) {
+        final reminderScheduled = _nextInstanceOfTime(rH, rM);
+        await _plugin.zonedSchedule(
+          id + 5, // offset to avoid collision (2006, 2007, 2008, 2009)
+          'Missed $title',
+          "Looks like you haven't logged this meal yet. Tap to log now!",
+          reminderScheduled,
+          const NotificationDetails(android: _mealChannel),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.wallClockTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+          payload: 'meal_reminder',
+        );
+      }
+    }
+  }
+
+  // ── Supplement Reminders ──────────────────────────────────────────────────
+
+  static Future<void> _scheduleSupplements() async {
+    final reminders = await NotificationPrefs.supplementReminders();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    int id = 5000;
+    for (final r in reminders) {
+      if (id >= 5099) break;
+      // Skip expired courses
+      final endDate = r['end_date'] as String?;
+      if (endDate != null && endDate.compareTo(today) < 0) continue;
+
+      final name = r['name'] as String? ?? 'Supplement';
+      final timeStr = r['time'] as String? ?? '09:00';
+      final (h, m) = NotificationPrefs.parseTime(timeStr);
+
+      final scheduled = _nextInstanceOfTime(h, m);
+      await _plugin.zonedSchedule(
+        id++,
+        'Time to take $name',
+        'Your daily reminder to take $name.',
+        scheduled,
+        const NotificationDetails(android: _supplementChannel),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.wallClockTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: 'supplement',
       );
     }
   }

@@ -244,43 +244,6 @@ class _HomeBody extends ConsumerWidget {
           child: _HydrationQuickLog(person: person, hydrationAsync: hydrationAsync),
         ),
 
-        // ── Quick action buttons ──────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _QuickButton('Log Meal',   Icons.restaurant,         Colors.green,
-                      () => context.go('/nutrition')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Log Weight', Icons.monitor_weight,     Colors.purple,
-                      () => context.push('/weight')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Log Health', Icons.favorite,           Colors.red,
-                      () => context.go('/health')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Eczema',     Icons.healing_outlined,   Colors.teal,
-                      () => context.push('/eczema')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Products',   Icons.inventory_2_outlined, Colors.indigo,
-                      () => context.push('/products')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Insights',   Icons.psychology_outlined,  Colors.deepPurple,
-                      () => context.push('/insights')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Skin Photos', Icons.camera_alt_outlined, Colors.brown,
-                      () => context.push('/skin-photos')),
-                  const SizedBox(width: 8),
-                  _QuickButton('Finance',    Icons.account_balance_outlined, Colors.blueGrey,
-                      () => context.push('/finance')),
-                ],
-              ),
-            ),
-          ),
-        ),
-
         // ── Macros card ───────────────────────────────────────────────────
         SliverToBoxAdapter(child: _MacrosCard(data: data)),
 
@@ -2099,27 +2062,6 @@ class _IntakeRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _QuickButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  const _QuickButton(this.label, this.icon, this.color, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: color, size: 18),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withValues(alpha: 0.5)),
       ),
     );
   }

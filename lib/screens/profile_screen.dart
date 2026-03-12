@@ -224,7 +224,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ListTile(
               leading: const Icon(Icons.notifications_outlined),
               title: const Text('Notification preferences'),
-              subtitle: const Text('Meals, hydration, eczema alerts'),
+              subtitle: const Text('Meals, hydration, supplements, eczema alerts'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),

@@ -11,7 +11,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
   bool _hydrationEnabled = true;
   TimeOfDay _hydrationStart = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _hydrationEnd = const TimeOfDay(hour: 21, minute: 0);
-  int _hydrationInterval = 90;
+  int _hydrationInterval = 60;
 
   bool _mealsEnabled = true;
   TimeOfDay _breakfastTime = const TimeOfDay(hour: 8, minute: 0);
@@ -24,6 +24,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
   double _eczemaThreshold = 0.7;
 
   bool _smartEnabled = true;
+  bool _supplementsEnabled = true;
+  List<Map<String, dynamic>> _supplementReminders = [];
 
   bool _loading = true;
 
@@ -66,6 +68,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     _eczemaEnabled = await NotificationPrefs.eczemaEnabled();
     _eczemaThreshold = await NotificationPrefs.eczemaThreshold();
     _smartEnabled = await NotificationPrefs.smartEnabled();
+    _supplementsEnabled = await NotificationPrefs.supplementsEnabled();
+    _supplementReminders = await NotificationPrefs.supplementReminders();
 
     if (mounted) setState(() => _loading = false);
   }
@@ -92,6 +96,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     await NotificationPrefs.setEczemaEnabled(_eczemaEnabled);
     await NotificationPrefs.setEczemaThreshold(_eczemaThreshold);
     await NotificationPrefs.setSmartEnabled(_smartEnabled);
+    await NotificationPrefs.setSupplementsEnabled(_supplementsEnabled);
+    await NotificationPrefs.setSupplementReminders(_supplementReminders);
 
     await NotificationService.scheduleAll();
 
@@ -234,6 +240,59 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                 },
               ),
           ],
+
+          if (_mealsEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(
+                'A gentle reminder is also sent 30 minutes after each meal time if not logged.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+              ),
+            ),
+
+          const Divider(height: 32),
+
+          // ── Supplement Reminders ───────────────────────────────────────────
+          _SectionHeader(icon: Icons.spa, title: 'Supplement Reminders', color: Colors.amber.shade700),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            title: const Text('Enable supplement reminders'),
+            subtitle: Text(_supplementsEnabled
+                ? '${_supplementReminders.length} supplement reminder(s) configured'
+                : 'Disabled'),
+            value: _supplementsEnabled,
+            onChanged: (v) => setState(() => _supplementsEnabled = v),
+          ),
+          if (_supplementsEnabled && _supplementReminders.isNotEmpty)
+            ..._supplementReminders.asMap().entries.map((entry) {
+              final i = entry.key;
+              final r = entry.value;
+              final name = r['name'] as String? ?? 'Supplement';
+              final time = r['time'] as String? ?? '09:00';
+              final endDate = r['end_date'] as String?;
+              return ListTile(
+                leading: Icon(Icons.spa_outlined, color: Colors.amber.shade600),
+                title: Text(name),
+                subtitle: Text([
+                  'Daily at $time',
+                  if (endDate != null) 'Until $endDate',
+                ].join(' · ')),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                  onPressed: () {
+                    setState(() => _supplementReminders.removeAt(i));
+                  },
+                ),
+              );
+            }),
+          if (_supplementsEnabled && _supplementReminders.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Add supplement reminders from the Supplements page when adding or editing a supplement.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+              ),
+            ),
 
           const Divider(height: 32),
 
