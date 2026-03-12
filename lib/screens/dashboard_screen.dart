@@ -1,16 +1,13 @@
 import 'dart:math';
 import 'dart:ui';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/nutrition_utils.dart';
-import '../models/analytics_data.dart';
 import '../models/dashboard_data.dart';
 import '../models/grocery_models.dart';
-import '../providers/analytics_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/finance_provider.dart';
@@ -30,9 +27,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with SingleTickerProviderStateMixin {
-  // 0 = Today, 7 = 7d, 30 = 30d
-  int _days = 0;
-
   // Session-level flag: welcome shows only once per app launch
   static bool _welcomeShownThisSession = false;
   bool _showWelcome = !_welcomeShownThisSession;
@@ -82,7 +76,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   void _refresh(String person) {
     ref.invalidate(dashboardProvider(person));
-    if (_days > 0) ref.invalidate(analyticsProvider('$person:$_days'));
     ref.invalidate(grocerySpendingProvider('$person:month'));
     final today = DateTime.now().toIso8601String().substring(0, 10);
     ref.invalidate(hydrationHistoryProvider('$person:1:$today'));
@@ -98,18 +91,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     if (!_showWelcome) {
       return Scaffold(
-        appBar: AppBar(
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => _refresh(person),
-            ),
-          ],
-        ),
         body: _PersonDashboardPage(
           personId: person,
-          days: _days,
-          onDaysChanged: (d) => setState(() => _days = d),
           onRefresh: _refresh,
         ),
       );
@@ -149,14 +132,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
 class _PersonDashboardPage extends ConsumerWidget {
   final String personId;
-  final int days;
-  final ValueChanged<int> onDaysChanged;
   final void Function(String) onRefresh;
 
   const _PersonDashboardPage({
     required this.personId,
-    required this.days,
-    required this.onDaysChanged,
     required this.onRefresh,
   });
 
@@ -175,9 +154,7 @@ class _PersonDashboardPage extends ConsumerWidget {
         ),
         data: (data) => _HomeBody(
           data: data,
-          days: days,
           person: personId,
-          onDaysChanged: onDaysChanged,
         ),
       ),
     );
@@ -188,31 +165,23 @@ class _PersonDashboardPage extends ConsumerWidget {
 
 class _HomeBody extends ConsumerWidget {
   final DashboardData data;
-  final int days;
   final String person;
-  final ValueChanged<int> onDaysChanged;
 
   const _HomeBody({
     required this.data,
-    required this.days,
     required this.person,
-    required this.onDaysChanged,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final analyticsAsync = days > 0
-        ? ref.watch(analyticsProvider('$person:$days'))
-        : const AsyncValue<NutritionAnalytics>.loading();
-
     final groceryAsync = ref.watch(grocerySpendingProvider('$person:month'));
     final hydrationAsync = ref.watch(todayHydrationProvider(person));
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        // ── Period chips ──────────────────────────────────────────────────
-        SliverToBoxAdapter(child: _PeriodSelector(days: days, onChanged: onDaysChanged)),
+        // ── Quick actions bar ─────────────────────────────────────────────
+        SliverToBoxAdapter(child: _QuickActionsBar(person: person)),
 
         // ── Today's summary grid (2×2) ────────────────────────────────────
         SliverToBoxAdapter(
@@ -318,12 +287,6 @@ class _HomeBody extends ConsumerWidget {
         // ── Meal distribution ─────────────────────────────────────────────
         SliverToBoxAdapter(child: _MealDistributionCard(distribution: data.mealDistribution)),
 
-        // ── Weekly trends (analytics) — only when 7d or 30d selected ──────
-        if (days > 0)
-          SliverToBoxAdapter(
-            child: _WeeklyTrends(analyticsAsync: analyticsAsync, days: days),
-          ),
-
         // ── Health score ──────────────────────────────────────────────────
         SliverToBoxAdapter(
           child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
@@ -357,45 +320,62 @@ class _HomeBody extends ConsumerWidget {
       );
 }
 
-// ── Period selector ───────────────────────────────────────────────────────────
+// ── Quick actions bar ─────────────────────────────────────────────────────────
 
-class _PeriodSelector extends StatelessWidget {
-  final int days;
-  final ValueChanged<int> onChanged;
-  const _PeriodSelector({required this.days, required this.onChanged});
+class _QuickActionsBar extends StatelessWidget {
+  final String person;
+  const _QuickActionsBar({required this.person});
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
-          _chip(context, 'Today', 0),
-          const SizedBox(width: 8),
-          _chip(context, '7 days', 7),
-          const SizedBox(width: 8),
-          _chip(context, '30 days', 30),
+          _action(context, Icons.restaurant, 'Log Meal', cs.primary, () {
+            context.go('/nutrition');
+          }),
+          const SizedBox(width: 10),
+          _action(context, Icons.water_drop, 'Add Water', Colors.blue, () {
+            context.go('/hydration');
+          }),
+          const SizedBox(width: 10),
+          _action(context, Icons.monitor_weight, 'Log Weight', Colors.orange, () {
+            context.go('/weight');
+          }),
+          const SizedBox(width: 10),
+          _action(context, Icons.sentiment_satisfied, 'Log Mood', Colors.amber, () {
+            context.go('/health');
+          }),
         ],
       ),
     );
   }
 
-  Widget _chip(BuildContext context, String label, int value) {
-    final selected = days == value;
-    final cs = Theme.of(context).colorScheme;
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onChanged(value),
-      backgroundColor: cs.surfaceContainerHighest,
-      selectedColor: cs.primaryContainer,
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
-        color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+  Widget _action(BuildContext context, IconData icon, String label,
+      Color color, VoidCallback onTap) {
+    return Expanded(
+      child: Material(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 22, color: color),
+                const SizedBox(height: 4),
+                Text(label, style: TextStyle(
+                    fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+              ],
+            ),
+          ),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -631,187 +611,6 @@ class _WaterBtn extends StatelessWidget {
 }
 
 // ── Weekly trends (analytics charts) ─────────────────────────────────────────
-
-class _WeeklyTrends extends StatelessWidget {
-  final AsyncValue<NutritionAnalytics> analyticsAsync;
-  final int days;
-  const _WeeklyTrends({required this.analyticsAsync, required this.days});
-
-  @override
-  Widget build(BuildContext context) {
-    return analyticsAsync.when(
-      skipLoadingOnReload: true,
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: _ShimmerCard(height: 160),
-      ),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (analytics) {
-        if (analytics.dailyTotals.isEmpty) return const SizedBox.shrink();
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.show_chart, size: 16),
-                    const SizedBox(width: 6),
-                    Text('Calorie Trend ($days days)',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 140,
-                  child: _CalorieTrendChart(analytics.dailyTotals),
-                ),
-                const SizedBox(height: 12),
-                // Macro totals summary row
-                _MacroSummaryRow(analytics.macroTotals, days),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CalorieTrendChart extends StatelessWidget {
-  final List<DailyNutritionTotal> totals;
-  const _CalorieTrendChart(this.totals);
-
-  @override
-  Widget build(BuildContext context) {
-    if (totals.isEmpty) return const SizedBox.shrink();
-    final cs = Theme.of(context).colorScheme;
-
-    final spots = totals.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.calories);
-    }).toList();
-
-    final maxY = totals.map((d) => d.calories).reduce((a, b) => a > b ? a : b);
-    final minY = 0.0;
-
-    return LineChart(
-      LineChartData(
-        minY: minY,
-        maxY: maxY * 1.2,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxY > 0 ? maxY / 3 : 500,
-          getDrawingHorizontalLine: (_) => FlLine(
-            color: cs.outlineVariant.withValues(alpha: 0.4),
-            strokeWidth: 1,
-          ),
-        ),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 36,
-              interval: maxY > 0 ? maxY / 3 : 500,
-              getTitlesWidget: (v, _) => Text(
-                v.toStringAsFixed(0),
-                style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
-              ),
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: totals.length <= 14,
-              interval: 1,
-              getTitlesWidget: (v, _) {
-                final i = v.toInt();
-                if (i < 0 || i >= totals.length) return const Text('');
-                final d = totals[i].date;
-                if (d.length < 10) return const Text('');
-                return Text(
-                  '${d.substring(5, 7)}/${d.substring(8)}',
-                  style: TextStyle(fontSize: 8, color: cs.onSurfaceVariant),
-                );
-              },
-            ),
-          ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: cs.primary,
-            barWidth: 2.5,
-            dotData: FlDotData(
-              show: totals.length <= 10,
-              getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                radius: 3, color: cs.primary,
-                strokeWidth: 1.5,
-                strokeColor: cs.surface,
-              ),
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  cs.primary.withValues(alpha: 0.25),
-                  cs.primary.withValues(alpha: 0.02),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MacroSummaryRow extends StatelessWidget {
-  final MacroTotals macros;
-  final int days;
-  const _MacroSummaryRow(this.macros, this.days);
-
-  @override
-  Widget build(BuildContext context) {
-    final total = macros.total;
-    if (total <= 0) return const SizedBox.shrink();
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _MacroChip('Protein', macros.protein, total, Colors.blue),
-        _MacroChip('Carbs',   macros.carbs,   total, Colors.orange),
-        _MacroChip('Fat',     macros.fat,      total, Colors.red),
-      ],
-    );
-  }
-}
-
-class _MacroChip extends StatelessWidget {
-  final String label;
-  final double value;
-  final double total;
-  final Color color;
-  const _MacroChip(this.label, this.value, this.total, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = total > 0 ? (value / total * 100).toStringAsFixed(0) : '0';
-    return Column(
-      children: [
-        Text('$pct%', style: TextStyle(
-            fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-      ],
-    );
-  }
-}
 
 // ── Grocery snapshot ──────────────────────────────────────────────────────────
 
