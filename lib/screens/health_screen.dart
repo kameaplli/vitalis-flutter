@@ -1163,6 +1163,20 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
       if (context.mounted) Navigator.pop(context); // dismiss loading
 
       final data = res.data as Map<String, dynamic>;
+
+      if (data['success'] == false) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(data['error'] ?? 'Import failed for $brand'),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
       final imported = data['imported'] ?? 0;
       final existing = data['existing'] ?? 0;
       final found = data['found'] ?? 0;
