@@ -127,9 +127,12 @@ class ApiConstants {
   static const String insightsGrocery   = '/api/insights/grocery';
   static const String insightsHistory   = '/api/insights/history';
 
-  // Supplement Lookup
-  static const String supplementLookup = '/api/foods/supplements/lookup';
-  static const String supplementSave   = '/api/foods/supplements/save';
+  // Supplement Lookup, Intake & Import
+  static const String supplementLookup     = '/api/foods/supplements/lookup';
+  static const String supplementSave       = '/api/foods/supplements/save';
+  static const String supplementBulkImport = '/api/foods/supplements/bulk-import';
+  static const String supplementImportBrand = '/api/foods/supplements/import-brand';
+  static String supplementLogIntake(String id) => '/api/health/supplements/$id/log-intake';
 
   // Favorites
   static const String foodFavorites     = '/api/foods/favorites';
