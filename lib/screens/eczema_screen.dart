@@ -3202,6 +3202,10 @@ class _HistorySheet extends ConsumerWidget {
                     return Dismissible(
                       key: Key(log.id),
                       direction: DismissDirection.horizontal,
+                      dismissThresholds: const {
+                        DismissDirection.startToEnd: 0.3,
+                        DismissDirection.endToStart: 0.3,
+                      },
                       background: Container(
                         color: Colors.blue, alignment: Alignment.centerLeft,
                         padding: const EdgeInsets.only(left: 16),

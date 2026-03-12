@@ -234,6 +234,10 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                           return Dismissible(
                             key: Key(log.id),
                             direction: DismissDirection.horizontal,
+                            dismissThresholds: const {
+                              DismissDirection.startToEnd: 0.3,
+                              DismissDirection.endToStart: 0.3,
+                            },
                             background: Container(
                               color: Colors.blue,
                               alignment: Alignment.centerLeft,

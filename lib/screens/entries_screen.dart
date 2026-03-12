@@ -35,7 +35,7 @@ class NutritionHistoryContent extends ConsumerStatefulWidget {
 class _NutritionHistoryContentState
     extends ConsumerState<NutritionHistoryContent> {
   String? _startDate = DateTime.now()
-      .subtract(const Duration(days: 7))
+      .subtract(const Duration(days: 2))
       .toIso8601String()
       .substring(0, 10);
   String? _endDate = DateTime.now().toIso8601String().substring(0, 10);
@@ -108,28 +108,34 @@ class _NutritionHistoryContentState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
                         child: Text(
                           _formatDate(date),
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
                       ...dayEntries.map((entry) => Dismissible(
                             key: Key(entry.id),
                             direction: DismissDirection.horizontal,
+                            dismissThresholds: const {
+                              DismissDirection.startToEnd: 0.3,
+                              DismissDirection.endToStart: 0.3,
+                            },
                             background: Container(
                               color: Colors.blue,
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.only(left: 16),
-                              child: const Icon(Icons.edit, color: Colors.white),
+                              child: const Icon(Icons.edit, color: Colors.white, size: 18),
                             ),
                             secondaryBackground: Container(
                               color: Colors.red,
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 16),
-                              child: const Icon(Icons.delete, color: Colors.white),
+                              child: const Icon(Icons.delete, color: Colors.white, size: 18),
                             ),
                             confirmDismiss: (dir) async {
                               if (dir == DismissDirection.startToEnd) {
@@ -148,22 +154,23 @@ class _NutritionHistoryContentState
                               }
                             },
                             child: ListTile(
+                              dense: true,
+                              visualDensity: const VisualDensity(vertical: -2),
                               leading: Icon(_mealIcon(entry.meal),
-                                  color: _mealColor(entry.meal)),
+                                  color: _mealColor(entry.meal), size: 20),
                               title: Text(
                                 entry.description.isEmpty
                                     ? entry.meal ?? 'Meal'
                                     : entry.description,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13),
                               ),
-                              subtitle: Text('${entry.person} • ${entry.time}'),
+                              subtitle: Text('${entry.person} • ${entry.time}',
+                                  style: const TextStyle(fontSize: 11)),
                               trailing: Text(
                                 '${entry.calories.toStringAsFixed(0)} kcal',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
                           )),

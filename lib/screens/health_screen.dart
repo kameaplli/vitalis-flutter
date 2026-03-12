@@ -74,6 +74,10 @@ class _HealthList extends ConsumerWidget {
                       return Dismissible(
                         key: Key(id),
                         direction: DismissDirection.horizontal,
+                        dismissThresholds: const {
+                          DismissDirection.startToEnd: 0.3,
+                          DismissDirection.endToStart: 0.3,
+                        },
                         background: Container(
                           color: Colors.blue,
                           alignment: Alignment.centerLeft,
@@ -1002,6 +1006,10 @@ class _SupplementsTab extends ConsumerWidget {
                 return Dismissible(
                   key: Key(id),
                   direction: DismissDirection.horizontal,
+                  dismissThresholds: const {
+                    DismissDirection.startToEnd: 0.3,
+                    DismissDirection.endToStart: 0.3,
+                  },
                   background: Container(
                     color: Colors.blue,
                     alignment: Alignment.centerLeft,
