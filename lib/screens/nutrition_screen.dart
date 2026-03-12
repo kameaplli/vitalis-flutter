@@ -112,26 +112,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
 
             const SizedBox(height: 16),
 
-            // ── Meal type + time row ───────────────────────────────────────
-            Row(
-              children: [
-                ..._mealTypes.map((type) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(type[0].toUpperCase() + type.substring(1),
-                        style: const TextStyle(fontSize: 12)),
-                    selected: nutrition.mealType == type,
-                    onSelected: (_) =>
-                        ref.read(nutritionProvider.notifier).setMealType(type),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                )),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
             // ── 5-method food entry hub ────────────────────────────────────
             Text('Add Food', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
@@ -191,7 +171,27 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // ── Meal type + time row ───────────────────────────────────────
+            Row(
+              children: [
+                ..._mealTypes.map((type) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(type[0].toUpperCase() + type.substring(1),
+                        style: const TextStyle(fontSize: 12)),
+                    selected: nutrition.mealType == type,
+                    onSelected: (_) =>
+                        ref.read(nutritionProvider.notifier).setMealType(type),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                )),
+              ],
+            ),
+
+            const SizedBox(height: 12),
 
             // ── Meal suggestions for selected meal type ───────────────────────
             _MealSuggestionsSection(mealType: nutrition.mealType),
