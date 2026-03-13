@@ -60,150 +60,119 @@ class _WeightContentState extends ConsumerState<WeightContent> {
             const SizedBox(height: 4),
 
             // ── Chart ────────────────────────────────────────────────────────
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('History',
-                            style: Theme.of(context).textTheme.titleSmall),
-                        SegmentedButton<int>(
-                          segments: const [
-                            ButtonSegment(value: 7, label: Text('7d')),
-                            ButtonSegment(value: 30, label: Text('30d')),
-                            ButtonSegment(value: 90, label: Text('90d')),
-                          ],
-                          selected: {_days},
-                          onSelectionChanged: (s) =>
-                              setState(() => _days = s.first),
-                          style: ButtonStyle(
-                            tapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            padding: WidgetStateProperty.all(
-                                const EdgeInsets.symmetric(
-                                    horizontal: 8)),
-                            visualDensity: VisualDensity.compact,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('History',
+                              style: Theme.of(context).textTheme.titleSmall),
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment(value: 7, label: Text('7d')),
+                              ButtonSegment(value: 30, label: Text('30d')),
+                              ButtonSegment(value: 90, label: Text('90d')),
+                            ],
+                            selected: {_days},
+                            onSelectionChanged: (s) =>
+                                setState(() => _days = s.first),
+                            style: ButtonStyle(
+                              tapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              padding: WidgetStateProperty.all(
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 8)),
+                              visualDensity: VisualDensity.compact,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    histAsync.when(
-                      skipLoadingOnReload: true,
-                      loading: () => const SizedBox(
-                        height: 200,
-                        child: Center(child: CircularProgressIndicator()),
+                        ],
                       ),
-                      error: (e, _) => SizedBox(
-                        height: 200,
-                        child: const Center(child: Text('Something went wrong. Pull to refresh.')),
-                      ),
-                      data: (history) {
-                        // BMI badge
-                        final latest = history.entries.isNotEmpty ? history.entries.last : null;
-                        final ideal = history.idealWeight;
-                        final idealMin = history.idealMin;
-                        final idealMax = history.idealMax;
-                        String? bmiLabel;
-                        if (latest != null && idealMin != null && idealMax != null) {
-                          final w = latest.weight;
-                          if (w < idealMin) {
-                            bmiLabel = '${(idealMin - w).toStringAsFixed(1)} kg below ideal';
-                          } else if (w > idealMax) {
-                            bmiLabel = '${(w - idealMax).toStringAsFixed(1)} kg above ideal';
-                          } else {
-                            bmiLabel = 'In healthy weight range';
-                          }
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            WeightChartWidget(history: history),
-                            if (bmiLabel != null) ...[
-                              const SizedBox(height: 8),
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: (latest!.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
-                                        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
-                                        : Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
-                                          ? Theme.of(context).colorScheme.primary
-                                          : Theme.of(context).colorScheme.error,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    bmiLabel,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
-                                          ? Theme.of(context).colorScheme.primary
-                                          : Theme.of(context).colorScheme.error,
-                                    ),
-                                  ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+                histAsync.when(
+                  skipLoadingOnReload: true,
+                  loading: () => const SizedBox(
+                    height: 280,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, _) => SizedBox(
+                    height: 280,
+                    child: const Center(child: Text('Something went wrong. Pull to refresh.')),
+                  ),
+                  data: (history) {
+                    // BMI badge
+                    final latest = history.entries.isNotEmpty ? history.entries.last : null;
+                    final ideal = history.idealWeight;
+                    final idealMin = history.idealMin;
+                    final idealMax = history.idealMax;
+                    String? bmiLabel;
+                    if (latest != null && idealMin != null && idealMax != null) {
+                      final w = latest.weight;
+                      if (w < idealMin) {
+                        bmiLabel = '${(idealMin - w).toStringAsFixed(1)} kg below ideal';
+                      } else if (w > idealMax) {
+                        bmiLabel = '${(w - idealMax).toStringAsFixed(1)} kg above ideal';
+                      } else {
+                        bmiLabel = 'In healthy weight range';
+                      }
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        WeightChartWidget(history: history),
+                        if (bmiLabel != null) ...[
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (latest!.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
+                                    ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
+                                    : Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.error,
                                 ),
                               ),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                  ],
+                              child: Text(
+                                bmiLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
-              ),
+              ],
             ),
 
             const SizedBox(height: 16),
 
-            // ── Log form ─────────────────────────────────────────────────────
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Log Weight',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _weightCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Weight (kg)', suffixText: 'kg'),
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _notesCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Notes (optional)'),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _isSaving ? null : _logWeight,
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white))
-                            : const Text('Log Weight'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // ── Log weight ───────────────────────────────────────────────────
+            _WeightInputCard(
+              weightCtrl: _weightCtrl,
+              notesCtrl: _notesCtrl,
+              isSaving: _isSaving,
+              onLog: _logWeight,
+              idealWeight: histAsync.valueOrNull?.idealWeight,
             ),
 
             const SizedBox(height: 16),
@@ -437,5 +406,183 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+}
+
+class _WeightInputCard extends StatefulWidget {
+  final TextEditingController weightCtrl;
+  final TextEditingController notesCtrl;
+  final bool isSaving;
+  final VoidCallback onLog;
+  final double? idealWeight;
+
+  const _WeightInputCard({
+    required this.weightCtrl,
+    required this.notesCtrl,
+    required this.isSaving,
+    required this.onLog,
+    this.idealWeight,
+  });
+
+  @override
+  State<_WeightInputCard> createState() => _WeightInputCardState();
+}
+
+class _WeightInputCardState extends State<_WeightInputCard> {
+  double _sliderValue = 70.0;
+  bool _initialized = false;
+
+  @override
+  void didUpdateWidget(_WeightInputCard old) {
+    super.didUpdateWidget(old);
+    if (!_initialized && widget.idealWeight != null) {
+      _sliderValue = widget.idealWeight!;
+      widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
+      _initialized = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (!_initialized && widget.idealWeight != null) {
+      _sliderValue = widget.idealWeight!;
+      widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
+      _initialized = true;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.monitor_weight_outlined, color: cs.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Log Weight', style: Theme.of(context).textTheme.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Large weight display
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    _sliderValue.toStringAsFixed(1),
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurface,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  Text('kg', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Slider with 50g steps
+            SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: cs.primary,
+                inactiveTrackColor: cs.primary.withOpacity(0.12),
+                thumbColor: cs.primary,
+                overlayColor: cs.primary.withOpacity(0.12),
+                trackHeight: 6,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+              ),
+              child: Slider(
+                value: _sliderValue.clamp(30.0, 200.0),
+                min: 30,
+                max: 200,
+                divisions: 3400, // (200-30) / 0.05 = 3400 -> 50g steps
+                onChanged: (v) {
+                  setState(() {
+                    _sliderValue = (v * 20).round() / 20; // snap to 50g
+                    widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
+                  });
+                  HapticFeedback.selectionClick();
+                },
+              ),
+            ),
+            // Fine-tune buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _tuneButton(context, '-0.5', -0.5),
+                _tuneButton(context, '-0.1', -0.1),
+                const SizedBox(width: 24),
+                _tuneButton(context, '+0.1', 0.1),
+                _tuneButton(context, '+0.5', 0.5),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Notes field
+            TextFormField(
+              controller: widget.notesCtrl,
+              decoration: InputDecoration(
+                labelText: 'Notes (optional)',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Submit
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: widget.isSaving ? null : widget.onLog,
+                icon: widget.isSaving
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check_rounded),
+                label: const Text('Log Weight'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tuneButton(BuildContext context, String label, double delta) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() {
+            _sliderValue = (_sliderValue + delta).clamp(30.0, 200.0);
+            _sliderValue = (_sliderValue * 20).round() / 20; // snap to 50g
+            widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
+          });
+          HapticFeedback.selectionClick();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(label, style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          )),
+        ),
+      ),
+    );
   }
 }

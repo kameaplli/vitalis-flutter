@@ -35,89 +35,91 @@ class _HealthList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => onAdd(context, ref),
-        tooltip: 'Add new entry',
-        child: const Icon(Icons.add, semanticLabel: 'Add new entry'),
-      ),
-      body: logsAsync.when(
-        skipLoadingOnReload: true,
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
-        data: (entries) {
-          if (entries.isEmpty && headerBuilder == null) {
-            return const Center(
-                child: Text('No entries yet. Tap + to add.'));
-          }
-          return CustomScrollView(
-            slivers: [
-              if (headerBuilder != null)
-                SliverToBoxAdapter(child: headerBuilder!()),
-              if (entries.isEmpty)
-                const SliverFillRemaining(
-                  child: Center(child: Text('No entries yet. Tap + to add.')),
-                )
-              else ...[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-                    child: MergeSemantics(
-                      child: Row(children: [
-                        ExcludeSemantics(child: Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline)),
-                        const SizedBox(width: 4),
-                        Text('Swipe right to edit · left to delete',
-                            style: TextStyle(
-                                fontSize: 11, color: Theme.of(context).colorScheme.outline)),
-                      ]),
+      body: Stack(
+        children: [
+          logsAsync.when(
+            skipLoadingOnReload: true,
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            data: (entries) {
+              if (entries.isEmpty && headerBuilder == null) {
+                return const Center(
+                    child: Text('No entries yet. Tap + to add.'));
+              }
+              return CustomScrollView(
+                slivers: [
+                  if (headerBuilder != null)
+                    SliverToBoxAdapter(child: headerBuilder!()),
+                  if (entries.isEmpty)
+                    const SliverFillRemaining(
+                      child: Center(child: Text('No entries yet. Tap + to add.')),
+                    )
+                  else ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+                        child: MergeSemantics(
+                          child: Row(children: [
+                            ExcludeSemantics(child: Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline)),
+                            const SizedBox(width: 4),
+                            Text('Swipe right to edit · left to delete',
+                                style: TextStyle(
+                                    fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+                          ]),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) {
-                      final item = entries[i];
-                      final id = item['id']?.toString() ?? '$i';
-                      return Dismissible(
-                        key: Key(id),
-                        direction: DismissDirection.horizontal,
-                        dismissThresholds: const {
-                          DismissDirection.startToEnd: 0.3,
-                          DismissDirection.endToStart: 0.3,
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, i) {
+                          final item = entries[i];
+                          final id = item['id']?.toString() ?? '$i';
+                          return Dismissible(
+                            key: Key(id),
+                            direction: DismissDirection.horizontal,
+                            dismissThresholds: const {
+                              DismissDirection.startToEnd: 0.3,
+                              DismissDirection.endToStart: 0.3,
+                            },
+                            background: Container(
+                              color: Colors.blue,
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 16),
+                              child: const Icon(Icons.edit, color: Colors.white),
+                            ),
+                            secondaryBackground: Container(
+                              color: Colors.red,
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 16),
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            confirmDismiss: (dir) async {
+                              if (dir == DismissDirection.startToEnd) {
+                                onEdit?.call(ctx, ref, item);
+                                return false;
+                              }
+                              return _confirmDelete(ctx);
+                            },
+                            onDismissed: (dir) {
+                              if (dir == DismissDirection.endToStart) {
+                                onDelete(ref, id);
+                              }
+                            },
+                            child: itemBuilder(item),
+                          );
                         },
-                        background: Container(
-                          color: Colors.blue,
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.only(left: 16),
-                          child: const Icon(Icons.edit, color: Colors.white),
-                        ),
-                        secondaryBackground: Container(
-                          color: Colors.red,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 16),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (dir) async {
-                          if (dir == DismissDirection.startToEnd) {
-                            onEdit?.call(ctx, ref, item);
-                            return false;
-                          }
-                          return _confirmDelete(ctx);
-                        },
-                        onDismissed: (dir) {
-                          if (dir == DismissDirection.endToStart) {
-                            onDelete(ref, id);
-                          }
-                        },
-                        child: itemBuilder(item),
-                      );
-                    },
-                    childCount: entries.length,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
+                        childCount: entries.length,
+                      ),
+                    ),
+                    // Extra padding so last item isn't hidden behind FAB
+                    const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+                  ],
+                ],
+              );
+            },
+          ),
+          _DraggableFab(onPressed: () => onAdd(context, ref)),
+        ],
       ),
     );
   }
@@ -139,6 +141,40 @@ class _HealthList extends ConsumerWidget {
             ),
           ) ??
       false;
+}
+
+class _DraggableFab extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _DraggableFab({required this.onPressed});
+  @override
+  State<_DraggableFab> createState() => _DraggableFabState();
+}
+
+class _DraggableFabState extends State<_DraggableFab> {
+  double _right = 16;
+  double _bottom = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    return Positioned(
+      right: _right,
+      bottom: _bottom,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            _right = (_right - details.delta.dx).clamp(0.0, size.width - 72);
+            _bottom = (_bottom - details.delta.dy).clamp(0.0, size.height - 172);
+          });
+        },
+        child: FloatingActionButton(
+          onPressed: widget.onPressed,
+          tooltip: 'Add new entry',
+          child: const Icon(Icons.add, semanticLabel: 'Add new entry'),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -763,14 +799,94 @@ class _SymptomsTab extends ConsumerWidget {
     return _HealthList(
       logsAsync: logsAsync,
       headerBuilder: () => _SymptomInsights(logsAsync: logsAsync),
-      itemBuilder: (item) => ListTile(
-        leading: const Icon(Icons.sick_outlined, color: Colors.orange),
-        title: Text(item['symptom_type'] ?? ''),
-        subtitle: Text('Severity: ${item['severity'] ?? '?'}/10'
-            '${item['notes'] != null && item['notes'].isNotEmpty ? "  •  ${item['notes']}" : ""}'),
-        trailing: Text(item['date'] ?? '',
-            style: const TextStyle(fontSize: 11)),
-      ),
+      itemBuilder: (item) {
+        final severity = item['severity'] as int? ?? 0;
+        final notes = item['notes'] as String? ?? '';
+        final date = item['date'] as String? ?? '';
+        // Severity color: green 1-3, amber 4-6, red 7-10
+        final sevColor = severity <= 3
+            ? Colors.green
+            : severity <= 6
+                ? Colors.orange
+                : Colors.red;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: sevColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.sick_outlined, color: sevColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['symptom_type'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        ...List.generate(10, (i) => Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.only(right: 2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: i < severity
+                                ? sevColor
+                                : Colors.grey.withOpacity(0.2),
+                          ),
+                        )),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$severity/10',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (notes.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        notes,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Text(
+                date,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade400,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
       onAdd: (ctx, ref) => _showForm(ctx, ref),
       onEdit: (ctx, ref, item) => _showForm(ctx, ref, item: item),
       onDelete: (ref, id) async {
@@ -2217,15 +2333,82 @@ class _MoodTab extends ConsumerWidget {
         final moodDisplay = moodsList != null && moodsList.isNotEmpty
             ? moodsList.join(', ')
             : (item['mood'] ?? '');
-        return ListTile(
-          leading: const Icon(Icons.sentiment_satisfied_alt,
-              color: Colors.amber),
-          title: Text(moodDisplay,
-              maxLines: 2, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-              'Score: ${item['score'] ?? '?'}/10  •  Energy: ${item['energy_level'] ?? '?'}'),
-          trailing: Text(item['date'] ?? '',
-              style: const TextStyle(fontSize: 11)),
+        final score = item['score'] as int? ?? 0;
+        final energy = item['energy_level'] ?? '';
+        final date = item['date'] as String? ?? '';
+        // Score color: red 1-3, amber 4-6, green 7-10
+        final scoreColor = score <= 3
+            ? Colors.red
+            : score <= 6
+                ? Colors.orange
+                : Colors.green;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scoreColor.withOpacity(0.2),
+                      scoreColor.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    '$score',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: scoreColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      moodDisplay,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    if (energy.toString().isNotEmpty)
+                      Text(
+                        'Energy: $energy',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                date,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade400,
+                ),
+              ),
+            ],
+          ),
         );
       },
       onAdd: (ctx, ref) => _showForm(ctx, ref),
