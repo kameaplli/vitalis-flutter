@@ -105,14 +105,18 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
                         onChanged: (v) => setState(() => _selectedBeverage = v ?? 'water'),
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.access_time, size: 16),
-                        label: Text('${_selectedTime.format(context)} ${localTimezone()}'),
-                        onPressed: () async {
-                          final t = await showTimePicker(
-                              context: context, initialTime: _selectedTime);
-                          if (t != null) setState(() => _selectedTime = t);
-                        },
+                      Semantics(
+                        button: true,
+                        label: 'Select time, currently ${_selectedTime.format(context)}',
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.access_time, size: 16),
+                          label: Text('${_selectedTime.format(context)} ${localTimezone()}'),
+                          onPressed: () async {
+                            final t = await showTimePicker(
+                                context: context, initialTime: _selectedTime);
+                            if (t != null) setState(() => _selectedTime = t);
+                          },
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(

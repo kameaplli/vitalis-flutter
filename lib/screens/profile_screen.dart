@@ -120,31 +120,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Center(
               child: Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    backgroundImage: avatarUrl != null
-                        ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
-                        : null,
-                    child: avatarUrl == null
-                        ? Text(
-                            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'V',
-                            style: const TextStyle(fontSize: 40),
-                          )
-                        : null,
+                  Semantics(
+                    label: 'Profile photo for ${user.name}',
+                    image: avatarUrl != null,
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      backgroundImage: avatarUrl != null
+                          ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+                          : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              user.name.isNotEmpty ? user.name[0].toUpperCase() : 'V',
+                              style: const TextStyle(fontSize: 40),
+                            )
+                          : null,
+                    ),
                   ),
                   Positioned(
                     right: 0,
                     bottom: 0,
-                    child: InkWell(
-                      onTap: _pickAvatar,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
+                    child: Semantics(
+                      button: true,
+                      label: 'Change profile photo',
+                      child: InkWell(
+                        onTap: _pickAvatar,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: ExcludeSemantics(child: Icon(Icons.camera_alt, size: 18, color: Theme.of(context).colorScheme.onPrimary)),
                         ),
-                        child: Icon(Icons.camera_alt, size: 18, color: Theme.of(context).colorScheme.onPrimary),
                       ),
                     ),
                   ),
@@ -244,7 +252,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   trailing: Text('Yes'),
                 ),
             ],
-            const Divider(height: 32),
+            const ExcludeSemantics(child: Divider(height: 32)),
             // Biometric login toggle
             if (_biometricAvailable)
               SwitchListTile(
@@ -260,15 +268,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               leading: const Icon(Icons.notifications_outlined),
               title: const Text('Notification preferences'),
               subtitle: const Text('Meals, hydration, supplements, eczema alerts'),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),
             _DarkModeToggle(),
             _ThemePicker(),
-            const Divider(height: 32),
+            const ExcludeSemantics(child: Divider(height: 32)),
             // Achievements section
             _AchievementsSection(),
-            const Divider(height: 32),
+            const ExcludeSemantics(child: Divider(height: 32)),
             // Sign out
             ListTile(
               leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
@@ -301,7 +309,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: const Text('Permanently delete your account and all data'),
               onTap: () => _showDeleteAccountDialog(context),
             ),
-            const Divider(height: 32),
+            const ExcludeSemantics(child: Divider(height: 32)),
             // Children section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -309,6 +317,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Text('Family Members', style: Theme.of(context).textTheme.titleMedium),
                 IconButton(
                   icon: const Icon(Icons.person_add_outlined),
+                  tooltip: 'Add family member',
                   onPressed: () => _showAddChildDialog(context),
                 ),
               ],
@@ -324,13 +333,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ? ApiConstants.resolveUrl(child.avatarUrl)
                     : null;
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: childAvatarUrl != null
-                        ? CachedNetworkImageProvider(childAvatarUrl) as ImageProvider
-                        : null,
-                    child: childAvatarUrl == null
-                        ? Text(child.name[0].toUpperCase())
-                        : null,
+                  leading: Semantics(
+                    label: 'Photo of ${child.name}',
+                    image: childAvatarUrl != null,
+                    child: CircleAvatar(
+                      backgroundImage: childAvatarUrl != null
+                          ? CachedNetworkImageProvider(childAvatarUrl) as ImageProvider
+                          : null,
+                      child: childAvatarUrl == null
+                          ? Text(child.name[0].toUpperCase())
+                          : null,
+                    ),
                   ),
                   title: Text(child.name),
                   subtitle: Text([
@@ -343,10 +356,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Edit ${child.name}',
                         onPressed: () => _showEditChildDialog(context, child),
                       ),
                       IconButton(
                         icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.error),
+                        tooltip: 'Remove ${child.name}',
                         onPressed: () => _deleteChild(child.id),
                       ),
                     ],
@@ -686,7 +701,7 @@ class _ThemePicker extends ConsumerWidget {
       leading: Icon(current.icon),
       title: const Text('App theme'),
       subtitle: Text(current.label),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
       onTap: () {
         showModalBottomSheet(
           context: context,

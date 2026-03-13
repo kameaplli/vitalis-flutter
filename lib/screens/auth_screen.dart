@@ -231,7 +231,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           child: Column(
             children: [
               const SizedBox(height: 24),
-              Icon(Icons.favorite, size: 56, color: cs.primary),
+              ExcludeSemantics(child: Icon(Icons.favorite, size: 56, color: cs.primary)),
               const SizedBox(height: 8),
               Text('Vitalis', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold, color: cs.primary)),
@@ -265,6 +265,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscureLogin ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                tooltip: _obscureLogin ? 'Show password' : 'Hide password',
                                 onPressed: () => setState(() => _obscureLogin = !_obscureLogin),
                               ),
                             ),
@@ -318,6 +319,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscureReg ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                tooltip: _obscureReg ? 'Show password' : 'Hide password',
                                 onPressed: () => setState(() => _obscureReg = !_obscureReg),
                               ),
                             ),
@@ -404,7 +406,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.favorite, size: 48, color: cs.primary),
+                ExcludeSemantics(child: Icon(Icons.favorite, size: 48, color: cs.primary)),
                 const SizedBox(height: 8),
                 Text('Vitalis',
                     style: Theme.of(context)
@@ -425,26 +427,30 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                 if (widget.loading)
                   const CircularProgressIndicator()
                 else
-                  GestureDetector(
-                    onTap: widget.onBiometric,
-                    child: ScaleTransition(
-                      scale: _scale,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cs.primaryContainer,
-                          boxShadow: [
-                            BoxShadow(
-                              color: cs.primary.withValues(alpha: 0.35),
-                              blurRadius: 24,
-                              spreadRadius: 4,
-                            ),
-                          ],
+                  Semantics(
+                    button: true,
+                    label: 'Tap to authenticate with biometrics',
+                    child: GestureDetector(
+                      onTap: widget.onBiometric,
+                      child: ScaleTransition(
+                        scale: _scale,
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: cs.primaryContainer,
+                            boxShadow: [
+                              BoxShadow(
+                                color: cs.primary.withValues(alpha: 0.35),
+                                blurRadius: 24,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: ExcludeSemantics(child: Icon(Icons.fingerprint,
+                              size: 56, color: cs.primary)),
                         ),
-                        child: Icon(Icons.fingerprint,
-                            size: 56, color: cs.primary),
                       ),
                     ),
                   ),

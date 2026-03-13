@@ -22,30 +22,35 @@ class CircularProgressRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ringColor = color ?? Theme.of(context).colorScheme.primary;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: Size(size, size),
-            painter: _RingPainter(
-              progress: progress.clamp(0.0, 1.0),
-              color: ringColor,
-              strokeWidth: strokeWidth,
-              backgroundColor: ringColor.withValues(alpha: 0.15),
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
+    return Semantics(
+      label: 'Progress: ${(progress * 100).toStringAsFixed(0)} percent, $value $label',
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold)),
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
+              CustomPaint(
+                size: Size(size, size),
+                painter: _RingPainter(
+                  progress: progress.clamp(0.0, 1.0),
+                  color: ringColor,
+                  strokeWidth: strokeWidth,
+                  backgroundColor: ringColor.withValues(alpha: 0.15),
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold)),
+                  Text(label, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
