@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_client.dart';
@@ -179,8 +180,12 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       }
     } catch (e) {
       if (mounted) {
+        String msg = 'Failed to send report.';
+        if (e is DioException && e.response?.data is Map) {
+          msg = (e.response!.data as Map)['detail']?.toString() ?? msg;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send report. Please try again.')),
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 4)),
         );
       }
     } finally {
