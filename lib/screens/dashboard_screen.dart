@@ -222,6 +222,8 @@ class _PersonDashboardPageState extends ConsumerState<_PersonDashboardPage> {
               data: (data) => _HomeBody(
                 data: data,
                 person: widget.personId,
+                isToday: _isToday,
+                selectedDate: _selectedDate,
               ),
             ),
           ),
@@ -313,10 +315,14 @@ class _DateNavigationBar extends StatelessWidget {
 class _HomeBody extends ConsumerStatefulWidget {
   final DashboardData data;
   final String person;
+  final bool isToday;
+  final DateTime selectedDate;
 
   const _HomeBody({
     required this.data,
     required this.person,
+    required this.isToday,
+    required this.selectedDate,
   });
 
   @override
@@ -324,6 +330,10 @@ class _HomeBody extends ConsumerStatefulWidget {
 }
 
 class _HomeBodyState extends ConsumerState<_HomeBody> {
+  String get _dayLabel => widget.isToday
+      ? "Today's"
+      : "${DateFormat('MMM d').format(widget.selectedDate)} –";
+
   static const _prefKey = 'dashboard_expanded';
   bool _showAllCards = false;
 
@@ -370,7 +380,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle(context, "Today's Summary"),
+                _sectionTitle(context, "$_dayLabel Summary"),
                 const SizedBox(height: 8),
                 Row(children: [
                   Expanded(child: _StatCard(
@@ -400,7 +410,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(child: _StatCard(
-                    label: 'Meals Today', icon: Icons.restaurant,
+                    label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
                     color: Colors.green,
                     todayValue: '${data.mealsCount}', todayUnit: 'meals',
                     weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
@@ -451,7 +461,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         // ── SECONDARY CARDS (collapsible) ─────────────────────────────────
         if (_showAllCards) ...[
           // ── Macros card ───────────────────────────────────────────────────
-          SliverToBoxAdapter(child: _MacrosCard(data: data)),
+          SliverToBoxAdapter(child: _MacrosCard(data: data, dayLabel: _dayLabel)),
 
           // ── Meal distribution ─────────────────────────────────────────────
           SliverToBoxAdapter(child: _MealDistributionCard(distribution: data.mealDistribution)),
@@ -2206,7 +2216,8 @@ class _InsightTile extends StatelessWidget {
 
 class _MacrosCard extends ConsumerWidget {
   final DashboardData data;
-  const _MacrosCard({required this.data});
+  final String dayLabel;
+  const _MacrosCard({required this.data, required this.dayLabel});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2229,7 +2240,7 @@ class _MacrosCard extends ConsumerWidget {
             Row(children: [
               const Icon(Icons.egg_outlined, size: 16),
               const SizedBox(width: 6),
-              Text("Today's Macros",
+              Text("$dayLabel Macros",
                   style: Theme.of(context).textTheme.titleSmall),
             ]),
             const SizedBox(height: 12),
