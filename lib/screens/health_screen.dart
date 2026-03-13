@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../providers/health_provider.dart';
+import '../providers/interests_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
@@ -151,9 +152,10 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
   @override
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
+    final interests = ref.watch(userInterestsProvider);
     final key    = '$person:$_days';
 
-    final cards = [
+    final allCards = [
       _CardDef('symptoms',    'Symptoms',    Icons.thermostat_rounded,       const Color(0xFFE53935),
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
@@ -173,6 +175,21 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
       _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
           const AsyncValue.data([])),
     ];
+
+    // Filter cards based on user interests
+    final cards = allCards.where((card) {
+      // Eczema-related cards require eczema interest
+      if (card.category == 'eczema' || card.category == 'skin-photos' ||
+          card.category == 'products') {
+        return interests.contains('eczema');
+      }
+      // Weight card requires weight interest
+      if (card.category == 'weight') {
+        return interests.contains('weight');
+      }
+      // All other health cards are always shown
+      return true;
+    }).toList();
 
     return Scaffold(
       body: SafeArea(

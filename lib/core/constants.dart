@@ -67,6 +67,7 @@ class ApiConstants {
   // Hydration
   static const String hydrationLog = '/api/log/hydration';
   static const String hydrationHistory = '/api/log/hydration/history';
+  static const String hydrationGoal = '/api/hydration/goal';
   static const String beveragePresets = '/api/beverages/presets';
 
   // Health

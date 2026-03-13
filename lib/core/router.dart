@@ -18,8 +18,10 @@ import '../screens/products_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/skin_photos_screen.dart';
 import '../screens/onboarding_screen.dart';
+import '../screens/interests_screen.dart';
 import '../screens/notification_preferences_screen.dart';
 import '../screens/finance_screen.dart';
+import '../providers/interests_provider.dart';
 import '../widgets/app_shell.dart';
 
 class _LoadingScreen extends StatelessWidget {
@@ -42,6 +44,7 @@ class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
     ref.listen<bool?>(onboardingCompleteProvider, (_, __) => notifyListeners());
+    ref.listen<bool>(interestsCompleteProvider, (_, __) => notifyListeners());
   }
 }
 
@@ -62,6 +65,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isLoading) return loc == '/loading' ? null : '/loading';
       if (!isAuthenticated) return '/auth';
 
+      // Check interests selection for first-time users (before onboarding)
+      final interestsDone = ref.read(interestsCompleteProvider);
+      if (!interestsDone && loc != '/interests') return '/interests';
+
       // Check onboarding for first-time users
       final onboardingDone = ref.read(onboardingCompleteProvider);
       if (onboardingDone == false && loc != '/onboarding') return '/onboarding';
@@ -77,6 +84,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth',
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: '/interests',
+        builder: (context, state) => const InterestsScreen(),
       ),
       GoRoute(
         path: '/onboarding',
