@@ -198,7 +198,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             builder: (_) => VoiceMealSheet(
               personId: personId,
               onLogged: () {
-                ref.invalidate(dashboardProvider(personId));
+                ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
               },
             ),
           );
@@ -599,13 +599,14 @@ class _AvatarBar extends ConsumerWidget {
 
     final Map<String, AsyncValue<DashboardData>> allDash = {};
     final currentPid = currentPerson['id']!;
-    allDash[currentPid] = ref.watch(dashboardProvider(currentPid));
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    allDash[currentPid] = ref.watch(dashboardProvider((currentPid, today)));
     for (final p in otherPersons) {
       allDash[p['id']!] = const AsyncValue.loading();
     }
     if (allDash[currentPid] is AsyncData) {
       for (final p in otherPersons) {
-        ref.read(dashboardProvider(p['id']!));
+        ref.read(dashboardProvider((p['id']!, today)));
       }
     }
 

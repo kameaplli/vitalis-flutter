@@ -81,9 +81,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   void _refresh(String person) {
-    ref.invalidate(dashboardProvider(person));
-    ref.invalidate(grocerySpendingProvider('${person}_month'));
     final today = DateTime.now().toIso8601String().substring(0, 10);
+    ref.invalidate(dashboardProvider((person, today)));
+    ref.invalidate(grocerySpendingProvider('${person}_month'));
     ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
     ref.invalidate(todayHydrationProvider(person));
   }
@@ -93,7 +93,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final person = ref.watch(selectedPersonProvider);
 
     // Pre-fetch dashboard so it's ready behind the welcome screen
-    ref.watch(dashboardProvider(person));
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    ref.watch(dashboardProvider((person, today)));
 
     if (!_showWelcome) {
       return Scaffold(
@@ -183,9 +184,8 @@ class _PersonDashboardPageState extends ConsumerState<_PersonDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Pass _selectedDate to dashboardProvider once the provider supports
-    // date filtering. Currently dashboardProvider hardcodes DateTime.now().
-    final dashAsync = ref.watch(dashboardProvider(widget.personId));
+    final dateStr = _selectedDate.toIso8601String().substring(0, 10);
+    final dashAsync = ref.watch(dashboardProvider((widget.personId, dateStr)));
 
     return RefreshIndicator(
       onRefresh: () async => widget.onRefresh(widget.personId),
@@ -618,7 +618,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
       });
       ref.invalidate(hydrationHistoryProvider('${widget.person}_1_$today'));
       ref.invalidate(todayHydrationProvider(widget.person));
-      ref.invalidate(dashboardProvider(widget.person));
+      ref.invalidate(dashboardProvider((widget.person, today)));
       ref.invalidate(familySnapshotProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

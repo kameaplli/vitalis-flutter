@@ -165,7 +165,10 @@ String _localPeriod() {
   return 'evening';
 }
 
-/// Family provider — keyed by person ('self' or family_member_id).
+/// Key for dashboard provider: (personId, dateString).
+typedef DashboardKey = (String person, String date);
+
+/// Family provider — keyed by (person, date).
 ///
 /// Cache strategy:
 ///  1. Fresh cache (< 5 min) → return immediately (sub-50ms)
@@ -173,10 +176,10 @@ String _localPeriod() {
 ///  3. Network error + stale cache exists → return stale data (no error UI)
 ///  4. Network error + no cache → propagate error
 final dashboardProvider =
-    FutureProvider.family<DashboardData, String>((ref, person) async {
+    FutureProvider.family<DashboardData, DashboardKey>((ref, key) async {
   ref.keepAlive();
 
-  final today = DateTime.now().toIso8601String().substring(0, 10);
+  final (person, today) = key;
 
   // 1. Fresh cache hit → instant return
   final cached = await AppCache.loadDashboard(person);
