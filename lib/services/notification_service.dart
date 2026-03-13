@@ -468,6 +468,63 @@ class NotificationService {
     );
   }
 
+  // ── Test Notifications (fire immediately for verification) ───────────────
+
+  static Future<void> sendTestHydration() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      9900,
+      'Test: Time to hydrate!',
+      'This is a test hydration notification. Quick-log buttons should appear below.',
+      const NotificationDetails(android: _hydrationChannel),
+      payload: 'hydration',
+    );
+  }
+
+  static Future<void> sendTestMeal() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      9901,
+      'Test: Breakfast time!',
+      'This is a test meal reminder notification.',
+      const NotificationDetails(android: _mealChannel),
+      payload: 'meal',
+    );
+  }
+
+  static Future<void> sendTestSupplement() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      9902,
+      'Test: Time to take Vitamin D',
+      'This is a test supplement reminder notification.',
+      const NotificationDetails(android: _supplementChannel),
+      payload: 'supplement',
+    );
+  }
+
+  static Future<void> sendTestEczema() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      9903,
+      'Test: Eczema Flare Risk: Moderate',
+      'This is a test eczema alert. Current conditions may trigger a flare-up.',
+      const NotificationDetails(android: _eczemaChannel),
+      payload: 'eczema_alert',
+    );
+  }
+
+  static Future<void> sendTestSmart() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      9904,
+      'Test: Same as yesterday?',
+      'This is a test smart suggestion notification.',
+      const NotificationDetails(android: _smartChannel),
+      payload: 'smart_suggestion',
+    );
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   static tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {

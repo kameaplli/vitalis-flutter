@@ -53,6 +53,8 @@ class ApiConstants {
   static const String nutrientsCatalog = '/api/nutrients/catalog';
   // Food nutrient profile: '/api/foods/{foodId}/nutrients'
   static String foodNutrients(String foodId) => '/api/foods/$foodId/nutrients';
+  // Food detail (info card): '/api/foods/{foodId}/detail'
+  static String foodDetail(String foodId) => '/api/foods/$foodId/detail';
 
   // Nutrition
   static const String nutritionLog = '/api/log/nutrition';

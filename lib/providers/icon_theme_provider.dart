@@ -7,7 +7,9 @@ const _kIconThemeKey = 'icon_theme';
 /// Provider for the currently selected icon theme.
 /// Persisted in SharedPreferences so it survives app restarts.
 final iconThemeProvider = StateNotifierProvider<IconThemeNotifier, VitalisIcons>((ref) {
-  return IconThemeNotifier();
+  final notifier = IconThemeNotifier();
+  notifier._load(); // load saved theme on creation
+  return notifier;
 });
 
 /// Provider for the current theme choice enum (for settings UI).
@@ -46,4 +48,16 @@ class IconThemeNotifier extends StateNotifier<VitalisIcons> {
   IconThemeNotifier() : super(materialIcons);
 
   void set(VitalisIcons icons) => state = icons;
+
+  /// Load saved theme from SharedPreferences on startup.
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString(_kIconThemeKey);
+      if (name != null) {
+        final choice = IconThemeChoice.values.byName(name);
+        state = choice.icons;
+      }
+    } catch (_) {}
+  }
 }

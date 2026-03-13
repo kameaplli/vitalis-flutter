@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/app_cache.dart';
 import '../core/constants.dart';
+import '../models/food_detail.dart';
 import '../models/food_item.dart';
 
 // ── Favorite Foods ──────────────────────────────────────────────────────────
@@ -98,6 +99,14 @@ final recentMealsProvider = FutureProvider<List<RecentMeal>>((ref) async {
   return (res.data['meals'] as List<dynamic>? ?? [])
       .map((m) => RecentMeal.fromJson(m))
       .toList();
+});
+
+// ── Food Detail (info card) ──────────────────────────────────────────────
+
+final foodDetailProvider =
+    FutureProvider.family<FoodDetail, String>((ref, foodId) async {
+  final res = await apiClient.dio.get(ApiConstants.foodDetail(foodId));
+  return FoodDetail.fromJson(res.data as Map<String, dynamic>);
 });
 
 /// Per-meal-type suggestions (breakfast, lunch, dinner, snack).
