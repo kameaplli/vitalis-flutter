@@ -149,8 +149,8 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       if (!mounted) return;
       _resetForm();
       final p = ref.read(selectedPersonProvider);
-      ref.invalidate(eczemaProvider('$p:$_historyDays'));
-      ref.invalidate(eczemaHeatmapProvider('$p:$_heatmapDays'));
+      ref.invalidate(eczemaProvider('${p}_$_historyDays'));
+      ref.invalidate(eczemaHeatmapProvider('${p}_$_heatmapDays'));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isEdit ? 'Log updated' : 'Log saved')),
       );
@@ -238,7 +238,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   void _showQuickLog() {
     // Gather frequent zones from recent logs
     final person = ref.read(selectedPersonProvider);
-    final logsAsync = ref.read(eczemaProvider('$person:$_historyDays'));
+    final logsAsync = ref.read(eczemaProvider('${person}_$_historyDays'));
     final logs = logsAsync.valueOrNull ?? [];
     final zoneCounts = <String, int>{};
     for (final log in logs) {
@@ -286,8 +286,8 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           try {
             await apiClient.dio.post(ApiConstants.eczema, data: data);
             if (!mounted) return;
-            ref.invalidate(eczemaProvider('$p:$_historyDays'));
-            ref.invalidate(eczemaHeatmapProvider('$p:$_heatmapDays'));
+            ref.invalidate(eczemaProvider('${p}_$_historyDays'));
+            ref.invalidate(eczemaHeatmapProvider('${p}_$_heatmapDays'));
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Quick log saved!')),
             );
@@ -332,8 +332,8 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     try {
       await apiClient.dio.delete('${ApiConstants.eczema}/$id');
       final p = ref.read(selectedPersonProvider);
-      ref.invalidate(eczemaProvider('$p:$_historyDays'));
-      ref.invalidate(eczemaHeatmapProvider('$p:$_heatmapDays'));
+      ref.invalidate(eczemaProvider('${p}_$_historyDays'));
+      ref.invalidate(eczemaHeatmapProvider('${p}_$_heatmapDays'));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Entry deleted')),
@@ -890,7 +890,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ─── Compare Tab ────────────────────────────────────────────────────────────
   Widget _buildCompareTab() {
     final person = ref.watch(selectedPersonProvider);
-    final logsAsync = ref.watch(eczemaProvider('$person:90'));
+    final logsAsync = ref.watch(eczemaProvider('${person}_90'));
     return logsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -1017,16 +1017,16 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
 
   void _invalidateAll() {
     final person = ref.read(selectedPersonProvider);
-    ref.invalidate(eczemaHeatmapProvider('$person:$_heatmapDays'));
-    ref.invalidate(eczemaHeatmapProvider('$person:$_reportDays'));
-    ref.invalidate(eczemaProvider('$person:$_historyDays'));
-    ref.invalidate(eczemaProvider('$person:90'));
-    ref.invalidate(eczemaFoodCorrelationProvider('$person:$_reportDays'));
+    ref.invalidate(eczemaHeatmapProvider('${person}_$_heatmapDays'));
+    ref.invalidate(eczemaHeatmapProvider('${person}_$_reportDays'));
+    ref.invalidate(eczemaProvider('${person}_$_historyDays'));
+    ref.invalidate(eczemaProvider('${person}_90'));
+    ref.invalidate(eczemaFoodCorrelationProvider('${person}_$_reportDays'));
   }
 
   Widget _buildHeatmapTab() {
     final person = ref.watch(selectedPersonProvider);
-    final heatAsync = ref.watch(eczemaHeatmapProvider('$person:$_heatmapDays'));
+    final heatAsync = ref.watch(eczemaHeatmapProvider('${person}_$_heatmapDays'));
     return Column(
       children: [
         Padding(
@@ -1100,9 +1100,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   // ─── Report Tab ────────────────────────────────────────────────────────────
   Widget _buildReportTab() {
     final person = ref.watch(selectedPersonProvider);
-    final heatAsync = ref.watch(eczemaHeatmapProvider('$person:$_reportDays'));
-    final logsAsync = ref.watch(eczemaProvider('$person:$_reportDays'));
-    final foodAsync = ref.watch(eczemaFoodCorrelationProvider('$person:$_reportDays'));
+    final heatAsync = ref.watch(eczemaHeatmapProvider('${person}_$_reportDays'));
+    final logsAsync = ref.watch(eczemaProvider('${person}_$_reportDays'));
+    final foodAsync = ref.watch(eczemaFoodCorrelationProvider('${person}_$_reportDays'));
 
     // Phase 1: Environment correlation
     final envAsync = ref.watch(environmentCorrelationProvider((days: _reportDays, person: person)));

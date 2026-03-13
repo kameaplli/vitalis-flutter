@@ -32,8 +32,7 @@ class HistorySheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final person = ref.watch(selectedPersonProvider);
-    // ignore: prefer_interpolation_to_compose_strings
-    final logsAsync = ref.watch(eczemaProvider(person + ':' + historyDays.toString()));
+    final logsAsync = ref.watch(eczemaProvider('${person}_$historyDays'));
 
     return Column(children: [
       // Drag handle

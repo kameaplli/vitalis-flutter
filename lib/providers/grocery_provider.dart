@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/provider_key.dart';
 import '../models/grocery_models.dart';
 
 // Receipt list — keyed by person ID ('self' or family member UUID)
@@ -23,8 +24,7 @@ final groceryReceiptDetailProvider =
 // Spending analytics — keyed by "person_period"
 final grocerySpendingProvider =
     FutureProvider.family<GrocerySpending, String>((ref, key) async {
-  final parts  = key.split('_');
-  final period = parts.length > 1 ? parts[1] : 'month';
+  final (_, period) = PK.firstSecond(key);
   final res = await apiClient.dio.get(
     ApiConstants.grocerySpending,
     queryParameters: {'period': period},
@@ -35,8 +35,7 @@ final grocerySpendingProvider =
 // Nutrition spectrum — keyed by "person_period"
 final groceryNutritionProvider =
     FutureProvider.family<GroceryNutritionSpectrum, String>((ref, key) async {
-  final parts  = key.split('_');
-  final period = parts.length > 1 ? parts[1] : 'month';
+  final (_, period) = PK.firstSecond(key);
   final res = await apiClient.dio.get(
     ApiConstants.groceryNutrition,
     queryParameters: {'period': period},
@@ -47,9 +46,7 @@ final groceryNutritionProvider =
 // Category drill-down — keyed by "category_period"
 final groceryCategoryItemsProvider =
     FutureProvider.family<GroceryCategoryItems, String>((ref, key) async {
-  final parts    = key.split('_');
-  final category = parts[0];
-  final period   = parts.length > 1 ? parts[1] : 'month';
+  final (category, period) = PK.firstSecond(key);
   final res = await apiClient.dio.get(
     ApiConstants.groceryCategoryItems,
     queryParameters: {'category': category, 'period': period},

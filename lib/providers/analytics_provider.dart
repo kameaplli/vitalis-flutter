@@ -2,14 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/app_cache.dart';
 import '../core/constants.dart';
+import '../core/provider_key.dart';
 import '../models/analytics_data.dart';
 
 // key = "person_days" e.g. "self_7"
 final analyticsProvider =
     FutureProvider.family<NutritionAnalytics, String>((ref, key) async {
-  final parts  = key.split('_');
-  final person = parts[0];
-  final days   = int.tryParse(parts.elementAtOrNull(1) ?? '7') ?? 7;
+  final (person, days) = PK.personDays(key, 7);
 
   // 1. Fresh cache hit
   final cached = await AppCache.loadAnalytics(key);

@@ -1,14 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/provider_key.dart';
 import '../models/eczema_log.dart';
 
 /// Key format: "person_days"  e.g. "self_30"
 final eczemaProvider =
     FutureProvider.family<List<EczemaLogSummary>, String>((ref, key) async {
-  final parts = key.split('_');
-  final person = parts[0].isNotEmpty ? parts[0] : 'self';
-  final days = int.tryParse(parts.elementAtOrNull(1) ?? '30') ?? 30;
+  final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.eczemaHistory,
       queryParameters: {'person': person, 'days': days});
   return (res.data['entries'] as List)
@@ -19,9 +18,7 @@ final eczemaProvider =
 /// Key format: "person_days"  e.g. "self_30"
 final eczemaHeatmapProvider =
     FutureProvider.family<EczemaHeatmapData, String>((ref, key) async {
-  final parts = key.split('_');
-  final person = parts[0].isNotEmpty ? parts[0] : 'self';
-  final days = int.tryParse(parts.elementAtOrNull(1) ?? '30') ?? 30;
+  final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.eczemaHeatmap,
       queryParameters: {'person': person, 'days': days});
   return EczemaHeatmapData.fromJson(res.data as Map<String, dynamic>);
@@ -30,9 +27,7 @@ final eczemaHeatmapProvider =
 /// Key format: "person_days"
 final eczemaFoodCorrelationProvider =
     FutureProvider.family<FoodCorrelationData, String>((ref, key) async {
-  final parts = key.split('_');
-  final person = parts[0].isNotEmpty ? parts[0] : 'self';
-  final days = int.tryParse(parts.elementAtOrNull(1) ?? '90') ?? 90;
+  final (person, days) = PK.personDays(key, 90);
   final res = await apiClient.dio.get(ApiConstants.eczemaFoodCorrelation,
       queryParameters: {'person': person, 'days': days});
   return FoodCorrelationData.fromJson(res.data as Map<String, dynamic>);

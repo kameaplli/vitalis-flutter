@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/provider_key.dart';
 import '../models/food_item.dart';
 import '../models/nutrition_log.dart';
 
@@ -193,10 +194,7 @@ final nutritionProvider =
 final nutritionEntriesProvider =
     FutureProvider.family<List<NutritionEntry>, String>((ref, key) async {
   ref.keepAlive(); // keep cached so 7-day prefetch stays warm
-  final parts = key.split('_');
-  final person = parts[0];
-  final startDate = parts.length > 1 && parts[1].isNotEmpty ? parts[1] : null;
-  final endDate   = parts.length > 2 && parts[2].isNotEmpty ? parts[2] : null;
+  final (person, startDate, endDate) = PK.personDateRange(key);
   final res = await apiClient.dio.get(
     ApiConstants.nutritionAll,
     queryParameters: {
