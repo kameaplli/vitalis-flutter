@@ -70,11 +70,11 @@ class _EasiBreakdownCardState extends State<EasiBreakdownCard> {
               ),
             ),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
-              Text('0  Clear', style: TextStyle(fontSize: 9, color: Colors.grey)),
-              Text('7  Mild', style: TextStyle(fontSize: 9, color: Colors.grey)),
-              Text('21  Mod.', style: TextStyle(fontSize: 9, color: Colors.grey)),
-              Text('50  Severe', style: TextStyle(fontSize: 9, color: Colors.grey)),
-              Text('72', style: TextStyle(fontSize: 9, color: Colors.grey)),
+              Text('0  Clear', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              Text('7  Mild', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              Text('21  Mod.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              Text('50  Severe', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              Text('72', style: TextStyle(fontSize: 11, color: Colors.grey)),
             ]),
 
             if (_expanded) ...[
@@ -89,7 +89,7 @@ class _EasiBreakdownCardState extends State<EasiBreakdownCard> {
                       child: Text(g.label, style: const TextStyle(fontSize: 12)),
                     ),
                     const SizedBox(width: 4),
-                    Text('×${g.multiplier}', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                    Text('×${g.multiplier}', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: ClipRRect(

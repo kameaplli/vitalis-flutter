@@ -11,6 +11,7 @@ import '../models/nutrition_log.dart';
 import '../models/food_item.dart';
 import '../providers/nutrition_analytics_provider.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/shimmer_placeholder.dart';
 
 /// Standalone route screen — wraps NutritionHistoryContent in a Scaffold.
 class EntriesScreen extends ConsumerWidget {
@@ -87,7 +88,7 @@ class _NutritionHistoryContentState
         Expanded(
           child: entriesAsync.when(
             skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ShimmerList(itemCount: 5, itemHeight: 72),
             error: (e, _) => FriendlyError(error: e, context: 'nutrition entries'),
             data: (entries) {
               if (entries.isEmpty) {

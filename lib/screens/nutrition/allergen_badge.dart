@@ -20,7 +20,7 @@ class AllergenBadge extends StatelessWidget {
       ),
       child: Text(
         '${allergen.emoji} ${allergen.displayName}',
-        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color.shade700),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color.shade700),
       ),
     );
   }

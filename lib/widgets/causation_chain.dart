@@ -97,7 +97,7 @@ class _CausationNode extends StatelessWidget {
                         color: Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(lagLabel!, style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
+                      child: Text(lagLabel!, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                     ),
                   ),
                 // Node dot
@@ -146,7 +146,7 @@ class _CausationNode extends StatelessWidget {
                                     color: isFlare ? Colors.red.shade800 : null)),
                           ),
                           Text(DateFormat('EEE HH:mm').format(event.dateTime),
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                         ],
                       ),
                       if (event.subtitle.isNotEmpty) ...[
@@ -164,7 +164,7 @@ class _CausationNode extends StatelessWidget {
                               color: nodeColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(tag, style: TextStyle(fontSize: 9, color: nodeColor, fontWeight: FontWeight.w600)),
+                            child: Text(tag, style: TextStyle(fontSize: 11, color: nodeColor, fontWeight: FontWeight.w600)),
                           )).toList(),
                         ),
                       ],
@@ -172,9 +172,9 @@ class _CausationNode extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text('Severity: ', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                            Text('Severity: ', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                             Text('${event.severity!.toStringAsFixed(1)}/10',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: nodeColor)),
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: nodeColor)),
                           ],
                         ),
                       ],

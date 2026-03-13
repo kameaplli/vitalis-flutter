@@ -120,7 +120,7 @@ class _QuickLogSheetState extends State<QuickLogSheet> {
                       Text(s.emoji, style: TextStyle(fontSize: isSelected ? 32 : 26)),
                       const SizedBox(height: 4),
                       Text(s.label, style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         color: isSelected ? s.color : Colors.grey,
                       )),

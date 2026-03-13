@@ -190,7 +190,7 @@ class _BadgeItem extends StatelessWidget {
             child: Text(
               badge.name,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: earned ? FontWeight.w600 : FontWeight.normal,
                 color: earned ? null : Colors.grey,
               ),

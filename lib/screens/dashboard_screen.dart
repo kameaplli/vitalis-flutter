@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/nutrition_utils.dart';
@@ -14,6 +16,7 @@ import '../providers/finance_provider.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/shimmer_placeholder.dart';
 import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 
@@ -131,7 +134,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
 // ── Per-Person Dashboard Page ────────────────────────────────────────────────
 
-class _PersonDashboardPage extends ConsumerWidget {
+class _PersonDashboardPage extends ConsumerStatefulWidget {
   final String personId;
   final void Function(String) onRefresh;
 
@@ -141,22 +144,163 @@ class _PersonDashboardPage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dashAsync = ref.watch(dashboardProvider(personId));
+  ConsumerState<_PersonDashboardPage> createState() =>
+      _PersonDashboardPageState();
+}
+
+class _PersonDashboardPageState extends ConsumerState<_PersonDashboardPage> {
+  DateTime _selectedDate = DateTime.now();
+
+  bool get _isToday {
+    final now = DateTime.now();
+    return _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+  }
+
+  void _changeDate(int days) {
+    final newDate = _selectedDate.add(Duration(days: days));
+    final now = DateTime.now();
+    // Don't allow future dates
+    if (newDate.isAfter(DateTime(now.year, now.month, now.day))) return;
+    setState(() => _selectedDate = newDate);
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year, now.month, now.day),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // TODO: Pass _selectedDate to dashboardProvider once the provider supports
+    // date filtering. Currently dashboardProvider hardcodes DateTime.now().
+    final dashAsync = ref.watch(dashboardProvider(widget.personId));
 
     return RefreshIndicator(
-      onRefresh: () async => onRefresh(personId),
-      child: dashAsync.when(
-        skipLoadingOnReload: true,
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _HomeError(
-          error: e,
-          onRetry: () => onRefresh(personId),
+      onRefresh: () async => widget.onRefresh(widget.personId),
+      child: Column(
+        children: [
+          // ── Date navigation bar ──────────────────────────────────────
+          _DateNavigationBar(
+            selectedDate: _selectedDate,
+            isToday: _isToday,
+            onPrevious: () => _changeDate(-1),
+            onNext: _isToday ? null : () => _changeDate(1),
+            onTap: _pickDate,
+          ),
+          // ── Dashboard content ────────────────────────────────────────
+          Expanded(
+            child: dashAsync.when(
+              skipLoadingOnReload: true,
+              loading: () => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 12),
+            ShimmerCard(height: 48, margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6)),  // quick actions
+            ShimmerCard(height: 100),  // stat cards
+            ShimmerCard(height: 100),  // stat cards row 2
+            ShimmerCard(height: 60),   // hydration
+            ShimmerCard(height: 120),  // macros
+            ShimmerCard(height: 80),   // health score
+          ],
         ),
-        data: (data) => _HomeBody(
-          data: data,
-          person: personId,
+              error: (e, _) => _HomeError(
+                error: e,
+                onRetry: () => widget.onRefresh(widget.personId),
+              ),
+              data: (data) => _HomeBody(
+                data: data,
+                person: widget.personId,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Date Navigation Bar ──────────────────────────────────────────────────────
+
+class _DateNavigationBar extends StatelessWidget {
+  final DateTime selectedDate;
+  final bool isToday;
+  final VoidCallback onPrevious;
+  final VoidCallback? onNext;
+  final VoidCallback onTap;
+
+  const _DateNavigationBar({
+    required this.selectedDate,
+    required this.isToday,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dateText =
+        isToday ? 'Today' : DateFormat('MMM d, y').format(selectedDate);
+
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        border: Border(
+          bottom: BorderSide(
+            color: theme.dividerColor.withValues(alpha: 0.2),
+          ),
         ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 22),
+            onPressed: onPrevious,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            splashRadius: 18,
+            tooltip: 'Previous day',
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                dateText,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: isToday
+                  ? theme.disabledColor
+                  : theme.iconTheme.color,
+            ),
+            onPressed: onNext,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            splashRadius: 18,
+            tooltip: isToday ? null : 'Next day',
+          ),
+        ],
       ),
     );
   }
@@ -164,7 +308,7 @@ class _PersonDashboardPage extends ConsumerWidget {
 
 // ── Body ──────────────────────────────────────────────────────────────────────
 
-class _HomeBody extends ConsumerWidget {
+class _HomeBody extends ConsumerStatefulWidget {
   final DashboardData data;
   final String person;
 
@@ -174,13 +318,46 @@ class _HomeBody extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HomeBody> createState() => _HomeBodyState();
+}
+
+class _HomeBodyState extends ConsumerState<_HomeBody> {
+  static const _prefKey = 'dashboard_expanded';
+  bool _showAllCards = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreference();
+  }
+
+  Future<void> _loadPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getBool(_prefKey) ?? false;
+    if (mounted && saved != _showAllCards) {
+      setState(() => _showAllCards = saved);
+    }
+  }
+
+  Future<void> _toggleShowAll() async {
+    final newValue = !_showAllCards;
+    setState(() => _showAllCards = newValue);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, newValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final person = widget.person;
     final groceryAsync = ref.watch(grocerySpendingProvider('${person}_month'));
     final hydrationAsync = ref.watch(todayHydrationProvider(person));
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
+        // ── PRIMARY CARDS (always visible) ────────────────────────────────
+
         // ── Quick actions bar ─────────────────────────────────────────────
         SliverToBoxAdapter(child: _QuickActionsBar(person: person)),
 
@@ -245,32 +422,59 @@ class _HomeBody extends ConsumerWidget {
           child: _HydrationQuickLog(person: person, hydrationAsync: hydrationAsync),
         ),
 
-        // ── Macros card ───────────────────────────────────────────────────
-        SliverToBoxAdapter(child: _MacrosCard(data: data)),
-
-        // ── Meal distribution ─────────────────────────────────────────────
-        SliverToBoxAdapter(child: _MealDistributionCard(distribution: data.mealDistribution)),
-
-        // ── Health score ──────────────────────────────────────────────────
+        // ── Show more / Show less toggle ──────────────────────────────────
         SliverToBoxAdapter(
-          child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Center(
+              child: TextButton.icon(
+                onPressed: _toggleShowAll,
+                icon: Icon(
+                  _showAllCards ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                ),
+                label: Text(_showAllCards ? 'Show less' : 'Show more'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
 
-        // ── Flare risk snapshot ─────────────────────────────────────────
-        SliverToBoxAdapter(child: _FlareRiskSnapshot()),
+        // ── SECONDARY CARDS (collapsible) ─────────────────────────────────
+        if (_showAllCards) ...[
+          // ── Macros card ───────────────────────────────────────────────────
+          SliverToBoxAdapter(child: _MacrosCard(data: data)),
 
-        // ── Top calorie foods ─────────────────────────────────────────────
-        if (data.topCalorieFoods.isNotEmpty)
-          SliverToBoxAdapter(child: _TopFoodsCard(foods: data.topCalorieFoods)),
+          // ── Meal distribution ─────────────────────────────────────────────
+          SliverToBoxAdapter(child: _MealDistributionCard(distribution: data.mealDistribution)),
 
-        // ── Personalized insights ─────────────────────────────────────────
-        SliverToBoxAdapter(child: _InsightsCard(insights: data.insights)),
+          // ── Health score ──────────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
+          ),
 
-        // ── Grocery snapshot ──────────────────────────────────────────────
-        SliverToBoxAdapter(child: _GrocerySnapshot(groceryAsync: groceryAsync)),
+          // ── Flare risk snapshot ─────────────────────────────────────────
+          SliverToBoxAdapter(child: _FlareRiskSnapshot()),
 
-        // ── Finance snapshot ─────────────────────────────────────────────
-        const SliverToBoxAdapter(child: _FinanceSnapshot()),
+          // ── Top calorie foods ─────────────────────────────────────────────
+          if (data.topCalorieFoods.isNotEmpty)
+            SliverToBoxAdapter(child: _TopFoodsCard(foods: data.topCalorieFoods)),
+
+          // ── Personalized insights ─────────────────────────────────────────
+          SliverToBoxAdapter(child: _InsightsCard(insights: data.insights)),
+
+          // ── Grocery snapshot ──────────────────────────────────────────────
+          SliverToBoxAdapter(child: _GrocerySnapshot(groceryAsync: groceryAsync)),
+
+          // ── Finance snapshot ─────────────────────────────────────────────
+          const SliverToBoxAdapter(child: _FinanceSnapshot()),
+        ],
 
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
@@ -306,7 +510,7 @@ class _QuickActionsBar extends StatelessWidget {
           }),
           const SizedBox(width: 10),
           _action(context, Icons.monitor_weight, 'Log Weight', Colors.orange, () {
-            context.go('/weight');
+            context.go('/health/weight');
           }),
           const SizedBox(width: 10),
           _action(context, Icons.sentiment_satisfied, 'Log Mood', Colors.amber, () {
@@ -337,7 +541,7 @@ class _QuickActionsBar extends StatelessWidget {
                   ExcludeSemantics(child: Icon(icon, size: 22, color: color)),
                   const SizedBox(height: 4),
                   ExcludeSemantics(child: Text(label, style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w600, color: color))),
+                      fontSize: 11, fontWeight: FontWeight.w600, color: color))),
                 ],
               ),
             ),
@@ -1607,21 +1811,6 @@ class _ShimmerPainter extends CustomPainter {
   bool shouldRepaint(covariant _ShimmerPainter old) => old.progress != progress;
 }
 
-class _ShimmerCard extends StatelessWidget {
-  final double height;
-  const _ShimmerCard({required this.height});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-    );
-  }
-}
 
 // ── Error widget ──────────────────────────────────────────────────────────────
 
@@ -1865,7 +2054,7 @@ class _HealthScoreCard extends StatelessWidget {
                   if (pv > 0)
                     Text('${pd >= 0 ? '+' : ''}${pd.toStringAsFixed(0)}',
                         style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: pd >= 0 ? Colors.green : Colors.red)),
                 ]),
               );
@@ -2071,7 +2260,7 @@ class _IntakeRow extends StatelessWidget {
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                   Text(
                     '${current.toStringAsFixed(0)} / ${daily.toStringAsFixed(0)} $unit',
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),

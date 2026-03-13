@@ -1187,7 +1187,7 @@ class _TransactionRow extends StatelessWidget {
                     ? DateFormat('d MMM').format(tx.transactionDate!)
                     : '--',
                 style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w500),
               ),
@@ -1228,7 +1228,7 @@ class _TransactionRow extends StatelessWidget {
               child: Text(
                 _catLabel(tx.category),
                 style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 11,
                     color: _catColor(tx.category),
                     fontWeight: FontWeight.w600),
               ),
@@ -1552,7 +1552,7 @@ class _SummaryTile extends StatelessWidget {
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 13, color: color)),
           Text(label,
-              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
         ],
       ),
     );

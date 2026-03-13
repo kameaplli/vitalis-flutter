@@ -170,7 +170,7 @@ class _BayesianRow extends StatelessWidget {
               const SizedBox(width: 90),
               Text(
                 'Eaten ${trigger.timesConsumed}x, flare ${trigger.timesFlareAfter}x ($confLabel)',
-                style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -244,7 +244,7 @@ class _CategoryRow extends StatelessWidget {
             child: Row(
               children: [
                 Text('${correlation.avgItchWith.toStringAsFixed(1)}', style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
-                Text(' vs ', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                Text(' vs ', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                 Text('${correlation.avgItchWithout.toStringAsFixed(1)}', style: const TextStyle(fontSize: 12)),
               ],
             ),
@@ -371,7 +371,7 @@ class _LagAnalysisCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(lagStr, style: TextStyle(fontSize: 12, color: cs.tertiary, fontWeight: FontWeight.w600)),
                     const Spacer(),
-                    Text('r=${l.bestCorrelation.toStringAsFixed(2)}', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                    Text('r=${l.bestCorrelation.toStringAsFixed(2)}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ],
                 ),
               );
@@ -479,13 +479,13 @@ class _FoodCorrelationsCard extends StatelessWidget {
             ),
             if (triggers.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('TRIGGER FOODS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red[700], letterSpacing: 1)),
+              Text('TRIGGER FOODS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red[700], letterSpacing: 1)),
               const SizedBox(height: 6),
               ...triggers.take(5).map((f) => _FoodRow(food: f, color: Colors.red)),
             ],
             if (safe.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('SAFE FOODS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green[700], letterSpacing: 1)),
+              Text('SAFE FOODS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green[700], letterSpacing: 1)),
               const SizedBox(height: 6),
               ...safe.take(5).map((f) => _FoodRow(food: f, color: Colors.green)),
             ],
@@ -512,7 +512,7 @@ class _FoodRow extends StatelessWidget {
           Expanded(
             child: Text(food.food, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
           ),
-          Text('${food.timesEaten}x', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+          Text('${food.timesEaten}x', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
           const SizedBox(width: 8),
           Text(
             '${food.riskMultiplier.toStringAsFixed(1)}x',
@@ -527,7 +527,7 @@ class _FoodRow extends StatelessWidget {
                 color: Colors.orange.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(c, style: const TextStyle(fontSize: 8, color: Colors.orange)),
+              child: Text(c, style: const TextStyle(fontSize: 11, color: Colors.orange)),
             )),
           ],
         ],

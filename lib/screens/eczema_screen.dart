@@ -516,7 +516,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 const SizedBox(width: 3),
                 Flexible(
                   child: Text('Tap zone to score  ·  Pinch to zoom',
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                       overflow: TextOverflow.ellipsis),
                 ),
               ]),
@@ -539,7 +539,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                         padding: const EdgeInsets.only(right: 4),
                         child: ActionChip(
                           label: Text('$lbl ${contribution.toStringAsFixed(1)}',
-                              style: TextStyle(fontSize: 10, color: color)),
+                              style: TextStyle(fontSize: 11, color: color)),
                           backgroundColor: color.withValues(alpha: 0.08),
                           side: BorderSide(color: color.withValues(alpha: 0.3)),
                           visualDensity: VisualDensity.compact,

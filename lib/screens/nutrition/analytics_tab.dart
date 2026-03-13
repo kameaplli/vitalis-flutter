@@ -584,7 +584,7 @@ class _MicronutrientSection extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               '${s.daysWithData} day${s.daysWithData > 1 ? 's' : ''} of data · ${s.totalTracked} nutrients tracked',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],
         ),
@@ -667,7 +667,7 @@ class _NutrientRow extends StatelessWidget {
             width: 60,
             child: Text(
               '${_formatValue(item.avgDaily)} ${item.unit}',
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
             ),

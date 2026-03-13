@@ -132,7 +132,7 @@ class _RadarPainter extends CustomPainter {
     }
 
     // Draw labels
-    final textStyle = TextStyle(fontSize: 10, color: labelColor, fontWeight: FontWeight.w500);
+    final textStyle = TextStyle(fontSize: 11, color: labelColor, fontWeight: FontWeight.w500);
     for (int i = 0; i < n; i++) {
       final angle = -math.pi / 2 + (2 * math.pi * i / n);
       final labelRadius = radius + 18;

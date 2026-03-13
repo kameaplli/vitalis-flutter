@@ -59,6 +59,21 @@ class _FoodItemTileState extends State<FoodItemTile> {
     widget.onGramsChanged(grams);
   }
 
+  void _applyMultiplier(double multiplier) {
+    final grams = multiplier * _baseServing;
+    setState(() {
+      _servings = multiplier.round().clamp(1, 99);
+      _ctrl.text = grams.toStringAsFixed(0);
+    });
+    widget.onGramsChanged(grams);
+  }
+
+  double get _currentMultiplier {
+    final val = double.tryParse(_ctrl.text);
+    if (val == null || _baseServing == 0) return 1;
+    return val / _baseServing;
+  }
+
   @override
   Widget build(BuildContext context) {
     final sf = widget.sf;
@@ -105,7 +120,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                         padding: const EdgeInsets.only(top: 1),
                         child: Text(food.brandLabel,
                             style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontStyle: FontStyle.italic,
                                 color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
                             maxLines: 1,
@@ -116,7 +131,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                       '  ·  P ${sf.protein.toStringAsFixed(1)}g'
                       '  C ${sf.carbs.toStringAsFixed(1)}g'
                       '  F ${sf.fat.toStringAsFixed(1)}g',
-                      style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                     ),
                     if (food.uniqueAllergens.isNotEmpty)
                       Padding(
@@ -209,6 +224,36 @@ class _FoodItemTileState extends State<FoodItemTile> {
                 onPressed: widget.onRemove,
               ),
             ],
+          ),
+          // Serving size preset chips
+          Padding(
+            padding: const EdgeInsets.only(left: 28, top: 4, bottom: 2),
+            child: Row(
+              children: [0.5, 1.0, 1.5, 2.0].map((m) {
+                final isSelected =
+                    (_currentMultiplier - m).abs() < 0.01;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text('${m}x',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        )),
+                    selected: isSelected,
+                    onSelected: (_) => _applyMultiplier(m),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize:
+                        MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    labelPadding:
+                        const EdgeInsets.symmetric(horizontal: 2),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
           // Nutrient & Ingredients card (expandable)
           NutrientCard(

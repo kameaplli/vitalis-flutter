@@ -65,7 +65,7 @@ class DailyProgressHeader extends ConsumerWidget {
                 Text('${cals.toInt()}',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                         color: cs.onSurface)),
-                Text('kcal', style: TextStyle(fontSize: 10, color: cs.outline)),
+                Text('kcal', style: TextStyle(fontSize: 11, color: cs.outline)),
               ]),
             ]),
           ),
@@ -117,7 +117,7 @@ class MiniMacroBar extends StatelessWidget {
         const SizedBox(width: 8),
         SizedBox(width: 50, child: Text(
           '${current.toInt()}/${target.toInt()}g',
-          style: TextStyle(fontSize: 10, color: cs.outline),
+          style: TextStyle(fontSize: 11, color: cs.outline),
           textAlign: TextAlign.right,
         )),
       ],
@@ -140,7 +140,8 @@ class EntryMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return SizedBox(
+      width: 64,
       child: Material(
         color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(14),

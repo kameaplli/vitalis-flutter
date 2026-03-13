@@ -127,7 +127,7 @@ class MacroBreakdownCard extends ConsumerWidget {
             ? '${(val / total * 100).toStringAsFixed(0)}%'
             : '',
         titleStyle: const TextStyle(
-            fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+            fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
         radius: 22,
       );
 
@@ -139,7 +139,7 @@ class MacroBreakdownCard extends ConsumerWidget {
               decoration:
                   BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 3),
-          Text(label, style: const TextStyle(fontSize: 10)),
+          Text(label, style: const TextStyle(fontSize: 11)),
         ],
       );
 }
@@ -169,7 +169,7 @@ class _IntakeRow extends StatelessWidget {
                       fontSize: 11, fontWeight: FontWeight.w500)),
               Text(
                 '${current.toStringAsFixed(0)} / ${daily.toStringAsFixed(0)} $unit',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
               ),
             ],
           ),

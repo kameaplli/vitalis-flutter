@@ -584,7 +584,7 @@ class EczemaSeverityLegend extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 3),
-          Text(b.$1, style: TextStyle(fontSize: compact ? 9 : 10, color: Colors.grey.shade700)),
+          Text(b.$1, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
         ]);
       }).toList(),
     );
@@ -692,11 +692,11 @@ class EczemaBodyComparison extends StatelessWidget {
           border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Column(children: [
-          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
           Text('EASI ${easi.toStringAsFixed(1)} · $severity',
               style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
           Text(label.replaceAll('\n', ' '),
-              style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ]),
       ),
     );

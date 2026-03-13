@@ -44,7 +44,7 @@ class LineChartWidget extends StatelessWidget {
               reservedSize: 50,
               getTitlesWidget: (value, _) => Text(
                 value.toStringAsFixed(1),
-                style: const TextStyle(fontSize: 10),
+                style: const TextStyle(fontSize: 11),
               ),
             ),
           ),
@@ -64,7 +64,7 @@ class LineChartWidget extends StatelessWidget {
                 }
                 return Text(
                   DateFormat('M/d').format(dt),
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 11),
                 );
               },
             ),

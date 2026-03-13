@@ -150,7 +150,7 @@ class ReportContent extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(entry.$2,
-                                style: const TextStyle(fontSize: 8),
+                                style: const TextStyle(fontSize: 11),
                                 textAlign: TextAlign.center),
                           ]),
                         ),
@@ -295,7 +295,7 @@ class ReportContent extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'Foods correlated with higher itch scores (eaten 0–2 days before flares)',
-                    style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 8),
                   ...foodCorrelation!.badFoods.take(3).map((f) => Padding(
@@ -315,7 +315,7 @@ class ReportContent extends StatelessWidget {
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           Text(
                             'Avg itch ${f.avgItchWith}/10 when eaten vs ${f.avgItchWithout}/10 without  ·  ${f.timesEaten}× eaten',
-                            style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                           ),
                         ]),
                       ),
@@ -417,7 +417,7 @@ class ReportContent extends StatelessWidget {
                   ]),
                   const SizedBox(height: 4),
                   Text('Daily itch severity over the last $days days',
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
                   const SizedBox(height: 10),
                   CalendarHeatmap(
                     data: {
@@ -463,7 +463,7 @@ class ReportContent extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 4),
                   Text('Which categories contribute most to your flares',
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Center(child: TriggerRadarChart(
                     food: _triggerAxisValue(smartCorrelation!.categoryCorrelations),
@@ -496,7 +496,7 @@ class ReportContent extends StatelessWidget {
                     ]),
                     const SizedBox(height: 4),
                     Text('Suspected food triggers leading to flares',
-                        style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
                     const SizedBox(height: 12),
                     CausationChainTimeline(events: _buildCausationEvents(logs, foodCorrelation!)),
                   ],
@@ -522,7 +522,7 @@ class ReportContent extends StatelessWidget {
                     ]),
                     const SizedBox(height: 4),
                     Text('See how avoiding triggers might help',
-                        style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
                     const SizedBox(height: 12),
                     WhatIfSimulator(
                       currentAvgItch: avgItch,
@@ -776,10 +776,10 @@ class StatCard extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
           if (subtitle != null)
             Text(subtitle!,
-                style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7))),
+                style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.7))),
           const SizedBox(height: 2),
           Text(label,
-              style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center),
         ]),
       ),
