@@ -19,6 +19,8 @@ import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
+import '../widgets/medical_disclaimer.dart';
+import '../widgets/help_tooltip.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -473,9 +475,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           SliverToBoxAdapter(child: _GrocerySnapshot(groceryAsync: groceryAsync)),
 
           // ── Finance snapshot ─────────────────────────────────────────────
-          const SliverToBoxAdapter(child: _FinanceSnapshot()),
+          // Disabled for v1 — finance module reserved for separate app
+          // const SliverToBoxAdapter(child: _FinanceSnapshot()),
         ],
 
+        const SliverToBoxAdapter(child: MedicalDisclaimer()),
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
@@ -2012,6 +2016,9 @@ class _HealthScoreCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text('Health Score (7 days)',
                   style: Theme.of(context).textTheme.titleSmall),
+              const HelpTooltip(
+                message: 'Health Score combines your nutrition, hydration, exercise, sleep, and mood data into an overall wellness score out of 100.',
+              ),
               const Spacer(),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,

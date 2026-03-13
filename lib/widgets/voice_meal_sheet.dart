@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import 'help_tooltip.dart';
 
 /// Voice meal logging bottom sheet.
 ///
@@ -261,6 +262,9 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
                 _state == _VoiceState.confirmed ? 'Confirm Your Meal' : 'Voice Meal Logger',
                 style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               )),
+              const HelpTooltip(
+                message: "Describe your meal naturally, e.g. 'I had two scrambled eggs and toast with butter for breakfast'. Zenie will parse the foods and quantities automatically.",
+              ),
               if (_state != _VoiceState.idle)
                 TextButton(
                   onPressed: () => setState(() {

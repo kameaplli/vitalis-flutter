@@ -10,6 +10,7 @@ import '../../providers/nutrition_analytics_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../widgets/medical_disclaimer.dart';
 import '../../widgets/friendly_error.dart';
+import '../../widgets/help_tooltip.dart';
 import '../../widgets/days_slider.dart';
 import 'nutrition_insights_card.dart';
 
@@ -51,9 +52,20 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
 
     return Column(
       children: [
-        // Period selector
+        // Period selector + help
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              Text('Analytics', style: Theme.of(context).textTheme.titleMedium),
+              const HelpTooltip(
+                message: 'Analytics show your nutrition trends over time. DRI values are personalized based on your age, sex, and health conditions.',
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           child: DaysSlider(
             value: _days,
             onChanged: (d) => setState(() => _days = d),

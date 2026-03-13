@@ -24,6 +24,7 @@ import 'nutrition/recent_meals.dart';
 import 'nutrition/food_item_tile.dart';
 import 'nutrition/food_search_sheet.dart';
 import 'nutrition/analytics_tab.dart';
+import '../widgets/medical_disclaimer.dart';
 
 // Re-export FoodSearchSheet so existing imports continue to work
 export 'nutrition/food_search_sheet.dart' show FoodSearchSheet;
@@ -45,6 +46,15 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this);
+    // Restore any saved meal draft (e.g. user navigated away accidentally).
+    Future.microtask(() {
+      final notifier = ref.read(nutritionProvider.notifier);
+      // Only load draft if no foods are already selected (avoids overwriting
+      // an in-progress edit or an already-populated selection).
+      if (ref.read(nutritionProvider).selectedFoods.isEmpty) {
+        notifier.loadDraft();
+      }
+    });
   }
 
   @override
@@ -237,6 +247,8 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                 ]),
               ),
             ],
+            const SizedBox(height: 16),
+            const MedicalDisclaimer(),
           ],
         ),
           ),

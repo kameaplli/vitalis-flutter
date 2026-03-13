@@ -163,7 +163,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final children = user?.profile.children ?? [];
 
     // Hide person switching on Finance & Grocery (always main profile)
-    final hidePersonSwitcher = location.startsWith('/finance') ||
+    // Disabled for v1 — finance module reserved for separate app
+    final hidePersonSwitcher = /* location.startsWith('/finance') || */
         location.startsWith('/grocery');
 
     final isOnline = ref.watch(connectivityProvider);

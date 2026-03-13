@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/provider_key.dart';
@@ -100,12 +102,14 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         selectedFoods: [...state.selectedFoods, SelectedFood(food: food, grams: defaultGrams)],
       );
     }
+    _saveDraft();
   }
 
   void removeFood(String foodId) {
     state = state.copyWith(
       selectedFoods: state.selectedFoods.where((sf) => sf.food.id != foodId).toList(),
     );
+    _saveDraft();
   }
 
   void updateGrams(String foodId, double grams) {
@@ -115,11 +119,13 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
           .map((sf) => sf.food.id == foodId ? sf.withGrams(grams) : sf)
           .toList(),
     );
+    _saveDraft();
   }
 
   /// Load an entire recent meal, replacing the current food list.
   void loadRecentMeal(List<SelectedFood> foods, String mealType) {
     state = state.copyWith(selectedFoods: foods, mealType: mealType);
+    _saveDraft();
   }
 
   void setMealType(String t) => state = state.copyWith(mealType: t);
@@ -128,7 +134,71 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     forChild: (id == null || id == 'self') ? null : id,
     clearForChild: id == null || id == 'self',
   );
-  void clearFoods() => state = state.copyWith(selectedFoods: []);
+  void clearFoods() {
+    state = state.copyWith(selectedFoods: []);
+    clearDraft();
+  }
+
+  // ─── Draft persistence ───────────────────────────────────────────────────
+
+  static const _draftKey = 'meal_draft';
+
+  /// Auto-save current food selections + meal type to SharedPreferences.
+  Future<void> _saveDraft() async {
+    if (state.selectedFoods.isEmpty || state.editEntryId != null) {
+      // Nothing to draft, or editing an existing entry (not a new meal).
+      await _clearDraftStorage();
+      return;
+    }
+    final draft = {
+      'meal_type': state.mealType,
+      'foods': state.selectedFoods.map((sf) => {
+        'food': sf.food.toJson(),
+        'grams': sf.grams,
+      }).toList(),
+    };
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_draftKey, jsonEncode(draft));
+  }
+
+  /// Load a previously saved draft (if any) and restore the state.
+  Future<bool> loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_draftKey);
+    if (raw == null) return false;
+    try {
+      final draft = jsonDecode(raw) as Map<String, dynamic>;
+      final mealType = draft['meal_type'] as String?;
+      final foodsList = draft['foods'] as List<dynamic>? ?? [];
+      if (foodsList.isEmpty) return false;
+      final foods = foodsList.map((entry) {
+        final map = entry as Map<String, dynamic>;
+        return SelectedFood(
+          food: FoodItem.fromJson(map['food'] as Map<String, dynamic>),
+          grams: (map['grams'] as num).toDouble(),
+        );
+      }).toList();
+      state = state.copyWith(
+        selectedFoods: foods,
+        mealType: mealType,
+      );
+      return true;
+    } catch (_) {
+      // Corrupt draft — discard it.
+      await _clearDraftStorage();
+      return false;
+    }
+  }
+
+  /// Clear saved draft (call after successful meal logging).
+  Future<void> clearDraft() async {
+    await _clearDraftStorage();
+  }
+
+  Future<void> _clearDraftStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftKey);
+  }
 
   /// Prepare the provider to edit an existing entry.
   void initForEdit(String entryId, String mealType, TimeOfDay time) {
@@ -186,6 +256,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
         mealType: state.mealType,
         forChild: state.forChild,
       );
+      await clearDraft();
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

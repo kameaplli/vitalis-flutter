@@ -17,6 +17,7 @@ import '../providers/icon_theme_provider.dart';
 import '../core/icon_theme.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/achievement_badges.dart';
+import '../widgets/medical_disclaimer.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -372,6 +373,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 );
               }),
+            const SizedBox(height: 16),
+            const MedicalDisclaimer(),
+            const SizedBox(height: 16),
           ],
         ),
       ),
