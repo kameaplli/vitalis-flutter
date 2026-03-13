@@ -3,11 +3,11 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/hydration_log.dart';
 
-/// Key: 'person:days:date' (date is client's local YYYY-MM-DD, optional)
+/// Key: 'person_days_date' (date is client's local YYYY-MM-DD, optional)
 final hydrationHistoryProvider =
     FutureProvider.family<List<HydrationLog>, String>((ref, key) async {
   ref.keepAlive(); // keep cached between navigations
-  final parts = key.split(':');
+  final parts = key.split('_');
   final person = parts[0];
   final days = int.tryParse(parts.length > 1 ? parts[1] : '7') ?? 7;
   final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -29,7 +29,7 @@ final hydrationHistoryProvider =
 final todayHydrationProvider =
     FutureProvider.family<double, String>((ref, person) async {
   final today = DateTime.now().toIso8601String().substring(0, 10);
-  final logs = await ref.watch(hydrationHistoryProvider('$person:1:$today').future);
+  final logs = await ref.watch(hydrationHistoryProvider('${person}_1_$today').future);
   double total = 0.0;
   for (final l in logs.where((l) => l.date == today)) {
     total += l.quantity;

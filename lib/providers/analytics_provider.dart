@@ -4,10 +4,10 @@ import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../models/analytics_data.dart';
 
-// key = "person:days" e.g. "self:7"
+// key = "person_days" e.g. "self_7"
 final analyticsProvider =
     FutureProvider.family<NutritionAnalytics, String>((ref, key) async {
-  final parts  = key.split(':');
+  final parts  = key.split('_');
   final person = parts[0];
   final days   = int.tryParse(parts.elementAtOrNull(1) ?? '7') ?? 7;
 

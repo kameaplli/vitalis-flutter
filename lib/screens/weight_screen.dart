@@ -45,7 +45,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
   @override
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
-    final histAsync = ref.watch(weightHistoryProvider('$person:$_days'));
+    final histAsync = ref.watch(weightHistoryProvider('${person}_$_days'));
 
     return RefreshIndicator(
       onRefresh: () async {

@@ -161,12 +161,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
   void _confirm() {
     ref.invalidate(groceryReceiptsProvider('self'));
-    ref.invalidate(grocerySpendingProvider('self:month'));
-    ref.invalidate(grocerySpendingProvider('self:3month'));
-    ref.invalidate(grocerySpendingProvider('self:year'));
-    ref.invalidate(groceryNutritionProvider('self:month'));
-    ref.invalidate(groceryNutritionProvider('self:3month'));
-    ref.invalidate(groceryNutritionProvider('self:year'));
+    ref.invalidate(grocerySpendingProvider('self_month'));
+    ref.invalidate(grocerySpendingProvider('self_3month'));
+    ref.invalidate(grocerySpendingProvider('self_year'));
+    ref.invalidate(groceryNutritionProvider('self_month'));
+    ref.invalidate(groceryNutritionProvider('self_3month'));
+    ref.invalidate(groceryNutritionProvider('self_year'));
     context.go('/grocery');
   }
 
@@ -215,8 +215,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
     // Invalidate providers so list and analytics refresh
     ref.invalidate(groceryReceiptsProvider('self'));
-    ref.invalidate(grocerySpendingProvider('self:month'));
-    ref.invalidate(groceryNutritionProvider('self:month'));
+    ref.invalidate(grocerySpendingProvider('self_month'));
+    ref.invalidate(groceryNutritionProvider('self_month'));
   }
 
   void _cancelBulk() {

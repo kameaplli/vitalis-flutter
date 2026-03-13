@@ -20,10 +20,10 @@ final groceryReceiptDetailProvider =
   return GroceryReceipt.fromJson(res.data as Map<String, dynamic>);
 });
 
-// Spending analytics — keyed by "person:period"
+// Spending analytics — keyed by "person_period"
 final grocerySpendingProvider =
     FutureProvider.family<GrocerySpending, String>((ref, key) async {
-  final parts  = key.split(':');
+  final parts  = key.split('_');
   final period = parts.length > 1 ? parts[1] : 'month';
   final res = await apiClient.dio.get(
     ApiConstants.grocerySpending,
@@ -32,10 +32,10 @@ final grocerySpendingProvider =
   return GrocerySpending.fromJson(res.data as Map<String, dynamic>);
 });
 
-// Nutrition spectrum — keyed by "person:period"
+// Nutrition spectrum — keyed by "person_period"
 final groceryNutritionProvider =
     FutureProvider.family<GroceryNutritionSpectrum, String>((ref, key) async {
-  final parts  = key.split(':');
+  final parts  = key.split('_');
   final period = parts.length > 1 ? parts[1] : 'month';
   final res = await apiClient.dio.get(
     ApiConstants.groceryNutrition,
@@ -44,10 +44,10 @@ final groceryNutritionProvider =
   return GroceryNutritionSpectrum.fromJson(res.data as Map<String, dynamic>);
 });
 
-// Category drill-down — keyed by "category:period"
+// Category drill-down — keyed by "category_period"
 final groceryCategoryItemsProvider =
     FutureProvider.family<GroceryCategoryItems, String>((ref, key) async {
-  final parts    = key.split(':');
+  final parts    = key.split('_');
   final category = parts[0];
   final period   = parts.length > 1 ? parts[1] : 'month';
   final res = await apiClient.dio.get(

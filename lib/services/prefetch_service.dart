@@ -30,15 +30,15 @@ class PrefetchService {
       // Fire all prefetches concurrently — don't await sequentially
       await Future.wait([
         // Nutrition entries (last 7 days — used by Nutrition History tab)
-        _safe(() => ref.read(nutritionEntriesProvider('$personId|$sevenDaysAgo|$today').future)),
+        _safe(() => ref.read(nutritionEntriesProvider('${personId}_${sevenDaysAgo}_$today').future)),
         // Nutrition analytics (30-day breakdown — used by Nutrition Analytics tab)
-        _safe(() => ref.read(nutritionAnalyticsProvider('$personId:30').future)),
+        _safe(() => ref.read(nutritionAnalyticsProvider('${personId}_30').future)),
         // General analytics (7-day — used by Dashboard analytics section)
-        _safe(() => ref.read(analyticsProvider('$personId:7').future)),
+        _safe(() => ref.read(analyticsProvider('${personId}_7').future)),
         // Hydration history (used by Dashboard hydration card)
-        _safe(() => ref.read(hydrationHistoryProvider('$personId:7:$today').future)),
+        _safe(() => ref.read(hydrationHistoryProvider('${personId}_7_$today').future)),
         // Grocery spending (used by Grocery tab)
-        _safe(() => ref.read(grocerySpendingProvider('$personId:month').future)),
+        _safe(() => ref.read(grocerySpendingProvider('${personId}_month').future)),
       ]);
     } finally {
       _prefetching = false;
@@ -54,8 +54,8 @@ class PrefetchService {
         .substring(0, 10);
 
     await Future.wait([
-      _safe(() => ref.read(nutritionEntriesProvider('$personId|$sevenDaysAgo|$today').future)),
-      _safe(() => ref.read(nutritionAnalyticsProvider('$personId:30').future)),
+      _safe(() => ref.read(nutritionEntriesProvider('${personId}_${sevenDaysAgo}_$today').future)),
+      _safe(() => ref.read(nutritionAnalyticsProvider('${personId}_30').future)),
     ]);
   }
 

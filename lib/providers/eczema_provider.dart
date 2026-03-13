@@ -3,10 +3,10 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/eczema_log.dart';
 
-/// Key format: "person:days"  e.g. "self:30"
+/// Key format: "person_days"  e.g. "self_30"
 final eczemaProvider =
     FutureProvider.family<List<EczemaLogSummary>, String>((ref, key) async {
-  final parts = key.split(':');
+  final parts = key.split('_');
   final person = parts[0].isNotEmpty ? parts[0] : 'self';
   final days = int.tryParse(parts.elementAtOrNull(1) ?? '30') ?? 30;
   final res = await apiClient.dio.get(ApiConstants.eczemaHistory,
@@ -16,10 +16,10 @@ final eczemaProvider =
       .toList();
 });
 
-/// Key format: "person:days"  e.g. "self:30"
+/// Key format: "person_days"  e.g. "self_30"
 final eczemaHeatmapProvider =
     FutureProvider.family<EczemaHeatmapData, String>((ref, key) async {
-  final parts = key.split(':');
+  final parts = key.split('_');
   final person = parts[0].isNotEmpty ? parts[0] : 'self';
   final days = int.tryParse(parts.elementAtOrNull(1) ?? '30') ?? 30;
   final res = await apiClient.dio.get(ApiConstants.eczemaHeatmap,
@@ -27,10 +27,10 @@ final eczemaHeatmapProvider =
   return EczemaHeatmapData.fromJson(res.data as Map<String, dynamic>);
 });
 
-/// Key format: "person:days"
+/// Key format: "person_days"
 final eczemaFoodCorrelationProvider =
     FutureProvider.family<FoodCorrelationData, String>((ref, key) async {
-  final parts = key.split(':');
+  final parts = key.split('_');
   final person = parts[0].isNotEmpty ? parts[0] : 'self';
   final days = int.tryParse(parts.elementAtOrNull(1) ?? '90') ?? 90;
   final res = await apiClient.dio.get(ApiConstants.eczemaFoodCorrelation,

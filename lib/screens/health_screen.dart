@@ -37,7 +37,8 @@ class _HealthList extends ConsumerWidget {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => onAdd(context, ref),
-        child: const Icon(Icons.add),
+        tooltip: 'Add new entry',
+        child: const Icon(Icons.add, semanticLabel: 'Add new entry'),
       ),
       body: logsAsync.when(
         skipLoadingOnReload: true,
@@ -60,13 +61,15 @@ class _HealthList extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-                    child: Row(children: [
-                      Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline),
-                      const SizedBox(width: 4),
-                      Text('Swipe right to edit · left to delete',
-                          style: TextStyle(
-                              fontSize: 11, color: Theme.of(context).colorScheme.outline)),
-                    ]),
+                    child: MergeSemantics(
+                      child: Row(children: [
+                        ExcludeSemantics(child: Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline)),
+                        const SizedBox(width: 4),
+                        Text('Swipe right to edit · left to delete',
+                            style: TextStyle(
+                                fontSize: 11, color: Theme.of(context).colorScheme.outline)),
+                      ]),
+                    ),
                   ),
                 ),
                 SliverList(
@@ -153,15 +156,15 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
     final interests = ref.watch(userInterestsProvider);
-    final key    = '$person:$_days';
+    final key    = '${person}_$_days';
 
     final allCards = [
       _CardDef('symptoms',    'Symptoms',    Icons.thermostat_rounded,       const Color(0xFFE53935),
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
-          ref.watch(medicationsProvider('$person:7'))),
+          ref.watch(medicationsProvider('${person}_7'))),
       _CardDef('supplements', 'Supplements', Icons.science_rounded,         const Color(0xFFF9A825),
-          ref.watch(supplementsProvider('$person:7'))),
+          ref.watch(supplementsProvider('${person}_7'))),
       _CardDef('mood',        'Mood',        Icons.self_improvement_rounded, const Color(0xFF43A047),
           ref.watch(moodProvider(key))),
       _CardDef('weight',      'Weight',      Icons.fitness_center_rounded,   const Color(0xFF8E24AA),
@@ -314,7 +317,10 @@ class _HealthCardState extends State<_HealthCard>
           builder: (context, _) {
             final p = _pulseAnim.value;
 
-            return GestureDetector(
+            return Semantics(
+              button: true,
+              label: '${def.label}${badge != null ? ', $badge entries' : ''}',
+              child: GestureDetector(
               onTap: widget.onTap,
               child: Container(
                 decoration: BoxDecoration(
@@ -414,6 +420,7 @@ class _HealthCardState extends State<_HealthCard>
                   ],
                 ),
               ),
+            ),
             );
           },
         ),
@@ -2383,7 +2390,7 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
   @override
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
-    final key    = '$person:$_days';
+    final key    = '${person}_$_days';
 
     Widget body;
     switch (widget.category) {

@@ -275,12 +275,12 @@ class _DismissibleReceiptCard extends ConsumerWidget {
           await apiClient.dio.delete(
               '${ApiConstants.groceryReceipts}/${receipt.id}');
           ref.invalidate(groceryReceiptsProvider(person));
-          ref.invalidate(grocerySpendingProvider('$person:month'));
-          ref.invalidate(grocerySpendingProvider('$person:3month'));
-          ref.invalidate(grocerySpendingProvider('$person:year'));
-          ref.invalidate(groceryNutritionProvider('$person:month'));
-          ref.invalidate(groceryNutritionProvider('$person:3month'));
-          ref.invalidate(groceryNutritionProvider('$person:year'));
+          ref.invalidate(grocerySpendingProvider('${person}_month'));
+          ref.invalidate(grocerySpendingProvider('${person}_3month'));
+          ref.invalidate(grocerySpendingProvider('${person}_year'));
+          ref.invalidate(groceryNutritionProvider('${person}_month'));
+          ref.invalidate(groceryNutritionProvider('${person}_3month'));
+          ref.invalidate(groceryNutritionProvider('${person}_year'));
         } catch (_) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1224,7 +1224,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final key        = '${widget.person}:$_period';
+    final key        = '${widget.person}_$_period';
     final spendAsync = ref.watch(grocerySpendingProvider(key));
     final nutriAsync = ref.watch(groceryNutritionProvider(key));
 
@@ -1647,7 +1647,7 @@ class _CategoryItemsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final key   = '$category:$period';
+    final key   = '${category}_$period';
     final async = ref.watch(groceryCategoryItemsProvider(key));
     final cs    = Theme.of(context).colorScheme;
     final fmt   = NumberFormat.currency(symbol: '\$');

@@ -42,7 +42,7 @@ class _NutritionHistoryContentState
 
   String get _key {
     final person = ref.read(selectedPersonProvider);
-    return '$person|${_startDate ?? ''}|${_endDate ?? ''}';
+    return '${person}_${_startDate ?? ''}_${_endDate ?? ''}';
   }
 
   @override

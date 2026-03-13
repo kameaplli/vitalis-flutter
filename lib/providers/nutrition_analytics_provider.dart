@@ -4,11 +4,11 @@ import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../models/nutrition_analytics.dart';
 
-// key = "person:days"  e.g. "self:30"
+// key = "person_days"  e.g. "self_30"
 final nutritionAnalyticsProvider =
     FutureProvider.family<NutritionAnalyticsData, String>((ref, key) async {
   ref.keepAlive();
-  final parts = key.split(':');
+  final parts = key.split('_');
   final person = parts[0];
   final days = parts.length > 1 ? parts[1] : '30';
 

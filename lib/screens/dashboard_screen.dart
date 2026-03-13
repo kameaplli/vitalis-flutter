@@ -76,9 +76,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   void _refresh(String person) {
     ref.invalidate(dashboardProvider(person));
-    ref.invalidate(grocerySpendingProvider('$person:month'));
+    ref.invalidate(grocerySpendingProvider('${person}_month'));
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    ref.invalidate(hydrationHistoryProvider('$person:1:$today'));
+    ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
     ref.invalidate(todayHydrationProvider(person));
   }
 
@@ -174,7 +174,7 @@ class _HomeBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final groceryAsync = ref.watch(grocerySpendingProvider('$person:month'));
+    final groceryAsync = ref.watch(grocerySpendingProvider('${person}_month'));
     final hydrationAsync = ref.watch(todayHydrationProvider(person));
 
     return CustomScrollView(
@@ -319,22 +319,26 @@ class _QuickActionsBar extends StatelessWidget {
   Widget _action(BuildContext context, IconData icon, String label,
       Color color, VoidCallback onTap) {
     return Expanded(
-      child: Material(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: Material(
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 22, color: color),
-                const SizedBox(height: 4),
-                Text(label, style: TextStyle(
-                    fontSize: 10, fontWeight: FontWeight.w600, color: color)),
-              ],
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExcludeSemantics(child: Icon(icon, size: 22, color: color)),
+                  const SizedBox(height: 4),
+                  ExcludeSemantics(child: Text(label, style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w600, color: color))),
+                ],
+              ),
             ),
           ),
         ),
@@ -403,7 +407,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
         'time':              timeStr,
         if (widget.person != 'self') 'family_member_id': widget.person,
       });
-      ref.invalidate(hydrationHistoryProvider('${widget.person}:1:$today'));
+      ref.invalidate(hydrationHistoryProvider('${widget.person}_1_$today'));
       ref.invalidate(todayHydrationProvider(widget.person));
       ref.invalidate(dashboardProvider(widget.person));
       ref.invalidate(familySnapshotProvider);
@@ -464,7 +468,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
 
     // Watch today's entries for timeline display
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    final historyAsync = ref.watch(hydrationHistoryProvider('${widget.person}:1:$today'));
+    final historyAsync = ref.watch(hydrationHistoryProvider('${widget.person}_1_$today'));
     final todayEntries = historyAsync.whenOrNull(
       data: (logs) => logs.where((l) => l.date == today).toList(),
     );
@@ -628,18 +632,22 @@ class _GrocerySnapshot extends StatelessWidget {
                   ),
                 )),
                 const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => context.go('/grocery'),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('View full breakdown',
-                          style: TextStyle(
-                              fontSize: 12, color: cs.primary,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary),
-                    ],
+                Semantics(
+                  button: true,
+                  label: 'View full grocery breakdown',
+                  child: InkWell(
+                    onTap: () => context.go('/grocery'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('View full breakdown',
+                            style: TextStyle(
+                                fontSize: 12, color: cs.primary,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        ExcludeSemantics(child: Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary)),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -722,18 +730,22 @@ class _FinanceSnapshot extends ConsumerWidget {
                   ),
                 )),
                 const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => context.go('/finance'),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('View full breakdown',
-                          style: TextStyle(
-                              fontSize: 12, color: cs.primary,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary),
-                    ],
+                Semantics(
+                  button: true,
+                  label: 'View full finance breakdown',
+                  child: InkWell(
+                    onTap: () => context.go('/finance'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('View full breakdown',
+                            style: TextStyle(
+                                fontSize: 12, color: cs.primary,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        ExcludeSemantics(child: Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary)),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -998,8 +1010,8 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
       ),
       child: Stack(
         children: [
-          // ── Animated gradient overlay that breathes ──
-          AnimatedBuilder(
+          // ── Animated gradient overlay that breathes (decorative) ──
+          ExcludeSemantics(child: AnimatedBuilder(
             animation: _pulseCtrl,
             builder: (_, __) => Container(
               decoration: BoxDecoration(
@@ -1016,10 +1028,10 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                 ),
               ),
             ),
-          ),
+          )),
 
-          // ── Floating orbs (large, dreamy, slow) ──
-          AnimatedBuilder(
+          // ── Floating orbs (large, dreamy, slow — decorative) ──
+          ExcludeSemantics(child: AnimatedBuilder(
             animation: _orbCtrl,
             builder: (_, __) => CustomPaint(
               size: screenSize,
@@ -1030,10 +1042,10 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                 isDark: isDark,
               ),
             ),
-          ),
+          )),
 
-          // ── Particles — energetic, rising ──
-          AnimatedBuilder(
+          // ── Particles — energetic, rising (decorative) ──
+          ExcludeSemantics(child: AnimatedBuilder(
             animation: _particleCtrl,
             builder: (_, __) => CustomPaint(
               size: screenSize,
@@ -1043,10 +1055,10 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                 color: isDark ? Colors.white : accent,
               ),
             ),
-          ),
+          )),
 
-          // ── Shimmering light streak ──
-          AnimatedBuilder(
+          // ── Shimmering light streak (decorative) ──
+          ExcludeSemantics(child: AnimatedBuilder(
             animation: _shimmerCtrl,
             builder: (_, __) => CustomPaint(
               size: screenSize,
@@ -1055,7 +1067,7 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                 color: accent.withValues(alpha: 0.12),
               ),
             ),
-          ),
+          )),
 
           // ── Main content ──
           SafeArea(
@@ -1425,7 +1437,9 @@ class _MoodScoreBar extends StatelessWidget {
     final textCol = isDark ? Colors.white : const Color(0xFF1a1a2e);
     final fraction = (score / 10).clamp(0.0, 1.0);
 
-    return Column(
+    return Semantics(
+      label: 'Mood score: ${score.toStringAsFixed(1)} out of 10',
+      child: ExcludeSemantics(child: Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1482,6 +1496,7 @@ class _MoodScoreBar extends StatelessWidget {
           ),
         ),
       ],
+    )),
     );
   }
 }
@@ -1663,54 +1678,59 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(icon, size: 15, color: color),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(label,
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500),
+    return Semantics(
+      label: '$label: $todayValue $todayUnit. 7-day average: $weekAvg.${showTrend ? ' Trend ${up ? 'up' : 'down'}, previous: $prevAvg.' : ''}',
+      child: ExcludeSemantics(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(icon, size: 15, color: color),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(label,
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(todayValue,
+                      style: TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+                  if (todayUnit.isNotEmpty) ...[
+                    const SizedBox(width: 3),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(todayUnit,
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    ),
+                  ],
+                ]),
+                const SizedBox(height: 4),
+                Text('7d avg: $weekAvg',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                     overflow: TextOverflow.ellipsis),
-              ),
-            ]),
-            const SizedBox(height: 6),
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(todayValue,
-                  style: TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-              if (todayUnit.isNotEmpty) ...[
-                const SizedBox(width: 3),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(todayUnit,
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                ),
+                const SizedBox(height: 2),
+                if (showTrend)
+                  Row(children: [
+                    Icon(up ? Icons.trending_up : Icons.trending_down,
+                        size: 13, color: up ? Colors.green : Colors.red),
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text('Prev: $prevAvg',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ]),
               ],
-            ]),
-            const SizedBox(height: 4),
-            Text('7d avg: $weekAvg',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
-            if (showTrend)
-              Row(children: [
-                Icon(up ? Icons.trending_up : Icons.trending_down,
-                    size: 13, color: up ? Colors.green : Colors.red),
-                const SizedBox(width: 3),
-                Expanded(
-                  child: Text('Prev: $prevAvg',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ]),
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -1783,7 +1803,7 @@ class _HealthScoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final delta    = score.total - prev.total;
-    final deltaStr = '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)} vs prev week';
+    final deltaStr = '${delta >= 0 ? "+" : ""}${delta.toStringAsFixed(1)} vs prev week';
     final components = [
       ('Nutrition', score.nutrition, Icons.restaurant,     Colors.green),
       ('Hydration', score.hydration, Icons.water_drop,     Colors.blue),
@@ -2035,33 +2055,38 @@ class _IntakeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = daily > 0 ? (current / daily).clamp(0.0, 1.0) : 0.0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Semantics(
+      label: '$label: ${current.toStringAsFixed(0)} of ${daily.toStringAsFixed(0)} $unit, ${(pct * 100).toStringAsFixed(0)} percent',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-              Text(
-                '${current.toStringAsFixed(0)} / ${daily.toStringAsFixed(0)} $unit',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(label,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  Text(
+                    '${current.toStringAsFixed(0)} / ${daily.toStringAsFixed(0)} $unit',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  color: pct >= 1.0 ? Colors.red : color,
+                  backgroundColor: color.withValues(alpha: 0.15),
+                  minHeight: 5,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 3),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: pct,
-              color: pct >= 1.0 ? Colors.red : color,
-              backgroundColor: color.withValues(alpha: 0.15),
-              minHeight: 5,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2084,70 +2109,76 @@ class _FlareRiskSnapshot extends ConsumerWidget {
         final label = risk.score >= 60
             ? 'High'
             : (risk.score >= 30 ? 'Moderate' : 'Low');
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: InkWell(
-            onTap: () => context.push('/insights'),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          value: risk.score / 100,
-                          strokeWidth: 4,
-                          color: color,
-                          backgroundColor: color.withValues(alpha: 0.15),
-                          strokeCap: StrokeCap.round,
-                        ),
-                        Text('${risk.score}',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: color)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+        return Semantics(
+          button: true,
+          label: 'Flare Risk: $label, score ${risk.score} out of 100.${risk.recommendations.isNotEmpty ? ' ${risk.recommendations.first}' : ''} Tap to view insights.',
+          child: ExcludeSemantics(
+            child: Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: InkWell(
+                onTap: () => context.push('/insights'),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Stack(
+                          alignment: Alignment.center,
                           children: [
-                            Icon(Icons.shield_outlined,
-                                size: 14, color: color),
-                            const SizedBox(width: 4),
-                            Text('Flare Risk: $label',
+                            CircularProgressIndicator(
+                              value: risk.score / 100,
+                              strokeWidth: 4,
+                              color: color,
+                              backgroundColor: color.withValues(alpha: 0.15),
+                              strokeCap: StrokeCap.round,
+                            ),
+                            Text('${risk.score}',
                                 style: TextStyle(
-                                    fontWeight: FontWeight.w600,
                                     fontSize: 13,
+                                    fontWeight: FontWeight.bold,
                                     color: color)),
                           ],
                         ),
-                        if (risk.recommendations.isNotEmpty)
-                          Text(risk.recommendations.first,
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.shield_outlined,
+                                    size: 14, color: color),
+                                const SizedBox(width: 4),
+                                Text('Flare Risk: $label',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                        color: color)),
+                              ],
+                            ),
+                            if (risk.recommendations.isNotEmpty)
+                              Text(risk.recommendations.first,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios,
+                          size: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withValues(alpha: 0.5)),
+                    ],
                   ),
-                  Icon(Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurfaceVariant
-                          .withValues(alpha: 0.5)),
-                ],
+                ),
               ),
             ),
           ),

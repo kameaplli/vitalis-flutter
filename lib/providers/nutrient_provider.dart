@@ -321,11 +321,11 @@ final foodNutrientProvider =
 });
 
 /// Fetch daily nutrient assessment for a person on a date.
-/// Key format: "personId|YYYY-MM-DD"
+/// Key format: "personId_YYYY-MM-DD"
 final dailyNutrientProvider =
     FutureProvider.family<DailyNutrientAssessment?, String>((ref, key) async {
   try {
-    final parts = key.split('|');
+    final parts = key.split('_');
     final person = parts[0];
     final date = parts.length > 1 ? parts[1] : null;
     final res = await apiClient.dio.get(
@@ -342,11 +342,11 @@ final dailyNutrientProvider =
 });
 
 /// Fetch multi-day nutrient aggregation.
-/// Key format: "personId:days" (e.g. "self:7", "self:30")
+/// Key format: "personId_days" (e.g. "self_7", "self_30")
 final periodNutrientProvider =
     FutureProvider.family<PeriodNutrientData?, String>((ref, key) async {
   try {
-    final parts = key.split(':');
+    final parts = key.split('_');
     final person = parts[0];
     final days = parts.length > 1 ? int.tryParse(parts[1]) ?? 1 : 1;
     final res = await apiClient.dio.get(

@@ -4,9 +4,9 @@ import '../core/constants.dart';
 
 typedef HealthMap = Map<String, dynamic>;
 
-// key = "person:days" e.g. "self:30"
-String _person(String key) => key.split(':')[0].isNotEmpty ? key.split(':')[0] : 'self';
-int _days(String key) => int.tryParse(key.split(':').elementAtOrNull(1) ?? '30') ?? 30;
+// key = "person_days" e.g. "self_30"
+String _person(String key) => key.split('_')[0].isNotEmpty ? key.split('_')[0] : 'self';
+int _days(String key) => int.tryParse(key.split('_').elementAtOrNull(1) ?? '30') ?? 30;
 
 final symptomsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
   final res = await apiClient.dio.get(ApiConstants.symptoms, queryParameters: {

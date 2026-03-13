@@ -3,9 +3,9 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/weight_log.dart';
 
-// key = "person:days" e.g. "self:30"
+// key = "person_days" e.g. "self_30"
 final weightHistoryProvider = FutureProvider.family<WeightHistory, String>((ref, key) async {
-  final parts = key.split(':');
+  final parts = key.split('_');
   final person = parts[0].isNotEmpty ? parts[0] : 'self';
   final days = int.tryParse(parts.elementAtOrNull(1) ?? '30') ?? 30;
   final res = await apiClient.dio.get(

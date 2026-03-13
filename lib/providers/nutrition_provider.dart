@@ -188,12 +188,12 @@ final nutritionProvider =
   return NutritionNotifier();
 });
 
-// ─── Entries provider (key = "person|startDate|endDate") ─────────────────────
+// ─── Entries provider (key = "person_startDate_endDate") ─────────────────────
 
 final nutritionEntriesProvider =
     FutureProvider.family<List<NutritionEntry>, String>((ref, key) async {
   ref.keepAlive(); // keep cached so 7-day prefetch stays warm
-  final parts = key.split('|');
+  final parts = key.split('_');
   final person = parts[0];
   final startDate = parts.length > 1 && parts[1].isNotEmpty ? parts[1] : null;
   final endDate   = parts.length > 2 && parts[2].isNotEmpty ? parts[2] : null;
