@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'providers/interests_provider.dart';
@@ -9,6 +11,12 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  // Send all Flutter errors to Crashlytics
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
   // Read onboarding pref synchronously (fast, local SharedPrefs)
   final prefs = await SharedPreferences.getInstance();
   final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
