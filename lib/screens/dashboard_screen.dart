@@ -418,7 +418,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to log: $e')),
+          const SnackBar(content: Text('Something went wrong. Please try again.')),
         );
       }
     } finally {

@@ -464,7 +464,7 @@ class _StatementsTab extends ConsumerWidget {
     final async = ref.watch(financeStatementsProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
       data: (statements) {
         if (statements.isEmpty) {
           return Center(
@@ -1329,7 +1329,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving: $e')),
+          const SnackBar(content: Text('Failed to save. Please try again.')),
         );
       }
     } finally {
@@ -1592,7 +1592,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate report: $e')),
+          const SnackBar(content: Text('Failed to generate report. Please try again.')),
         );
       }
     } finally {
@@ -1666,7 +1666,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           spendAsync.when(
             loading: () =>
                 const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
             data: (spending) {
               if (spending.byCategory.isEmpty) {
                 return Center(
@@ -1994,7 +1994,7 @@ class _BudgetTab extends ConsumerWidget {
 
     return budgetAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
       data: (budget) {
         if (budget.budget.isEmpty) {
           return Center(
@@ -2540,7 +2540,7 @@ class _CategoryDrillDownSheetState
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_error != null)
-            Expanded(child: Center(child: Text('Error: $_error')))
+            const Expanded(child: Center(child: Text('Something went wrong. Please try again.')))
           else if (_transactions!.isEmpty)
             const Expanded(child: Center(child: Text('No transactions')))
           else

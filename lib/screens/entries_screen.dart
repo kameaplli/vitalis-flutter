@@ -87,7 +87,7 @@ class _NutritionHistoryContentState
           child: entriesAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
             data: (entries) {
               if (entries.isEmpty) {
                 return const Center(child: Text('No entries found'));

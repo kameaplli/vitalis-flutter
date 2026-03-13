@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../widgets/medical_disclaimer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -199,7 +200,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _captureEnvironment();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -333,7 +334,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           } catch (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error: $e')),
+                const SnackBar(content: Text('Something went wrong. Please try again.')),
               );
             }
           }
@@ -379,7 +380,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
     }
   }
 
@@ -515,12 +516,17 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        // Disable horizontal swipe to switch tabs — it conflicts with
-        // pinch-zoom and zone taps on the body map. Tabs switch via tap only.
-        physics: const NeverScrollableScrollPhysics(),
-        children: [_buildLogTab(), _buildCompareTab(), _buildHeatmapTab(), _buildReportTab()],
+      body: Column(
+        children: [
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [_buildLogTab(), _buildCompareTab(), _buildHeatmapTab(), _buildReportTab()],
+            ),
+          ),
+          const MedicalDisclaimer(),
+        ],
       ),
     );
   }
@@ -1547,7 +1553,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     return logsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
       data: (logs) {
         if (logs.length < 2) {
           return const Center(
@@ -1647,7 +1653,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
     }
   }
 
@@ -1664,7 +1670,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _invalidateAll();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
     }
   }
 
@@ -1711,7 +1717,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           child: heatAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
             data: (data) {
               if (data.regionIntensity.isEmpty) {
                 return const Center(child: Text('No eczema data for this period'));
@@ -1790,12 +1796,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           child: heatAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
             data: (heatData) {
               return logsAsync.when(
                 skipLoadingOnReload: true,
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
                 data: (logs) {
                   if (logs.isEmpty) {
                     return const Center(
@@ -3179,7 +3185,7 @@ class _HistorySheet extends ConsumerWidget {
         child: logsAsync.when(
           skipLoadingOnReload: true,
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e')),
+          error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
           data: (logs) {
             if (logs.isEmpty) return const Center(child: Text('No eczema logs yet'));
             return Column(children: [

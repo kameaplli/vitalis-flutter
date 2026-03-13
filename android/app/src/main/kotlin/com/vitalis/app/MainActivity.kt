@@ -1,4 +1,4 @@
-package com.example.vitalis
+package com.vitalis.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

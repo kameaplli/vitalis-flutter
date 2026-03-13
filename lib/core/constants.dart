@@ -27,6 +27,9 @@ class ApiConstants {
   static const String logout = '/api/logout';
   static const String user = '/api/user';
   static const String tokenRefresh = '/api/token/refresh';
+  static const String deleteAccount = '/api/auth/account';
+  static const String forgotPassword = '/api/auth/forgot-password';
+  static const String resetPassword = '/api/auth/reset-password';
 
   // Dashboard
   static const String dashboard = '/api/dashboard';

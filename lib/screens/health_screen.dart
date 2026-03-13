@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -9,6 +10,7 @@ import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../services/notification_service.dart';
+import '../widgets/medical_disclaimer.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -39,7 +41,7 @@ class _HealthList extends ConsumerWidget {
       body: logsAsync.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
         data: (entries) {
           if (entries.isEmpty && headerBuilder == null) {
             return const Center(
@@ -58,11 +60,11 @@ class _HealthList extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
                     child: Row(children: [
-                      Icon(Icons.swipe, size: 12, color: Colors.grey.shade400),
+                      Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline),
                       const SizedBox(width: 4),
                       Text('Swipe right to edit · left to delete',
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade400)),
+                              fontSize: 11, color: Theme.of(context).colorScheme.outline)),
                     ]),
                   ),
                 ),
@@ -174,29 +176,37 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-          child: GridView.builder(
-            itemCount: cards.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.85,
-            ),
-            itemBuilder: (context, i) => _HealthCard(
-              def: cards[i],
-              index: i,
-              onTap: () {
-                final cat = cards[i].category;
-                final route = cat == 'weight' ? '/health/weight'
-                    : cat == 'eczema' ? '/health/eczema'
-                    : cat == 'skin-photos' ? '/skin-photos'
-                    : cat == 'products' ? '/products'
-                    : cat == 'insights' ? '/insights'
-                    : '/health/$cat';
-                context.push(route);
-              },
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(symptomsProvider);
+            ref.invalidate(medicationsProvider);
+            ref.invalidate(supplementsProvider);
+            ref.invalidate(moodProvider);
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            child: GridView.builder(
+              itemCount: cards.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.85,
+              ),
+              itemBuilder: (context, i) => _HealthCard(
+                def: cards[i],
+                index: i,
+                onTap: () {
+                  final cat = cards[i].category;
+                  final route = cat == 'weight' ? '/health/weight'
+                      : cat == 'eczema' ? '/health/eczema'
+                      : cat == 'skin-photos' ? '/skin-photos'
+                      : cat == 'products' ? '/products'
+                      : cat == 'insights' ? '/insights'
+                      : '/health/$cat';
+                  context.push(route);
+                },
+              ),
             ),
           ),
         ),
@@ -562,21 +572,40 @@ class _MedicationInsights extends StatelessWidget {
   }
 }
 
-class _SupplementInsights extends ConsumerWidget {
+class _SupplementInsights extends ConsumerStatefulWidget {
   final String personKey;
-  const _SupplementInsights({required this.personKey});
+  final Set<String> loggedThisSession;
+  final void Function(String id) onLogged;
+  const _SupplementInsights({
+    required this.personKey,
+    required this.loggedThisSession,
+    required this.onLogged,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final entries = ref.watch(supplementsProvider(personKey)).valueOrNull ?? [];
+  ConsumerState<_SupplementInsights> createState() => _SupplementInsightsState();
+}
+
+class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = ref.watch(supplementsProvider(widget.personKey)).valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
     final active = entries.where((e) => e['is_active'] == true).toList();
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    final takenToday = active.where((e) => e['last_intake_date'] == today).length;
-    final remaining = active
-        .where((e) => e['last_intake_date'] != today)
-        .toList();
+
+    // Merge backend state with local session state for immediate feedback
+    final logged = widget.loggedThisSession;
+    final takenToday = active.where((e) {
+      final id = e['id']?.toString() ?? '';
+      return e['last_intake_date'] == today || logged.contains(id);
+    }).length;
+    final remaining = active.where((e) {
+      final id = e['id']?.toString() ?? '';
+      return e['last_intake_date'] != today && !logged.contains(id);
+    }).toList();
     final total = active.length;
     final allDone = total > 0 && takenToday >= total;
 
@@ -641,33 +670,7 @@ class _SupplementInsights extends ConsumerWidget {
                 ),
                 backgroundColor: Colors.teal.shade50,
                 side: BorderSide(color: Colors.teal.shade300),
-                onPressed: () async {
-                  final id = e['id']?.toString() ?? '';
-                  if (id.isEmpty) return;
-                  try {
-                    final res = await apiClient.dio.post(
-                      ApiConstants.supplementLogIntake(id),
-                    );
-                    final data = res.data as Map<String, dynamic>;
-                    if (context.mounted) {
-                      final nutrients = data['nutrients_matched'] as int? ?? 0;
-                      final msg = data['already_logged'] == true
-                          ? '${e['supplement_name']} already logged today'
-                          : 'Logged ${e['supplement_name']} ($nutrients nutrients tracked)';
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
-                      );
-                      ref.invalidate(supplementsProvider(personKey));
-                      ref.invalidate(supplementsCatalogProvider);
-                    }
-                  } catch (err) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed: $err')),
-                      );
-                    }
-                  }
-                },
+                onPressed: () => _logIntake(e),
               )).toList(),
             ),
           ],
@@ -680,6 +683,39 @@ class _SupplementInsights extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _logIntake(Map<String, dynamic> e) async {
+    final id = e['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    try {
+      final res = await apiClient.dio.post(
+        ApiConstants.supplementLogIntake(id),
+      );
+      final data = res.data as Map<String, dynamic>;
+      if (!mounted) return;
+
+      final nutrients = data['nutrients_matched'] as int? ?? 0;
+      final msg = data['already_logged'] == true
+          ? '${e['supplement_name']} already logged today'
+          : 'Logged ${e['supplement_name']} ($nutrients nutrients tracked)';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
+      );
+
+      // Immediate local state update — chip disappears instantly
+      widget.onLogged(id);
+
+      // Also refresh provider for persistence / "not taken" text in the list below
+      ref.invalidate(supplementsProvider(widget.personKey));
+      ref.invalidate(supplementsCatalogProvider);
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Something went wrong. Please try again.')),
+        );
+      }
+    }
   }
 }
 
@@ -957,14 +993,24 @@ class _MedicationsTab extends ConsumerWidget {
 
 // ─── Supplements ─────────────────────────────────────────────────────────────
 
-class _SupplementsTab extends ConsumerWidget {
+class _SupplementsTab extends ConsumerStatefulWidget {
   final String personKey;
   const _SupplementsTab({super.key, required this.personKey});
 
+  @override
+  ConsumerState<_SupplementsTab> createState() => _SupplementsTabState();
+}
+
+class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
   static const _forms = ['Tablet', 'Capsule', 'Liquid', 'Powder', 'Gummy', 'Softgel', 'Drops'];
 
+  /// IDs logged this session — shared with _SupplementInsights for instant UI feedback
+  final _loggedThisSession = <String>{};
+
+  String get personKey => widget.personKey;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final logsAsync = ref.watch(supplementsProvider(personKey));
     final today = DateTime.now().toIso8601String().substring(0, 10);
 
@@ -976,7 +1022,7 @@ class _SupplementsTab extends ConsumerWidget {
       body: logsAsync.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
         data: (entries) {
           if (entries.isEmpty) {
             return const Center(child: Text('No supplements yet. Tap + to add.'));
@@ -985,7 +1031,11 @@ class _SupplementsTab extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 80),
             children: [
               // ── Today score + quick-log ───────────────────────────────
-              _SupplementInsights(personKey: personKey),
+              _SupplementInsights(
+                personKey: personKey,
+                loggedThisSession: _loggedThisSession,
+                onLogged: (id) => setState(() => _loggedThisSession.add(id)),
+              ),
 
               // ── All supplements list ─────────────────────────────────
               Padding(
@@ -994,7 +1044,8 @@ class _SupplementsTab extends ConsumerWidget {
               ),
               ...entries.map((item) {
                 final isActive = item['is_active'] == true;
-                final takenToday = item['last_intake_date'] == today;
+                final itemId = item['id']?.toString() ?? '';
+                final takenToday = item['last_intake_date'] == today || _loggedThisSession.contains(itemId);
                 final name = item['supplement_name'] ?? '';
                 final subtitle = [
                   if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
@@ -1305,7 +1356,7 @@ class _SupplementsTab extends ConsumerWidget {
                   await apiClient.dio.post(
                       ApiConstants.supplements, data: data);
                 }
-                ref.invalidate(supplementsProvider);
+                ref.invalidate(supplementsProvider(personKey));
                 ref.invalidate(supplementsCatalogProvider);
                 // Persist and schedule supplement reminder
                 final supId = isEdit ? item['id'].toString() : nameCtrl.text;
@@ -1481,7 +1532,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
                           }
                         }
                       },
@@ -1925,7 +1976,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
       if (mounted) {
         setState(() { _processing = false; _status = 'Point camera at a barcode'; });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: ${e.toString().length > 80 ? '${e.toString().substring(0, 80)}...' : e}'), duration: const Duration(seconds: 3)),
+          const SnackBar(content: Text('Product not found. Try entering manually.'), duration: Duration(seconds: 3)),
         );
         widget.onScanned(barcode ?? '', null, null);
       }
@@ -2350,7 +2401,12 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
           ),
         ],
       ),
-      body: body,
+      body: Column(
+        children: [
+          Expanded(child: body),
+          const MedicalDisclaimer(),
+        ],
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants.dart';
@@ -572,6 +573,7 @@ class _AvatarBar extends ConsumerWidget {
       if (persons.isEmpty) return;
       final i = ((index % persons.length) + persons.length) % persons.length;
       ref.read(selectedPersonProvider.notifier).state = persons[i]['id']!;
+      HapticFeedback.lightImpact();
     }
 
     return GestureDetector(
@@ -618,9 +620,10 @@ class _AvatarBar extends ConsumerWidget {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 5),
                           child: GestureDetector(
-                            onTap: () => ref
-                                .read(selectedPersonProvider.notifier)
-                                .state = p['id']!,
+                            onTap: () {
+                              ref.read(selectedPersonProvider.notifier).state = p['id']!;
+                              HapticFeedback.lightImpact();
+                            },
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -1003,7 +1006,7 @@ class _RingStat extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             '$value $unit',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           Expanded(
             child: Align(

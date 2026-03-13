@@ -28,6 +28,8 @@ class AppUser {
   final int? age;
   final String? gender;
   final double? height;
+  final bool isPregnant;
+  final bool isLactating;
   final UserProfile profile;
 
   AppUser({
@@ -38,6 +40,8 @@ class AppUser {
     this.age,
     this.gender,
     this.height,
+    this.isPregnant = false,
+    this.isLactating = false,
     required this.profile,
   });
 
@@ -51,6 +55,8 @@ class AppUser {
       age: json['age'],
       gender: json['gender'],
       height: (json['height'] as num?)?.toDouble(),
+      isPregnant: json['is_pregnant'] ?? false,
+      isLactating: json['is_lactating'] ?? false,
       profile: UserProfile.fromJson(profileData),
     );
   }
@@ -61,6 +67,8 @@ class AppUser {
     int? age,
     String? gender,
     double? height,
+    bool? isPregnant,
+    bool? isLactating,
     UserProfile? profile,
   }) {
     return AppUser(
@@ -71,6 +79,8 @@ class AppUser {
       age: age ?? this.age,
       gender: gender ?? this.gender,
       height: height ?? this.height,
+      isPregnant: isPregnant ?? this.isPregnant,
+      isLactating: isLactating ?? this.isLactating,
       profile: profile ?? this.profile,
     );
   }

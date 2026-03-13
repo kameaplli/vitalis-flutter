@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../core/api_client.dart';
+import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 
@@ -158,6 +160,56 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     }
   }
 
+  void _showForgotPasswordSheet(BuildContext context) {
+    final emailCtrl = TextEditingController(text: _loginEmail.text.trim());
+    final formKey = GlobalKey<FormState>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Reset Password', style: Theme.of(ctx).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              const Text('Enter your email and we\'ll send you a password reset link.'),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) => (v?.isEmpty ?? true) ? 'Email required' : null,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    Navigator.pop(ctx);
+                    try {
+                      await apiClient.dio.post(ApiConstants.forgotPassword, data: {'email': emailCtrl.text.trim()});
+                    } catch (_) {}
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('If that email exists, a reset link has been sent.')),
+                      );
+                    }
+                  },
+                  child: const Text('Send Reset Link'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_showBiometricLogin) {
@@ -218,7 +270,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                             ),
                             validator: (v) => (v?.isEmpty ?? true) ? 'Password required' : null,
                           ),
-                          const SizedBox(height: 24),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => _showForgotPasswordSheet(context),
+                              child: const Text('Forgot Password?', style: TextStyle(fontSize: 13)),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
@@ -262,7 +321,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                                 onPressed: () => setState(() => _obscureReg = !_obscureReg),
                               ),
                             ),
-                            validator: (v) => (v?.length ?? 0) < 6 ? 'Min 6 characters' : null,
+                            validator: (v) => (v?.length ?? 0) < 8 ? 'Password must be at least 8 characters' : null,
                           ),
                           const SizedBox(height: 24),
                           SizedBox(

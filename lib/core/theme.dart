@@ -32,19 +32,35 @@ class AppTheme {
   }
 
   // ── Resolve skin → ThemeData ───────────────────────────────────────────────
-  static ThemeData forSkin(AppSkin skin) {
+  static ThemeData forSkin(AppSkin skin, {bool darkMode = false}) {
+    final brightness = darkMode ? Brightness.dark : Brightness.light;
+
     switch (skin) {
       case AppSkin.light:
-        return lightTheme;
+        return _buildFromSeed(primarySeed, secondarySeed, tertiarySeed, brightness);
       case AppSkin.dark:
-        return darkTheme;
+        // "Teal Dark" skin — always uses teal seed colors in dark mode.
+        return _buildFromSeed(primarySeed, secondarySeed, tertiarySeed, Brightness.dark);
       case AppSkin.sunset:
-        return sunsetTheme;
+        return _buildFromSeed(_sunsetPrimary, _sunsetSecondary, _sunsetTertiary, brightness);
       case AppSkin.ocean:
-        return oceanTheme;
+        return _buildFromSeed(_oceanPrimary, _oceanSecondary, _oceanTertiary, brightness);
       case AppSkin.lavender:
-        return lavenderTheme;
+        return _buildFromSeed(_lavenderPrimary, _lavenderSecondary, _lavenderTertiary, brightness);
     }
+  }
+
+  static ThemeData _buildFromSeed(
+      Color primary, Color secondary, Color tertiary, Brightness brightness) {
+    return _build(
+      ColorScheme.fromSeed(
+        seedColor: primary,
+        secondary: secondary,
+        tertiary: tertiary,
+        brightness: brightness,
+      ),
+      brightness,
+    );
   }
 
   // ── Shared component config ────────────────────────────────────────────────
@@ -114,58 +130,10 @@ class AppTheme {
     );
   }
 
-  // ── Light theme (Daylight) ─────────────────────────────────────────────────
-  static ThemeData get lightTheme => _build(
-        ColorScheme.fromSeed(
-          seedColor: primarySeed,
-          secondary: secondarySeed,
-          tertiary: tertiarySeed,
-          brightness: Brightness.light,
-        ),
-        Brightness.light,
-      );
-
-  // ── Dark theme ─────────────────────────────────────────────────────────────
-  static ThemeData get darkTheme => _build(
-        ColorScheme.fromSeed(
-          seedColor: primarySeed,
-          secondary: secondarySeed,
-          tertiary: tertiarySeed,
-          brightness: Brightness.dark,
-        ),
-        Brightness.dark,
-      );
-
-  // ── Sunset Glow theme ──────────────────────────────────────────────────────
-  static ThemeData get sunsetTheme => _build(
-        ColorScheme.fromSeed(
-          seedColor: _sunsetPrimary,
-          secondary: _sunsetSecondary,
-          tertiary: _sunsetTertiary,
-          brightness: Brightness.light,
-        ),
-        Brightness.light,
-      );
-
-  // ── Ocean Blue theme ──────────────────────────────────────────────────────
-  static ThemeData get oceanTheme => _build(
-        ColorScheme.fromSeed(
-          seedColor: _oceanPrimary,
-          secondary: _oceanSecondary,
-          tertiary: _oceanTertiary,
-          brightness: Brightness.light,
-        ),
-        Brightness.light,
-      );
-
-  // ── Lavender theme ────────────────────────────────────────────────────────
-  static ThemeData get lavenderTheme => _build(
-        ColorScheme.fromSeed(
-          seedColor: _lavenderPrimary,
-          secondary: _lavenderSecondary,
-          tertiary: _lavenderTertiary,
-          brightness: Brightness.light,
-        ),
-        Brightness.light,
-      );
+  // ── Legacy accessors (kept for compatibility) ────────────────────────────
+  static ThemeData get lightTheme => forSkin(AppSkin.light);
+  static ThemeData get darkTheme => forSkin(AppSkin.dark);
+  static ThemeData get sunsetTheme => forSkin(AppSkin.sunset);
+  static ThemeData get oceanTheme => forSkin(AppSkin.ocean);
+  static ThemeData get lavenderTheme => forSkin(AppSkin.lavender);
 }

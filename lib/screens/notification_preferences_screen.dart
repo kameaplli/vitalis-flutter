@@ -109,7 +109,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving: $e')),
+          const SnackBar(content: Text('Failed to save preferences. Please try again.')),
         );
       }
       return;
