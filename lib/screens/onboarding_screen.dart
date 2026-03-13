@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/router.dart';
+import '../providers/interests_provider.dart';
 import '../services/notification_service.dart';
 
 const _kOnboardingCompleteKey = 'onboarding_complete';
@@ -45,7 +46,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with TickerProviderStateMixin {
   final _pageCtrl = PageController();
   int _page = 0;
-  static const _totalPages = 6;
+
+  // Whether eczema interest is selected — determines which pages to show
+  late final bool _showEczema;
+  int get _totalPages => _showEczema ? 6 : 4; // Without eczema: Welcome, Location, Reminders, Ready
 
   // Swipe-up dismiss state
   double _dismissDy = 0;
@@ -79,6 +83,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    _showEczema = ref.read(userInterestsProvider).contains('eczema');
+
     _entryCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _fadeIn = CurvedAnimation(parent: _entryCtrl, curve: const Interval(0.0, 0.6, curve: Curves.easeOut));
     _slideUp = Tween(begin: const Offset(0, 0.08), end: Offset.zero)
@@ -186,12 +192,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     if (mounted) context.go('/dashboard');
   }
 
+  // ── Gradient sets for dynamic pages ──────────────────────────────────────
+  List<List<Color>> get _activeGradients {
+    if (_showEczema) return _pageGradients;
+    // Without eczema pages: Welcome, Location, Reminders, Ready
+    return [
+      _pageGradients[0], // Welcome
+      _pageGradients[3], // Location
+      _pageGradients[4], // Reminders
+      _pageGradients[5], // Ready
+    ];
+  }
+
   // ── Interpolated gradient background ───────────────────────────────────────
   List<Color> _currentGradient() {
+    final grads = _activeGradients;
     final page = _pageCtrl.hasClients ? (_pageCtrl.page ?? 0.0) : 0.0;
-    final i = page.floor().clamp(0, _totalPages - 2);
+    final i = page.floor().clamp(0, grads.length - 2);
     final t = page - i;
-    return List.generate(3, (c) => Color.lerp(_pageGradients[i][c], _pageGradients[i + 1][c], t)!);
+    return List.generate(3, (c) => Color.lerp(grads[i][c], grads[i + 1][c], t)!);
   }
 
   @override
@@ -269,24 +288,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                         physics: const BouncingScrollPhysics(),
                                         children: [
                                           _WelcomePage(orbCtrl: _orbCtrl),
-                                          _ProblemAreasPage(
-                                            areas: _areas,
-                                            selected: _problemAreas,
-                                            onToggle: (a) => setState(() {
-                                              _problemAreas.contains(a)
-                                                  ? _problemAreas.remove(a)
-                                                  : _problemAreas.add(a);
-                                            }),
-                                          ),
-                                          _TriggersPage(
-                                            triggers: _triggers,
-                                            selected: _knownTriggers,
-                                            onToggle: (t) => setState(() {
-                                              _knownTriggers.contains(t)
-                                                  ? _knownTriggers.remove(t)
-                                                  : _knownTriggers.add(t);
-                                            }),
-                                          ),
+                                          if (_showEczema) ...[
+                                            _ProblemAreasPage(
+                                              areas: _areas,
+                                              selected: _problemAreas,
+                                              onToggle: (a) => setState(() {
+                                                _problemAreas.contains(a)
+                                                    ? _problemAreas.remove(a)
+                                                    : _problemAreas.add(a);
+                                              }),
+                                            ),
+                                            _TriggersPage(
+                                              triggers: _triggers,
+                                              selected: _knownTriggers,
+                                              onToggle: (t) => setState(() {
+                                                _knownTriggers.contains(t)
+                                                    ? _knownTriggers.remove(t)
+                                                    : _knownTriggers.add(t);
+                                              }),
+                                            ),
+                                          ],
                                           _LocationPage(
                                             enabled: _locationEnabled,
                                             onChanged: (v) => setState(() => _locationEnabled = v),

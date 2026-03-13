@@ -37,6 +37,20 @@ final todayHydrationProvider =
   return total;
 });
 
+/// Personalized daily hydration goal in ml, keyed by personId.
+final hydrationGoalProvider =
+    FutureProvider.family<double, String>((ref, person) async {
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.hydrationGoal,
+      queryParameters: {'person': person},
+    );
+    return (res.data['goal_ml'] as num).toDouble();
+  } catch (_) {
+    return 2500.0; // fallback default
+  }
+});
+
 final beveragePresetsProvider = FutureProvider<List<BeveragePreset>>((ref) async {
   final res = await apiClient.dio.get(ApiConstants.beveragePresets);
   return (res.data['presets'] as List<dynamic>)

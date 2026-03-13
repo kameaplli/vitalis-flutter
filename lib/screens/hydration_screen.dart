@@ -9,7 +9,7 @@ import '../widgets/circular_progress_ring.dart';
 import '../core/timezone_util.dart';
 import '../widgets/medical_disclaimer.dart';
 
-const double _dailyGoalMl = 2500;
+const double _defaultGoalMl = 2500;
 
 class HydrationScreen extends ConsumerStatefulWidget {
   const HydrationScreen({super.key});
@@ -39,12 +39,14 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
     final person = ref.watch(selectedPersonProvider);
     final todayAsync = ref.watch(todayHydrationProvider(person));
     final presetsAsync = ref.watch(beveragePresetsProvider);
+    final goalMl = ref.watch(hydrationGoalProvider(person)).valueOrNull ?? _defaultGoalMl;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Hydration')),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(todayHydrationProvider(person));
+          ref.invalidate(hydrationGoalProvider(person));
           ref.invalidate(beveragePresetsProvider);
         },
         child: SingleChildScrollView(
@@ -58,9 +60,9 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
                 error: (_, __) => const SizedBox(),
                 data: (total) => Center(
                   child: CircularProgressRing(
-                    progress: (total / _dailyGoalMl).clamp(0, 1),
+                    progress: (total / goalMl).clamp(0, 1),
                     value: '${(total / 1000).toStringAsFixed(1)} L',
-                    label: 'of ${(_dailyGoalMl / 1000).toStringAsFixed(1)} L goal',
+                    label: 'of ${(goalMl / 1000).toStringAsFixed(1)} L goal',
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
