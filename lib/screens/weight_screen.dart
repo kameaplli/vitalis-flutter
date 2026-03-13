@@ -110,7 +110,6 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   data: (history) {
                     // BMI badge
                     final latest = history.entries.isNotEmpty ? history.entries.last : null;
-                    final ideal = history.idealWeight;
                     final idealMin = history.idealMin;
                     final idealMax = history.idealMax;
                     String? bmiLabel;
@@ -429,39 +428,78 @@ class _WeightInputCard extends StatefulWidget {
 }
 
 class _WeightInputCardState extends State<_WeightInputCard> {
-  double _sliderValue = 70.0;
+  // Weight stored as integer grams for precision (e.g. 70050 = 70.05 kg)
+  late int _wholeKg;
+  late int _grams; // 0, 50, 100, ..., 950
+  late FixedExtentScrollController _kgController;
+  late FixedExtentScrollController _gController;
   bool _initialized = false;
+
+  static const _minKg = 20;
+  static const _maxKg = 250;
+  // 50g steps: 0, 50, 100, 150, ..., 950 → 20 items
+  static const _gramSteps = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _wholeKg = 70;
+    _grams = 0;
+    _kgController = FixedExtentScrollController(initialItem: _wholeKg - _minKg);
+    _gController = FixedExtentScrollController(initialItem: 0);
+  }
+
+  @override
+  void dispose() {
+    _kgController.dispose();
+    _gController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(_WeightInputCard old) {
     super.didUpdateWidget(old);
+    _tryInit();
+  }
+
+  void _tryInit() {
     if (!_initialized && widget.idealWeight != null) {
-      _sliderValue = widget.idealWeight!;
-      widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
+      final w = widget.idealWeight!;
+      _wholeKg = w.truncate();
+      _grams = ((w - _wholeKg) * 1000).round();
+      // Snap grams to nearest 50
+      _grams = ((_grams / 50).round() * 50).clamp(0, 950);
+      _kgController.jumpToItem(_wholeKg - _minKg);
+      _gController.jumpToItem(_grams ~/ 50);
+      _syncText();
       _initialized = true;
     }
   }
 
+  void _syncText() {
+    final weight = _wholeKg + _grams / 1000.0;
+    widget.weightCtrl.text = weight.toStringAsFixed(
+        _grams % 100 == 0 ? 1 : 2);
+  }
+
+  double get _weight => _wholeKg + _grams / 1000.0;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (!_initialized && widget.idealWeight != null) {
-      _sliderValue = widget.idealWeight!;
-      widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
-      _initialized = true;
-    }
+    _tryInit();
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Title
             Row(
               children: [
                 Icon(Icons.monitor_weight_outlined, color: cs.primary, size: 20),
@@ -469,71 +507,129 @@ class _WeightInputCardState extends State<_WeightInputCard> {
                 Text('Log Weight', style: Theme.of(context).textTheme.titleSmall),
               ],
             ),
-            const SizedBox(height: 20),
-            // Large weight display
-            Center(
-              child: Column(
+            const SizedBox(height: 8),
+
+            // Scroll wheel picker
+            SizedBox(
+              height: 160,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _sliderValue.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w300,
-                      color: cs.onSurface,
-                      letterSpacing: -1,
+                  // Kg wheel
+                  SizedBox(
+                    width: 80,
+                    child: ListWheelScrollView.useDelegate(
+                      controller: _kgController,
+                      itemExtent: 44,
+                      perspective: 0.003,
+                      diameterRatio: 1.5,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (i) {
+                        setState(() => _wholeKg = _minKg + i);
+                        _syncText();
+                        HapticFeedback.selectionClick();
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        childCount: _maxKg - _minKg + 1,
+                        builder: (ctx, i) {
+                          final kg = _minKg + i;
+                          final selected = kg == _wholeKg;
+                          return Center(
+                            child: Text(
+                              '$kg',
+                              style: TextStyle(
+                                fontSize: selected ? 32 : 20,
+                                fontWeight: selected ? FontWeight.w700 : FontWeight.w300,
+                                color: selected
+                                    ? cs.onSurface
+                                    : cs.onSurface.withValues(alpha: 0.25),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                  Text('kg', style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+                  // Decimal separator
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('.', style: TextStyle(
+                      fontSize: 32, fontWeight: FontWeight.w700, color: cs.onSurface,
+                    )),
+                  ),
+                  // Grams wheel (50g steps)
+                  SizedBox(
+                    width: 80,
+                    child: ListWheelScrollView.useDelegate(
+                      controller: _gController,
+                      itemExtent: 44,
+                      perspective: 0.003,
+                      diameterRatio: 1.5,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (i) {
+                        setState(() => _grams = i * 50);
+                        _syncText();
+                        HapticFeedback.selectionClick();
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        childCount: _gramSteps,
+                        builder: (ctx, i) {
+                          final g = i * 50;
+                          final selected = g == _grams;
+                          // Display as fractional: 0→.0, 50→.05, 100→.1, ..., 950→.95
+                          final label = g < 100
+                              ? '${(g ~/ 10).toString().padLeft(2, '0')}'
+                              : '${(g ~/ 10)}';
+                          return Center(
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: selected ? 32 : 20,
+                                fontWeight: selected ? FontWeight.w700 : FontWeight.w300,
+                                color: selected
+                                    ? cs.onSurface
+                                    : cs.onSurface.withValues(alpha: 0.25),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Unit
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('kg', style: TextStyle(
+                      fontSize: 18, color: cs.onSurfaceVariant,
+                    )),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            // Slider with 50g steps
-            SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: cs.primary,
-                inactiveTrackColor: cs.primary.withOpacity(0.12),
-                thumbColor: cs.primary,
-                overlayColor: cs.primary.withOpacity(0.12),
-                trackHeight: 6,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-              ),
-              child: Slider(
-                value: _sliderValue.clamp(30.0, 200.0),
-                min: 30,
-                max: 200,
-                divisions: 3400, // (200-30) / 0.05 = 3400 -> 50g steps
-                onChanged: (v) {
-                  setState(() {
-                    _sliderValue = (v * 20).round() / 20; // snap to 50g
-                    widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
-                  });
-                  HapticFeedback.selectionClick();
-                },
+
+            // Selection indicator line
+            Container(
+              width: 180,
+              height: 2,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(1),
               ),
             ),
-            // Fine-tune buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _tuneButton(context, '-0.5', -0.5),
-                _tuneButton(context, '-0.1', -0.1),
-                const SizedBox(width: 24),
-                _tuneButton(context, '+0.1', 0.1),
-                _tuneButton(context, '+0.5', 0.5),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Notes field
+
+            const SizedBox(height: 12),
+            // Notes
             TextFormField(
               controller: widget.notesCtrl,
               decoration: InputDecoration(
                 labelText: 'Notes (optional)',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                isDense: true,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             // Submit
             SizedBox(
               width: double.infinity,
@@ -545,42 +641,13 @@ class _WeightInputCardState extends State<_WeightInputCard> {
                         width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.check_rounded),
-                label: const Text('Log Weight'),
+                label: Text('Log ${_weight.toStringAsFixed(1)} kg'),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tuneButton(BuildContext context, String label, double delta) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          setState(() {
-            _sliderValue = (_sliderValue + delta).clamp(30.0, 200.0);
-            _sliderValue = (_sliderValue * 20).round() / 20; // snap to 50g
-            widget.weightCtrl.text = _sliderValue.toStringAsFixed(1);
-          });
-          HapticFeedback.selectionClick();
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(label, style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          )),
         ),
       ),
     );

@@ -16,9 +16,19 @@ class WeightChartWidget extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     if (logs.isEmpty) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: Text('No weight entries yet')),
+      return SizedBox(
+        height: 140,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.show_chart_rounded, size: 40, color: cs.outlineVariant),
+              const SizedBox(height: 8),
+              Text('No weight entries yet',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+            ],
+          ),
+        ),
       );
     }
 
@@ -26,126 +36,224 @@ class WeightChartWidget extends StatelessWidget {
     final dataMin = weights.reduce((a, b) => a < b ? a : b);
     final dataMax = weights.reduce((a, b) => a > b ? a : b);
 
-    // Y-axis: start 5kg below ideal (or data min), end 5kg above ideal (or data max)
+    // Y-axis: tight around data, include ideal range
     double minY, maxY;
     if (idealMin != null && idealMax != null) {
-      minY = [dataMin - 2, idealMin - 5.0].reduce((a, b) => a < b ? a : b);
-      maxY = [dataMax + 2, idealMax + 5.0].reduce((a, b) => a > b ? a : b);
+      minY = [dataMin, idealMin].reduce((a, b) => a < b ? a : b) - 3;
+      maxY = [dataMax, idealMax].reduce((a, b) => a > b ? a : b) + 3;
     } else {
-      minY = dataMin - 3;
-      maxY = dataMax + 3;
+      minY = dataMin - 2;
+      maxY = dataMax + 2;
     }
-    // Round to nearest 0.5
-    minY = (minY * 2).floorToDouble() / 2;
-    maxY = (maxY * 2).ceilToDouble() / 2;
+    // Round to whole kg
+    minY = minY.floorToDouble();
+    maxY = maxY.ceilToDouble();
 
-    final spots = logs.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.weight);
-    }).toList();
-
+    final spots = logs.asMap().entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value.weight))
+        .toList();
     final dates = logs.map((l) => l.date).toList();
 
+    // Stats
+    final latest = weights.last;
+    final first = weights.first;
+    final change = latest - first;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Stats row
+        if (logs.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                _StatChip(
+                  label: 'Current',
+                  value: '${latest.toStringAsFixed(1)} kg',
+                  color: cs.primary,
+                ),
+                const SizedBox(width: 8),
+                if (ideal != null)
+                  _StatChip(
+                    label: 'Goal',
+                    value: '${ideal.toStringAsFixed(1)} kg',
+                    color: Colors.green.shade600,
+                  ),
+                if (ideal != null) const SizedBox(width: 8),
+                _StatChip(
+                  label: logs.length > 1 ? 'Change' : 'Start',
+                  value: '${change >= 0 ? "+" : ""}${change.toStringAsFixed(1)}',
+                  color: change.abs() < 0.5
+                      ? cs.onSurfaceVariant
+                      : change > 0
+                          ? Colors.red.shade400
+                          : Colors.green.shade600,
+                ),
+              ],
+            ),
+          ),
+
+        // Chart
         SizedBox(
-          height: 280,
+          height: 220,
           width: double.infinity,
-          child: LineChart(LineChartData(
-            minY: minY,
-            maxY: maxY,
-            clipData: FlClipData.all(),
-            lineBarsData: _buildLines(spots, logs, ideal, idealMin, idealMax),
-            betweenBarsData: _buildBands(ideal, idealMin, idealMax, logs.length),
-            rangeAnnotations: _buildZones(idealMin, idealMax, minY, maxY),
-            titlesData: FlTitlesData(
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 44,
-                  interval: _yInterval(minY, maxY),
-                  getTitlesWidget: (v, _) => Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Text(
-                      v.toStringAsFixed(1),
-                      style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
-                      textAlign: TextAlign.right,
+          child: LineChart(
+            LineChartData(
+              minY: minY,
+              maxY: maxY,
+              clipData: const FlClipData.all(),
+              // Zone backgrounds
+              rangeAnnotations: _zones(idealMin, idealMax, minY, maxY),
+              lineBarsData: [
+                // Main weight line
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  preventCurveOverShooting: true,
+                  curveSmoothness: 0.25,
+                  color: cs.primary,
+                  barWidth: 2.5,
+                  shadow: Shadow(
+                    color: cs.primary.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                  dotData: FlDotData(
+                    show: logs.length <= 30,
+                    getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                      radius: logs.length <= 10 ? 4 : 2.5,
+                      color: _dotColor(spot.y, idealMin, idealMax),
+                      strokeWidth: 2,
+                      strokeColor: cs.surface,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        cs.primary.withValues(alpha: 0.15),
+                        cs.primary.withValues(alpha: 0.0),
+                      ],
                     ),
                   ),
                 ),
+                // Ideal weight line
+                if (ideal != null && logs.length > 1)
+                  LineChartBarData(
+                    spots: [
+                      FlSpot(0, ideal),
+                      FlSpot((logs.length - 1).toDouble(), ideal),
+                    ],
+                    isCurved: false,
+                    color: Colors.green.shade400,
+                    barWidth: 1,
+                    dashArray: [8, 6],
+                    dotData: const FlDotData(show: false),
+                  ),
+              ],
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    interval: _interval(maxY - minY),
+                    getTitlesWidget: (v, _) => Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        v.toStringAsFixed(v % 1 == 0 ? 0 : 1),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: _xInterval(logs.length),
+                    getTitlesWidget: (v, _) {
+                      final idx = v.toInt();
+                      if (idx < 0 || idx >= dates.length) return const SizedBox.shrink();
+                      final p = dates[idx].split('-');
+                      final label = p.length >= 3 ? '${p[2]}/${p[1]}' : dates[idx];
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 28,
-                  interval: logs.length > 10 ? (logs.length / 5).roundToDouble() : 1,
-                  getTitlesWidget: (v, _) {
-                    final idx = v.toInt();
-                    if (idx < 0 || idx >= dates.length) return const SizedBox.shrink();
-                    final parts = dates[idx].split('-');
-                    final label = parts.length >= 3 ? '${parts[2]}/${parts[1]}' : dates[idx];
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(label, style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant)),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: _interval(maxY - minY),
+                getDrawingHorizontalLine: (_) => FlLine(
+                  color: cs.outlineVariant.withValues(alpha: 0.2),
+                  strokeWidth: 0.5,
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              lineTouchData: LineTouchData(
+                handleBuiltInTouches: true,
+                touchTooltipData: LineTouchTooltipData(
+                  tooltipRoundedRadius: 12,
+                  tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  getTooltipItems: (spots) => spots.map((s) {
+                    if (s.barIndex != 0) return null;
+                    final idx = s.x.toInt();
+                    final d = idx >= 0 && idx < dates.length ? dates[idx] : '';
+                    final p = d.split('-');
+                    final fmtDate = p.length >= 3 ? '${p[2]} ${_monthName(p[1])}' : d;
+                    String extra = '';
+                    if (ideal != null) {
+                      final diff = s.y - ideal;
+                      extra = '\n${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(1)} from goal';
+                    }
+                    return LineTooltipItem(
+                      '${s.y.toStringAsFixed(1)} kg\n$fmtDate$extra',
+                      TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
                     );
-                  },
+                  }).toList(),
                 ),
               ),
             ),
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: false,
-              horizontalInterval: _yInterval(minY, maxY),
-              getDrawingHorizontalLine: (_) => FlLine(
-                color: cs.outlineVariant.withOpacity(0.3),
-                strokeWidth: 0.5,
-              ),
-            ),
-            borderData: FlBorderData(
-              show: true,
-              border: Border(
-                bottom: BorderSide(color: cs.outlineVariant, width: 0.5),
-                left: BorderSide(color: cs.outlineVariant, width: 0.5),
-              ),
-            ),
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                tooltipRoundedRadius: 8,
-                fitInsideHorizontally: true,
-                fitInsideVertically: true,
-                getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
-                  if (s.barIndex != 0) return null;
-                  final idx = s.x.toInt();
-                  final dateStr = idx >= 0 && idx < dates.length ? dates[idx] : '';
-                  final parts = dateStr.split('-');
-                  final fmtDate = parts.length >= 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : dateStr;
-                  final diffStr = ideal != null
-                      ? '\n${(s.y - ideal) > 0 ? "+" : ""}${(s.y - ideal).toStringAsFixed(1)} from ideal'
-                      : '';
-                  return LineTooltipItem(
-                    '${s.y.toStringAsFixed(1)} kg\n$fmtDate$diffStr',
-                    const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600, height: 1.4),
-                  );
-                }).toList(),
-              ),
-            ),
-          )),
+          ),
         ),
-        const SizedBox(height: 12),
-        // Legend row
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 16,
-          runSpacing: 4,
+        const SizedBox(height: 10),
+        // Minimal legend
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _legendItem(cs.primary, 'Actual', isLine: true),
-            if (ideal != null)
-              _legendItem(Colors.green.shade600, 'Ideal (${ideal.toStringAsFixed(1)} kg)', isDashed: true),
-            if (idealMin != null && idealMax != null) ...[
-              _legendItem(Colors.green.withOpacity(0.25), 'Healthy', isBand: true),
-              _legendItem(Colors.amber.withOpacity(0.25), 'Caution', isBand: true),
-              _legendItem(Colors.red.withOpacity(0.20), 'Risk', isBand: true),
+            _dot(cs.primary, 'Weight'),
+            if (ideal != null) ...[
+              const SizedBox(width: 16),
+              _dash(Colors.green.shade400, 'Goal'),
+            ],
+            if (idealMin != null) ...[
+              const SizedBox(width: 16),
+              _band(Colors.green, 'Healthy'),
             ],
           ],
         ),
@@ -153,155 +261,111 @@ class WeightChartWidget extends StatelessWidget {
     );
   }
 
-  double _yInterval(double minY, double maxY) {
-    final range = maxY - minY;
-    if (range <= 5) return 0.5;
-    if (range <= 10) return 1;
-    if (range <= 20) return 2;
+  static String _monthName(String m) {
+    const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final i = int.tryParse(m) ?? 0;
+    return i > 0 && i < 13 ? months[i] : m;
+  }
+
+  static double _interval(double range) {
+    if (range <= 4) return 0.5;
+    if (range <= 8) return 1;
+    if (range <= 16) return 2;
     return 5;
   }
 
-  List<LineChartBarData> _buildLines(
-    List<FlSpot> spots,
-    List<WeightLog> logs,
-    double? ideal,
-    double? idealMin,
-    double? idealMax,
-  ) {
-    final lines = <LineChartBarData>[
-      // Actual weight line
-      LineChartBarData(
-        spots: spots,
-        isCurved: true,
-        preventCurveOverShooting: true,
-        color: Colors.blue.shade600,
-        barWidth: 2.5,
-        dotData: FlDotData(
-          show: true,
-          getDotPainter: (spot, _, __, ___) {
-            Color dotColor = Colors.blue.shade600;
-            if (idealMin != null && idealMax != null) {
-              final w = spot.y;
-              if (w >= idealMin && w <= idealMax) {
-                dotColor = Colors.green.shade600;
-              } else if (w < idealMin - 5 || w > idealMax + 5) {
-                dotColor = Colors.red.shade600;
-              } else {
-                dotColor = Colors.amber.shade700;
-              }
-            }
-            return FlDotCirclePainter(
-              radius: logs.length <= 14 ? 3.5 : 2,
-              color: dotColor,
-              strokeWidth: 1.5,
-              strokeColor: Colors.white,
-            );
-          },
-        ),
-        belowBarData: BarAreaData(show: false),
-      ),
-    ];
-
-    // Ideal weight dashed line
-    if (ideal != null && logs.length > 1) {
-      lines.add(LineChartBarData(
-        spots: [FlSpot(0, ideal), FlSpot((logs.length - 1).toDouble(), ideal)],
-        isCurved: false,
-        color: Colors.green.shade600,
-        barWidth: 1.5,
-        dashArray: [6, 4],
-        dotData: FlDotData(show: false),
-      ));
-    }
-
-    return lines;
+  static double _xInterval(int count) {
+    if (count <= 7) return 1;
+    if (count <= 14) return 2;
+    if (count <= 30) return 5;
+    return (count / 6).roundToDouble();
   }
 
-  List<BetweenBarsData> _buildBands(
-    double? ideal,
-    double? idealMin,
-    double? idealMax,
-    int count,
-  ) {
-    return []; // Using rangeAnnotations instead for cleaner zone rendering
+  static Color _dotColor(double w, double? idealMin, double? idealMax) {
+    if (idealMin == null || idealMax == null) return Colors.blue.shade600;
+    if (w >= idealMin && w <= idealMax) return Colors.green.shade500;
+    if (w < idealMin - 5 || w > idealMax + 5) return Colors.red.shade400;
+    return Colors.amber.shade600;
   }
 
-  RangeAnnotations _buildZones(
-    double? idealMin,
-    double? idealMax,
-    double minY,
-    double maxY,
-  ) {
-    if (idealMin == null || idealMax == null) return RangeAnnotations();
-
+  RangeAnnotations _zones(double? idealMin, double? idealMax, double minY, double maxY) {
+    if (idealMin == null || idealMax == null) return const RangeAnnotations();
     return RangeAnnotations(
       horizontalRangeAnnotations: [
-        // Red zone: far below
-        if (minY < idealMin - 5)
-          HorizontalRangeAnnotation(
-            y1: minY,
-            y2: idealMin - 5,
-            color: Colors.red.withOpacity(0.08),
-          ),
-        // Amber zone: slightly below
+        // Green: healthy range
         HorizontalRangeAnnotation(
-          y1: (idealMin - 5).clamp(minY, idealMin),
-          y2: idealMin,
-          color: Colors.amber.withOpacity(0.08),
+          y1: idealMin.clamp(minY, maxY),
+          y2: idealMax.clamp(minY, maxY),
+          color: Colors.green.withValues(alpha: 0.07),
         ),
-        // Green zone: healthy range
-        HorizontalRangeAnnotation(
-          y1: idealMin,
-          y2: idealMax,
-          color: Colors.green.withOpacity(0.10),
-        ),
-        // Amber zone: slightly above
-        HorizontalRangeAnnotation(
-          y1: idealMax,
-          y2: (idealMax + 5).clamp(idealMax, maxY),
-          color: Colors.amber.withOpacity(0.08),
-        ),
-        // Red zone: far above
-        if (maxY > idealMax + 5)
-          HorizontalRangeAnnotation(
-            y1: idealMax + 5,
-            y2: maxY,
-            color: Colors.red.withOpacity(0.08),
-          ),
       ],
     );
   }
 
-  static Widget _legendItem(Color color, String label,
-      {bool isLine = false, bool isDashed = false, bool isBand = false}) {
-    Widget marker;
-    if (isBand) {
-      marker = Container(
-        width: 14, height: 10,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      );
-    } else if (isDashed) {
-      marker = Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 5, height: 2, color: color),
-        const SizedBox(width: 2),
-        Container(width: 5, height: 2, color: color),
-      ]);
-    } else {
-      marker = Container(
-        width: 14, height: 3,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      );
-    }
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      marker,
+  static Widget _dot(Color c, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-    ]);
+      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+    ],
+  );
+
+  static Widget _dash(Color c, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(width: 14, child: Row(children: [
+        Container(width: 5, height: 1.5, color: c),
+        const SizedBox(width: 2),
+        Container(width: 5, height: 1.5, color: c),
+      ])),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+    ],
+  );
+
+  static Widget _band(Color c, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 14, height: 8,
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+    ],
+  );
+}
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _StatChip({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Text(value,
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+          ],
+        ),
+      ),
+    );
   }
 }
