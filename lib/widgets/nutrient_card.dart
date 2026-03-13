@@ -115,7 +115,7 @@ class _CompletenessBar extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text('$pct% data',
-            style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
       ],
     );
   }
@@ -218,7 +218,7 @@ class _NutrientDetail extends ConsumerWidget {
                     const SizedBox(width: 4),
                     Text(
                       'Source: ${_formatSource(data.source!)}',
-                      style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ],
                 ),
@@ -303,7 +303,7 @@ class _MacroChip extends StatelessWidget {
                   fontSize: 12, fontWeight: FontWeight.bold, color: color),
             ),
             Text('$label',
-                style: TextStyle(fontSize: 8, color: Colors.grey.shade600)),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
           ],
         ),
       ),
@@ -371,7 +371,7 @@ class _NutrientChip extends StatelessWidget {
           Text(
             nutrient.displayName,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
               color: hasData ? cs.onPrimaryContainer : cs.onSurfaceVariant,
             ),
@@ -382,7 +382,7 @@ class _NutrientChip extends StatelessWidget {
                 ? '${_formatValue(nutrient.value!)}${nutrient.unit}'
                 : '—',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: hasData
                   ? cs.onPrimaryContainer.withOpacity(0.8)
                   : cs.onSurfaceVariant.withOpacity(0.5),

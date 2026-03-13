@@ -11,7 +11,7 @@ class MedicalDisclaimer extends StatelessWidget {
         'This app is for informational purposes only and does not provide medical advice. '
         'Always consult a qualified healthcare provider before making dietary or health changes.',
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         textAlign: TextAlign.center,

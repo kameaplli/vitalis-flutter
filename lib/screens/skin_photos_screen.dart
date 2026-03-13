@@ -167,7 +167,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text('${photo.severityUser}/10',
-                                style: const TextStyle(fontSize: 9, color: Colors.white)),
+                                style: const TextStyle(fontSize: 11, color: Colors.white)),
                           ),
                         ),
                     ],

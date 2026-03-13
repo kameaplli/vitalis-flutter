@@ -15,14 +15,16 @@ class CalendarHeatmap extends StatelessWidget {
     this.onDayTap,
   });
 
+  /// Colorblind-safe sequential palette (blue → orange).
+  /// Distinguishable by all common forms of color vision deficiency.
   static Color _severityColor(double? severity) {
     if (severity == null) return Colors.grey.shade200;
-    if (severity <= 0) return const Color(0xFFE8F5E9);
-    if (severity <= 2) return const Color(0xFFA5D6A7);
-    if (severity <= 4) return const Color(0xFFFFF9C4);
-    if (severity <= 6) return const Color(0xFFFFCC80);
-    if (severity <= 8) return const Color(0xFFEF9A9A);
-    return const Color(0xFFC62828);
+    if (severity <= 0) return const Color(0xFFE1F5FE); // very light blue (clear)
+    if (severity <= 2) return const Color(0xFFB3E5FC); // light blue (mild)
+    if (severity <= 4) return const Color(0xFF4FC3F7); // medium blue (moderate)
+    if (severity <= 6) return const Color(0xFFFFB74D); // amber/orange (moderate-severe)
+    if (severity <= 8) return const Color(0xFFF57C00); // deep orange (severe)
+    return const Color(0xFFE65100);                     // dark orange (very severe)
   }
 
   @override
@@ -77,7 +79,7 @@ class CalendarHeatmap extends StatelessWidget {
                   width: cellSize + gap,
                   child: showLabel
                       ? Text(DateFormat('MMM').format(firstDay!),
-                          style: TextStyle(fontSize: 8, color: Colors.grey.shade600))
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600))
                       : null,
                 );
               }),
@@ -95,7 +97,7 @@ class CalendarHeatmap extends StatelessWidget {
                 height: cellSize + gap,
                 child: Center(
                   child: Text(dayLabels[i],
-                      style: TextStyle(fontSize: 8, color: Colors.grey.shade500)),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 ),
               )),
             ),
@@ -146,7 +148,7 @@ class CalendarHeatmap extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Less', style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+            Text('Less', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
             const SizedBox(width: 4),
             for (final s in [0.0, 2.0, 4.0, 6.0, 8.0, 10.0])
               Container(
@@ -158,7 +160,7 @@ class CalendarHeatmap extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 4),
-            Text('More', style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+            Text('More', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
           ],
         ),
       ],

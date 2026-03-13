@@ -206,7 +206,7 @@ class _EasiPanelState extends State<EasiPanel> {
                     Text(_areaLabels[i],
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 11,
                         color: selected ? borderColor : Colors.grey.shade400,
                         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                         height: 1.2,
@@ -312,7 +312,7 @@ class SkinParamRow extends StatelessWidget {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            Text(question, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+            Text(question, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
           ]),
         ),
         const SizedBox(width: 10),

@@ -213,7 +213,7 @@ class _HealthReportTab extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text('$confidence%',
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.deepPurple)),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.deepPurple)),
                           )
                         : null,
                     color: Colors.deepPurple,
@@ -231,7 +231,7 @@ class _HealthReportTab extends ConsumerWidget {
                     title: m['title'] ?? '',
                     body: m['body'] ?? '',
                     trailing: m['timeframe'] != null
-                        ? Text(m['timeframe'], style: TextStyle(fontSize: 10, color: Colors.grey.shade500))
+                        ? Text(m['timeframe'], style: TextStyle(fontSize: 11, color: Colors.grey.shade500))
                         : null,
                     color: Colors.indigo,
                   );
@@ -259,7 +259,7 @@ class _HealthReportTab extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(priority.toString().toUpperCase(),
-                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: pColor)),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: pColor)),
                       ),
                     ),
                   );
@@ -268,7 +268,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               const SizedBox(height: 20),
               Text('This is not medical advice. Consult your healthcare provider.',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
                   textAlign: TextAlign.center),
             ],
           ),
@@ -353,7 +353,7 @@ class _DataSummaryRow extends StatelessWidget {
                     Text(it.value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                   ],
                 ),
-                Text(it.label, style: TextStyle(fontSize: 9, color: Colors.grey.shade500)),
+                Text(it.label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
               ],
             ),
           );
@@ -464,7 +464,7 @@ class _WeeklyTab extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(r.priority.toUpperCase(),
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
                     ),
                   ),
                 );
@@ -472,7 +472,7 @@ class _WeeklyTab extends ConsumerWidget {
             ],
             const SizedBox(height: 16),
             Text('This is not medical advice. Consult your dermatologist.',
-                style: TextStyle(fontSize: 10, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
                 textAlign: TextAlign.center),
           ],
         );
@@ -503,7 +503,7 @@ class _InsightCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
                 if (item.confidence > 0)
                   Text('${(item.confidence * 100).toInt()}%',
-                      style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
               ],
             ),
             const SizedBox(height: 8),
@@ -656,7 +656,7 @@ class _AskAiTab extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const Spacer(),
                     Text('${(result!.confidence * 100).toInt()}% confidence',
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                   ]),
                   const SizedBox(height: 12),
                   Text(result!.answer, style: const TextStyle(fontSize: 13)),
@@ -689,7 +689,7 @@ class _AskAiTab extends StatelessWidget {
                   ],
                   const SizedBox(height: 8),
                   Text('This is not medical advice.',
-                      style: TextStyle(fontSize: 9, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
                 ],
               ),
             ),

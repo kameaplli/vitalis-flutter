@@ -201,7 +201,7 @@ class _ProductCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text('${f.ingredient} (${f.category})',
-                        style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w500)),
+                        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
                   );
                 }).toList(),
               ),

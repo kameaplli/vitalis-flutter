@@ -115,8 +115,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // ── Secondary / deep-link routes ────────────────────────────────
           GoRoute(path: '/hydration',  builder: (_, __) => const HydrationScreen()),
-          GoRoute(path: '/weight',     builder: (_, __) => const WeightScreen()),
-          GoRoute(path: '/eczema',     builder: (_, __) => const EczemaScreen()),
           GoRoute(path: '/entries',    builder: (_, __) => const EntriesScreen()),
           GoRoute(path: '/profile',    builder: (_, __) => const ProfileScreen()),
           GoRoute(path: '/scanner',    builder: (_, __) => const ScannerScreen()),

@@ -95,7 +95,7 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(s.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        Text(s.description, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                        Text(s.description, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                       ],
                     ),
                   ),
@@ -121,7 +121,7 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
                           improved
                               ? '-${improvement.toStringAsFixed(1)} itch'
                               : '+${(-improvement).toStringAsFixed(1)} itch',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                               color: improved ? Colors.green : Colors.red),
                         ),
                       ],

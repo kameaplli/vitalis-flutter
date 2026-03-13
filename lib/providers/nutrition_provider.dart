@@ -24,6 +24,15 @@ class SelectedFood {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
+/// Infer meal type from the current time of day.
+String inferMealType() {
+  final hour = DateTime.now().hour;
+  if (hour < 11) return 'breakfast';
+  if (hour < 14) return 'lunch';
+  if (hour < 17) return 'snack';
+  return 'dinner';
+}
+
 class NutritionState {
   final List<SelectedFood> selectedFoods;
   final String mealType;
@@ -35,13 +44,14 @@ class NutritionState {
 
   NutritionState({
     this.selectedFoods = const [],
-    this.mealType = 'lunch',
+    String? mealType,
     this.forChild,
     this.isLoading = false,
     this.error,
     TimeOfDay? mealTime,
     this.editEntryId,
-  }) : mealTime = mealTime ?? TimeOfDay.now();
+  }) : mealType = mealType ?? inferMealType(),
+       mealTime = mealTime ?? TimeOfDay.now();
 
   double get totalCalories => selectedFoods.fold(0.0, (s, f) => s + f.calories);
   double get totalProtein  => selectedFoods.fold(0.0, (s, f) => s + f.protein);

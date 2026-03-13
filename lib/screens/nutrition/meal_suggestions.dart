@@ -124,7 +124,7 @@ class _SuggestionCard extends ConsumerWidget {
                   child: Text(
                     '${meal.count}x',
                     style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: cs.primary),
                   ),
@@ -146,7 +146,7 @@ class _SuggestionCard extends ConsumerWidget {
             Text(
               '${totalCal.round()} kcal',
               style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: cs.onSurfaceVariant,
                   fontWeight: FontWeight.w600),
             ),

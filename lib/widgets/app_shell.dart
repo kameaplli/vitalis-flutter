@@ -7,6 +7,7 @@ import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../models/dashboard_data.dart';
 import '../providers/auth_provider.dart';
+import '../providers/connectivity_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
@@ -22,7 +23,7 @@ const _kRing1Box = _kAvatarRadius * 2 + 2 * (_kRingGap + _kStroke);
 const _kRing2Box = _kRing1Box     + 2 * (_kRingGap + _kStroke);
 const _kRing3Box = _kRing2Box     + 2 * (_kRingGap + _kStroke);
 
-const _kSmallAvatarRadius = 16.0;
+const _kSmallAvatarRadius = 20.0;
 const _kSmallRingStroke   = 2.5;
 const _kSmallRingGap      = 2.0;
 const _kSmallRingBox = _kSmallAvatarRadius * 2 + 2 * (_kSmallRingGap + _kSmallRingStroke);
@@ -165,6 +166,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final hidePersonSwitcher = location.startsWith('/finance') ||
         location.startsWith('/grocery');
 
+    final isOnline = ref.watch(connectivityProvider);
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -176,6 +179,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               _AvatarBar(user: user, children: children)
             else
               _SoloTopBar(user: user),
+            if (!isOnline)
+              _OfflineBanner(onRetry: () => ref.read(connectivityProvider.notifier).refresh()),
             Expanded(child: widget.child),
           ],
         ),
@@ -280,7 +285,7 @@ class _BottomNavWithGenie extends StatelessWidget {
                         offset: const Offset(0, -16),
                         child: Text('Zenie',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: cs.onSurfaceVariant,
                           ),
@@ -330,7 +335,7 @@ class _NavItem extends StatelessWidget {
             Icon(isSelected ? activeIcon : icon, size: 22, color: color),
             const SizedBox(height: 2),
             Text(label,
-                style: TextStyle(fontSize: 10, color: color,
+                style: TextStyle(fontSize: 11, color: color,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
           ],
         ),
@@ -464,6 +469,40 @@ class _BiometricLockScreen extends StatelessWidget {
               onPressed: onRetry,
               icon: const Icon(Icons.fingerprint),
               label: const Text('Unlock'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Offline banner ────────────────────────────────────────────────────────────
+
+class _OfflineBanner extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _OfflineBanner({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            Icon(Icons.wifi_off, size: 16, color: cs.onErrorContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'You\'re offline \u2014 some features may be limited',
+                style: TextStyle(fontSize: 12, color: cs.onErrorContainer),
+              ),
+            ),
+            GestureDetector(
+              onTap: onRetry,
+              child: Icon(Icons.refresh, size: 18, color: cs.onErrorContainer),
             ),
           ],
         ),
@@ -638,7 +677,7 @@ class _AvatarBar extends ConsumerWidget {
                                 Text(
                                   _short(p['name'] ?? ''),
                                   style: TextStyle(
-                                      fontSize: 9,
+                                      fontSize: 11,
                                       color: colorScheme.onSurfaceVariant),
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
@@ -670,7 +709,7 @@ class _AvatarBar extends ConsumerWidget {
                             const SizedBox(height: 3),
                             Text('Add',
                                 style: TextStyle(
-                                    fontSize: 9,
+                                    fontSize: 11,
                                     color: colorScheme.primary)),
                           ],
                         ),
@@ -1006,7 +1045,7 @@ class _RingStat extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             '$value $unit',
-            style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           Expanded(
             child: Align(

@@ -133,7 +133,7 @@ class _StatusChip extends StatelessWidget {
         child: Text(
           '$count $label',
           style: TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w600, color: color),
+              fontSize: 11, fontWeight: FontWeight.w600, color: color),
         ),
       ),
     );
@@ -183,7 +183,7 @@ class _MicronutrientDetail extends StatelessWidget {
                 children: [
                   Text('Top Concerns',
                       style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.red.shade700)),
                   const SizedBox(height: 4),
@@ -194,13 +194,13 @@ class _MicronutrientDetail extends StatelessWidget {
                         Expanded(
                           child: Text(
                             c['display_name'] ?? c['tagname'] ?? '',
-                            style: TextStyle(fontSize: 10, color: cs.onSurface),
+                            style: TextStyle(fontSize: 11, color: cs.onSurface),
                           ),
                         ),
                         Text(
                           '${((c['percent_dri'] as num?) ?? 0).toInt()}% DRI',
                           style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: Colors.red.shade600),
                         ),
@@ -247,7 +247,7 @@ class _MicronutrientDetail extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'DRI targets: ${_formatLifeStage(data.lifeStage)}',
-                style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
           ),
@@ -322,7 +322,7 @@ class _NutrientProgressRow extends StatelessWidget {
           SizedBox(
             width: 72,
             child: Text(item.displayName,
-                style: TextStyle(fontSize: 9, color: cs.onSurface),
+                style: TextStyle(fontSize: 11, color: cs.onSurface),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
           ),
@@ -344,7 +344,7 @@ class _NutrientProgressRow extends StatelessWidget {
               target != null
                   ? '${_fmt(item.consumed)}/${_fmt(target)}${item.unit}'
                   : '${_fmt(item.consumed)}${item.unit}',
-              style: TextStyle(fontSize: 8, color: cs.onSurfaceVariant),
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
               textAlign: TextAlign.right,
               maxLines: 1,
             ),
@@ -355,7 +355,7 @@ class _NutrientProgressRow extends StatelessWidget {
             child: Text(
               '${pct.toInt()}%',
               style: TextStyle(
-                  fontSize: 8,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: statusColor),
               textAlign: TextAlign.right,

@@ -75,7 +75,7 @@ class _DaysSliderState extends State<DaysSlider> {
           Text(
             _label(days),
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: cs.primary,
             ),

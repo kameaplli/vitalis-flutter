@@ -100,60 +100,63 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             // ── 5-method food entry hub ────────────────────────────────────
             Text('Add Food', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                EntryMethodCard(
-                  icon: Icons.search,
-                  label: 'Search',
-                  color: Colors.blue,
-                  onTap: () => _showFoodSearch(context),
-                ),
-                const SizedBox(width: 8),
-                EntryMethodCard(
-                  icon: Icons.qr_code_scanner,
-                  label: 'Barcode',
-                  color: Colors.orange,
-                  onTap: () => _showBarcodeScan(context),
-                ),
-                const SizedBox(width: 8),
-                EntryMethodCard(
-                  icon: Icons.camera_alt_outlined,
-                  label: 'Label',
-                  color: Colors.green,
-                  onTap: () => _showLabelScanOptions(context),
-                ),
-                const SizedBox(width: 8),
-                EntryMethodCard(
-                  icon: Icons.restaurant,
-                  label: 'Photo AI',
-                  color: Colors.teal,
-                  onTap: () => _showPhotoFoodRecognition(context),
-                ),
-                const SizedBox(width: 8),
-                EntryMethodCard(
-                  icon: Icons.mic,
-                  label: 'Voice',
-                  color: Colors.purple,
-                  onTap: () {
-                    final personId = ref.read(selectedPersonProvider);
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => VoiceMealSheet(
-                        personId: personId,
-                        onLogged: () {
-                          ref.invalidate(nutritionProvider);
-                          ref.invalidate(dashboardProvider(personId));
-                          ref.invalidate(nutritionEntriesProvider);
-                          ref.invalidate(nutritionAnalyticsProvider);
-                          AppCache.clearAnalytics();
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  EntryMethodCard(
+                    icon: Icons.search,
+                    label: 'Search',
+                    color: Colors.blue,
+                    onTap: () => _showFoodSearch(context),
+                  ),
+                  const SizedBox(width: 8),
+                  EntryMethodCard(
+                    icon: Icons.qr_code_scanner,
+                    label: 'Barcode',
+                    color: Colors.orange,
+                    onTap: () => _showBarcodeScan(context),
+                  ),
+                  const SizedBox(width: 8),
+                  EntryMethodCard(
+                    icon: Icons.camera_alt_outlined,
+                    label: 'Label',
+                    color: Colors.green,
+                    onTap: () => _showLabelScanOptions(context),
+                  ),
+                  const SizedBox(width: 8),
+                  EntryMethodCard(
+                    icon: Icons.restaurant,
+                    label: 'Photo AI',
+                    color: Colors.teal,
+                    onTap: () => _showPhotoFoodRecognition(context),
+                  ),
+                  const SizedBox(width: 8),
+                  EntryMethodCard(
+                    icon: Icons.mic,
+                    label: 'Voice',
+                    color: Colors.purple,
+                    onTap: () {
+                      final personId = ref.read(selectedPersonProvider);
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => VoiceMealSheet(
+                          personId: personId,
+                          onLogged: () {
+                            ref.invalidate(nutritionProvider);
+                            ref.invalidate(dashboardProvider(personId));
+                            ref.invalidate(nutritionEntriesProvider);
+                            ref.invalidate(nutritionAnalyticsProvider);
+                            AppCache.clearAnalytics();
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 16),

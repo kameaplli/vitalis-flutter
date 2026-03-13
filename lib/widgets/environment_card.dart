@@ -183,7 +183,7 @@ class _PollenBar extends StatelessWidget {
       children: [
         Icon(Icons.eco, size: 12, color: color),
         const SizedBox(width: 4),
-        Text('$label: ', style: const TextStyle(fontSize: 10)),
+        Text('$label: ', style: const TextStyle(fontSize: 11)),
         ...List.generate(5, (i) => Container(
           width: 8,
           height: 8,

@@ -160,7 +160,7 @@ class _InsightCardContent extends StatelessWidget {
                 Icon(Icons.swipe, size: 14, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
                 Text('Swipe right = helpful, left = dismiss',
-                    style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
               ],
             ),
           ],

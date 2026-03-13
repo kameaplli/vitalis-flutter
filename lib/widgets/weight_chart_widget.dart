@@ -165,7 +165,7 @@ class WeightChartWidget extends StatelessWidget {
                       child: Text(
                         v.toStringAsFixed(v % 1 == 0 ? 0 : 1),
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),
@@ -189,7 +189,7 @@ class WeightChartWidget extends StatelessWidget {
                         child: Text(
                           label,
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
                         ),
@@ -308,7 +308,7 @@ class WeightChartWidget extends StatelessWidget {
     children: [
       Container(width: 8, height: 8, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+      Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
     ],
   );
 
@@ -321,7 +321,7 @@ class WeightChartWidget extends StatelessWidget {
         Container(width: 5, height: 1.5, color: c),
       ])),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+      Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
     ],
   );
 
@@ -336,7 +336,7 @@ class WeightChartWidget extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 4),
-      Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+      Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
     ],
   );
 }
@@ -362,7 +362,7 @@ class _StatChip extends StatelessWidget {
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
             const SizedBox(height: 2),
             Text(label,
-                style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+                style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.7))),
           ],
         ),
       ),

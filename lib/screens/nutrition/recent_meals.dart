@@ -134,7 +134,7 @@ class _RecentMealChip extends ConsumerWidget {
             Text(
               meal.mealType.toUpperCase(),
               style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: colorScheme.primary,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5),

@@ -200,7 +200,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                                     fontWeight: FontWeight.w600, fontSize: 13)),
                             Text(
                               '${meal.totalCalories.toStringAsFixed(0)} kcal · $itemNames',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -649,7 +649,7 @@ class _FoodInfoCard extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 36, top: 2),
                   child: Text('Source: ${detail.source}  ·  per ${(detail.servingSize ?? 100).toStringAsFixed(0)}${detail.unit ?? 'g'}',
-                    style: TextStyle(fontSize: 9, color: Colors.grey.shade500, letterSpacing: 0.3)),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500, letterSpacing: 0.3)),
                 ),
               const SizedBox(height: 10),
 
@@ -673,7 +673,7 @@ class _FoodInfoCard extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: Text('Serving size ${(detail.servingSize ?? 100).toStringAsFixed(0)}${detail.unit ?? 'g'}',
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                     ),
                     const Divider(height: 1, thickness: 4, color: Colors.black),
                     // Calories
@@ -729,7 +729,7 @@ class _FoodInfoCard extends ConsumerWidget {
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                         ),
                         child: const Text('INGREDIENTS',
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.0)),
                       ),
                       Padding(
                         padding: const EdgeInsets.all(8),
@@ -737,7 +737,7 @@ class _FoodInfoCard extends ConsumerWidget {
                           constraints: const BoxConstraints(maxHeight: 80),
                           child: SingleChildScrollView(
                             child: Text(detail.ingredientsText!,
-                              style: TextStyle(fontSize: 9, height: 1.4, color: Colors.grey.shade700)),
+                              style: TextStyle(fontSize: 11, height: 1.4, color: Colors.grey.shade700)),
                           ),
                         ),
                       ),
@@ -750,7 +750,7 @@ class _FoodInfoCard extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text('DATA SOURCES (${detail.sourceVariants.length})',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey.shade600, letterSpacing: 0.8)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey.shade600, letterSpacing: 0.8)),
                 ),
                 _SourceVariantsTable(variants: detail.sourceVariants),
                 const SizedBox(height: 10),
@@ -781,10 +781,10 @@ class _FoodInfoCard extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
           const Spacer(),
           Text(value != null ? '${value.toStringAsFixed(1)}$unit' : '—',
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -796,10 +796,10 @@ class _FoodInfoCard extends ConsumerWidget {
       padding: const EdgeInsets.only(left: 24, right: 8, top: 1, bottom: 1),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 9)),
+          Text(label, style: const TextStyle(fontSize: 11)),
           const Spacer(),
           Text('${value.toStringAsFixed(1)}$unit',
-            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -815,7 +815,7 @@ class _FoodInfoCard extends ConsumerWidget {
         color: color,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+      child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
     );
   }
 
@@ -977,7 +977,7 @@ class _FoodSearchTileState extends State<_FoodSearchTile>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text('${food.sourceCount}',
-                            style: TextStyle(fontSize: 10, color: Colors.blue.shade700,
+                            style: TextStyle(fontSize: 11, color: Colors.blue.shade700,
                               fontWeight: FontWeight.w600)),
                         ),
                       ),

@@ -168,7 +168,7 @@ class _HistoryCardState extends State<HistoryCard> {
                   const SizedBox(width: 4),
                   Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
                   const SizedBox(width: 4),
-                  Text(label, style: TextStyle(fontSize: 10, color: color)),
+                  Text(label, style: TextStyle(fontSize: 11, color: color)),
                 ]),
               ),
               const SizedBox(width: 4),
@@ -201,7 +201,7 @@ class _HistoryCardState extends State<HistoryCard> {
                   final region = findRegion(e.key);
                   return Chip(
                     label: Text(region?.label ?? e.key,
-                        style: const TextStyle(fontSize: 10)),
+                        style: const TextStyle(fontSize: 11)),
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                   );
@@ -271,7 +271,7 @@ class InfoBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(text, style: TextStyle(fontSize: 10, color: color)),
+      child: Text(text, style: TextStyle(fontSize: 11, color: color)),
     );
   }
 }

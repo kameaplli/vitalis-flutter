@@ -802,7 +802,7 @@ class _SummaryTile extends StatelessWidget {
               style: TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 13, color: color)),
           Text(label,
-              style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
         ],
       ),
     );
@@ -836,7 +836,7 @@ class _ItemRow extends StatelessWidget {
                   ? '×${item.quantity.round()}'
                   : '×${item.quantity.toStringAsFixed(1)}',
               style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: cs.onSurfaceVariant),
             ),
@@ -881,7 +881,7 @@ class _ItemRow extends StatelessWidget {
                             Text(
                               _catLabel(c),
                               style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   color: _catColor(c),
                                   fontWeight: FontWeight.w500),
                             ),
@@ -903,7 +903,7 @@ class _ItemRow extends StatelessWidget {
                       child: Text(
                         '~${item.estCalories!.round()} kcal',
                         style: const TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             color: Colors.orange,
                             fontWeight: FontWeight.w500),
                       ),
@@ -927,7 +927,7 @@ class _ItemRow extends StatelessWidget {
                   item.unitPrice != item.totalPrice)
                 Text(
                   '${fmt.format(item.unitPrice)} ea',
-                  style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 ),
             ],
           ),
@@ -1615,7 +1615,7 @@ class _CaloriesBarChart extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(short,
-                      style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 );
               },
             ),

@@ -13,6 +13,7 @@ import '../core/constants.dart';
 import '../services/notification_service.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/shimmer_placeholder.dart';
 import '../widgets/days_slider.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ class _HealthList extends ConsumerWidget {
         children: [
           logsAsync.when(
             skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ShimmerList(itemCount: 5, itemHeight: 72),
             error: (e, _) => FriendlyError(error: e, context: 'entries'),
             data: (entries) {
               if (entries.isEmpty && headerBuilder == null) {
@@ -417,7 +418,7 @@ class _HealthCardState extends State<_HealthCard>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(badge,
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: def.color)),
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: def.color)),
                         ),
                       ),
                     // Center content
@@ -496,7 +497,7 @@ class _InsightChip extends StatelessWidget {
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
         ],
       ),
     );
@@ -558,7 +559,7 @@ class _SymptomInsights extends StatelessWidget {
               spacing: 6,
               runSpacing: 4,
               children: sortedSymptoms.take(5).map((e) => Chip(
-                avatar: Text('${e.value}x', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                avatar: Text('${e.value}x', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                 label: Text(e.key, style: const TextStyle(fontSize: 11)),
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -625,7 +626,7 @@ class _MedicationInsights extends StatelessWidget {
               spacing: 6,
               runSpacing: 4,
               children: freqMap.entries.map((e) => Chip(
-                avatar: Text('${e.value}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                avatar: Text('${e.value}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
                 label: Text(e.key, style: const TextStyle(fontSize: 11)),
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -886,7 +887,7 @@ class _SymptomsTab extends ConsumerWidget {
               Text(
                 date,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: Colors.grey.shade400,
                 ),
               ),
@@ -2412,7 +2413,7 @@ class _MoodTab extends ConsumerWidget {
               Text(
                 date,
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: Colors.grey.shade400,
                 ),
               ),

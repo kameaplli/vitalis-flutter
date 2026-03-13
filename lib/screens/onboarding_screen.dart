@@ -265,7 +265,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                             color: Colors.white.withOpacity(0.6), size: 20),
                                         Text('Swipe up to skip',
                                             style: TextStyle(
-                                                fontSize: 10,
+                                                fontSize: 11,
                                                 color: Colors.white.withOpacity(0.4),
                                                 letterSpacing: 0.5)),
                                       ],
@@ -892,7 +892,7 @@ class _WeatherChip extends StatelessWidget {
           children: [
             Icon(icon, color: Colors.white.withOpacity(0.7), size: 18),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.6))),
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
           ],
         ),
       ),

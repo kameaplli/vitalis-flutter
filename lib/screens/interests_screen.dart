@@ -248,7 +248,7 @@ class _InterestCard extends StatelessWidget {
                           child: Text(
                             'Core',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: cs.primary,
                             ),
