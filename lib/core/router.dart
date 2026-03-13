@@ -68,10 +68,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Check interests selection for first-time users (before onboarding)
       final interestsDone = ref.read(interestsCompleteProvider);
       if (!interestsDone && loc != '/interests') return '/interests';
+      if (!interestsDone) return null; // stay on /interests until complete
 
       // Check onboarding for first-time users
       final onboardingDone = ref.read(onboardingCompleteProvider);
       if (onboardingDone == false && loc != '/onboarding') return '/onboarding';
+      if (onboardingDone == false) return null; // stay on /onboarding until complete
 
       if (loc == '/auth' || loc == '/loading') return '/dashboard';
       return null;
