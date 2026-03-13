@@ -180,7 +180,7 @@ class _ReceiptsTab extends ConsumerWidget {
     final async = ref.watch(groceryReceiptsProvider(person));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
       data: (receipts) {
         if (receipts.isEmpty) {
           return Center(
@@ -1061,7 +1061,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving: $e')),
+          const SnackBar(content: Text('Failed to save. Please try again.')),
         );
       }
     } finally {
@@ -1269,7 +1269,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           const SizedBox(height: 12),
           spendAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
+            error: (e, _) => const Text('Something went wrong.'),
             data: (spending) => spending.byCategory.isEmpty
                 ? const _EmptyAnalytics()
                 : Column(
@@ -1304,7 +1304,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           const SizedBox(height: 12),
           nutriAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
+            error: (e, _) => const Text('Something went wrong.'),
             data: (spectrum) => spectrum.byCategory.isEmpty
                 ? const _EmptyAnalytics()
                 : Column(
@@ -1688,7 +1688,7 @@ class _CategoryItemsSheet extends ConsumerWidget {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
               data: (data) {
                 if (data.items.isEmpty) {
                   return const Center(child: Text('No items found'));

@@ -28,9 +28,10 @@ class VitalisApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final skin = ref.watch(themeProvider);
+    final isDark = ref.watch(darkModeProvider);
     return MaterialApp.router(
       title: 'Vitalis',
-      theme: AppTheme.forSkin(skin),
+      theme: AppTheme.forSkin(skin, darkMode: isDark),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

@@ -93,7 +93,7 @@ class _ProductsListTab extends ConsumerWidget {
     final productsAsync = ref.watch(productsProvider);
     return productsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
       data: (products) {
         if (products.isEmpty) {
           return const Center(
@@ -346,7 +346,7 @@ class _ScanTabState extends State<_ScanTab> {
       widget.onScanned();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -522,7 +522,7 @@ class _AnalysisTab extends ConsumerWidget {
     final corrAsync = ref.watch(productCorrelationProvider);
     return corrAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
       data: (correlations) {
         if (correlations.isEmpty) {
           return const Center(

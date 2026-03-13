@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/weight_provider.dart';
@@ -7,6 +8,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/weight_log.dart';
 import '../widgets/weight_chart_widget.dart';
+import '../widgets/medical_disclaimer.dart';
 
 /// Standalone route screen — wraps WeightContent in a Scaffold.
 class WeightScreen extends ConsumerWidget {
@@ -45,7 +47,12 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     final person = ref.watch(selectedPersonProvider);
     final histAsync = ref.watch(weightHistoryProvider('$person:$_days'));
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(weightHistoryProvider);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +100,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                       ),
                       error: (e, _) => SizedBox(
                         height: 200,
-                        child: Center(child: Text('$e')),
+                        child: const Center(child: Text('Something went wrong. Pull to refresh.')),
                       ),
                       data: (history) {
                         // BMI badge
@@ -123,13 +130,13 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: (latest!.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
-                                        ? Colors.green.withOpacity(0.12)
-                                        : Colors.orange.withOpacity(0.12),
+                                        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
+                                        : Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.5),
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
                                       color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
-                                          ? Colors.green.shade400
-                                          : Colors.orange.shade400,
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.error,
                                     ),
                                   ),
                                   child: Text(
@@ -138,8 +145,8 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                       color: (latest.weight >= (idealMin ?? 0) && latest.weight <= (idealMax ?? 999))
-                                          ? Colors.green.shade700
-                                          : Colors.orange.shade700,
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.error,
                                     ),
                                   ),
                                 ),
@@ -219,7 +226,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                       Text('Swipe right to edit · left to delete',
                           style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey.shade500)),
+                              color: Theme.of(context).colorScheme.outline)),
                     ]),
                     const SizedBox(height: 8),
                     Card(
@@ -272,10 +279,10 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                               }
                             },
                             child: ListTile(
-                              leading: const Icon(
+                              leading: Icon(
                                   Icons.monitor_weight_outlined,
                                   size: 20,
-                                  color: Colors.purple),
+                                  color: Theme.of(context).colorScheme.primary),
                               title: Text(
                                 '${log.weight.toStringAsFixed(1)} kg',
                                 style: const TextStyle(
@@ -286,7 +293,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                               trailing: Text(log.person,
                                   style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey.shade600)),
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
                             ),
                           );
                         },
@@ -296,8 +303,11 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                 );
               },
             ),
+            const SizedBox(height: 8),
+            const MedicalDisclaimer(),
           ],
         ),
+      ),
     );
   }
 
@@ -369,7 +379,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e')));
+                        const SnackBar(content: Text('Something went wrong. Please try again.')));
                   }
                 }
               },
@@ -414,6 +424,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
       _weightCtrl.clear();
       _notesCtrl.clear();
       ref.invalidate(weightHistoryProvider);
+      HapticFeedback.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Weight logged!')));
@@ -421,7 +432,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+            .showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

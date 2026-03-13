@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../widgets/medical_disclaimer.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1089,7 +1090,7 @@ class _BarcodeScanSheetState extends ConsumerState<_BarcodeScanSheet> {
       if (mounted) {
         setState(() { _processing = false; _status = 'Point camera at a barcode'; });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: ${e.toString().length > 80 ? '${e.toString().substring(0, 80)}...' : e}'), duration: const Duration(seconds: 3)),
+          const SnackBar(content: Text('Product not found. Try entering manually.'), duration: Duration(seconds: 3)),
         );
         _showManualNutritionEntry(barcode ?? '');
       }
@@ -1233,7 +1234,7 @@ class _BarcodeScanSheetState extends ConsumerState<_BarcodeScanSheet> {
       if (mounted) {
         setState(() { _processing = false; _status = 'Point camera at a barcode'; });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), duration: const Duration(seconds: 3)),
+          const SnackBar(content: Text('Failed to save. Please try again.'), duration: Duration(seconds: 3)),
         );
       }
     }
@@ -3117,7 +3118,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
         Expanded(
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
             data: (data) => _AnalyticsContent(data: data, days: _days, personKey: key),
           ),
         ),
@@ -3179,6 +3180,8 @@ class _AnalyticsContent extends ConsumerWidget {
                 )).toList(),
           ),
         ),
+        const SizedBox(height: 8),
+        const MedicalDisclaimer(),
       ],
     );
   }

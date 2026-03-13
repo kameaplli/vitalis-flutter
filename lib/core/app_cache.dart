@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Lightweight JSON cache backed by SharedPreferences.
-/// Persists across app restarts. Each key has a configurable TTL.
+/// Encrypted JSON cache for health data, backed by flutter_secure_storage.
+/// Non-sensitive data (food DB) stays in SharedPreferences for performance.
 ///
 /// Fresh TTLs (returned when stale=false):
 ///   Dashboard  —  5 minutes
@@ -15,39 +16,43 @@ class AppCache {
   static const _analyticsTtl = 30;
   static const _foodTtl      = 60 * 24;
 
-  // ── Dashboard ────────────────────────────────────────────────────────────────
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
+  // ── Dashboard (encrypted — contains personal health data) ─────────────────
 
   static Future<void> saveDashboard(String personId, Map<String, dynamic> json) =>
-      _save('dash_$personId', json);
+      _secureSave('dash_$personId', json);
 
   /// [stale=false] → only return if < 5 min old.
   /// [stale=true]  → return even if expired (graceful error fallback).
   static Future<Map<String, dynamic>?> loadDashboard(String personId,
           {bool stale = false}) =>
-      _loadMap('dash_$personId', stale ? null : _dashTtl);
+      _secureLoadMap('dash_$personId', stale ? null : _dashTtl);
 
-  // ── Analytics ────────────────────────────────────────────────────────────────
+  // ── Analytics (encrypted — contains personal health analytics) ─────────────
 
   static Future<void> saveAnalytics(String key, Map<String, dynamic> json) =>
-      _save('analytics_$key', json);
+      _secureSave('analytics_$key', json);
 
   static Future<Map<String, dynamic>?> loadAnalytics(String key,
           {bool stale = false}) =>
-      _loadMap('analytics_$key', stale ? null : _analyticsTtl);
+      _secureLoadMap('analytics_$key', stale ? null : _analyticsTtl);
 
   /// Clear all analytics cache entries so next provider read fetches fresh.
   static Future<void> clearAnalytics() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys().where((k) => k.startsWith('analytics_'));
+      final all = await _secureStorage.readAll();
+      final keys = all.keys.where((k) => k.startsWith('analytics_'));
       for (final k in keys) {
-        await prefs.remove(k);
-        await prefs.remove('${k}_ts');
+        await _secureStorage.delete(key: k);
+        await _secureStorage.delete(key: '${k}_ts');
       }
     } catch (_) {}
   }
 
-  // ── Food database ────────────────────────────────────────────────────────────
+  // ── Food database (SharedPreferences — not personal health data) ──────────
 
   static Future<void> saveFoodDb(List<dynamic> list) async {
     try {
@@ -78,31 +83,33 @@ class AppCache {
     }
   }
 
-  // ── Internal ─────────────────────────────────────────────────────────────────
+  // ── Secure Internal helpers ────────────────────────────────────────────────
 
-  static Future<void> _save(String key, Map<String, dynamic> json) async {
+  static Future<void> _secureSave(String key, Map<String, dynamic> json) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(key, jsonEncode(json));
-      await prefs.setInt('${key}_ts', _nowMs());
+      await _secureStorage.write(key: key, value: jsonEncode(json));
+      await _secureStorage.write(key: '${key}_ts', value: _nowMs().toString());
     } catch (_) {}
   }
 
-  /// [ttlMinutes=null] → return regardless of age.
-  static Future<Map<String, dynamic>?> _loadMap(
+  static Future<Map<String, dynamic>?> _secureLoadMap(
       String key, int? ttlMinutes) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      if (ttlMinutes != null && _isStale(prefs, '${key}_ts', ttlMinutes)) {
-        return null;
+      if (ttlMinutes != null) {
+        final tsStr = await _secureStorage.read(key: '${key}_ts');
+        if (tsStr == null) return null;
+        final ts = int.tryParse(tsStr);
+        if (ts == null || (_nowMs() - ts) > ttlMinutes * 60 * 1000) return null;
       }
-      final raw = prefs.getString(key);
+      final raw = await _secureStorage.read(key: key);
       if (raw == null) return null;
       return jsonDecode(raw) as Map<String, dynamic>;
     } catch (_) {
       return null;
     }
   }
+
+  // ── SharedPreferences helpers (food DB only) ───────────────────────────────
 
   static bool _isStale(SharedPreferences prefs, String tsKey, int ttlMinutes) {
     final ts = prefs.getInt(tsKey);

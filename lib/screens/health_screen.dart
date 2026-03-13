@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -9,6 +10,7 @@ import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../services/notification_service.dart';
+import '../widgets/medical_disclaimer.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -39,7 +41,7 @@ class _HealthList extends ConsumerWidget {
       body: logsAsync.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
         data: (entries) {
           if (entries.isEmpty && headerBuilder == null) {
             return const Center(
@@ -58,11 +60,11 @@ class _HealthList extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
                     child: Row(children: [
-                      Icon(Icons.swipe, size: 12, color: Colors.grey.shade400),
+                      Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline),
                       const SizedBox(width: 4),
                       Text('Swipe right to edit · left to delete',
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade400)),
+                              fontSize: 11, color: Theme.of(context).colorScheme.outline)),
                     ]),
                   ),
                 ),
@@ -174,29 +176,37 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-          child: GridView.builder(
-            itemCount: cards.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.85,
-            ),
-            itemBuilder: (context, i) => _HealthCard(
-              def: cards[i],
-              index: i,
-              onTap: () {
-                final cat = cards[i].category;
-                final route = cat == 'weight' ? '/health/weight'
-                    : cat == 'eczema' ? '/health/eczema'
-                    : cat == 'skin-photos' ? '/skin-photos'
-                    : cat == 'products' ? '/products'
-                    : cat == 'insights' ? '/insights'
-                    : '/health/$cat';
-                context.push(route);
-              },
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(symptomsProvider);
+            ref.invalidate(medicationsProvider);
+            ref.invalidate(supplementsProvider);
+            ref.invalidate(moodProvider);
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            child: GridView.builder(
+              itemCount: cards.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.85,
+              ),
+              itemBuilder: (context, i) => _HealthCard(
+                def: cards[i],
+                index: i,
+                onTap: () {
+                  final cat = cards[i].category;
+                  final route = cat == 'weight' ? '/health/weight'
+                      : cat == 'eczema' ? '/health/eczema'
+                      : cat == 'skin-photos' ? '/skin-photos'
+                      : cat == 'products' ? '/products'
+                      : cat == 'insights' ? '/insights'
+                      : '/health/$cat';
+                  context.push(route);
+                },
+              ),
             ),
           ),
         ),
@@ -702,7 +712,7 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
     } catch (err) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed: $err')),
+          const SnackBar(content: Text('Something went wrong. Please try again.')),
         );
       }
     }
@@ -1012,7 +1022,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
       body: logsAsync.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
         data: (entries) {
           if (entries.isEmpty) {
             return const Center(child: Text('No supplements yet. Tap + to add.'));
@@ -1522,7 +1532,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
                           }
                         }
                       },
@@ -1966,7 +1976,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
       if (mounted) {
         setState(() { _processing = false; _status = 'Point camera at a barcode'; });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: ${e.toString().length > 80 ? '${e.toString().substring(0, 80)}...' : e}'), duration: const Duration(seconds: 3)),
+          const SnackBar(content: Text('Product not found. Try entering manually.'), duration: Duration(seconds: 3)),
         );
         widget.onScanned(barcode ?? '', null, null);
       }
@@ -2391,7 +2401,12 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
           ),
         ],
       ),
-      body: body,
+      body: Column(
+        children: [
+          Expanded(child: body),
+          const MedicalDisclaimer(),
+        ],
+      ),
     );
   }
 }

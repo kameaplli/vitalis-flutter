@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import '../providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
+import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
@@ -26,6 +27,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _heightCtrl = TextEditingController();
   String? _gender;
   bool _editing = false;
+  bool _isPregnant = false;
+  bool _isLactating = false;
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
   @override
@@ -36,6 +39,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _ageCtrl.text = user?.age?.toString() ?? '';
     _heightCtrl.text = user?.height?.toStringAsFixed(0) ?? '';
     _gender = user?.gender;
+    _isPregnant = user?.isPregnant ?? false;
+    _isLactating = user?.isLactating ?? false;
     _loadBiometricState();
   }
 
@@ -72,7 +77,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+            .showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
       }
     }
   }
@@ -139,7 +144,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: Theme.of(context).colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                        child: Icon(Icons.camera_alt, size: 18, color: Theme.of(context).colorScheme.onPrimary),
                       ),
                     ),
                   ),
@@ -180,6 +185,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
+              if (_gender != 'male') ...[
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  secondary: const Icon(Icons.pregnant_woman),
+                  title: const Text('Pregnant'),
+                  subtitle: const Text('Adjusts your nutritional reference values'),
+                  value: _isPregnant,
+                  onChanged: (v) => setState(() => _isPregnant = v),
+                ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.child_friendly),
+                  title: const Text('Lactating'),
+                  subtitle: const Text('Adjusts your nutritional reference values'),
+                  value: _isLactating,
+                  onChanged: (v) => setState(() => _isLactating = v),
+                ),
+              ],
             ] else ...[
               ListTile(
                 leading: const Icon(Icons.person_outline),
@@ -209,6 +231,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   title: const Text('Height'),
                   trailing: Text('${user.height!.toStringAsFixed(0)} cm'),
                 ),
+              if (user.isPregnant)
+                const ListTile(
+                  leading: Icon(Icons.pregnant_woman),
+                  title: Text('Pregnant'),
+                  trailing: Text('Yes'),
+                ),
+              if (user.isLactating)
+                const ListTile(
+                  leading: Icon(Icons.child_friendly),
+                  title: Text('Lactating'),
+                  trailing: Text('Yes'),
+                ),
             ],
             const Divider(height: 32),
             // Biometric login toggle
@@ -229,6 +263,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),
+            _DarkModeToggle(),
             _ThemePicker(),
             const Divider(height: 32),
             // Achievements section
@@ -236,8 +271,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const Divider(height: 32),
             // Sign out
             ListTile(
-              leading: Icon(Icons.logout, color: Colors.red.shade400),
-              title: Text('Sign out', style: TextStyle(color: Colors.red.shade400)),
+              leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
+              title: Text('Sign out', style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onTap: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
@@ -248,7 +283,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                       FilledButton(
                         onPressed: () => Navigator.pop(ctx, true),
-                        style: FilledButton.styleFrom(backgroundColor: Colors.red.shade400),
+                        style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
                         child: const Text('Sign out'),
                       ),
                     ],
@@ -259,6 +294,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (mounted) context.go('/auth');
                 }
               },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_forever, color: Theme.of(context).colorScheme.error),
+              title: Text('Delete Account', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              subtitle: const Text('Permanently delete your account and all data'),
+              onTap: () => _showDeleteAccountDialog(context),
             ),
             const Divider(height: 32),
             // Children section
@@ -273,9 +314,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ),
             if (user.profile.children.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Text('No family members added', style: TextStyle(color: Colors.grey)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text('No family members added', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               )
             else
               ...user.profile.children.map((child) {
@@ -305,7 +346,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         onPressed: () => _showEditChildDialog(context, child),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.error),
                         onPressed: () => _deleteChild(child.id),
                       ),
                     ],
@@ -316,6 +357,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showDeleteAccountDialog(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: const Text(
+          'This will permanently delete your account and all associated data. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    try {
+      await apiClient.dio.delete(ApiConstants.deleteAccount);
+      if (!mounted) return;
+      await ref.read(authProvider.notifier).logout();
+      if (mounted) context.go('/auth');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete account: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -360,6 +440,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       age: int.tryParse(_ageCtrl.text),
       gender: _gender,
       height: double.tryParse(_heightCtrl.text),
+      isPregnant: _isPregnant,
+      isLactating: _isLactating,
     );
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated!')));
   }
@@ -487,15 +569,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ? CachedNetworkImageProvider(ApiConstants.resolveUrl(child.avatarUrl)) as ImageProvider
                               : null),
                       child: pendingImagePath != null
-                          ? const Icon(Icons.check_circle, size: 32, color: Colors.green)
+                          ? Icon(Icons.check_circle, size: 32, color: Theme.of(context).colorScheme.primary)
                           : (child.avatarUrl == null
                               ? Text(child.name[0].toUpperCase(), style: const TextStyle(fontSize: 28))
                               : null),
                     ),
                     Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-                      child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                      decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle),
+                      child: Icon(Icons.camera_alt, size: 14, color: Theme.of(context).colorScheme.onPrimary),
                     ),
                   ],
                 ),
@@ -582,6 +664,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
+class _DarkModeToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = ref.watch(darkModeProvider);
+    return SwitchListTile(
+      secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
+      title: const Text('Dark mode'),
+      subtitle: Text(isDark ? 'Dark theme active' : 'Light theme active'),
+      value: isDark,
+      onChanged: (_) => ref.read(darkModeProvider.notifier).toggle(),
+    );
+  }
+}
+
 class _ThemePicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -636,7 +732,7 @@ class _AchievementsSection extends ConsumerWidget {
         const SizedBox(height: 12),
         asyncData.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('Could not load achievements', style: TextStyle(color: Colors.grey.shade500)),
+          error: (e, _) => Text('Could not load achievements', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           data: (data) => AchievementBadgesWidget(
             badges: data.badges,
             stats: data.stats,

@@ -93,7 +93,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -116,7 +116,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
       ),
       body: photosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
         data: (photos) {
           if (photos.isEmpty) {
             return const Center(
