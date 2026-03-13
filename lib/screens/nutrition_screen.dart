@@ -156,7 +156,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                           personId: personId,
                           onLogged: () {
                             ref.invalidate(nutritionProvider);
-                            ref.invalidate(dashboardProvider(personId));
+                            ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
                             ref.invalidate(nutritionEntriesProvider);
                             ref.invalidate(nutritionAnalyticsProvider);
                             AppCache.clearAnalytics();
@@ -289,7 +289,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
     if (ok && mounted) {
       // Always refresh entries list, dashboard, and analytics after any successful log/edit
       ref.invalidate(nutritionEntriesProvider);
-      ref.invalidate(dashboardProvider(personId));
+      ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
       ref.invalidate(nutritionAnalyticsProvider);
       AppCache.clearAnalytics();
       if (isEdit) context.pop();
