@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/provider_key.dart';
 
 // ─── Food Nutrient Profile ───────────────────────────────────────────────────
 
@@ -325,9 +326,8 @@ final foodNutrientProvider =
 final dailyNutrientProvider =
     FutureProvider.family<DailyNutrientAssessment?, String>((ref, key) async {
   try {
-    final parts = key.split('_');
-    final person = parts[0];
-    final date = parts.length > 1 ? parts[1] : null;
+    final (person, _, dateStr) = PK.personDaysDate(key, 1);
+    final date = dateStr;
     final res = await apiClient.dio.get(
       ApiConstants.nutrientsDaily,
       queryParameters: {
@@ -346,9 +346,7 @@ final dailyNutrientProvider =
 final periodNutrientProvider =
     FutureProvider.family<PeriodNutrientData?, String>((ref, key) async {
   try {
-    final parts = key.split('_');
-    final person = parts[0];
-    final days = parts.length > 1 ? int.tryParse(parts[1]) ?? 1 : 1;
+    final (person, days) = PK.personDays(key, 1);
     final res = await apiClient.dio.get(
       ApiConstants.nutrientsPeriod,
       queryParameters: {'person': person, 'days': days},

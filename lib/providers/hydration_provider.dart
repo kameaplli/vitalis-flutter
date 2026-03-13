@@ -1,17 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/provider_key.dart';
 import '../models/hydration_log.dart';
 
 /// Key: 'person_days_date' (date is client's local YYYY-MM-DD, optional)
 final hydrationHistoryProvider =
     FutureProvider.family<List<HydrationLog>, String>((ref, key) async {
   ref.keepAlive(); // keep cached between navigations
-  final parts = key.split('_');
-  final person = parts[0];
-  final days = int.tryParse(parts.length > 1 ? parts[1] : '7') ?? 7;
-  final today = DateTime.now().toIso8601String().substring(0, 10);
-  final date = parts.length > 2 && parts[2].isNotEmpty ? parts[2] : today;
+  final (person, days, date) = PK.personDaysDate(key);
   final res = await apiClient.dio.get(
     ApiConstants.hydrationHistory,
     queryParameters: {
