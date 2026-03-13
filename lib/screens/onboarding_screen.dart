@@ -1125,6 +1125,19 @@ class _ReadyPage extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'This app is for informational purposes only and does not provide medical advice. '
+              'Always consult a qualified healthcare provider before making dietary or health changes.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withOpacity(0.45),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );

@@ -17,6 +17,7 @@ import '../widgets/friendly_error.dart';
 import '../widgets/days_slider.dart';
 import '../widgets/eczema_body_map.dart';
 import '../widgets/quick_log_sheet.dart';
+import '../widgets/help_tooltip.dart';
 
 // ── Extracted widgets ────────────────────────────────────────────────────────
 import 'eczema/eczema_helpers.dart';
@@ -457,6 +458,10 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                     Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
                     const SizedBox(width: 5),
                     Text(easiLabel(easi), style: TextStyle(fontSize: 11, color: color)),
+                    const HelpTooltip(
+                      message: 'EASI (Eczema Area and Severity Index) measures eczema severity from 0-72. Tap body zones to score each affected area for redness, thickness, scratching, and skin thickening.',
+                      iconSize: 14,
+                    ),
                   ]),
                 ),
               ),

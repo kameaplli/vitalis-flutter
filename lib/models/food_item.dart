@@ -162,6 +162,25 @@ class FoodItem {
   /// Formatted brand for display
   String get brandLabel => brandDisplay ?? brand ?? '';
 
+  Map<String, dynamic> toJson() => {
+    'food_id': id,
+    'name': name,
+    if (displayName != null) 'display_name': displayName,
+    if (brand != null) 'brand': brand,
+    if (brandDisplay != null) 'brand_display': brandDisplay,
+    if (cal != null) 'cal': cal,
+    if (protein != null) 'protein': protein,
+    if (carbs != null) 'carbs': carbs,
+    if (fat != null) 'fat': fat,
+    if (fiber != null) 'fiber': fiber,
+    if (sugar != null) 'sugar': sugar,
+    if (emoji != null) 'emoji': emoji,
+    if (unit != null) 'unit': unit,
+    if (servingSize != null) 'serving_size': servingSize,
+    if (source != null) 'source': source,
+    if (category != null) 'category': category,
+  };
+
   double get caloriesPerServing {
     if (cal == null || servingSize == null) return 0;
     return (cal! / 100) * servingSize!;
