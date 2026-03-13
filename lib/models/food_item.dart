@@ -75,6 +75,12 @@ class FoodItem {
   final String? nutriscore;
   final int? novaGroup;
   final List<FoodAllergenInfo> allergens;
+  // Canonical group fields (from consolidated search)
+  final String? groupId;
+  final int sourceCount;
+  final bool isBranded;
+  final bool hasIngredients;
+  final bool hasMicronutrients;
 
   FoodItem({
     required this.id,
@@ -99,11 +105,16 @@ class FoodItem {
     this.nutriscore,
     this.novaGroup,
     this.allergens = const [],
+    this.groupId,
+    this.sourceCount = 1,
+    this.isBranded = false,
+    this.hasIngredients = false,
+    this.hasMicronutrients = false,
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
     return FoodItem(
-      id: json['id'] ?? '',
+      id: json['food_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
       displayName: json['display_name'],
       brand: json['brand'],
@@ -134,6 +145,11 @@ class FoodItem {
               ?.map((a) => FoodAllergenInfo.fromJson(a as Map<String, dynamic>))
               .toList() ??
           const [],
+      groupId: json['group_id'],
+      sourceCount: (json['source_count'] as num?)?.toInt() ?? 1,
+      isBranded: json['is_branded'] == true,
+      hasIngredients: json['has_ingredients'] == true,
+      hasMicronutrients: json['has_micronutrients'] == true,
     );
   }
 

@@ -1495,18 +1495,20 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
                   'reminder_enabled': enableReminder,
                   'reminder_time': enableReminder ? reminderTime : null,
                 };
+                String supId;
                 if (isEdit) {
                   await apiClient.dio.put(
                       '${ApiConstants.supplements}/${item['id']}',
                       data: data);
+                  supId = item['id'].toString();
                 } else {
-                  await apiClient.dio.post(
+                  final resp = await apiClient.dio.post(
                       ApiConstants.supplements, data: data);
+                  supId = (resp.data as Map<String, dynamic>?)?['entry_id']?.toString()
+                      ?? nameCtrl.text;
                 }
                 ref.invalidate(supplementsProvider(personKey));
                 ref.invalidate(supplementsCatalogProvider);
-                // Persist and schedule supplement reminder
-                final supId = isEdit ? item['id'].toString() : nameCtrl.text;
                 if (enableReminder) {
                   await NotificationPrefs.addSupplementReminder(
                     supplementId: supId,

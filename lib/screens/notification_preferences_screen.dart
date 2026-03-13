@@ -261,6 +261,11 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
               ),
             ),
           ],
+          if (_hydrationEnabled)
+            _TestNotificationButton(
+              label: 'Send test hydration notification',
+              onPressed: () => NotificationService.sendTestHydration(),
+            ),
 
           const Divider(height: 32),
 
@@ -322,6 +327,11 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
               ),
             ),
+          if (_mealsEnabled)
+            _TestNotificationButton(
+              label: 'Send test meal notification',
+              onPressed: () => NotificationService.sendTestMeal(),
+            ),
 
           const Divider(height: 32),
 
@@ -366,6 +376,11 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
               ),
             ),
+          if (_supplementsEnabled)
+            _TestNotificationButton(
+              label: 'Send test supplement notification',
+              onPressed: () => NotificationService.sendTestSupplement(),
+            ),
 
           const Divider(height: 32),
 
@@ -409,6 +424,12 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
             ),
           ],
 
+          if (_eczemaEnabled)
+            _TestNotificationButton(
+              label: 'Send test eczema alert',
+              onPressed: () => NotificationService.sendTestEczema(),
+            ),
+
           const Divider(height: 32),
 
           // ── Smart Suggestions ──────────────────────────────────────────────
@@ -420,6 +441,12 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
             value: _smartEnabled,
             onChanged: (v) => setState(() => _smartEnabled = v),
           ),
+
+          if (_smartEnabled)
+            _TestNotificationButton(
+              label: 'Send test smart suggestion',
+              onPressed: () => NotificationService.sendTestSmart(),
+            ),
 
           const Divider(height: 32),
 
@@ -532,4 +559,46 @@ class _TimeTile extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _TestNotificationButton extends StatefulWidget {
+  final String label;
+  final Future<void> Function() onPressed;
+  const _TestNotificationButton({required this.label, required this.onPressed});
+
+  @override
+  State<_TestNotificationButton> createState() => _TestNotificationButtonState();
+}
+
+class _TestNotificationButtonState extends State<_TestNotificationButton> {
+  bool _sent = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: OutlinedButton.icon(
+        onPressed: _sent
+            ? null
+            : () async {
+                await widget.onPressed();
+                setState(() => _sent = true);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${widget.label} sent!'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+                // Reset after 3 seconds so it can be tapped again
+                Future.delayed(const Duration(seconds: 3), () {
+                  if (mounted) setState(() => _sent = false);
+                });
+              },
+        icon: Icon(_sent ? Icons.check : Icons.notifications_active, size: 18),
+        label: Text(_sent ? 'Sent!' : widget.label, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
 }
