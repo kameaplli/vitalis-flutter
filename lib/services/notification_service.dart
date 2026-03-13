@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
@@ -195,7 +197,18 @@ class NotificationService {
 
   static Future<void> init() async {
     if (_initialized) return;
+
+    // ── Timezone: set tz.local to device timezone ──────────────────────────
     tz_data.initializeTimeZones();
+    try {
+      final tzInfo = await FlutterTimezone.getLocalTimezone();
+      final tzName = tzInfo.identifier;
+      tz.setLocalLocation(tz.getLocation(tzName));
+      debugPrint('[Notifications] timezone set to $tzName');
+    } catch (e) {
+      // Fallback: keep UTC (better than crashing)
+      debugPrint('[Notifications] timezone fallback to UTC: $e');
+    }
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const settings = InitializationSettings(android: android);
@@ -205,9 +218,12 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: _onBackgroundAction,
     );
 
+    // ── Permissions ────────────────────────────────────────────────────────
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+    // Request exact alarm permission on Android 12+ (API 31+)
+    await androidPlugin?.requestExactAlarmsPermission();
 
     _initialized = true;
   }
@@ -239,17 +255,22 @@ class NotificationService {
   /// Re-schedule all notifications based on current preferences.
   /// Call after login, after prefs change, or on app open.
   static Future<void> scheduleAll() async {
+    if (!_initialized) await init();
     await _plugin.cancelAll();
 
     final hydrationOn    = await NotificationPrefs.hydrationEnabled();
     final mealsOn        = await NotificationPrefs.mealsEnabled();
     final supplementsOn  = await NotificationPrefs.supplementsEnabled();
 
+    debugPrint('[Notifications] scheduleAll — hydration=$hydrationOn, meals=$mealsOn, supplements=$supplementsOn, tz=${tz.local.name}');
+
     if (hydrationOn)   await _scheduleHydration();
     if (mealsOn)       await _scheduleMeals();
     if (supplementsOn) await _scheduleSupplements();
-    // Eczema alerts are triggered by background weather check on app open,
-    // not scheduled. The pref is read when the check runs.
+
+    // Log scheduled count for debugging
+    final pending = await _plugin.pendingNotificationRequests();
+    debugPrint('[Notifications] ${pending.length} notifications scheduled');
   }
 
   /// Legacy entry point — calls scheduleAll().
@@ -299,13 +320,14 @@ class NotificationService {
       msgIdx++;
 
       final scheduled = _nextInstanceOfTime(hour, minute);
+      debugPrint('[Notifications] hydration #$id at ${hour.toString().padLeft(2,'0')}:${minute.toString().padLeft(2,'0')} → $scheduled');
       await _plugin.zonedSchedule(
         id++,
         'Time to hydrate!',
         msg,
         scheduled,
         const NotificationDetails(android: _hydrationChannel),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -335,13 +357,14 @@ class NotificationService {
     for (final (id, timeStr, title, body) in meals) {
       final (h, m) = NotificationPrefs.parseTime(timeStr);
       final scheduled = _nextInstanceOfTime(h, m);
+      debugPrint('[Notifications] meal #$id "$title" at $timeStr → $scheduled');
       await _plugin.zonedSchedule(
         id,
         title,
         body,
         scheduled,
         const NotificationDetails(android: _mealChannel),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -360,7 +383,7 @@ class NotificationService {
           "Looks like you haven't logged this meal yet. Tap to log now!",
           reminderScheduled,
           const NotificationDetails(android: _mealChannel),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.wallClockTime,
           matchDateTimeComponents: DateTimeComponents.time,
@@ -394,7 +417,7 @@ class NotificationService {
         'Your daily reminder to take $name.',
         scheduled,
         const NotificationDetails(android: _supplementChannel),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
