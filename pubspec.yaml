@@ -1,7 +1,7 @@
 name: vitalis
 description: Vitalis - Health & Nutrition Tracking App
 publish_to: "none"
-version: 4.1.0+1
+version: 4.4.0+1
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -19,6 +19,9 @@ dependencies:
   # State management
   flutter_riverpod: ^2.5.1
 
+
+  # Icon library (4,700+ icons with theme support)
+  hugeicons: ^1.1.5
 
   # Charts
   fl_chart: ^0.68.0

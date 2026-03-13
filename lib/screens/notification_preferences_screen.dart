@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../core/api_client.dart';
+import '../core/constants.dart';
 import '../services/notification_service.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
@@ -27,6 +29,13 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
   bool _smartEnabled = true;
   bool _supplementsEnabled = true;
   List<Map<String, dynamic>> _supplementReminders = [];
+
+  // Report preferences (server-side)
+  bool _weeklyReportEnabled = false;
+  bool _monthlyReportEnabled = false;
+  int _reportPreferredDay = 1;    // 1=Monday for weekly; 1-28 for monthly
+  bool _includeFamily = true;
+  bool _reportSending = false;
 
   bool _loading = true;
 
@@ -72,6 +81,18 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     _supplementsEnabled = await NotificationPrefs.supplementsEnabled();
     _supplementReminders = await NotificationPrefs.supplementReminders();
 
+    // Load report preferences from server
+    try {
+      final res = await apiClient.dio.get(ApiConstants.reportPreferences);
+      final d = res.data as Map<String, dynamic>;
+      _weeklyReportEnabled = d['weekly_enabled'] == true;
+      _monthlyReportEnabled = d['monthly_enabled'] == true;
+      _reportPreferredDay = d['preferred_day'] as int? ?? 1;
+      _includeFamily = d['include_family'] != false;
+    } catch (_) {
+      // Server may not have the endpoint yet — use defaults
+    }
+
     if (mounted) setState(() => _loading = false);
   }
 
@@ -106,6 +127,18 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       } catch (_) {
         // Scheduling may fail on some devices — don't block save+navigate
       }
+
+      // Save report preferences to server
+      try {
+        await apiClient.dio.put(ApiConstants.reportPreferences, data: {
+          'weekly_enabled': _weeklyReportEnabled,
+          'monthly_enabled': _monthlyReportEnabled,
+          'preferred_day': _reportPreferredDay,
+          'include_family': _includeFamily,
+        });
+      } catch (_) {
+        // Server may not support reports yet — don't block
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,6 +161,32 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
 
   String _fmt(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  static String _weekdayName(int day) {
+    const names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return names[(day - 1).clamp(0, 6)];
+  }
+
+  Future<void> _sendTestReport() async {
+    setState(() => _reportSending = true);
+    try {
+      final type = _weeklyReportEnabled ? 'weekly' : 'monthly';
+      await apiClient.dio.post(ApiConstants.reportSendNow, data: {'report_type': type});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report sent! Check your email.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send report. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _reportSending = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -361,6 +420,68 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
             value: _smartEnabled,
             onChanged: (v) => setState(() => _smartEnabled = v),
           ),
+
+          const Divider(height: 32),
+
+          // ── Health Reports ──────────────────────────────────────────────
+          _SectionHeader(icon: Icons.picture_as_pdf, title: 'Health Reports', color: Colors.deepPurple),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Text(
+              'Receive rich PDF health reports with charts and insights by email.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Weekly report'),
+            subtitle: Text(_weeklyReportEnabled
+                ? 'Every ${_weekdayName(_reportPreferredDay)}'
+                : 'Disabled'),
+            value: _weeklyReportEnabled,
+            onChanged: (v) => setState(() => _weeklyReportEnabled = v),
+          ),
+          SwitchListTile(
+            title: const Text('Monthly report'),
+            subtitle: Text(_monthlyReportEnabled
+                ? 'On day $_reportPreferredDay of each month'
+                : 'Disabled'),
+            value: _monthlyReportEnabled,
+            onChanged: (v) => setState(() => _monthlyReportEnabled = v),
+          ),
+          if (_weeklyReportEnabled || _monthlyReportEnabled) ...[
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: Text(_weeklyReportEnabled ? 'Send on' : 'Day of month'),
+              trailing: DropdownButton<int>(
+                value: _reportPreferredDay.clamp(1, _weeklyReportEnabled ? 7 : 28),
+                underline: const SizedBox(),
+                items: _weeklyReportEnabled
+                    ? List.generate(7, (i) => DropdownMenuItem(
+                        value: i + 1, child: Text(_weekdayName(i + 1))))
+                    : List.generate(28, (i) => DropdownMenuItem(
+                        value: i + 1, child: Text('${i + 1}'))),
+                onChanged: (v) { if (v != null) setState(() => _reportPreferredDay = v); },
+              ),
+            ),
+            SwitchListTile(
+              title: const Text('Include family members'),
+              subtitle: const Text('Add family data to the report'),
+              value: _includeFamily,
+              onChanged: (v) => setState(() => _includeFamily = v),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                onPressed: _reportSending ? null : _sendTestReport,
+                icon: _reportSending
+                    ? const SizedBox(width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.send),
+                label: Text(_reportSending ? 'Sending...' : 'Send a test report now'),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 32),
           FilledButton.icon(

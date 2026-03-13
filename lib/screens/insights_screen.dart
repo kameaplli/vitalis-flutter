@@ -5,6 +5,7 @@ import '../core/constants.dart';
 import '../models/insight_data.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/friendly_error.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'insights'))));
       }
     } finally {
       if (mounted) setState(() => _investigating = false);
@@ -146,7 +147,7 @@ class _HealthReportTab extends ConsumerWidget {
           Text('Analyzing your health data...', style: TextStyle(color: Colors.grey)),
         ],
       )),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'health report'),
       data: (report) {
         if (report == null) {
           return const Center(child: Padding(
@@ -432,7 +433,7 @@ class _WeeklyTab extends ConsumerWidget {
     final async = ref.watch(weeklyInsightProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'weekly insights'),
       data: (insight) {
         if (insight == null) {
           return const Center(child: Text('No insights yet — log more data!',
@@ -522,7 +523,7 @@ class _FlareRiskTab extends ConsumerWidget {
     final async = ref.watch(flareRiskPredictionProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'flare risk'),
       data: (risk) {
         if (risk == null) {
           return const Center(child: Text('Unable to predict flare risk — need more data',

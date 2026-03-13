@@ -10,6 +10,7 @@ import '../core/constants.dart';
 import '../models/nutrition_log.dart';
 import '../models/food_item.dart';
 import '../providers/nutrition_analytics_provider.dart';
+import '../widgets/friendly_error.dart';
 
 /// Standalone route screen — wraps NutritionHistoryContent in a Scaffold.
 class EntriesScreen extends ConsumerWidget {
@@ -87,7 +88,7 @@ class _NutritionHistoryContentState
           child: entriesAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            error: (e, _) => FriendlyError(error: e, context: 'nutrition entries'),
             data: (entries) {
               if (entries.isEmpty) {
                 return const Center(child: Text('No entries found'));

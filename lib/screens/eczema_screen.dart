@@ -13,6 +13,8 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/eczema_log.dart';
 import '../models/easi_models.dart';
+import '../widgets/friendly_error.dart';
+import '../widgets/days_slider.dart';
 import '../widgets/eczema_body_map.dart';
 import '../widgets/quick_log_sheet.dart';
 
@@ -158,7 +160,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _captureEnvironment();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'eczema'))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -292,7 +294,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           } catch (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Something went wrong. Please try again.')),
+                SnackBar(content: Text(friendlyErrorMessage(e, context: 'eczema'))),
               );
             }
           }
@@ -338,7 +340,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         );
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'eczema'))));
     }
   }
 
@@ -892,7 +894,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     return logsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'eczema comparison'),
       data: (logs) {
         if (logs.length < 2) {
           return const Center(
@@ -992,7 +994,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'mock data'))));
     }
   }
 
@@ -1009,7 +1011,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       _invalidateAll();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'mock data'))));
     }
   }
 
@@ -1041,14 +1043,10 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               onPressed: _deleteMockData,
             ),
             const Spacer(),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 7, label: Text('7d')),
-                ButtonSegment(value: 30, label: Text('30d')),
-                ButtonSegment(value: 90, label: Text('90d')),
-              ],
-              selected: {_heatmapDays},
-              onSelectionChanged: (s) => setState(() => _heatmapDays = s.first),
+            DaysSlider(
+              value: _heatmapDays,
+              onChanged: (d) => setState(() => _heatmapDays = d),
+              compact: true,
             ),
           ]),
         ),
@@ -1056,7 +1054,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           child: heatAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            error: (e, _) => FriendlyError(error: e, context: 'eczema heatmap'),
             data: (data) {
               if (data.regionIntensity.isEmpty) {
                 return const Center(child: Text('No eczema data for this period'));
@@ -1120,14 +1118,10 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
             Text('Report Period',
                 style: Theme.of(context).textTheme.titleSmall),
             const Spacer(),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 7, label: Text('7d')),
-                ButtonSegment(value: 30, label: Text('30d')),
-                ButtonSegment(value: 90, label: Text('90d')),
-              ],
-              selected: {_reportDays},
-              onSelectionChanged: (s) => setState(() => _reportDays = s.first),
+            DaysSlider(
+              value: _reportDays,
+              onChanged: (d) => setState(() => _reportDays = d),
+              compact: true,
             ),
           ]),
         ),
@@ -1135,12 +1129,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           child: heatAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            error: (e, _) => FriendlyError(error: e, context: 'eczema report'),
             data: (heatData) {
               return logsAsync.when(
                 skipLoadingOnReload: true,
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+                error: (e, _) => FriendlyError(error: e, context: 'eczema report'),
                 data: (logs) {
                   if (logs.isEmpty) {
                     return const Center(

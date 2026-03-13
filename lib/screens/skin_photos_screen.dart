@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../providers/selected_person_provider.dart';
+import '../widgets/friendly_error.dart';
 
 // ── Models ───────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'skin photos'))));
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -116,7 +117,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
       ),
       body: photosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+        error: (e, _) => FriendlyError(error: e, context: 'skin photos'),
         data: (photos) {
           if (photos.isEmpty) {
             return const Center(

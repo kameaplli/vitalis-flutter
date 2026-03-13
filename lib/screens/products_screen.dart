@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/product_data.dart';
+import '../widgets/friendly_error.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ class _ProductsListTab extends ConsumerWidget {
     final productsAsync = ref.watch(productsProvider);
     return productsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'products'),
       data: (products) {
         if (products.isEmpty) {
           return const Center(
@@ -346,7 +347,7 @@ class _ScanTabState extends State<_ScanTab> {
       widget.onScanned();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'products'))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -522,7 +523,7 @@ class _AnalysisTab extends ConsumerWidget {
     final corrAsync = ref.watch(productCorrelationProvider);
     return corrAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'product analysis'),
       data: (correlations) {
         if (correlations.isEmpty) {
           return const Center(

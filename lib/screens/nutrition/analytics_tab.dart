@@ -9,6 +9,8 @@ import '../../providers/nutrient_provider.dart';
 import '../../providers/nutrition_analytics_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../widgets/medical_disclaimer.dart';
+import '../../widgets/friendly_error.dart';
+import '../../widgets/days_slider.dart';
 import 'nutrition_insights_card.dart';
 
 // ─── Nutrition AI Insights provider ──────────────────────────────────────────
@@ -52,21 +54,15 @@ class _AnalyticsTabState extends ConsumerState<AnalyticsTab> {
         // Period selector
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 1, label: Text('Today')),
-              ButtonSegment(value: 7, label: Text('7d')),
-              ButtonSegment(value: 30, label: Text('30d')),
-              ButtonSegment(value: 90, label: Text('90d')),
-            ],
-            selected: {_days},
-            onSelectionChanged: (s) => setState(() => _days = s.first),
+          child: DaysSlider(
+            value: _days,
+            onChanged: (d) => setState(() => _days = d),
           ),
         ),
         Expanded(
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            error: (e, _) => FriendlyError(error: e, context: 'nutrition analytics'),
             data: (data) => _AnalyticsContent(data: data, days: _days, personKey: key),
           ),
         ),

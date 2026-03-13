@@ -13,6 +13,9 @@ import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 import '../providers/achievements_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/icon_theme_provider.dart';
+import '../core/icon_theme.dart';
+import '../widgets/friendly_error.dart';
 import '../widgets/achievement_badges.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -77,7 +80,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'profile'))));
       }
     }
   }
@@ -273,6 +276,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             _DarkModeToggle(),
             _ThemePicker(),
+            _IconThemePicker(),
             const ExcludeSemantics(child: Divider(height: 32)),
             // Achievements section
             _AchievementsSection(),
@@ -722,6 +726,51 @@ class _ThemePicker extends ConsumerWidget {
                       onChanged: (v) {
                         if (v != null) {
                           ref.read(themeProvider.notifier).setSkin(v);
+                        }
+                        Navigator.pop(ctx);
+                      },
+                    )),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _IconThemePicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(iconThemeChoiceProvider);
+    final icons = ref.watch(iconThemeProvider);
+    return ListTile(
+      leading: icons.heart.build(),
+      title: const Text('Icon style'),
+      subtitle: Text(current.label),
+      trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          builder: (ctx) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text('Choose Icon Style',
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                ...IconThemeChoice.values.map((choice) => RadioListTile<IconThemeChoice>(
+                      value: choice,
+                      groupValue: current,
+                      title: Text(choice.label),
+                      subtitle: Text(choice.description),
+                      secondary: choice.icons.heart.build(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          ref.read(iconThemeChoiceProvider.notifier).select(v);
                         }
                         Navigator.pop(ctx);
                       },

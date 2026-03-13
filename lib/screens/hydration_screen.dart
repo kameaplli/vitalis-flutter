@@ -8,6 +8,7 @@ import '../core/constants.dart';
 import '../widgets/circular_progress_ring.dart';
 import '../core/timezone_util.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/friendly_error.dart';
 
 const double _defaultGoalMl = 2500;
 
@@ -167,7 +168,7 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
       HapticFeedback.lightImpact();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added ${quantity.toInt()} ml!')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'hydration'))));
     }
   }
 
@@ -192,7 +193,7 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
       HapticFeedback.mediumImpact();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hydration logged!')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'hydration'))));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

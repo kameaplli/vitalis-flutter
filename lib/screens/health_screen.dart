@@ -12,6 +12,8 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../services/notification_service.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/friendly_error.dart';
+import '../widgets/days_slider.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -40,11 +42,13 @@ class _HealthList extends ConsumerWidget {
           logsAsync.when(
             skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            error: (e, _) => FriendlyError(error: e, context: 'entries'),
             data: (entries) {
               if (entries.isEmpty && headerBuilder == null) {
-                return const Center(
-                    child: Text('No entries yet. Tap + to add.'));
+                return const EmptyState(
+                  message: 'No entries during this period.\nTap + to add your first entry.',
+                  icon: Icons.note_add_rounded,
+                );
               }
               return CustomScrollView(
                 slivers: [
@@ -52,7 +56,10 @@ class _HealthList extends ConsumerWidget {
                     SliverToBoxAdapter(child: headerBuilder!()),
                   if (entries.isEmpty)
                     const SliverFillRemaining(
-                      child: Center(child: Text('No entries yet. Tap + to add.')),
+                      child: EmptyState(
+                        message: 'No entries during this period.\nTap + to add your first entry.',
+                        icon: Icons.note_add_rounded,
+                      ),
                     )
                   else ...[
                     SliverToBoxAdapter(
@@ -772,7 +779,7 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
     } catch (err) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Something went wrong. Please try again.')),
+          SnackBar(content: Text(friendlyErrorMessage(err, context: 'supplement schedule'))),
         );
       }
     }
@@ -1162,7 +1169,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
       body: logsAsync.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+        error: (e, _) => FriendlyError(error: e, context: 'supplements'),
         data: (entries) {
           if (entries.isEmpty) {
             return const Center(child: Text('No supplements yet. Tap + to add.'));
@@ -1672,7 +1679,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'supplement'))));
                           }
                         }
                       },
@@ -2590,20 +2597,10 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 7,  label: Text('7d')),
-                ButtonSegment(value: 30, label: Text('30d')),
-                ButtonSegment(value: 90, label: Text('90d')),
-              ],
-              selected: {_days},
-              onSelectionChanged: (s) => setState(() => _days = s.first),
-              style: ButtonStyle(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 4)),
-                visualDensity: VisualDensity.compact,
-              ),
+            child: DaysSlider(
+              value: _days,
+              onChanged: (d) => setState(() => _days = d),
+              compact: true,
             ),
           ),
         ],

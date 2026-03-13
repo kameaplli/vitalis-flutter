@@ -179,6 +179,11 @@ class ApiConstants {
   static const String financeSpendingTxns = '/api/analytics/finance/spending/transactions';
   static const String financeReport       = '/api/analytics/finance/report';
 
+  // Health Reports
+  static const String reportPreferences = '/api/reports/preferences';
+  static const String reportGenerate    = '/api/reports/generate';
+  static const String reportSendNow    = '/api/reports/send-now';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';

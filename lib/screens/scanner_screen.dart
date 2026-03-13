@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../providers/food_provider.dart';
+import '../widgets/friendly_error.dart';
 
 // On web, camera requires HTTPS or localhost (browser secure-context rule).
 bool get _webCameraBlocked {
@@ -693,7 +694,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'food scanner'))));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

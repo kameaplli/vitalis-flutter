@@ -9,6 +9,8 @@ import '../core/constants.dart';
 import '../models/weight_log.dart';
 import '../widgets/weight_chart_widget.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/friendly_error.dart';
+import '../widgets/days_slider.dart';
 
 /// Standalone route screen — wraps WeightContent in a Scaffold.
 class WeightScreen extends ConsumerWidget {
@@ -73,23 +75,10 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                         children: [
                           Text('History',
                               style: Theme.of(context).textTheme.titleSmall),
-                          SegmentedButton<int>(
-                            segments: const [
-                              ButtonSegment(value: 7, label: Text('7d')),
-                              ButtonSegment(value: 30, label: Text('30d')),
-                              ButtonSegment(value: 90, label: Text('90d')),
-                            ],
-                            selected: {_days},
-                            onSelectionChanged: (s) =>
-                                setState(() => _days = s.first),
-                            style: ButtonStyle(
-                              tapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              padding: WidgetStateProperty.all(
-                                  const EdgeInsets.symmetric(
-                                      horizontal: 8)),
-                              visualDensity: VisualDensity.compact,
-                            ),
+                          DaysSlider(
+                            value: _days,
+                            onChanged: (d) => setState(() => _days = d),
+                            compact: true,
                           ),
                         ],
                       ),
@@ -105,7 +94,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   ),
                   error: (e, _) => SizedBox(
                     height: 280,
-                    child: const Center(child: Text('Something went wrong. Pull to refresh.')),
+                    child: FriendlyError(error: e, context: 'weight history'),
                   ),
                   data: (history) {
                     // BMI badge
@@ -347,7 +336,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Something went wrong. Please try again.')));
+                        SnackBar(content: Text(friendlyErrorMessage(e, context: 'weight'))));
                   }
                 }
               },
@@ -400,7 +389,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+            .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'weight'))));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

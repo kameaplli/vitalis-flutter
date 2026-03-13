@@ -5,6 +5,7 @@ import '../../models/easi_models.dart';
 import '../../providers/eczema_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import 'eczema_helpers.dart';
+import '../../widgets/friendly_error.dart';
 
 // ─── History sheet (shown from AppBar icon) ─────────────────────────────────
 
@@ -62,7 +63,7 @@ class HistorySheet extends ConsumerWidget {
         child: logsAsync.when(
           skipLoadingOnReload: true,
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+          error: (e, _) => FriendlyError(error: e, context: 'eczema history'),
           data: (logs) {
             if (logs.isEmpty) return const Center(child: Text('No eczema logs yet'));
             return Column(children: [

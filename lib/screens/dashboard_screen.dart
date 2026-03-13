@@ -13,6 +13,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/finance_provider.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/hydration_provider.dart';
+import '../widgets/friendly_error.dart';
 import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 
@@ -422,7 +423,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Something went wrong. Please try again.')),
+          SnackBar(content: Text(friendlyErrorMessage(e, context: 'hydration'))),
         );
       }
     } finally {

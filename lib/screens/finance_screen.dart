@@ -13,6 +13,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/finance_models.dart';
 import '../providers/finance_provider.dart';
+import '../widgets/friendly_error.dart';
 
 // ── Category colours ─────────────────────────────────────────────────────────
 
@@ -464,7 +465,7 @@ class _StatementsTab extends ConsumerWidget {
     final async = ref.watch(financeStatementsProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'financial statements'),
       data: (statements) {
         if (statements.isEmpty) {
           return Center(
@@ -1666,7 +1667,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           spendAsync.when(
             loading: () =>
                 const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+            error: (e, _) => FriendlyError(error: e, context: 'financial spending'),
             data: (spending) {
               if (spending.byCategory.isEmpty) {
                 return Center(
@@ -1994,7 +1995,7 @@ class _BudgetTab extends ConsumerWidget {
 
     return budgetAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'budget'),
       data: (budget) {
         if (budget.budget.isEmpty) {
           return Center(
@@ -2540,7 +2541,7 @@ class _CategoryDrillDownSheetState
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_error != null)
-            const Expanded(child: Center(child: Text('Something went wrong. Please try again.')))
+            Expanded(child: Center(child: Text(friendlyErrorMessage(_error!, context: 'transactions'), textAlign: TextAlign.center)))
           else if (_transactions!.isEmpty)
             const Expanded(child: Center(child: Text('No transactions')))
           else

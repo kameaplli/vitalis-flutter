@@ -10,6 +10,7 @@ import '../models/grocery_models.dart';
 import '../models/insight_data.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../widgets/friendly_error.dart';
 
 // ── Grocery AI Insights provider ─────────────────────────────────────────────
 // key = period (month|quarter|year) — maps to backend param
@@ -180,7 +181,7 @@ class _ReceiptsTab extends ConsumerWidget {
     final async = ref.watch(groceryReceiptsProvider(person));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+      error: (e, _) => FriendlyError(error: e, context: 'grocery receipts'),
       data: (receipts) {
         if (receipts.isEmpty) {
           return Center(
@@ -1269,7 +1270,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           const SizedBox(height: 12),
           spendAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Text('Something went wrong.'),
+            error: (e, _) => FriendlyError(error: e, context: 'grocery spending'),
             data: (spending) => spending.byCategory.isEmpty
                 ? const _EmptyAnalytics()
                 : Column(
@@ -1304,7 +1305,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           const SizedBox(height: 12),
           nutriAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Text('Something went wrong.'),
+            error: (e, _) => FriendlyError(error: e, context: 'grocery nutrition'),
             data: (spectrum) => spectrum.byCategory.isEmpty
                 ? const _EmptyAnalytics()
                 : Column(
@@ -1688,7 +1689,7 @@ class _CategoryItemsSheet extends ConsumerWidget {
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => const Center(child: Text('Something went wrong. Pull to refresh.')),
+              error: (e, _) => FriendlyError(error: e, context: 'grocery items'),
               data: (data) {
                 if (data.items.isEmpty) {
                   return const Center(child: Text('No items found'));
