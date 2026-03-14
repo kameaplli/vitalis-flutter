@@ -774,6 +774,14 @@ class _AvatarBar extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // ── Drawer menu button ──────────────────────────────────────
+              GestureDetector(
+                onTap: () => Scaffold.of(context).openDrawer(),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Icon(Icons.menu, size: 20, color: colorScheme.onSurfaceVariant),
+                ),
+              ),
               // ── Selected person card ──────────────────────────────────────
               Expanded(
                 flex: 55,
