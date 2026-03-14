@@ -64,9 +64,10 @@ class DailyProgressHeader extends ConsumerWidget {
               ),
               Column(mainAxisSize: MainAxisSize.min, children: [
                 Text('${cals.toInt()}',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                        color: cs.onSurface)),
-                Text('kcal', style: TextStyle(fontSize: 11, color: cs.outline)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5, color: cs.onSurface)),
+                Text('kcal', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5, color: cs.outline)),
               ]),
             ]),
           ),
@@ -102,23 +103,24 @@ class MiniMacroBar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
-        SizedBox(width: 48, child: Text(label,
-            style: TextStyle(fontSize: 11, color: cs.outline))),
+        SizedBox(width: 52, child: Text(label,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant))),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(5),
             child: LinearProgressIndicator(
               value: pct.clamp(0.0, 1.0),
               minHeight: 8,
-              backgroundColor: cs.outlineVariant.withOpacity(0.3),
+              backgroundColor: cs.outlineVariant.withOpacity(0.2),
               color: pct > 1.0 ? Colors.red : color,
             ),
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(width: 50, child: Text(
+        SizedBox(width: 56, child: Text(
           '${current.toInt()}/${target.toInt()}g',
-          style: TextStyle(fontSize: 11, color: cs.outline),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant),
           textAlign: TextAlign.right,
         )),
       ],

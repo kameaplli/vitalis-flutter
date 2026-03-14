@@ -516,8 +516,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
   static Widget _sectionTitle(BuildContext context, String text) => Text(
         text,
-        style: Theme.of(context).textTheme.titleMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
+        style: Theme.of(context).textTheme.titleLarge,
       );
 }
 
@@ -1799,40 +1798,43 @@ class _StatCard extends StatelessWidget {
                   VitalisIcon(icon: icon, color: color, size: VitalisIconSize.small),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(label,
+                    child: Text(label.toUpperCase(),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500),
+                            fontSize: 10, color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.8),
                         overflow: TextOverflow.ellipsis),
                   ),
                 ]),
-                const SizedBox(height: 6),
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                const SizedBox(height: 8),
+                Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic, children: [
                   Text(todayValue,
                       style: TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+                          fontSize: 28, fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5, color: color)),
                   if (todayUnit.isNotEmpty) ...[
-                    const SizedBox(width: 3),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(todayUnit,
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                    ),
+                    const SizedBox(width: 4),
+                    Text(todayUnit,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade500)),
                   ],
                 ]),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text('7d avg: $weekAvg',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade500),
                     overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 if (showTrend)
                   Row(children: [
                     Icon(up ? Icons.trending_up : Icons.trending_down,
-                        size: 13, color: up ? Colors.green : Colors.red),
-                    const SizedBox(width: 3),
+                        size: 14, color: up ? Colors.green : Colors.red),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: Text('Prev: $prevAvg',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade500),
                           overflow: TextOverflow.ellipsis),
                     ),
                   ]),
