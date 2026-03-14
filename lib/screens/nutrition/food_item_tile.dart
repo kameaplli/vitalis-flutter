@@ -144,6 +144,16 @@ class _FoodItemTileState extends State<FoodItemTile> {
                           ).toList(),
                         ),
                       ),
+                    if (food.sourceBadge.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: food.isRecipe ? Colors.green : food.isCustomFood ? Colors.blue : Colors.purple,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(food.sourceBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                      ),
                   ],
                 ),
               ),

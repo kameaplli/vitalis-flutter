@@ -10,6 +10,7 @@ import '../../providers/food_provider.dart';
 import '../../providers/nutrition_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import 'allergen_badge.dart';
+import 'recipe_creator_sheet.dart';
 
 // ─── Food search bottom sheet (local typeahead + manual entry) ────────────────
 
@@ -299,15 +300,31 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
           orElse: () => const SizedBox.shrink(),
         ),
 
-        // ── Manual entry fallback ──
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: OutlinedButton.icon(
-              onPressed: _showManualEntry,
-              icon: const Icon(Icons.edit_note, size: 18),
-              label: const Text('Enter food manually'),
-            ),
+        // ── Manual entry + Recipe creator ──
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _showManualEntry,
+                icon: const Icon(Icons.edit_note, size: 18),
+                label: const Text('Enter manually'),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    builder: (_) => const RecipeCreatorSheet(),
+                  );
+                },
+                icon: const Icon(Icons.restaurant_menu, size: 18),
+                label: const Text('Create recipe'),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 20),
@@ -698,12 +715,28 @@ class _FoodInfoCard extends ConsumerWidget {
                     _thinDivider(),
                     _nutritionRow('Protein', detail.protein, 'g', bold: true),
 
-                    // Micronutrients
+                    // Micronutrients — top 2 by DRI% highlighted
                     if (detail.micronutrients.isNotEmpty) ...[
                       const Divider(height: 1, thickness: 4, color: Colors.black),
-                      ...detail.micronutrients.take(12).map((m) =>
-                        _nutritionRow(m.name, m.value, m.unit),
-                      ),
+                      ...() {
+                        final micros = detail.micronutrients.take(12).toList();
+                        // Find top 2 nutrients by DRI %
+                        final ranked = [...micros]
+                          ..sort((a, b) => (b.driPercent ?? 0).compareTo(a.driPercent ?? 0));
+                        final top2Tags = ranked
+                            .where((m) => m.isRich)
+                            .take(2)
+                            .map((m) => m.tagname)
+                            .toSet();
+                        return micros.map((m) {
+                          final isHighlight = top2Tags.contains(m.tagname);
+                          return _nutritionRow(
+                            m.name, m.value, m.unit,
+                            highlight: isHighlight,
+                            driPercent: m.driPercent,
+                          );
+                        });
+                      }(),
                     ],
                     const SizedBox(height: 4),
                   ],
@@ -711,8 +744,60 @@ class _FoodInfoCard extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
 
-              // ── Ingredients Card ─────────────────────────────────────────
-              if (detail.ingredientsText != null && detail.ingredientsText!.isNotEmpty)
+              // ── Recipe Ingredients Breakdown ─────────────────────────────
+              if (detail.isRecipe && detail.ingredients.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.green.shade300),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                        ),
+                        child: Row(children: [
+                          Icon(Icons.restaurant_menu, size: 14, color: Colors.green.shade700),
+                          const SizedBox(width: 6),
+                          Text('RECIPE INGREDIENTS (${detail.ingredients.length})',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
+                              color: Colors.green.shade700, letterSpacing: 0.8)),
+                        ]),
+                      ),
+                      ...detail.ingredients.map((ing) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(children: [
+                          Text(ing.emoji ?? '🍽️', style: const TextStyle(fontSize: 14)),
+                          const SizedBox(width: 6),
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(ing.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text('${ing.quantityGrams.toStringAsFixed(0)}g  ·  ${ing.calories.toStringAsFixed(0)} kcal  ·  P${ing.protein.toStringAsFixed(1)} C${ing.carbs.toStringAsFixed(1)} F${ing.fat.toStringAsFixed(1)}',
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                            ],
+                          )),
+                          SizedBox(
+                            width: 40,
+                            child: Text('${ing.percentage.toStringAsFixed(0)}%',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700)),
+                          ),
+                        ]),
+                      )),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
+
+              // ── Ingredients Card (text) ────────────────────────────────────
+              if (!(detail.isRecipe && detail.ingredients.isNotEmpty) &&
+                  detail.ingredientsText != null && detail.ingredientsText!.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
@@ -776,15 +861,34 @@ class _FoodInfoCard extends ConsumerWidget {
     );
   }
 
-  Widget _nutritionRow(String label, double? value, String unit, {bool bold = false}) {
-    return Padding(
+  Widget _nutritionRow(String label, double? value, String unit,
+      {bool bold = false, bool highlight = false, double? driPercent}) {
+    return Container(
+      color: highlight ? const Color(0xFFFFF3E0) : null,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
-          const Spacer(),
+          if (highlight)
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(Icons.star_rounded, size: 12, color: Colors.orange),
+            ),
+          Expanded(
+            child: Text(label, style: TextStyle(
+              fontSize: 11,
+              fontWeight: bold || highlight ? FontWeight.w700 : FontWeight.w400,
+              color: highlight ? Colors.orange.shade900 : null,
+            )),
+          ),
+          if (driPercent != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Text('${driPercent.toStringAsFixed(0)}% DV',
+                style: TextStyle(fontSize: 11, color: highlight ? Colors.orange.shade700 : Colors.grey.shade500)),
+            ),
           Text(value != null ? '${value.toStringAsFixed(1)}$unit' : '—',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+              color: highlight ? Colors.orange.shade900 : null)),
         ],
       ),
     );
@@ -1011,6 +1115,16 @@ class _FoodSearchTileState extends State<_FoodSearchTile>
                           AllergenBadge(allergen: a),
                         ).toList(),
                       ),
+                    ),
+                  if (food.sourceBadge.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: food.isRecipe ? Colors.green : food.isCustomFood ? Colors.blue : Colors.purple,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(food.sourceBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                     ),
                 ],
               ),

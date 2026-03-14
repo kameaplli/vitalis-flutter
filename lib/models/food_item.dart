@@ -186,6 +186,19 @@ class FoodItem {
     return (cal! / 100) * servingSize!;
   }
 
+  bool get isRecipe => source == 'recipe';
+  bool get isCustomFood => source == 'custom' || source == 'scanned' || source == 'voice_logged';
+
+  String get sourceBadge {
+    switch (source) {
+      case 'recipe': return 'Recipe';
+      case 'custom': return 'Custom';
+      case 'scanned': return 'Scanned';
+      case 'voice_logged': return 'Voice';
+      default: return '';
+    }
+  }
+
   /// Unique allergen categories (de-duped, e.g. dairy + dairy_aliases → just Dairy)
   List<FoodAllergenInfo> get uniqueAllergens {
     final seen = <String>{};

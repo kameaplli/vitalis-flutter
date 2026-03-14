@@ -21,6 +21,8 @@ class FoodDetail {
   final List<dynamic> allergens;
   final String? imageUrl;
   final String? groupId;
+  final bool isRecipe;
+  final List<RecipeIngredient> ingredients;
   final List<MicronutrientValue> micronutrients;
   final List<SourceVariant> sourceVariants;
 
@@ -46,6 +48,8 @@ class FoodDetail {
     this.allergens = const [],
     this.imageUrl,
     this.groupId,
+    this.isRecipe = false,
+    this.ingredients = const [],
     this.micronutrients = const [],
     this.sourceVariants = const [],
   });
@@ -73,6 +77,10 @@ class FoodDetail {
       allergens: json['allergens'] as List<dynamic>? ?? const [],
       imageUrl: json['image_url'],
       groupId: json['group_id'],
+      isRecipe: json['is_recipe'] == true,
+      ingredients: (json['ingredients'] as List<dynamic>? ?? [])
+          .map((i) => RecipeIngredient.fromJson(i as Map<String, dynamic>))
+          .toList(),
       micronutrients: (json['micronutrients'] as List<dynamic>? ?? [])
           .map((m) => MicronutrientValue.fromJson(m))
           .toList(),
@@ -92,12 +100,49 @@ class FoodDetail {
   double get calFromFat => (fat ?? 0) * 9;
 }
 
+class RecipeIngredient {
+  final String foodId;
+  final String name;
+  final String? emoji;
+  final double quantityGrams;
+  final double percentage;
+  final double calories;
+  final double protein;
+  final double carbs;
+  final double fat;
+
+  const RecipeIngredient({
+    required this.foodId,
+    required this.name,
+    this.emoji,
+    required this.quantityGrams,
+    required this.percentage,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+
+  factory RecipeIngredient.fromJson(Map<String, dynamic> json) => RecipeIngredient(
+    foodId: json['food_id'] ?? '',
+    name: json['name'] ?? '',
+    emoji: json['emoji'],
+    quantityGrams: (json['quantity_grams'] as num?)?.toDouble() ?? 0,
+    percentage: (json['percentage'] as num?)?.toDouble() ?? 0,
+    calories: (json['calories'] as num?)?.toDouble() ?? 0,
+    protein: (json['protein'] as num?)?.toDouble() ?? 0,
+    carbs: (json['carbs'] as num?)?.toDouble() ?? 0,
+    fat: (json['fat'] as num?)?.toDouble() ?? 0,
+  );
+}
+
 class MicronutrientValue {
   final String tagname;
   final String name;
   final double? value;
   final String unit;
   final String? category;
+  final double? driPercent;
 
   const MicronutrientValue({
     required this.tagname,
@@ -105,6 +150,7 @@ class MicronutrientValue {
     this.value,
     required this.unit,
     this.category,
+    this.driPercent,
   });
 
   factory MicronutrientValue.fromJson(Map<String, dynamic> json) {
@@ -114,10 +160,14 @@ class MicronutrientValue {
       value: (json['value'] as num?)?.toDouble(),
       unit: json['unit'] ?? '',
       category: json['category'],
+      driPercent: (json['dri_percent'] as num?)?.toDouble(),
     );
   }
 
   bool get hasData => value != null;
+
+  /// Whether this nutrient is considered "rich" (>= 20% DRI per 100g).
+  bool get isRich => driPercent != null && driPercent! >= 20;
 }
 
 class SourceVariant {
