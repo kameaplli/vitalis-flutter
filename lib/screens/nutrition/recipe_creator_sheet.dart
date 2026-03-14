@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
+import '../../core/app_cache.dart';
 import '../../core/constants.dart';
 import '../../models/food_item.dart';
 import '../../providers/food_provider.dart';
@@ -128,6 +129,7 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
           '${ApiConstants.customMeal}/${widget.existingRecipeId}',
           data: body,
         );
+        await AppCache.clearFoodDetail(widget.existingRecipeId!);
         ref.invalidate(foodDetailProvider(widget.existingRecipeId!));
       } else {
         res = await apiClient.dio.post(ApiConstants.customMeal, data: body);
@@ -147,6 +149,8 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
         emoji: '\u{1F372}', // 🍲
       );
 
+      // Clear cached food DB so new recipe appears immediately
+      AppCache.clearFoodDb();
       ref.invalidate(foodDatabaseProvider);
 
       if (mounted) {

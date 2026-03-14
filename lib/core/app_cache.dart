@@ -87,6 +87,41 @@ class AppCache {
     }
   }
 
+  // ── Food Detail (nutrition facts per food — cached locally for instant access)
+
+  static const _foodDetailTtl = 60 * 24 * 7; // 7 days — nutrition facts rarely change
+
+  static Future<void> saveFoodDetail(String foodId, Map<String, dynamic> json) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('fd_$foodId', jsonEncode(json));
+      await prefs.setInt('fd_${foodId}_ts', _nowMs());
+    } catch (_) {}
+  }
+
+  static Future<Map<String, dynamic>?> loadFoodDetail(String foodId,
+      {bool stale = false}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!stale && _isStale(prefs, 'fd_${foodId}_ts', _foodDetailTtl)) {
+        return null;
+      }
+      final raw = prefs.getString('fd_$foodId');
+      if (raw == null) return null;
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> clearFoodDetail(String foodId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('fd_$foodId');
+      await prefs.remove('fd_${foodId}_ts');
+    } catch (_) {}
+  }
+
   // ── Secure Internal helpers ────────────────────────────────────────────────
 
   static Future<void> _secureSave(String key, Map<String, dynamic> json) async {

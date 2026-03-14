@@ -13,6 +13,8 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/eczema_log.dart';
 import '../models/easi_models.dart';
+import '../models/environment_data.dart';
+import '../widgets/environment_card.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/days_slider.dart';
 import '../widgets/eczema_body_map.dart';
@@ -83,6 +85,10 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   final _notesCtrl = TextEditingController();
   bool _saving = false;
 
+  // ── Auto-captured environment ──────────────────────────────────────────
+  EnvironmentData? _currentEnvironment;
+  bool _envLoading = false;
+
   // ── Compare tab state ────────────────────────────────────────────────────
   String? _compareIdA;
   String? _compareIdB;
@@ -92,6 +98,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     super.initState();
     _tabs = TabController(length: 4, vsync: this);
     _tabs.addListener(() => setState(() {}));
+    _fetchEnvironment();
   }
 
   @override
@@ -213,6 +220,37 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
       );
     } catch (_) {
       // Non-critical — silently ignore
+    }
+  }
+
+  /// Auto-fetch current environment on screen load for display.
+  Future<void> _fetchEnvironment() async {
+    if (_envLoading) return;
+    setState(() => _envLoading = true);
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) return;
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+      );
+      final res = await apiClient.dio.get(
+        ApiConstants.environmentCurrent,
+        queryParameters: {'lat': pos.latitude, 'lon': pos.longitude},
+      );
+      if (mounted) {
+        setState(() {
+          _currentEnvironment = EnvironmentData.fromJson(res.data as Map<String, dynamic>);
+        });
+      }
+    } catch (_) {
+      // Non-critical
+    } finally {
+      if (mounted) setState(() => _envLoading = false);
     }
   }
 
@@ -688,6 +726,35 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                       ),
                     ]),
                     const SizedBox(height: 12),
+
+                    // Auto-captured environment
+                    if (_currentEnvironment != null)
+                      EnvironmentCard(data: _currentEnvironment!)
+                    else if (_envLoading)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(width: 12),
+                              Text('Fetching environment data...', style: TextStyle(fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.cloud_off, size: 20),
+                          title: const Text('Environment data unavailable', style: TextStyle(fontSize: 13)),
+                          subtitle: const Text('Enable location to auto-capture weather', style: TextStyle(fontSize: 11)),
+                          dense: true,
+                          onTap: _fetchEnvironment,
+                          trailing: const Icon(Icons.refresh, size: 18),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
 
                     // Scored zones
                     if (_regionScores.isNotEmpty) ...[
