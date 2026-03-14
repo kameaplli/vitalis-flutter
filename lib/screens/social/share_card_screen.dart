@@ -1,8 +1,12 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
 
 import '../../providers/social_provider.dart';
 import '../../widgets/social/share_card_generator.dart';
@@ -44,8 +48,19 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
       _showSnackBar('Failed to render card');
       return;
     }
-    // Image rendered successfully — share_plus not yet in dependencies
-    _showSnackBar('Share functionality coming soon');
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/vitalis_card_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(imageBytes);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Check out my Vitalis health report!',
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Failed to share: $e');
+    }
   }
 
   Future<void> _handleDownload() async {
@@ -55,8 +70,25 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
       _showSnackBar('Failed to render card');
       return;
     }
-    // Image rendered successfully — gallery save not yet implemented
-    _showSnackBar('Download functionality coming soon');
+    try {
+      await Gal.putImageBytes(imageBytes, album: 'Vitalis');
+      HapticFeedback.heavyImpact();
+      _showSnackBar('Card saved to gallery');
+    } on GalException catch (e) {
+      if (e.type == GalExceptionType.accessDenied) {
+        final granted = await Gal.requestAccess();
+        if (granted) {
+          await Gal.putImageBytes(imageBytes, album: 'Vitalis');
+          _showSnackBar('Card saved to gallery');
+        } else {
+          _showSnackBar('Gallery permission denied');
+        }
+      } else {
+        _showSnackBar('Failed to save: ${e.type.name}');
+      }
+    } catch (e) {
+      _showSnackBar('Failed to save: $e');
+    }
   }
 
   void _showSnackBar(String message) {

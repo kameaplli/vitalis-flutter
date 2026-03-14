@@ -861,7 +861,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   String _audience = 'buddies';
   bool _posting = false;
 
-  final apiClient = ApiClient.instance;
+  final apiClient = ApiClient();
 
   @override
   void dispose() {
@@ -1044,7 +1044,7 @@ class _UserSearchSheet extends ConsumerStatefulWidget {
 
 class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
   String _query = '';
-  final apiClient = ApiClient.instance;
+  final apiClient = ApiClient();
 
   Future<void> _sendRequest(String userId) async {
     try {
