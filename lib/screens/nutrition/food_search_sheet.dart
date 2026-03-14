@@ -543,13 +543,27 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                   ? _buildShimmerSection()
                   : _query.isEmpty
                       ? _buildPreSearchView(scrollCtrl)
-                      : filtered.isNotEmpty
-                          ? _buildGroupedResults(filtered, scrollCtrl)
-                          : _serverSearching
-                              ? const Center(child: CircularProgressIndicator())
-                              : (_serverResults != null && _serverResults!.isNotEmpty)
-                                  ? _buildGroupedResults(_serverResults!, scrollCtrl)
-                                  : Center(
+                      : () {
+                          // Merge local + server results, dedup by id
+                          final merged = <FoodItem>[];
+                          final seenIds = <String>{};
+                          // Server results first (includes recipes, custom foods, ranked by relevance)
+                          if (_serverResults != null) {
+                            for (final f in _serverResults!) {
+                              if (seenIds.add(f.id)) merged.add(f);
+                            }
+                          }
+                          // Then local results that weren't in server results
+                          for (final f in filtered) {
+                            if (seenIds.add(f.id)) merged.add(f);
+                          }
+                          if (merged.isNotEmpty) {
+                            return _buildGroupedResults(merged, scrollCtrl);
+                          }
+                          if (_serverSearching) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          return Center(
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -565,7 +579,8 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                                           ),
                                         ],
                                       ),
-                                    ),
+                                    );
+                        }(),
             ),
           ],
         );
