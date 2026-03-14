@@ -14,6 +14,7 @@ import '../services/background_service.dart';
 import '../services/biometric_service.dart';
 import '../services/prefetch_service.dart';
 import '../providers/social_provider.dart';
+import 'vitalis_icon.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -520,7 +521,7 @@ class _AppDrawer extends StatelessWidget {
 
             // Profile
             ListTile(
-              leading: Icon(Icons.person_outline, color: cs.onSurfaceVariant),
+              leading: const VitalisIcon(icon: Icons.person_outline, color: Color(0xFF6366F1), size: VitalisIconSize.small),
               title: const Text('Profile'),
               onTap: () {
                 Navigator.pop(context);
@@ -536,7 +537,7 @@ class _AppDrawer extends StatelessWidget {
                   '$badgeCount',
                   style: const TextStyle(fontSize: 10),
                 ),
-                child: Icon(Icons.people_outline, color: cs.onSurfaceVariant),
+                child: const VitalisIcon(icon: Icons.people_outline, color: Color(0xFF0D7377), size: VitalisIconSize.small),
               ),
               title: const Text('Community Hub'),
               onTap: () {
@@ -547,7 +548,7 @@ class _AppDrawer extends StatelessWidget {
 
             // Analytics & Insights
             ListTile(
-              leading: Icon(Icons.insights, color: cs.onSurfaceVariant),
+              leading: const VitalisIcon(icon: Icons.insights, color: Color(0xFFF59E0B), size: VitalisIconSize.small),
               title: const Text('Analytics & Insights'),
               onTap: () {
                 Navigator.pop(context);
@@ -557,7 +558,7 @@ class _AppDrawer extends StatelessWidget {
 
             // Notifications
             ListTile(
-              leading: Icon(Icons.notifications_outlined, color: cs.onSurfaceVariant),
+              leading: const VitalisIcon(icon: Icons.notifications_outlined, color: Color(0xFFEF4444), size: VitalisIconSize.small),
               title: const Text('Notifications'),
               onTap: () {
                 Navigator.pop(context);

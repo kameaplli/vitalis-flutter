@@ -15,6 +15,7 @@ import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/days_slider.dart';
+import '../widgets/vitalis_icon.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -430,19 +431,10 @@ class _HealthCardState extends State<_HealthCard>
                           children: [
                             Transform.scale(
                               scale: 1.0 + p * 0.04,
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: RadialGradient(
-                                    colors: [
-                                      def.color.withValues(alpha: 0.18 + p * 0.08),
-                                      def.color.withValues(alpha: 0.04),
-                                    ],
-                                    radius: 0.85,
-                                  ),
-                                ),
-                                child: Icon(def.icon, color: def.color, size: 30),
+                              child: VitalisIcon(
+                                icon: def.icon,
+                                color: def.color,
+                                size: VitalisIconSize.large,
                               ),
                             ),
                             const SizedBox(height: 8),

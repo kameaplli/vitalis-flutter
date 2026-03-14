@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'vitalis_icon.dart';
 
 class StatCard extends StatelessWidget {
   final String title;
@@ -27,15 +28,8 @@ class StatCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: cardColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: cardColor, size: 20),
-                ),
-                const SizedBox(width: 8),
+                VitalisIcon(icon: icon, color: cardColor, size: VitalisIconSize.small),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(title, style: Theme.of(context).textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis),

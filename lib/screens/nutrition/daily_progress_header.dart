@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/nutrition_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import 'daily_intake.dart';
+import '../../widgets/vitalis_icon.dart';
 
 // ─── Daily progress header ───────────────────────────────────────────────────
 
@@ -140,23 +141,25 @@ class EntryMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 64,
+      width: 72,
       child: Material(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
+        color: cs.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 26, color: color),
-                const SizedBox(height: 6),
+                VitalisIcon(icon: icon, color: color),
+                const SizedBox(height: 8),
                 Text(label, style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: cs.onSurface)),
               ],
             ),
           ),

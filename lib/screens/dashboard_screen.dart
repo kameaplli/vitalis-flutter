@@ -21,6 +21,7 @@ import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
+import '../widgets/vitalis_icon.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -555,25 +556,27 @@ class _QuickActionsBar extends StatelessWidget {
 
   Widget _action(BuildContext context, IconData icon, String label,
       Color color, VoidCallback onTap) {
+    final cs = Theme.of(context).colorScheme;
     return Expanded(
       child: Semantics(
         button: true,
         label: label,
         child: Material(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
+          color: cs.surfaceContainerHighest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(child: Icon(icon, size: 22, color: color)),
-                  const SizedBox(height: 4),
+                  ExcludeSemantics(child: VitalisIcon(icon: icon, color: color)),
+                  const SizedBox(height: 8),
                   ExcludeSemantics(child: Text(label, style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600, color: color))),
+                      fontSize: 11, fontWeight: FontWeight.w600,
+                      color: cs.onSurface))),
                 ],
               ),
             ),
@@ -1793,8 +1796,8 @@ class _StatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  Icon(icon, size: 15, color: color),
-                  const SizedBox(width: 5),
+                  VitalisIcon(icon: icon, color: color, size: VitalisIconSize.small),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(label,
                         style: TextStyle(
