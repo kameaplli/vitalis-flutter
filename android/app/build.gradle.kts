@@ -48,6 +48,8 @@ android {
                 keyPassword = keystoreProperties["keyPassword"] as String
                 storeFile = file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
+                enableV3Signing = true
+                enableV4Signing = true
             }
         }
     }
@@ -64,7 +66,25 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Prevent Samsung install failures on large native libs
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
+    }
+
+    packagingOptions {
+        // Prevent duplicate META-INF files that break v2/v3 signature verification
+        resources.excludes += setOf(
+            "META-INF/*.version",
+            "META-INF/LICENSE.txt",
+            "META-INF/NOTICE.txt",
+            "META-INF/com/android/build/gradle/app-metadata.properties",
+            "META-INF/version-control-info.textproto",
+            "META-INF/services/R4.a",
+            "META-INF/services/R4.b",
+            "META-INF/androidx/annotation/annotation/LICENSE.txt",
+        )
     }
 }
 
