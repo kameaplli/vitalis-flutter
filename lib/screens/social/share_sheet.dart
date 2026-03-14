@@ -80,7 +80,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
           },
         },
       );
-      ref.invalidate(socialFeedProvider(0));
+      ref.invalidate(socialFeedProvider(null));
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(

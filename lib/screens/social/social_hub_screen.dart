@@ -104,7 +104,7 @@ class _FeedTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final feedAsync = ref.watch(socialFeedProvider(0));
+    final feedAsync = ref.watch(socialFeedProvider(null));
     final cs = Theme.of(context).colorScheme;
 
     return feedAsync.when(
@@ -120,7 +120,7 @@ class _FeedTab extends ConsumerWidget {
                 style: TextStyle(color: cs.onSurfaceVariant)),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => ref.invalidate(socialFeedProvider(0)),
+              onPressed: () => ref.invalidate(socialFeedProvider(null)),
               child: const Text('Retry'),
             ),
           ],
@@ -133,7 +133,7 @@ class _FeedTab extends ConsumerWidget {
 
         return RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(socialFeedProvider(0));
+            ref.invalidate(socialFeedProvider(null));
           },
           child: ListView.builder(
             padding: const EdgeInsets.only(top: 8, bottom: 80),
@@ -152,7 +152,7 @@ class _FeedTab extends ConsumerWidget {
                         'reaction_type': type,
                       },
                     );
-                    ref.invalidate(socialFeedProvider(0));
+                    ref.invalidate(socialFeedProvider(null));
                   } catch (_) {}
                 },
                 onProfileTap: () {
@@ -222,7 +222,7 @@ class _RecipesTabState extends ConsumerState<_RecipesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final recipesAsync = ref.watch(recipeFeedProvider(0));
+    final recipesAsync = ref.watch(recipeFeedProvider(null));
     final cs = Theme.of(context).colorScheme;
 
     return Column(

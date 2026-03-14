@@ -8,7 +8,7 @@ class SocialProfile {
   final int xpTotal;
   final int level;
   final String? streakBuddyId;
-  final Map<String, String> privacySettings;
+  final Map<String, dynamic> privacySettings;
   final DateTime? createdAt;
 
   SocialProfile({
@@ -19,7 +19,7 @@ class SocialProfile {
     this.xpTotal = 0,
     this.level = 1,
     this.streakBuddyId,
-    this.privacySettings = const {},
+    this.privacySettings = const <String, dynamic>{},
     this.createdAt,
   });
 
@@ -35,9 +35,9 @@ class SocialProfile {
       xpTotal: (json['xp_total'] as num?)?.toInt() ?? 0,
       level: (json['level'] as num?)?.toInt() ?? 1,
       streakBuddyId: json['streak_buddy_id'],
-      privacySettings: (json['privacy_settings'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, v.toString())) ??
-          const {},
+      privacySettings: (json['privacy_settings'] is Map)
+              ? Map<String, dynamic>.from(json['privacy_settings'])
+              : <String, dynamic>{},
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'])
           : null,
@@ -86,13 +86,13 @@ class Connection {
   factory Connection.fromJson(Map<String, dynamic> json) {
     return Connection(
       id: json['id'] ?? '',
-      requesterId: json['requester_id'] ?? '',
+      requesterId: json['requester_id'] ?? json['other_user']?['user_id'] ?? '',
       addresseeId: json['addressee_id'] ?? '',
-      connectionType: json['connection_type'] ?? 'buddy',
-      status: json['status'] ?? 'pending',
-      requesterName: json['requester_name'],
-      requesterAvatarUrl: json['requester_avatar_url'],
-      addresseeName: json['addressee_name'],
+      connectionType: json['connection_type'] ?? '',
+      status: json['status'] ?? '',
+      requesterName: json['requester_name'] ?? json['other_user']?['name'] ?? '',
+      requesterAvatarUrl: json['requester_avatar_url'] ?? json['other_user']?['avatar_url'],
+      addresseeName: json['addressee_name'] ?? '',
       addresseeAvatarUrl: json['addressee_avatar_url'],
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'])
@@ -153,9 +153,9 @@ class FeedEvent {
   factory FeedEvent.fromJson(Map<String, dynamic> json) {
     return FeedEvent(
       id: json['id'] ?? '',
-      actorId: json['actor_id'] ?? '',
-      actorName: json['actor_name'] ?? '',
-      actorAvatarUrl: json['actor_avatar_url'],
+      actorId: json['actor']?['user_id'] ?? json['actor_id'] ?? '',
+      actorName: json['actor']?['display_name'] ?? json['actor']?['name'] ?? json['actor_name'] ?? '',
+      actorAvatarUrl: json['actor']?['avatar_url'] ?? json['actor_avatar_url'],
       eventType: json['event_type'] ?? '',
       contentType: json['content_type'],
       contentSnapshot:
@@ -254,7 +254,7 @@ class Challenge {
   factory Challenge.fromJson(Map<String, dynamic> json) {
     return Challenge(
       id: json['id'] ?? '',
-      creatorId: json['creator_id'] ?? '',
+      creatorId: json['creator']?['user_id'] ?? json['creator_id'] ?? '',
       title: json['title'] ?? '',
       description: json['description'],
       challengeType: json['challenge_type'] ?? '',
@@ -371,7 +371,7 @@ class UserSearchResult {
 
   factory UserSearchResult.fromJson(Map<String, dynamic> json) {
     return UserSearchResult(
-      id: json['id'] ?? '',
+      id: json['user_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
       avatarUrl: json['avatar_url'],
       connectionStatus: json['connection_status'],

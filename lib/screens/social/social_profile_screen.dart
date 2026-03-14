@@ -103,7 +103,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
         (c) => c.requesterId == widget.userId,
       );
       await apiClient.dio
-          .post(ApiConstants.socialConnectionAccept(conn.id));
+          .put(ApiConstants.socialConnectionAccept(conn.id));
       if (mounted) {
         setState(() => _connectionStatus = ConnectionStatus.connected);
       }
@@ -128,7 +128,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
         (c) => c.requesterId == widget.userId,
       );
       await apiClient.dio
-          .post(ApiConstants.socialConnectionReject(conn.id));
+          .put(ApiConstants.socialConnectionReject(conn.id));
       if (mounted) {
         setState(() => _connectionStatus = ConnectionStatus.none);
       }
@@ -343,7 +343,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
 
 class _StatsSection extends StatelessWidget {
   final SocialProfile profile;
-  final Map<String, String> privacy;
+  final Map<String, dynamic> privacy;
 
   const _StatsSection({required this.profile, required this.privacy});
 
