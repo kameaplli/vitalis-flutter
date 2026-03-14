@@ -168,6 +168,14 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         location.startsWith('/grocery');
 
     final isOnline = ref.watch(connectivityProvider);
+    final welcomeActive = ref.watch(welcomeOverlayProvider);
+
+    // When welcome overlay is active, render child fullscreen (no bars)
+    if (welcomeActive && location == '/dashboard') {
+      return Scaffold(
+        body: widget.child,
+      );
+    }
 
     return Scaffold(
       body: SafeArea(

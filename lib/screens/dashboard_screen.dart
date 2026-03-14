@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -50,6 +50,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       if (status == AnimationStatus.completed && mounted) {
         _welcomeShownThisSession = true;
         setState(() => _showWelcome = false);
+        // Tell AppShell to restore avatar bar + bottom nav
+        ref.read(welcomeOverlayProvider.notifier).state = false;
       }
     });
   }
@@ -96,37 +98,53 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final today = DateTime.now().toIso8601String().substring(0, 10);
     ref.watch(dashboardProvider((person, today)));
 
-    if (!_showWelcome) {
-      return Scaffold(
-        body: _PersonDashboardPage(
-          personId: person,
-          onRefresh: _refresh,
-        ),
-      );
-    }
-
-    // Welcome screen — swipe up to dismiss
-    final screenH = MediaQuery.of(context).size.height;
-    final dismissProgress = _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
-        ? _dismissCtrl.value
-        : (_dragOffset / -400).clamp(0.0, 1.0);
-
+    // Always render the dashboard — welcome overlays on top
     return Scaffold(
-      body: GestureDetector(
-        onVerticalDragUpdate: _onVerticalDragUpdate,
-        onVerticalDragEnd: _onVerticalDragEnd,
-        child: AnimatedBuilder(
-          animation: _dismissCtrl,
-          builder: (_, __) => Transform.translate(
-            offset: Offset(0, _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
-                ? -screenH * _dismissCtrl.value
-                : _dragOffset),
-            child: Opacity(
-              opacity: (1.0 - dismissProgress * 0.6).clamp(0.0, 1.0),
-              child: _WelcomeScreen(personId: person),
-            ),
+      body: Stack(
+        children: [
+          // Dashboard underneath (pre-loaded)
+          _PersonDashboardPage(
+            personId: person,
+            onRefresh: _refresh,
           ),
-        ),
+
+          // Welcome overlay — covers entire screen including system bars
+          if (_showWelcome)
+            Positioned.fill(
+              child: GestureDetector(
+                onVerticalDragUpdate: _onVerticalDragUpdate,
+                onVerticalDragEnd: _onVerticalDragEnd,
+                child: AnimatedBuilder(
+                  animation: _dismissCtrl,
+                  builder: (_, __) {
+                    final screenH = MediaQuery.of(context).size.height;
+                    final dismissProgress = _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
+                        ? _dismissCtrl.value
+                        : (_dragOffset / -400).clamp(0.0, 1.0);
+                    final scale = 1.0 - dismissProgress * 0.12;
+                    final opacity = (1.0 - dismissProgress).clamp(0.0, 1.0);
+                    final radius = dismissProgress * 32;
+
+                    return Transform.translate(
+                      offset: Offset(0, _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
+                          ? -screenH * _dismissCtrl.value
+                          : _dragOffset),
+                      child: Transform.scale(
+                        scale: scale,
+                        child: Opacity(
+                          opacity: opacity,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(radius),
+                            child: _WelcomeScreen(personId: person),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1008,14 +1026,18 @@ class _WelcomeScreen extends ConsumerStatefulWidget {
   ConsumerState<_WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
+// ── Brand palette (matching onboarding) ─────────────────────────────────────
+const _wTeal     = Color(0xFF1A6B5C);
+const _wTealDark = Color(0xFF0F4A3F);
+const _wTealMint = Color(0xFF2D9F8A);
+const _wMintLight = Color(0xFF50C9B0);
+
 class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     with TickerProviderStateMixin {
   late final AnimationController _masterCtrl;
-  late final AnimationController _floatCtrl;
-  late final AnimationController _particleCtrl;
-  late final AnimationController _pulseCtrl;
-  late final AnimationController _shimmerCtrl;
   late final AnimationController _orbCtrl;
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _floatCtrl;
 
   // Staggered entrance animations
   late final Animation<double> _emojiScale;
@@ -1023,155 +1045,104 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
   late final Animation<Offset> _greetingSlide;
   late final Animation<double> _nameFade;
   late final Animation<Offset> _nameSlide;
-  late final Animation<double> _insightFade;
-  late final Animation<Offset> _insightSlide;
+  late final Animation<double> _cardFade;
+  late final Animation<Offset> _cardSlide;
   late final Animation<double> _swipeHintFade;
-
-  // Particles & orbs for background
-  late final List<_Particle> _particles;
-  late final List<_FloatingOrb> _orbs;
 
   @override
   void initState() {
     super.initState();
 
     _masterCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2400))
+      vsync: this, duration: const Duration(milliseconds: 2200))
       ..forward();
 
-    _floatCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2500))
-      ..repeat(reverse: true);
-
-    _particleCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 6000))
+    _orbCtrl = AnimationController(
+      vsync: this, duration: const Duration(seconds: 20))
       ..repeat();
 
     _pulseCtrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 1800))
       ..repeat(reverse: true);
 
-    _shimmerCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 3000))
-      ..repeat();
-
-    _orbCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 12000))
-      ..repeat();
-
-    // Generate particles — more of them, varied
-    final rng = Random();
-    _particles = List.generate(24, (i) => _Particle(
-      x: rng.nextDouble(),
-      y: rng.nextDouble(),
-      size: rng.nextDouble() * 5 + 1.5,
-      speed: rng.nextDouble() * 0.4 + 0.15,
-      opacity: rng.nextDouble() * 0.45 + 0.08,
-    ));
-
-    // Floating orbs — large, colorful, slow
-    _orbs = List.generate(5, (i) => _FloatingOrb(
-      x: rng.nextDouble(),
-      y: rng.nextDouble(),
-      radius: rng.nextDouble() * 60 + 40,
-      speed: rng.nextDouble() * 0.15 + 0.05,
-      phase: rng.nextDouble() * 2 * pi,
-    ));
+    _floatCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 2500))
+      ..repeat(reverse: true);
 
     _emojiScale = Tween(begin: 0.0, end: 1.0).animate(CurvedAnimation(
       parent: _masterCtrl,
-      curve: const Interval(0.0, 0.25, curve: Curves.elasticOut),
+      curve: const Interval(0.0, 0.30, curve: Curves.elasticOut),
     ));
 
     _greetingFade = CurvedAnimation(
       parent: _masterCtrl,
-      curve: const Interval(0.15, 0.38, curve: Curves.easeOut),
+      curve: const Interval(0.18, 0.40, curve: Curves.easeOut),
     );
-    _greetingSlide = Tween(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-      CurvedAnimation(parent: _masterCtrl, curve: const Interval(0.15, 0.38, curve: Curves.easeOut)),
+    _greetingSlide = Tween(begin: const Offset(0, 0.4), end: Offset.zero).animate(
+      CurvedAnimation(parent: _masterCtrl, curve: const Interval(0.18, 0.40, curve: Curves.easeOutCubic)),
     );
 
     _nameFade = CurvedAnimation(
       parent: _masterCtrl,
-      curve: const Interval(0.28, 0.52, curve: Curves.easeOut),
+      curve: const Interval(0.30, 0.55, curve: Curves.easeOut),
     );
-    _nameSlide = Tween(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-      CurvedAnimation(parent: _masterCtrl, curve: const Interval(0.28, 0.52, curve: Curves.easeOut)),
+    _nameSlide = Tween(begin: const Offset(0, 0.4), end: Offset.zero).animate(
+      CurvedAnimation(parent: _masterCtrl, curve: const Interval(0.30, 0.55, curve: Curves.easeOutCubic)),
     );
 
-    _insightFade = CurvedAnimation(
+    _cardFade = CurvedAnimation(
       parent: _masterCtrl,
-      curve: const Interval(0.48, 0.78, curve: Curves.easeOut),
+      curve: const Interval(0.50, 0.80, curve: Curves.easeOut),
     );
-    _insightSlide = Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-      CurvedAnimation(parent: _masterCtrl, curve: const Interval(0.48, 0.78, curve: Curves.easeOut)),
+    _cardSlide = Tween(begin: const Offset(0, 0.25), end: Offset.zero).animate(
+      CurvedAnimation(parent: _masterCtrl, curve: const Interval(0.50, 0.80, curve: Curves.easeOutCubic)),
     );
 
     _swipeHintFade = CurvedAnimation(
       parent: _masterCtrl,
-      curve: const Interval(0.80, 1.0, curve: Curves.easeOut),
+      curve: const Interval(0.82, 1.0, curve: Curves.easeOut),
     );
   }
 
   @override
   void dispose() {
     _masterCtrl.dispose();
-    _floatCtrl.dispose();
-    _particleCtrl.dispose();
-    _pulseCtrl.dispose();
-    _shimmerCtrl.dispose();
     _orbCtrl.dispose();
+    _pulseCtrl.dispose();
+    _floatCtrl.dispose();
     super.dispose();
   }
 
-  // ── Mood-driven color theming ──────────────────────────────────────────
+  // ── Mood-aware gradient tinting over brand teal ──────────────────────────
 
-  /// Returns vibrant gradient based on mood + time of day
-  List<Color> _moodGradient(String? insightType, String? dominantMood) {
-    final h = DateTime.now().hour;
-    // Mood-driven gradients (override time-based when mood data exists)
+  List<Color> _gradient(String? insightType) {
+    // Base: brand teal (matches onboarding)
+    const base = [_wTealDark, _wTeal, _wTealMint];
     if (insightType == 'positive') {
-      // Energetic, vibrant — greens and teals
-      return h < 17
-          ? [const Color(0xFF00C853), const Color(0xFF1DE9B6), const Color(0xFF00E5FF)]
-          : [const Color(0xFF004D40), const Color(0xFF00695C), const Color(0xFF00897B)];
+      // Energetic teal-green
+      return const [Color(0xFF0F4A3F), Color(0xFF00897B), Color(0xFF4DB6AC)];
     } else if (insightType == 'care') {
-      // Warm, comforting — sunset oranges and pinks
-      return h < 17
-          ? [const Color(0xFFFF6F00), const Color(0xFFFF8F00), const Color(0xFFFFAB40)]
-          : [const Color(0xFF4A148C), const Color(0xFF6A1B9A), const Color(0xFF8E24AA)];
+      // Warm amber tint (like onboarding triggers page)
+      return const [Color(0xFF8B5E0A), Color(0xFFD97706), Color(0xFFE8A317)];
     } else if (insightType == 'neutral') {
-      // Calm, balanced — soft blues
-      return h < 17
-          ? [const Color(0xFF1565C0), const Color(0xFF42A5F5), const Color(0xFF80D8FF)]
-          : [const Color(0xFF0D47A1), const Color(0xFF1565C0), const Color(0xFF1E88E5)];
+      // Indigo tint (like onboarding location page)
+      return const [Color(0xFF2D3A8C), Color(0xFF4F46E5), Color(0xFF7C6FF7)];
     }
-    // Default: time-based
-    if (h < 6) {
-      return [const Color(0xFF0D0D2B), const Color(0xFF1A1A4E), const Color(0xFF2D1B69)];
-    } else if (h < 12) {
-      return [const Color(0xFFFF8F00), const Color(0xFFFFB300), const Color(0xFFFFD54F)];
-    } else if (h < 17) {
-      return [const Color(0xFF0288D1), const Color(0xFF29B6F6), const Color(0xFF81D4FA)];
-    } else if (h < 20) {
-      return [const Color(0xFFAD1457), const Color(0xFFD81B60), const Color(0xFFF06292)];
-    } else {
-      return [const Color(0xFF0D0D2B), const Color(0xFF1A0A3E), const Color(0xFF2D1B69)];
+    // Time-based subtle tint
+    final h = DateTime.now().hour;
+    if (h < 6 || h >= 20) {
+      return const [Color(0xFF0A2E27), Color(0xFF0F4A3F), Color(0xFF1A6B5C)]; // Deep teal night
     }
+    return base;
   }
 
-  Color _moodAccent(String? insightType) {
+  Color _accent(String? insightType) {
     switch (insightType) {
-      case 'positive': return const Color(0xFF69F0AE);
+      case 'positive': return _wMintLight;
       case 'care': return const Color(0xFFFFAB91);
       case 'neutral': return const Color(0xFF80DEEA);
-      default: return const Color(0xFFB39DDB);
+      default: return _wMintLight;
     }
-  }
-
-  bool _isDarkPeriod() {
-    final h = DateTime.now().hour;
-    return h < 6 || h >= 18;
   }
 
   @override
@@ -1212,11 +1183,16 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     String? dominantMood, List<String> allMoods = const [],
     double? averageScore, required Size screenSize,
   }) {
-    final gradColors = _moodGradient(moodInsightType, dominantMood);
-    final isDark = _isDarkPeriod() || moodInsightType == 'care';
-    final accent = _moodAccent(moodInsightType);
+    final gradColors = _gradient(moodInsightType);
+    final accent = _accent(moodInsightType);
 
-    return Container(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+      ),
+      child: Container(
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
@@ -1224,67 +1200,16 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: gradColors,
-          stops: const [0.0, 0.5, 1.0],
         ),
       ),
       child: Stack(
         children: [
-          // ── Animated gradient overlay that breathes (decorative) ──
-          ExcludeSemantics(child: AnimatedBuilder(
-            animation: _pulseCtrl,
-            builder: (_, __) => Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(
-                    -0.5 + _pulseCtrl.value * 1.0,
-                    -0.3 + _pulseCtrl.value * 0.6,
-                  ),
-                  radius: 1.2 + _pulseCtrl.value * 0.3,
-                  colors: [
-                    accent.withValues(alpha: 0.15 + _pulseCtrl.value * 0.1),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          )),
-
-          // ── Floating orbs (large, dreamy, slow — decorative) ──
+          // ── Floating orbs (onboarding style — clean, subtle) ──
           ExcludeSemantics(child: AnimatedBuilder(
             animation: _orbCtrl,
             builder: (_, __) => CustomPaint(
               size: screenSize,
-              painter: _OrbPainter(
-                orbs: _orbs,
-                progress: _orbCtrl.value,
-                accentColor: accent,
-                isDark: isDark,
-              ),
-            ),
-          )),
-
-          // ── Particles — energetic, rising (decorative) ──
-          ExcludeSemantics(child: AnimatedBuilder(
-            animation: _particleCtrl,
-            builder: (_, __) => CustomPaint(
-              size: screenSize,
-              painter: _ParticlePainter(
-                particles: _particles,
-                progress: _particleCtrl.value,
-                color: isDark ? Colors.white : accent,
-              ),
-            ),
-          )),
-
-          // ── Shimmering light streak (decorative) ──
-          ExcludeSemantics(child: AnimatedBuilder(
-            animation: _shimmerCtrl,
-            builder: (_, __) => CustomPaint(
-              size: screenSize,
-              painter: _ShimmerPainter(
-                progress: _shimmerCtrl.value,
-                color: accent.withValues(alpha: 0.12),
-              ),
+              painter: _WelcomeOrbsPainter(_orbCtrl.value, accent),
             ),
           )),
 
@@ -1292,11 +1217,11 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: _buildContent(
                   greeting: greeting, name: name,
                   moodInsight: moodInsight, moodEmoji: moodEmoji,
-                  moodInsightType: moodInsightType, isDark: isDark,
+                  moodInsightType: moodInsightType,
                   accent: accent, averageScore: averageScore,
                   dominantMood: dominantMood, allMoods: allMoods,
                 ),
@@ -1313,23 +1238,23 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
               opacity: _swipeHintFade,
               child: SafeArea(
                 child: AnimatedBuilder(
-                  animation: _floatCtrl,
+                  animation: _pulseCtrl,
                   builder: (_, __) => Transform.translate(
-                    offset: Offset(0, -8 * _floatCtrl.value),
+                    offset: Offset(0, -6 * _pulseCtrl.value),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.keyboard_arrow_up_rounded,
-                          size: 32,
-                          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.5),
+                          size: 28,
+                          color: Colors.white.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Swipe up for dashboard',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.4),
+                            color: Colors.white.withValues(alpha: 0.4),
                             letterSpacing: 0.8,
                           ),
                         ),
@@ -1343,6 +1268,7 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1351,250 +1277,6 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
-  }
-
-  Widget _buildContent({
-    required String greeting, required String name,
-    String? moodInsight, String? moodEmoji, String? moodInsightType,
-    required bool isDark, required Color accent,
-    double? averageScore, String? dominantMood,
-    List<String> allMoods = const [],
-  }) {
-    final hour = DateTime.now().hour;
-    // Mood-driven emoji (prioritize mood over time)
-    String mainEmoji;
-    if (dominantMood != null) {
-      mainEmoji = _moodToEmoji(dominantMood);
-    } else {
-      mainEmoji = hour < 6 ? '🌌' : hour < 12 ? '🌅' : hour < 17 ? '☀️' : hour < 20 ? '🌇' : '🌙';
-    }
-
-    final textCol = isDark ? Colors.white : const Color(0xFF1a1a2e);
-    final subCol = isDark ? Colors.white70 : const Color(0xFF37474F);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 40),
-
-        // 1. Large emoji with pulsing glow ring
-        AnimatedBuilder(
-          animation: Listenable.merge([_masterCtrl, _floatCtrl, _pulseCtrl]),
-          builder: (_, __) {
-            final pulseScale = 1.0 + _pulseCtrl.value * 0.08;
-            return Transform.translate(
-              offset: Offset(0, -14 * _floatCtrl.value),
-              child: Transform.scale(
-                scale: _emojiScale.value,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow ring — pulsing
-                    Transform.scale(
-                      scale: pulseScale,
-                      child: Container(
-                        width: 130, height: 130,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: accent.withValues(alpha: 0.25 + _pulseCtrl.value * 0.15),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: accent.withValues(alpha: 0.2 + _pulseCtrl.value * 0.15),
-                              blurRadius: 50 + _pulseCtrl.value * 20,
-                              spreadRadius: 10 + _pulseCtrl.value * 8,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // Inner glow ring
-                    Container(
-                      width: 110, height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.15),
-                          width: 1.5,
-                        ),
-                      ),
-                    ),
-                    // Emoji
-                    Text(mainEmoji, style: const TextStyle(fontSize: 72)),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 28),
-
-        // 2. Greeting — with shimmer effect
-        SlideTransition(
-          position: _greetingSlide,
-          child: FadeTransition(
-            opacity: _greetingFade,
-            child: Text(
-              greeting,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w300,
-                color: subCol,
-                letterSpacing: 3,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-
-        // 3. User's name — massive, gradient, bold
-        SlideTransition(
-          position: _nameSlide,
-          child: FadeTransition(
-            opacity: _nameFade,
-            child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: isDark
-                    ? [accent, Colors.white, accent]
-                    : [accent.withValues(alpha: 0.8), const Color(0xFF2D2B55), accent],
-              ).createShader(bounds),
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1.1,
-                  letterSpacing: -1,
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // 4. Mood score bar (if score available)
-        if (averageScore != null) ...[
-          const SizedBox(height: 20),
-          SlideTransition(
-            position: _insightSlide,
-            child: FadeTransition(
-              opacity: _insightFade,
-              child: _MoodScoreBar(
-                score: averageScore,
-                accent: accent,
-                isDark: isDark,
-                pulseCtrl: _pulseCtrl,
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(height: 24),
-
-        // 5. Mood insight card — frosted glass with accent glow
-        if (moodInsight != null && moodInsight.isNotEmpty)
-          SlideTransition(
-            position: _insightSlide,
-            child: FadeTransition(
-              opacity: _insightFade,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.2),
-                      blurRadius: 30,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.white.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              if (moodEmoji != null)
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: accent.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(moodEmoji, style: const TextStyle(fontSize: 28)),
-                                ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _insightTitle(moodInsightType),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                        color: accent,
-                                        letterSpacing: 2.0,
-                                      ),
-                                    ),
-                                    if (dominantMood != null) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        allMoods.length > 1
-                                            ? 'Feeling ${allMoods.map((m) => m.toLowerCase()).join(', ')}'
-                                            : 'Feeling ${dominantMood.toLowerCase()}',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: textCol.withValues(alpha: 0.6),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Text(
-                            moodInsight,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: textCol,
-                              height: 1.6,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        const SizedBox(height: 80), // room for swipe indicator
-      ],
-    );
   }
 
   String _moodToEmoji(String mood) {
@@ -1627,6 +1309,249 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     }
   }
 
+  Widget _buildContent({
+    required String greeting, required String name,
+    String? moodInsight, String? moodEmoji, String? moodInsightType,
+    required Color accent, double? averageScore, String? dominantMood,
+    List<String> allMoods = const [],
+  }) {
+    // Mood-driven emoji (prioritize mood, then time-of-day)
+    final hour = DateTime.now().hour;
+    String mainEmoji;
+    if (dominantMood != null) {
+      mainEmoji = _moodToEmoji(dominantMood);
+    } else {
+      mainEmoji = hour < 6 ? '🌌' : hour < 12 ? '🌅' : hour < 17 ? '☀️' : hour < 20 ? '🌇' : '🌙';
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 40),
+
+        // 1. Animated mood emoji with pulsing glow rings + floating motion
+        AnimatedBuilder(
+          animation: Listenable.merge([_masterCtrl, _pulseCtrl, _floatCtrl]),
+          builder: (_, __) {
+            final pulseScale = 1.0 + _pulseCtrl.value * 0.08;
+            return Transform.translate(
+              offset: Offset(0, -14 * _floatCtrl.value),
+              child: Transform.scale(
+                scale: _emojiScale.value,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Outer glow ring — pulsing
+                    Transform.scale(
+                      scale: pulseScale,
+                      child: Container(
+                        width: 140, height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.2 + _pulseCtrl.value * 0.15),
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.2 + _pulseCtrl.value * 0.15),
+                              blurRadius: 50 + _pulseCtrl.value * 20,
+                              spreadRadius: 10 + _pulseCtrl.value * 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Middle glow ring
+                    Transform.scale(
+                      scale: 1.0 + _pulseCtrl.value * 0.04,
+                      child: Container(
+                        width: 115, height: 115,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.12),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Inner radial glow behind emoji
+                    Container(
+                      width: 100, height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            accent.withValues(alpha: 0.15 + _pulseCtrl.value * 0.08),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Emoji — large, animated
+                    Text(mainEmoji, style: const TextStyle(fontSize: 72)),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 28),
+
+        // 2. Greeting text
+        SlideTransition(
+          position: _greetingSlide,
+          child: FadeTransition(
+            opacity: _greetingFade,
+            child: Text(
+              greeting,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w300,
+                color: Colors.white.withValues(alpha: 0.7),
+                letterSpacing: 3,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        // 3. User name — large, bold, white
+        SlideTransition(
+          position: _nameSlide,
+          child: FadeTransition(
+            opacity: _nameFade,
+            child: Text(
+              name,
+              style: const TextStyle(
+                fontSize: 38,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1.1,
+                letterSpacing: -1,
+              ),
+            ),
+          ),
+        ),
+
+        // 4. Mood score bar inside glass card
+        if (averageScore != null) ...[
+          const SizedBox(height: 24),
+          SlideTransition(
+            position: _cardSlide,
+            child: FadeTransition(
+              opacity: _cardFade,
+              child: _WelcomeGlassCard(
+                child: _MoodScoreBar(
+                  score: averageScore,
+                  accent: accent,
+                  pulseCtrl: _pulseCtrl,
+                ),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+
+        // 5. Mood insight in glass card
+        if (moodInsight != null && moodInsight.isNotEmpty)
+          SlideTransition(
+            position: _cardSlide,
+            child: FadeTransition(
+              opacity: _cardFade,
+              child: _WelcomeGlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (moodEmoji != null)
+                          Container(
+                            width: 40, height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(child: Text(moodEmoji, style: const TextStyle(fontSize: 22))),
+                          ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _insightTitle(moodInsightType),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: accent,
+                                  letterSpacing: 2.0,
+                                ),
+                              ),
+                              if (dominantMood != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  allMoods.length > 1
+                                      ? 'Feeling ${allMoods.map((m) => m.toLowerCase()).join(', ')}'
+                                      : 'Feeling ${dominantMood.toLowerCase()}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      moodInsight,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // 6. Quick feature highlights (onboarding style)
+        if (moodInsight == null || moodInsight.isEmpty) ...[
+          const SizedBox(height: 24),
+          SlideTransition(
+            position: _cardSlide,
+            child: FadeTransition(
+              opacity: _cardFade,
+              child: _WelcomeGlassCard(
+                child: Column(
+                  children: [
+                    _WelcomeFeatureRow(icon: Icons.restaurant_menu_rounded, text: 'Log meals & track nutrition'),
+                    const SizedBox(height: 14),
+                    _WelcomeFeatureRow(icon: Icons.insights_rounded, text: 'AI-powered health insights'),
+                    const SizedBox(height: 14),
+                    _WelcomeFeatureRow(icon: Icons.family_restroom_rounded, text: 'Family health dashboard'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 80), // room for swipe indicator
+      ],
+    );
+  }
+
   String _insightTitle(String? type) {
     switch (type) {
       case 'positive': return 'FEELING GREAT';
@@ -1638,22 +1563,70 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
   }
 }
 
+// ── Glassmorphic card (matching onboarding) ─────────────────────────────────
+
+class _WelcomeGlassCard extends StatelessWidget {
+  final Widget child;
+  const _WelcomeGlassCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ── Feature row (matching onboarding) ───────────────────────────────────────
+
+class _WelcomeFeatureRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _WelcomeFeatureRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 18),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(text, style: TextStyle(
+            fontSize: 14, color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w500,
+          )),
+        ),
+      ],
+    );
+  }
+}
+
 // ── Mood score indicator bar ────────────────────────────────────────────────
 
 class _MoodScoreBar extends StatelessWidget {
   final double score;
   final Color accent;
-  final bool isDark;
   final AnimationController pulseCtrl;
 
   const _MoodScoreBar({
-    required this.score, required this.accent,
-    required this.isDark, required this.pulseCtrl,
+    required this.score, required this.accent, required this.pulseCtrl,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textCol = isDark ? Colors.white : const Color(0xFF1a1a2e);
     final fraction = (score / 10).clamp(0.0, 1.0);
 
     return Semantics(
@@ -1664,22 +1637,22 @@ class _MoodScoreBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '${score.toStringAsFixed(1)}',
+              score.toStringAsFixed(1),
               style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w800,
+                fontSize: 24, fontWeight: FontWeight.w800,
                 color: accent,
               ),
             ),
             Text(
               ' / 10',
               style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w400,
-                color: textCol.withValues(alpha: 0.5),
+                fontSize: 13, fontWeight: FontWeight.w400,
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(width: 8),
             Text('mood score', style: TextStyle(
-              fontSize: 12, color: textCol.withValues(alpha: 0.4),
+              fontSize: 11, color: Colors.white.withValues(alpha: 0.4),
               letterSpacing: 1,
             )),
           ],
@@ -1688,11 +1661,11 @@ class _MoodScoreBar extends StatelessWidget {
         AnimatedBuilder(
           animation: pulseCtrl,
           builder: (_, __) => Container(
-            height: 6,
-            width: 200,
+            height: 5,
+            width: 180,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(3),
-              color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
+              color: Colors.white.withValues(alpha: 0.1),
             ),
             child: FractionallySizedBox(
               alignment: Alignment.centerLeft,
@@ -1720,109 +1693,37 @@ class _MoodScoreBar extends StatelessWidget {
   }
 }
 
-// ── Particle & orb data models ──────────────────────────────────────────────
+// ── Floating orbs painter (matching onboarding style) ───────────────────────
 
-class _Particle {
-  final double x, y, size, speed, opacity;
-  const _Particle({
-    required this.x, required this.y, required this.size,
-    required this.speed, required this.opacity,
-  });
-}
-
-class _FloatingOrb {
-  final double x, y, radius, speed, phase;
-  const _FloatingOrb({
-    required this.x, required this.y, required this.radius,
-    required this.speed, required this.phase,
-  });
-}
-
-class _ParticlePainter extends CustomPainter {
-  final List<_Particle> particles;
-  final double progress;
-  final Color color;
-
-  _ParticlePainter({required this.particles, required this.progress, required this.color});
+class _WelcomeOrbsPainter extends CustomPainter {
+  final double t;
+  final Color accent;
+  _WelcomeOrbsPainter(this.t, this.accent);
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final p in particles) {
-      // Rising motion — particles float upward
-      final dy = ((p.y - progress * p.speed) % 1.0) * size.height;
-      final dx = p.x * size.width + sin(progress * 2 * pi + p.x * 12) * 25;
-      // Twinkling effect
-      final twinkle = (sin(progress * 4 * pi + p.x * 20) * 0.5 + 0.5);
-      final paint = Paint()..color = color.withValues(alpha: p.opacity * twinkle);
-      canvas.drawCircle(Offset(dx, dy), p.size, paint);
-      // Add tiny glow around larger particles
-      if (p.size > 4) {
-        final glowPaint = Paint()..color = color.withValues(alpha: p.opacity * twinkle * 0.3);
-        canvas.drawCircle(Offset(dx, dy), p.size * 2.5, glowPaint);
-      }
+    final orbs = [
+      (0.12, 0.18, 65.0, 1.0),
+      (0.85, 0.25, 90.0, 0.7),
+      (0.5,  0.75, 110.0, 1.3),
+      (0.2,  0.6,  50.0, 0.9),
+      (0.75, 0.85, 70.0, 1.1),
+    ];
+    for (final (x, y, radius, speed) in orbs) {
+      final dx = sin(t * 2 * pi * speed) * 20;
+      final dy = cos(t * 2 * pi * speed * 0.7) * 15;
+      final center = Offset(x * size.width + dx, y * size.height + dy);
+      final color = accent.withValues(alpha: 0.05);
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ).createShader(Rect.fromCircle(center: center, radius: radius));
+      canvas.drawCircle(center, radius, paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ParticlePainter old) => old.progress != progress;
-}
-
-class _OrbPainter extends CustomPainter {
-  final List<_FloatingOrb> orbs;
-  final double progress;
-  final Color accentColor;
-  final bool isDark;
-
-  _OrbPainter({required this.orbs, required this.progress,
-               required this.accentColor, required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final orb in orbs) {
-      final dx = orb.x * size.width + sin(progress * 2 * pi * orb.speed + orb.phase) * 80;
-      final dy = orb.y * size.height + cos(progress * 2 * pi * orb.speed + orb.phase * 1.3) * 60;
-
-      final gradient = RadialGradient(
-        colors: [
-          accentColor.withValues(alpha: isDark ? 0.12 : 0.08),
-          accentColor.withValues(alpha: 0.0),
-        ],
-      );
-      final rect = Rect.fromCircle(center: Offset(dx, dy), radius: orb.radius);
-      final paint = Paint()..shader = gradient.createShader(rect);
-      canvas.drawCircle(Offset(dx, dy), orb.radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _OrbPainter old) => old.progress != progress;
-}
-
-class _ShimmerPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  _ShimmerPainter({required this.progress, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Diagonal light streak sweeping across
-    final x = (progress * 2 - 0.5) * size.width;
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Colors.transparent, color, Colors.transparent],
-        stops: const [0.3, 0.5, 0.7],
-      ).createShader(Rect.fromLTWH(x - 100, 0, 200, size.height));
-    canvas.drawRect(
-      Rect.fromLTWH(x - 100, 0, 200, size.height),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ShimmerPainter old) => old.progress != progress;
+  bool shouldRepaint(_WelcomeOrbsPainter old) => true;
 }
 
 
