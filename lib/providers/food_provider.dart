@@ -105,8 +105,24 @@ final recentMealsProvider = FutureProvider<List<RecentMeal>>((ref) async {
 
 final foodDetailProvider =
     FutureProvider.family<FoodDetail, String>((ref, foodId) async {
-  final res = await apiClient.dio.get(ApiConstants.foodDetail(foodId));
-  return FoodDetail.fromJson(res.data as Map<String, dynamic>);
+  // 1. Fresh local cache (7-day TTL) — instant display
+  final cached = await AppCache.loadFoodDetail(foodId);
+  if (cached != null) {
+    return FoodDetail.fromJson(cached);
+  }
+
+  // 2. Fetch from network
+  try {
+    final res = await apiClient.dio.get(ApiConstants.foodDetail(foodId));
+    final data = res.data as Map<String, dynamic>;
+    await AppCache.saveFoodDetail(foodId, data);
+    return FoodDetail.fromJson(data);
+  } catch (_) {
+    // 3. Stale cache fallback
+    final stale = await AppCache.loadFoodDetail(foodId, stale: true);
+    if (stale != null) return FoodDetail.fromJson(stale);
+    rethrow;
+  }
 });
 
 /// Per-meal-type suggestions (breakfast, lunch, dinner, snack).

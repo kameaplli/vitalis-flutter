@@ -67,6 +67,7 @@ class SkinPhotosScreen extends ConsumerStatefulWidget {
 class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
   bool _uploading = false;
   int _severity = 5;
+  int _columns = 3; // 3 = small tiles, 2 = medium tiles
 
   Future<void> _takePhoto(ImageSource source) async {
     final img = await ImagePicker().pickImage(source: source, maxWidth: 1024, imageQuality: 80);
@@ -107,7 +108,16 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
     final photosAsync = ref.watch(skinPhotosProvider(person));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Skin Photos')),
+      appBar: AppBar(
+        title: const Text('Skin Photos'),
+        actions: [
+          IconButton(
+            icon: Icon(_columns == 3 ? Icons.grid_view : Icons.view_module),
+            tooltip: _columns == 3 ? 'Medium tiles' : 'Small tiles',
+            onPressed: () => setState(() => _columns = _columns == 3 ? 2 : 3),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _uploading ? null : () => _showUploadSheet(context),
         child: _uploading
@@ -136,8 +146,10 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
           }
           return GridView.builder(
             padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, crossAxisSpacing: 4, mainAxisSpacing: 4,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _columns,
+              crossAxisSpacing: _columns == 2 ? 6 : 4,
+              mainAxisSpacing: _columns == 2 ? 6 : 4,
             ),
             itemCount: photos.length,
             itemBuilder: (ctx, i) {
@@ -157,19 +169,44 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
                         errorWidget: (_, __, ___) =>
                             const Icon(Icons.broken_image, color: Colors.grey),
                       ),
-                      if (photo.severityUser != null)
-                        Positioned(
-                          bottom: 4, right: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(4),
+                      Positioned(
+                        bottom: 0, left: 0, right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black54, Colors.transparent],
                             ),
-                            child: Text('${photo.severityUser}/10',
-                                style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (photo.takenAt != null)
+                                Text(
+                                  photo.takenAt!.length >= 10 ? photo.takenAt!.substring(5, 10) : '',
+                                  style: TextStyle(
+                                    fontSize: _columns == 2 ? 12 : 10,
+                                    color: Colors.white70,
+                                  ),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                              if (photo.severityUser != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: _severityColor(photo.severityUser!),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text('${photo.severityUser}/10',
+                                      style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+                                ),
+                            ],
                           ),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -179,6 +216,12 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
         },
       ),
     );
+  }
+
+  Color _severityColor(int severity) {
+    if (severity <= 3) return Colors.green;
+    if (severity <= 6) return Colors.orange;
+    return Colors.redAccent;
   }
 
   void _showUploadSheet(BuildContext context) {
