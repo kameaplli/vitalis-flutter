@@ -313,13 +313,22 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
               ),
               const SizedBox(width: 12),
               OutlinedButton.icon(
-                onPressed: () {
-                  showModalBottomSheet(
+                onPressed: () async {
+                  final result = await showModalBottomSheet<FoodItem>(
                     context: context,
                     isScrollControlled: true,
                     useSafeArea: true,
                     builder: (_) => const RecipeCreatorSheet(),
                   );
+                  if (result != null && mounted) {
+                    widget.onFoodPicked?.call(result);
+                    if (widget.onFoodPicked != null) {
+                      Navigator.pop(context);
+                    } else {
+                      ref.read(nutritionProvider.notifier).addFood(result);
+                      Navigator.pop(context);
+                    }
+                  }
                 },
                 icon: const Icon(Icons.restaurant_menu, size: 18),
                 label: const Text('Create recipe'),
@@ -794,6 +803,46 @@ class _FoodInfoCard extends ConsumerWidget {
                     ],
                   ),
                 ),
+
+              // ── Edit Recipe button ─────────────────────────────────────────
+              if (detail.isRecipe) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final editIngredients = detail.ingredients.map((ing) => (
+                        food: FoodItem(
+                          id: ing.foodId,
+                          name: ing.name,
+                          emoji: ing.emoji,
+                          cal: ing.quantityGrams > 0 ? ing.calories / ing.quantityGrams * 100 : 0,
+                          protein: ing.quantityGrams > 0 ? ing.protein / ing.quantityGrams * 100 : 0,
+                          carbs: ing.quantityGrams > 0 ? ing.carbs / ing.quantityGrams * 100 : 0,
+                          fat: ing.quantityGrams > 0 ? ing.fat / ing.quantityGrams * 100 : 0,
+                        ),
+                        grams: ing.quantityGrams,
+                      )).toList();
+                      Navigator.pop(context); // close info card
+                      showModalBottomSheet<FoodItem>(
+                        context: context,
+                        isScrollControlled: true,
+                        useSafeArea: true,
+                        builder: (_) => RecipeCreatorSheet(
+                          existingRecipeId: foodId,
+                          existingName: detail.name,
+                          existingIngredients: editIngredients,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Edit Recipe', style: TextStyle(fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
 
               // ── Ingredients Card (text) ────────────────────────────────────
               if (!(detail.isRecipe && detail.ingredients.isNotEmpty) &&

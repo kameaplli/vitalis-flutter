@@ -22,14 +22,18 @@ class AppCache {
 
   // ── Dashboard (encrypted — contains personal health data) ─────────────────
 
-  static Future<void> saveDashboard(String personId, Map<String, dynamic> json) =>
-      _secureSave('dash_$personId', json);
+  static Future<void> saveDashboard(String personId, Map<String, dynamic> json, {String? date}) {
+    final dateStr = date ?? DateTime.now().toIso8601String().substring(0, 10);
+    return _secureSave('dash_${personId}_$dateStr', json);
+  }
 
   /// [stale=false] → only return if < 5 min old.
   /// [stale=true]  → return even if expired (graceful error fallback).
   static Future<Map<String, dynamic>?> loadDashboard(String personId,
-          {bool stale = false}) =>
-      _secureLoadMap('dash_$personId', stale ? null : _dashTtl);
+          {bool stale = false, String? date}) {
+    final dateStr = date ?? DateTime.now().toIso8601String().substring(0, 10);
+    return _secureLoadMap('dash_${personId}_$dateStr', stale ? null : _dashTtl);
+  }
 
   // ── Analytics (encrypted — contains personal health analytics) ─────────────
 

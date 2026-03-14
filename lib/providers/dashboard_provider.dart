@@ -181,8 +181,8 @@ final dashboardProvider =
 
   final (person, today) = key;
 
-  // 1. Fresh cache hit → instant return
-  final cached = await AppCache.loadDashboard(person);
+  // 1. Fresh cache hit → instant return (keyed by person+date)
+  final cached = await AppCache.loadDashboard(person, date: today);
   if (cached != null) {
     return DashboardData.fromJson(cached);
   }
@@ -196,11 +196,11 @@ final dashboardProvider =
         'date': today,
       },
     );
-    await AppCache.saveDashboard(person, Map<String, dynamic>.from(res.data as Map));
+    await AppCache.saveDashboard(person, Map<String, dynamic>.from(res.data as Map), date: today);
     return DashboardData.fromJson(res.data);
   } catch (_) {
     // 3. Network failed — fall back to stale cache if available
-    final stale = await AppCache.loadDashboard(person, stale: true);
+    final stale = await AppCache.loadDashboard(person, stale: true, date: today);
     if (stale != null) return DashboardData.fromJson(stale);
     rethrow; // 4. No cache at all — propagate error to UI
   }
