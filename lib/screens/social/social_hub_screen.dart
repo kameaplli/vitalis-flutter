@@ -33,63 +33,112 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
     super.dispose();
   }
 
+  void _showComposeSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _ComposeSheet(
+        onPosted: () {
+          ref.invalidate(socialFeedProvider(null));
+        },
+      ),
+    );
+  }
+
+  void _showUserSearch(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _UserSearchSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Column(
+    return Stack(
       children: [
-        // Title row
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Row(
-            children: [
-              Text(
-                'Community Hub',
-                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        Column(
+          children: [
+            // Title row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  Text(
+                    'Community Hub',
+                    style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.search, color: cs.onSurfaceVariant),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      _showUserSearch(context);
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.notifications_outlined,
+                        color: cs.onSurfaceVariant),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                    },
+                  ),
+                ],
               ),
-              const Spacer(),
-              IconButton(
-                icon: Icon(Icons.search, color: cs.onSurfaceVariant),
-                onPressed: () {
-                  // TODO: Open user search
-                  HapticFeedback.lightImpact();
-                },
-              ),
-              IconButton(
-                icon: Icon(Icons.notifications_outlined,
-                    color: cs.onSurfaceVariant),
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                },
-              ),
-            ],
-          ),
-        ),
+            ),
 
-        // Tab bar
-        TabBar(
-          controller: _tabCtrl,
-          labelColor: cs.primary,
-          unselectedLabelColor: cs.onSurfaceVariant,
-          indicatorColor: cs.primary,
-          tabs: const [
-            Tab(text: 'Feed'),
-            Tab(text: 'Recipes'),
-            Tab(text: 'Challenges'),
+            // Tab bar
+            TabBar(
+              controller: _tabCtrl,
+              labelColor: cs.primary,
+              unselectedLabelColor: cs.onSurfaceVariant,
+              indicatorColor: cs.primary,
+              tabs: const [
+                Tab(text: 'Feed'),
+                Tab(text: 'Recipes'),
+                Tab(text: 'Challenges'),
+              ],
+            ),
+
+            // Tab content
+            Expanded(
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: const [
+                  _FeedTab(),
+                  _RecipesTab(),
+                  _ChallengesTab(),
+                ],
+              ),
+            ),
           ],
         ),
 
-        // Tab content
-        Expanded(
-          child: TabBarView(
-            controller: _tabCtrl,
-            children: const [
-              _FeedTab(),
-              _RecipesTab(),
-              _ChallengesTab(),
-            ],
+        // ── FAB: Compose / Create Post ──────────────────────────────────────
+        // Methods are defined below in the state class
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            heroTag: 'social_compose',
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _showComposeSheet(context);
+            },
+            child: const Icon(Icons.edit_outlined),
           ),
         ),
       ],
@@ -791,6 +840,336 @@ class _CompletedChallengeCard extends StatelessWidget {
           const Icon(Icons.military_tech,
               color: Color(0xFFFBBF24), size: 24),
         ],
+      ),
+    );
+  }
+}
+
+// ── Compose Sheet ───────────────────────────────────────────────────────────
+
+class _ComposeSheet extends ConsumerStatefulWidget {
+  final VoidCallback onPosted;
+  const _ComposeSheet({required this.onPosted});
+
+  @override
+  ConsumerState<_ComposeSheet> createState() => _ComposeSheetState();
+}
+
+class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
+  final _textCtrl = TextEditingController();
+  String _postType = 'note'; // note, share_nutrition, share_streak
+  String _audience = 'buddies';
+  bool _posting = false;
+
+  final apiClient = ApiClient.instance;
+
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _post() async {
+    final text = _textCtrl.text.trim();
+    if (text.isEmpty && _postType == 'note') return;
+
+    setState(() => _posting = true);
+    try {
+      if (_postType == 'note') {
+        // Post a text note to feed
+        await apiClient.dio.post(
+          ApiConstants.socialShare,
+          data: {
+            'content_type': 'note',
+            'audience': _audience,
+            'note': text,
+          },
+        );
+      } else if (_postType == 'share_nutrition') {
+        // Share today's nutrition summary
+        await apiClient.dio.post(
+          ApiConstants.socialShare,
+          data: {
+            'content_type': 'daily_nutrition',
+            'audience': _audience,
+            'note': text.isNotEmpty ? text : null,
+          },
+        );
+      } else if (_postType == 'share_streak') {
+        await apiClient.dio.post(
+          ApiConstants.socialShare,
+          data: {
+            'content_type': 'streak',
+            'audience': _audience,
+            'note': text.isNotEmpty ? text : null,
+          },
+        );
+      }
+
+      widget.onPosted();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Posted!')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to post. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _posting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Title
+          Text('Create Post', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+
+          // Post type chips
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Note'),
+                selected: _postType == 'note',
+                onSelected: (_) => setState(() => _postType = 'note'),
+                avatar: const Icon(Icons.edit_note, size: 18),
+              ),
+              ChoiceChip(
+                label: const Text("Today's Nutrition"),
+                selected: _postType == 'share_nutrition',
+                onSelected: (_) => setState(() => _postType = 'share_nutrition'),
+                avatar: const Icon(Icons.restaurant, size: 18),
+              ),
+              ChoiceChip(
+                label: const Text('My Streak'),
+                selected: _postType == 'share_streak',
+                onSelected: (_) => setState(() => _postType = 'share_streak'),
+                avatar: const Icon(Icons.local_fire_department, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Text input
+          TextField(
+            controller: _textCtrl,
+            maxLines: 4,
+            maxLength: 280,
+            decoration: InputDecoration(
+              hintText: _postType == 'note'
+                  ? "What's on your mind?"
+                  : 'Add a note (optional)...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Audience picker
+          Row(
+            children: [
+              Text('Who can see:', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: const Text('Friends'),
+                selected: _audience == 'buddies',
+                onSelected: (_) => setState(() => _audience = 'buddies'),
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: const Text('Everyone'),
+                selected: _audience == 'public',
+                onSelected: (_) => setState(() => _audience = 'public'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Post button
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _posting ? null : _post,
+              icon: _posting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send),
+              label: Text(_posting ? 'Posting...' : 'Post'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── User Search Sheet ───────────────────────────────────────────────────────
+
+class _UserSearchSheet extends ConsumerStatefulWidget {
+  const _UserSearchSheet();
+
+  @override
+  ConsumerState<_UserSearchSheet> createState() => _UserSearchSheetState();
+}
+
+class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
+  String _query = '';
+  final apiClient = ApiClient.instance;
+
+  Future<void> _sendRequest(String userId) async {
+    try {
+      await apiClient.dio.post(
+        ApiConstants.socialConnections,
+        data: {'addressee_id': userId, 'connection_type': 'buddy'},
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Friend request sent!')),
+        );
+        ref.invalidate(userSearchProvider(_query));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send request.')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.7,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, bottom),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Text('Find People', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+
+            // Search field
+            TextField(
+              autofocus: true,
+              onChanged: (v) => setState(() => _query = v.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search by name...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Results
+            Expanded(
+              child: _query.length < 2
+                  ? Center(
+                      child: Text(
+                        'Type at least 2 characters to search',
+                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                    )
+                  : Consumer(
+                      builder: (context, ref, _) {
+                        final resultsAsync = ref.watch(userSearchProvider(_query));
+                        return resultsAsync.when(
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (_, __) => const Center(child: Text('Search failed')),
+                          data: (users) {
+                            if (users.isEmpty) {
+                              return Center(
+                                child: Text('No users found', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                              );
+                            }
+                            return ListView.builder(
+                              itemCount: users.length,
+                              itemBuilder: (_, i) {
+                                final user = users[i];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: cs.primaryContainer,
+                                    child: Text(
+                                      (user.name.isNotEmpty ? user.name[0] : '?').toUpperCase(),
+                                      style: TextStyle(color: cs.onPrimaryContainer),
+                                    ),
+                                  ),
+                                  title: Text(user.name),
+                                  trailing: user.connectionStatus == 'accepted'
+                                      ? Chip(
+                                          label: const Text('Friends'),
+                                          backgroundColor: cs.primaryContainer,
+                                        )
+                                      : user.connectionStatus == 'pending'
+                                          ? const Chip(label: Text('Pending'))
+                                          : FilledButton.tonal(
+                                              onPressed: () => _sendRequest(user.id),
+                                              child: const Text('Add'),
+                                            ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.push('/social/profile/${user.id}');
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
