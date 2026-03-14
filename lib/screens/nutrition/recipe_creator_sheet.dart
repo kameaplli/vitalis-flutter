@@ -9,7 +9,18 @@ import 'food_search_sheet.dart';
 // ─── Recipe creator bottom sheet ─────────────────────────────────────────────
 
 class RecipeCreatorSheet extends ConsumerStatefulWidget {
-  const RecipeCreatorSheet({super.key});
+  final String? existingRecipeId;
+  final String? existingName;
+  final List<({FoodItem food, double grams})>? existingIngredients;
+
+  const RecipeCreatorSheet({
+    super.key,
+    this.existingRecipeId,
+    this.existingName,
+    this.existingIngredients,
+  });
+
+  bool get isEditMode => existingRecipeId != null;
 
   @override
   ConsumerState<RecipeCreatorSheet> createState() => _RecipeCreatorSheetState();
@@ -20,8 +31,21 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
   final List<({FoodItem food, double grams})> _ingredients = [];
   bool _saving = false;
 
+  bool get _isEdit => widget.isEditMode;
+
   bool get _canSave =>
       _nameController.text.trim().isNotEmpty && _ingredients.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      _nameController.text = widget.existingName ?? '';
+      if (widget.existingIngredients != null) {
+        _ingredients.addAll(widget.existingIngredients!);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -30,6 +54,9 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
   }
 
   // ── Computed totals ──────────────────────────────────────────────────────
+
+  double get _totalGrams => _ingredients.fold(
+      0.0, (sum, i) => sum + i.grams);
 
   double get _totalCal => _ingredients.fold(
       0.0, (sum, i) => sum + (i.food.cal ?? 0) / 100 * i.grams);
@@ -83,25 +110,50 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
     if (!_canSave) return;
     setState(() => _saving = true);
 
+    final body = {
+      'name': _nameController.text.trim(),
+      'emoji': '\u{1F372}', // 🍲
+      'ingredients': _ingredients
+          .map((i) => {
+                'food_id': i.food.id,
+                'quantity_grams': i.grams,
+              })
+          .toList(),
+    };
+
     try {
-      await apiClient.dio.post(ApiConstants.customMeal, data: {
-        'name': _nameController.text.trim(),
-        'emoji': '\u{1F372}', // 🍲
-        'ingredients': _ingredients
-            .map((i) => {
-                  'food_id': i.food.id,
-                  'quantity_grams': i.grams,
-                })
-            .toList(),
-      });
+      final dynamic res;
+      if (_isEdit) {
+        res = await apiClient.dio.put(
+          '${ApiConstants.customMeal}/${widget.existingRecipeId}',
+          data: body,
+        );
+        ref.invalidate(foodDetailProvider(widget.existingRecipeId!));
+      } else {
+        res = await apiClient.dio.post(ApiConstants.customMeal, data: body);
+      }
+
+      final totalG = _totalGrams;
+      final newFood = FoodItem(
+        id: (res.data['food_id'] ?? widget.existingRecipeId ?? '') as String,
+        name: _nameController.text.trim(),
+        source: 'recipe',
+        cal: totalG > 0 ? _totalCal / totalG * 100 : 0,
+        protein: totalG > 0 ? _totalProtein / totalG * 100 : 0,
+        carbs: totalG > 0 ? _totalCarbs / totalG * 100 : 0,
+        fat: totalG > 0 ? _totalFat / totalG * 100 : 0,
+        servingSize: totalG,
+        unit: 'g',
+        emoji: '\u{1F372}', // 🍲
+      );
 
       ref.invalidate(foodDatabaseProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Recipe saved!')),
+          SnackBar(content: Text(_isEdit ? 'Recipe updated!' : 'Recipe saved!')),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, newFood);
       }
     } catch (e) {
       if (mounted) {
@@ -153,7 +205,7 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
               child: Row(
                 children: [
                   Text(
-                    'Create Recipe',
+                    _isEdit ? 'Edit Recipe' : 'Create Recipe',
                     style: Theme.of(context)
                         .textTheme
                         .titleLarge
@@ -169,7 +221,7 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
                             child:
                                 CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Save'),
+                        : Text(_isEdit ? 'Update' : 'Save'),
                   ),
                 ],
               ),
