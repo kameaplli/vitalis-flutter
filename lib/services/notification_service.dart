@@ -191,6 +191,7 @@ const _supplementChannel = AndroidNotificationDetails(
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
+  static bool _canUseExactAlarms = false;
 
   /// Callbacks queued from notification actions before the app is ready.
   static final List<String> pendingActions = [];
@@ -222,11 +223,29 @@ class NotificationService {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
-    // Request exact alarm permission on Android 12+ (API 31+)
-    await androidPlugin?.requestExactAlarmsPermission();
+
+    // Check exact alarm capability — on Android 14+ this requires explicit permission
+    try {
+      _canUseExactAlarms = await androidPlugin?.canScheduleExactNotifications() ?? false;
+      if (!_canUseExactAlarms) {
+        // Try requesting — opens system settings on Android 14+
+        await androidPlugin?.requestExactAlarmsPermission();
+        // Re-check after request
+        _canUseExactAlarms = await androidPlugin?.canScheduleExactNotifications() ?? false;
+      }
+    } catch (_) {
+      _canUseExactAlarms = false;
+    }
+    debugPrint('[Notifications] exactAlarms=$_canUseExactAlarms');
 
     _initialized = true;
   }
+
+  /// The schedule mode to use — exact if permitted, inexact otherwise.
+  static AndroidScheduleMode get _scheduleMode =>
+      _canUseExactAlarms
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
 
   /// Handle notification tap / action button in foreground.
   static void _onNotificationAction(NotificationResponse response) {
@@ -327,7 +346,7 @@ class NotificationService {
         msg,
         scheduled,
         const NotificationDetails(android: _hydrationChannel),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: _scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -364,7 +383,7 @@ class NotificationService {
         body,
         scheduled,
         const NotificationDetails(android: _mealChannel),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: _scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
@@ -383,7 +402,7 @@ class NotificationService {
           "Looks like you haven't logged this meal yet. Tap to log now!",
           reminderScheduled,
           const NotificationDetails(android: _mealChannel),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: _scheduleMode,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.wallClockTime,
           matchDateTimeComponents: DateTimeComponents.time,
@@ -417,7 +436,7 @@ class NotificationService {
         'Your daily reminder to take $name.',
         scheduled,
         const NotificationDetails(android: _supplementChannel),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: _scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
