@@ -223,6 +223,7 @@ class ApiConstants {
   static const String socialStreakBuddy = '/api/social/streak-buddy';
   static const String socialStreakBuddyNudge = '/api/social/streak-buddy/nudge';
   static const String socialCommunityPulse = '/api/social/pulse';
+  static const String socialShareCard = '/api/social/share-card';
 
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';

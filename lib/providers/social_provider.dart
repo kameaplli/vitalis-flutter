@@ -204,3 +204,14 @@ final userSearchProvider =
     return [];
   }
 });
+
+// ── Share Card Data ──────────────────────────────────────────────────────────
+
+final shareCardDataProvider =
+    FutureProvider.family<Map<String, dynamic>, String>((ref, cardType) async {
+  final res = await apiClient.dio.get(
+    ApiConstants.socialShareCard,
+    queryParameters: {'card_type': cardType},
+  );
+  return res.data as Map<String, dynamic>;
+});
