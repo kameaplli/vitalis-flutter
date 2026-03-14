@@ -19,7 +19,7 @@ class EntriesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nutrition History')),
+      appBar: AppBar(title: null),
       body: const NutritionHistoryContent(),
     );
   }

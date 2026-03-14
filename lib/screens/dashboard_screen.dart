@@ -1641,21 +1641,23 @@ class _MoodScoreBar extends StatelessWidget {
             Text(
               score.toStringAsFixed(1),
               style: TextStyle(
-                fontSize: 24, fontWeight: FontWeight.w800,
+                fontSize: 26, fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
                 color: accent,
               ),
             ),
             Text(
               ' / 10',
               style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w400,
+                fontSize: 14, fontWeight: FontWeight.w500,
                 color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(width: 8),
-            Text('mood score', style: TextStyle(
-              fontSize: 11, color: Colors.white.withValues(alpha: 0.4),
-              letterSpacing: 1,
+            Text('MOOD SCORE', style: TextStyle(
+              fontSize: 11, color: Colors.white.withValues(alpha: 0.5),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
             )),
           ],
         ),
@@ -1800,8 +1802,8 @@ class _StatCard extends StatelessWidget {
                   Expanded(
                     child: Text(label.toUpperCase(),
                         style: TextStyle(
-                            fontSize: 10, color: Colors.grey.shade500,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11, color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: 0.8),
                         overflow: TextOverflow.ellipsis),
                   ),
@@ -1941,7 +1943,8 @@ class _HealthScoreCard extends StatelessWidget {
                 children: [
                   Text('${score.total.toStringAsFixed(0)}/100',
                       style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold,
+                          fontSize: 22, fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
                           color: _scoreColor(score.total))),
                   Text(deltaStr,
                       style: TextStyle(
@@ -1959,7 +1962,7 @@ class _HealthScoreCard extends StatelessWidget {
                 child: Row(children: [
                   Icon(c.$3, size: 14, color: c.$4),
                   const SizedBox(width: 6),
-                  SizedBox(width: 68, child: Text(c.$1, style: const TextStyle(fontSize: 12))),
+                  SizedBox(width: 68, child: Text(c.$1, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
@@ -1972,7 +1975,7 @@ class _HealthScoreCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text('${c.$2.toStringAsFixed(0)}/20',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   const SizedBox(width: 4),
                   if (pv > 0)
                     Text('${pd >= 0 ? '+' : ''}${pd.toStringAsFixed(0)}',

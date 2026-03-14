@@ -100,7 +100,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                         children: [
                           Expanded(
                             child: Text(food.title,
-                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: -0.2),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ),
@@ -120,18 +120,26 @@ class _FoodItemTileState extends State<FoodItemTile> {
                         padding: const EdgeInsets.only(top: 1),
                         child: Text(food.brandLabel,
                             style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
                                 fontStyle: FontStyle.italic,
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.8)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
-                    Text(
-                      '${sf.calories.toStringAsFixed(0)} kcal'
-                      '  ·  P ${sf.protein.toStringAsFixed(1)}g'
-                      '  C ${sf.carbs.toStringAsFixed(1)}g'
-                      '  F ${sf.fat.toStringAsFixed(1)}g',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: '${sf.calories.toStringAsFixed(0)}',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        TextSpan(text: ' kcal  ·  ',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        TextSpan(text: 'P ${sf.protein.toStringAsFixed(1)}g',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade400)),
+                        TextSpan(text: '  C ${sf.carbs.toStringAsFixed(1)}g',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade400)),
+                        TextSpan(text: '  F ${sf.fat.toStringAsFixed(1)}g',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red.shade400)),
+                      ]),
                     ),
                     if (food.uniqueAllergens.isNotEmpty)
                       Padding(
@@ -152,7 +160,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                           color: food.isRecipe ? Colors.green : food.isCustomFood ? Colors.blue : Colors.purple,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text(food.sourceBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                        child: Text(food.sourceBadge, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
                       ),
                   ],
                 ),
@@ -175,11 +183,12 @@ class _FoodItemTileState extends State<FoodItemTile> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Text('${_servings}×',
                         style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
                             color: Theme.of(context).colorScheme.primary)),
                   ),
                   InkWell(
@@ -197,7 +206,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
               const SizedBox(width: 4),
               // Grams input (edit base serving size)
               SizedBox(
-                width: 68,
+                width: 75,
                 child: TextFormField(
                   controller: _ctrl,
                   textAlign: TextAlign.center,

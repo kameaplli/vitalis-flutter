@@ -139,13 +139,32 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/grocery'];
+  static const _navRoutes = ['/dashboard', '/nutrition', '/health'];
 
   int _indexForLocation(String location) {
     for (int i = 0; i < _navRoutes.length; i++) {
       if (location.startsWith(_navRoutes[i])) return i;
     }
     return 0;
+  }
+
+  void _openFullScreenMenu(BuildContext context) {
+    final user = ref.read(authProvider).user;
+    final badgeCount = ref.read(notificationBadgeProvider).valueOrNull ?? 0;
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: true,
+        pageBuilder: (_, __, ___) => _FullScreenMenu(user: user, badgeCount: badgeCount),
+        transitionsBuilder: (_, anim, __, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 250),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
+      ),
+    );
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -164,10 +183,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final user     = auth.user;
     final children = user?.profile.children ?? [];
 
-    // Hide person switching on Finance & Grocery (always main profile)
-    // Disabled for v1 — finance module reserved for separate app
-    final hidePersonSwitcher = /* location.startsWith('/finance') || */
-        location.startsWith('/grocery');
+    // Hide person switching on certain screens (always main profile)
+    final hidePersonSwitcher = location.startsWith('/grocery') ||
+        location.startsWith('/profile');
 
     final isOnline = ref.watch(connectivityProvider);
     final welcomeActive = ref.watch(welcomeOverlayProvider);
@@ -183,7 +201,6 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final badgeCount = unreadBadge.valueOrNull ?? 0;
 
     return Scaffold(
-      drawer: _AppDrawer(user: user, badgeCount: badgeCount),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -217,6 +234,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             ),
           );
         },
+        onMoreTap: () => _openFullScreenMenu(context),
       ),
     );
   }
@@ -228,11 +246,13 @@ class _BottomNavWithGenie extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final VoidCallback onGenieTap;
+  final VoidCallback onMoreTap;
 
   const _BottomNavWithGenie({
     required this.selectedIndex,
     required this.onDestinationSelected,
     required this.onGenieTap,
+    required this.onMoreTap,
   });
 
   @override
@@ -300,8 +320,9 @@ class _BottomNavWithGenie extends StatelessWidget {
                         offset: const Offset(0, -16),
                         child: Text('Zenie',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
                             color: cs.onSurfaceVariant,
                           ),
                         ),
@@ -311,11 +332,25 @@ class _BottomNavWithGenie extends StatelessWidget {
                 ),
               ),
 
-              // Right nav items: Health, Grocery
+              // Right nav items: Health, More
               _NavItem(Icons.favorite_outline, Icons.favorite, 'Health', 2,
                   selectedIndex, onDestinationSelected),
-              _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Grocery', 3,
-                  selectedIndex, onDestinationSelected),
+              // More button (opens full-screen menu)
+              Expanded(
+                child: InkResponse(
+                  onTap: onMoreTap,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.grid_view_rounded, size: 22, color: cs.onSurfaceVariant),
+                      const SizedBox(height: 2),
+                      Text('More',
+                          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, letterSpacing: 0.2,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -350,8 +385,8 @@ class _NavItem extends StatelessWidget {
             Icon(isSelected ? activeIcon : icon, size: 22, color: color),
             const SizedBox(height: 2),
             Text(label,
-                style: TextStyle(fontSize: 11, color: color,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
+                style: TextStyle(fontSize: 12, color: color, letterSpacing: 0.2,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
           ],
         ),
       ),
@@ -458,125 +493,258 @@ class _GenieBowlPainter extends CustomPainter {
       oldDelegate.iconColor != iconColor;
 }
 
-// ── App Drawer ────────────────────────────────────────────────────────────────
+// ── Full-screen menu ──────────────────────────────────────────────────────────
 
-class _AppDrawer extends StatelessWidget {
+class _FullScreenMenu extends StatelessWidget {
   final dynamic user;
   final int badgeCount;
 
-  const _AppDrawer({required this.user, required this.badgeCount});
+  const _FullScreenMenu({required this.user, required this.badgeCount});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final avatarUrl = user?.avatarUrl != null
+        ? ApiConstants.resolveUrl(user!.avatarUrl)
+        : null;
 
-    return Drawer(
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Drawer header
+            // ── Top bar with close ────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: cs.primaryContainer,
-                    child: Text(
-                      (user?.name ?? 'V').substring(0, 1).toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: cs.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?.name ?? 'User',
-                          style: tt.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'Vitalis',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.primary,
-                          ),
-                        ),
-                      ],
-                    ),
+                  Text('Vitalis', style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: cs.primary,
+                  )),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, size: 26, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
-            Divider(color: cs.outlineVariant.withOpacity(0.3)),
 
-            // Profile
-            ListTile(
-              leading: const VitalisIcon(icon: Icons.person_outline, color: Color(0xFF6366F1), size: VitalisIconSize.small),
-              title: const Text('Profile'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/profile');
-              },
-            ),
+            const SizedBox(height: 16),
 
-            // Community Hub (with badge)
-            ListTile(
-              leading: Badge(
-                isLabelVisible: badgeCount > 0,
-                label: Text(
-                  '$badgeCount',
-                  style: const TextStyle(fontSize: 10),
-                ),
-                child: const VitalisIcon(icon: Icons.people_outline, color: Color(0xFF0D7377), size: VitalisIconSize.small),
-              ),
-              title: const Text('Community Hub'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/social');
-              },
-            ),
-
-            // Analytics & Insights
-            ListTile(
-              leading: const VitalisIcon(icon: Icons.insights, color: Color(0xFFF59E0B), size: VitalisIconSize.small),
-              title: const Text('Analytics & Insights'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/insights');
-              },
-            ),
-
-            // Notifications
-            ListTile(
-              leading: const VitalisIcon(icon: Icons.notifications_outlined, color: Color(0xFFEF4444), size: VitalisIconSize.small),
-              title: const Text('Notifications'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/notifications');
-              },
-            ),
-
-            const Spacer(),
-            Divider(color: cs.outlineVariant.withOpacity(0.3)),
+            // ── User profile card ─────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/profile');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: cs.primaryContainer,
+                        backgroundImage: avatarUrl != null
+                            ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+                            : null,
+                        child: avatarUrl == null
+                            ? Text(
+                                (user?.name ?? 'V').substring(0, 1).toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 22, fontWeight: FontWeight.w800,
+                                  color: cs.onPrimaryContainer,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.name ?? 'User',
+                              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'View profile',
+                              style: tt.bodySmall?.copyWith(color: cs.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // ── Menu grid ─────────────────────────────────────────────────
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.0,
+                  children: [
+                    _MenuTile(
+                      icon: Icons.people_outline,
+                      label: 'Community',
+                      color: const Color(0xFF0D7377),
+                      badgeCount: badgeCount,
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/social');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.insights,
+                      label: 'Insights',
+                      color: const Color(0xFFF59E0B),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/insights');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.shopping_cart_outlined,
+                      label: 'Grocery',
+                      color: const Color(0xFF059669),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/grocery');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.notifications_outlined,
+                      label: 'Alerts',
+                      color: const Color(0xFFEF4444),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/notifications');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.qr_code_scanner,
+                      label: 'Scanner',
+                      color: const Color(0xFF7C3AED),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/scanner');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.monitor_weight_outlined,
+                      label: 'Weight',
+                      color: const Color(0xFF2563EB),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/weight');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.healing_outlined,
+                      label: 'Eczema',
+                      color: const Color(0xFFDB2777),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/eczema');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.water_drop_outlined,
+                      label: 'Hydration',
+                      color: const Color(0xFF0EA5E9),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/hydration');
+                      },
+                    ),
+                    _MenuTile(
+                      icon: Icons.history,
+                      label: 'History',
+                      color: const Color(0xFF6B7280),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.push('/entries');
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Version footer ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Text(
                 'Vitalis v5.0',
                 style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withOpacity(0.5),
+                  color: cs.onSurfaceVariant.withOpacity(0.4),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final int badgeCount;
+  final VoidCallback onTap;
+
+  const _MenuTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.badgeCount = 0,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHighest.withOpacity(0.4),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Badge(
+              isLabelVisible: badgeCount > 0,
+              label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
+              child: VitalisIcon(icon: icon, color: color),
+            ),
+            const SizedBox(height: 10),
+            Text(label, style: TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+            )),
           ],
         ),
       ),
@@ -601,10 +769,10 @@ class _BiometricLockScreen extends StatelessWidget {
             Icon(Icons.lock_outline, size: 64, color: cs.primary),
             const SizedBox(height: 16),
             Text('Vitalis is locked',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: cs.onSurface)),
             const SizedBox(height: 8),
             Text('Verify your identity to continue',
-                style: TextStyle(color: cs.onSurfaceVariant)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant)),
             const SizedBox(height: 32),
             FilledButton.icon(
               onPressed: onRetry,
@@ -638,7 +806,7 @@ class _OfflineBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 'You\'re offline \u2014 some features may be limited',
-                style: TextStyle(fontSize: 12, color: cs.onErrorContainer),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.onErrorContainer),
               ),
             ),
             GestureDetector(
@@ -670,15 +838,11 @@ class _SoloTopBar extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Scaffold.of(context).openDrawer(),
-            child: Icon(Icons.menu, size: 22, color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(width: 10),
           Text(
             'Vitalis',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
               color: cs.primary,
             ),
           ),
@@ -697,7 +861,8 @@ class _SoloTopBar extends ConsumerWidget {
                       style: TextStyle(
                         color: cs.onPrimaryContainer,
                         fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                       ),
                     )
                   : null,
@@ -775,14 +940,6 @@ class _AvatarBar extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── Drawer menu button ──────────────────────────────────────
-              GestureDetector(
-                onTap: () => Scaffold.of(context).openDrawer(),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Icon(Icons.menu, size: 20, color: colorScheme.onSurfaceVariant),
-                ),
-              ),
               // ── Selected person card ──────────────────────────────────────
               Expanded(
                 flex: 55,
@@ -833,6 +990,7 @@ class _AvatarBar extends ConsumerWidget {
                                   _short(p['name'] ?? ''),
                                   style: TextStyle(
                                       fontSize: 11,
+                                      fontWeight: FontWeight.w600,
                                       color: colorScheme.onSurfaceVariant),
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
@@ -865,6 +1023,7 @@ class _AvatarBar extends ConsumerWidget {
                             Text('Add',
                                 style: TextStyle(
                                     fontSize: 11,
+                                    fontWeight: FontWeight.w600,
                                     color: colorScheme.primary)),
                           ],
                         ),
@@ -956,7 +1115,7 @@ class _PersonCard extends StatelessWidget {
                 Text(
                   firstName,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 13),
+                      fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: -0.2),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 5),
@@ -1030,7 +1189,7 @@ class _RingAvatar extends StatelessWidget {
                     initial,
                     style: TextStyle(
                       fontSize: _kAvatarRadius * 0.72,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   )
@@ -1096,7 +1255,7 @@ class _SmallRingAvatar extends StatelessWidget {
             child: avatarUrl == null
                 ? Text(initial,
                     style: TextStyle(
-                        fontSize: 12, color: colorScheme.onSurfaceVariant))
+                        fontSize: 12, fontWeight: FontWeight.w700, color: colorScheme.onSurfaceVariant))
                 : null,
           ),
         ],
@@ -1200,7 +1359,7 @@ class _RingStat extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             '$value $unit',
-            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           Expanded(
             child: Align(

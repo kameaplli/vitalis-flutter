@@ -76,7 +76,7 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
               child: Row(
                 children: [
                   Text(
-                    'Community Hub',
+                    'Community',
                     style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),

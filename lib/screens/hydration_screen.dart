@@ -43,7 +43,7 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
     final goalMl = ref.watch(hydrationGoalProvider(person)).valueOrNull ?? _defaultGoalMl;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Hydration')),
+      appBar: AppBar(title: null),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(todayHydrationProvider(person));

@@ -143,7 +143,7 @@ class _GroceryScreenState extends ConsumerState<GroceryScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Grocery Intelligence'),
+        title: null,
         bottom: TabBar(
           controller: _tabs,
           tabs: const [

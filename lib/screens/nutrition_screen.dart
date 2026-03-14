@@ -71,7 +71,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditMode ? 'Edit Entry' : 'Log Nutrition'),
+        title: isEditMode ? const Text('Edit Entry') : null,
         actions: [
           TextButton(
             onPressed: nutrition.selectedFoods.isEmpty || nutrition.isLoading
@@ -108,7 +108,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             const SizedBox(height: 16),
 
             // ── 5-method food entry hub ────────────────────────────────────
-            Text('Add Food', style: Theme.of(context).textTheme.titleSmall),
+            Text('Add Food', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -178,7 +178,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
                     label: Text(type[0].toUpperCase() + type.substring(1),
-                        style: const TextStyle(fontSize: 12)),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     selected: nutrition.mealType == type,
                     onSelected: (_) =>
                         ref.read(nutritionProvider.notifier).setMealType(type),
@@ -210,7 +210,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('Selected Foods (${nutrition.selectedFoods.length})',
-                      style: Theme.of(context).textTheme.titleSmall),
+                      style: Theme.of(context).textTheme.titleMedium),
                   TextButton.icon(
                     onPressed: () => _showFoodSearch(context),
                     icon: const Icon(Icons.add, size: 16),
@@ -243,7 +243,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                       color: colorScheme.outlineVariant),
                   const SizedBox(height: 8),
                   Text('Tap an option above to add food',
-                      style: TextStyle(color: colorScheme.outline, fontSize: 13)),
+                      style: TextStyle(color: colorScheme.outline, fontSize: 14, fontWeight: FontWeight.w500)),
                 ]),
               ),
             ],
@@ -413,7 +413,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(description,
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                            fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
                   ),
                 ...List.generate(foods.length, (i) {
                   final f = foods[i] as Map<String, dynamic>;
@@ -428,7 +428,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                       '~${f['estimated_grams']}g · '
                       '${((f['calories_per_100g'] as num? ?? 0) * (f['estimated_grams'] as num? ?? 100) / 100).toStringAsFixed(0)} kcal · '
                       '${conf.toStringAsFixed(0)}% confidence',
-                      style: const TextStyle(fontSize: 11),
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                   );
                 }),
@@ -582,14 +582,14 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                   TextField(controller: nameCtrl, decoration: const InputDecoration(
                       labelText: 'Product name', isDense: true)),
                   const SizedBox(height: 10),
-                  Text('Per 100g:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  Text('Per 100g:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
                   Text('Calories: ${cal.toStringAsFixed(0)} kcal'),
                   Text('Protein: ${protein.toStringAsFixed(1)} g'),
                   Text('Carbs: ${carbs.toStringAsFixed(1)} g'),
                   Text('Fat: ${fat.toStringAsFixed(1)} g'),
                   const SizedBox(height: 8),
                   Text('Saved to your food database.',
-                      style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontStyle: FontStyle.italic)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.green.shade700, fontStyle: FontStyle.italic)),
                 ],
               ),
               actions: [
