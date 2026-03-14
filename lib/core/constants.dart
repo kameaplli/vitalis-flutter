@@ -190,6 +190,40 @@ class ApiConstants {
   static const String reportGenerate    = '/api/reports/generate';
   static const String reportSendNow    = '/api/reports/send-now';
 
+  // Social
+  static const String socialProfile = '/api/social/profile';
+  static String socialProfileUser(String id) => '/api/social/profile/$id';
+  static const String socialPrivacy = '/api/social/privacy';
+  static const String socialConnections = '/api/social/connections';
+  static const String socialConnectionsPending = '/api/social/connections/pending';
+  static String socialConnectionAccept(String id) => '/api/social/connections/$id/accept';
+  static String socialConnectionReject(String id) => '/api/social/connections/$id/reject';
+  static String socialConnectionRemove(String id) => '/api/social/connections/$id';
+  static const String socialBlock = '/api/social/block';
+  static String socialUnblock(String id) => '/api/social/block/$id';
+  static const String socialSearch = '/api/social/search';
+  static const String socialFeed = '/api/social/feed';
+  static const String socialFeedRecipes = '/api/social/feed/recipes';
+  static String socialFeedRead(String id) => '/api/social/feed/$id/read';
+  static const String socialFeedReadAll = '/api/social/feed/read-all';
+  static const String socialFeedUnreadCount = '/api/social/feed/unread-count';
+  static const String socialShare = '/api/social/share';
+  static const String socialReactions = '/api/social/reactions';
+  static String socialReactionRemove(String id) => '/api/social/reactions/$id';
+  static const String challenges = '/api/challenges';
+  static String challengeDetail(String id) => '/api/challenges/$id';
+  static String challengeJoin(String id) => '/api/challenges/$id/join';
+  static String challengeLeave(String id) => '/api/challenges/$id/leave';
+  static String challengeLeaderboard(String id) => '/api/challenges/$id/leaderboard';
+  static const String challengesMine = '/api/challenges/mine';
+  static const String socialNotifications = '/api/social/notifications';
+  static const String socialNotificationsUnread = '/api/social/notifications/unread-count';
+  static String socialNotificationRead(String id) => '/api/social/notifications/$id/read';
+  static const String socialNotificationsReadAll = '/api/social/notifications/read-all';
+  static const String socialStreakBuddy = '/api/social/streak-buddy';
+  static const String socialStreakBuddyNudge = '/api/social/streak-buddy/nudge';
+  static const String socialCommunityPulse = '/api/social/pulse';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';

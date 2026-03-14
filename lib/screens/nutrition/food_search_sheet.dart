@@ -40,7 +40,8 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     final matches = <FoodItem>[];
     for (final cat in categories) {
       for (final item in cat.items) {
-        if (item.name.toLowerCase().contains(q)) {
+        if (item.name.toLowerCase().contains(q) ||
+            (item.displayName?.toLowerCase().contains(q) ?? false)) {
           matches.add(item);
           if (matches.length >= 30) return matches;
         }
