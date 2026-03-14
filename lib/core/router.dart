@@ -21,6 +21,9 @@ import '../screens/onboarding_screen.dart';
 import '../screens/interests_screen.dart';
 import '../screens/notification_preferences_screen.dart';
 import '../screens/finance_screen.dart'; // ignore: unused_import — kept for v1, finance module reserved for separate app
+import '../screens/social/social_hub_screen.dart';
+import '../screens/social/social_profile_screen.dart';
+import '../screens/social/challenge_detail_screen.dart';
 import '../providers/interests_provider.dart';
 import '../widgets/app_shell.dart';
 
@@ -123,6 +126,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/insights',    builder: (_, __) => const InsightsScreen()),
           GoRoute(path: '/skin-photos', builder: (_, __) => const SkinPhotosScreen()),
           GoRoute(path: '/notifications', builder: (_, __) => const NotificationPreferencesScreen()),
+
+          // ── Social routes ─────────────────────────────────────────────
+          GoRoute(path: '/social', builder: (_, __) => const SocialHubScreen()),
+          GoRoute(path: '/social/profile/:id', builder: (_, state) => SocialProfileScreen(userId: state.pathParameters['id']!)),
+          GoRoute(path: '/social/challenge/:id', builder: (_, state) => ChallengeDetailScreen(challengeId: state.pathParameters['id']!)),
+
           // Disabled for v1 — finance module reserved for separate app
           // GoRoute(path: '/finance',       builder: (_, __) => const FinanceScreen()),
         ],

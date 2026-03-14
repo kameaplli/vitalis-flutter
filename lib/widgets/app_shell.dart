@@ -13,6 +13,7 @@ import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
 import '../services/biometric_service.dart';
 import '../services/prefetch_service.dart';
+import '../providers/social_provider.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -177,7 +178,11 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       );
     }
 
+    final unreadBadge = ref.watch(notificationBadgeProvider);
+    final badgeCount = unreadBadge.valueOrNull ?? 0;
+
     return Scaffold(
+      drawer: _AppDrawer(user: user, badgeCount: badgeCount),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -452,6 +457,132 @@ class _GenieBowlPainter extends CustomPainter {
       oldDelegate.iconColor != iconColor;
 }
 
+// ── App Drawer ────────────────────────────────────────────────────────────────
+
+class _AppDrawer extends StatelessWidget {
+  final dynamic user;
+  final int badgeCount;
+
+  const _AppDrawer({required this.user, required this.badgeCount});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drawer header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: cs.primaryContainer,
+                    child: Text(
+                      (user?.name ?? 'V').substring(0, 1).toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.name ?? 'User',
+                          style: tt.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Vitalis',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: cs.outlineVariant.withOpacity(0.3)),
+
+            // Profile
+            ListTile(
+              leading: Icon(Icons.person_outline, color: cs.onSurfaceVariant),
+              title: const Text('Profile'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/profile');
+              },
+            ),
+
+            // Community Hub (with badge)
+            ListTile(
+              leading: Badge(
+                isLabelVisible: badgeCount > 0,
+                label: Text(
+                  '$badgeCount',
+                  style: const TextStyle(fontSize: 10),
+                ),
+                child: Icon(Icons.people_outline, color: cs.onSurfaceVariant),
+              ),
+              title: const Text('Community Hub'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/social');
+              },
+            ),
+
+            // Analytics & Insights
+            ListTile(
+              leading: Icon(Icons.insights, color: cs.onSurfaceVariant),
+              title: const Text('Analytics & Insights'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/insights');
+              },
+            ),
+
+            // Notifications
+            ListTile(
+              leading: Icon(Icons.notifications_outlined, color: cs.onSurfaceVariant),
+              title: const Text('Notifications'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/notifications');
+              },
+            ),
+
+            const Spacer(),
+            Divider(color: cs.outlineVariant.withOpacity(0.3)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Text(
+                'Vitalis v5.0',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Biometric lock screen ─────────────────────────────────────────────────────
 
 class _BiometricLockScreen extends StatelessWidget {
@@ -538,6 +669,11 @@ class _SoloTopBar extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
+          GestureDetector(
+            onTap: () => Scaffold.of(context).openDrawer(),
+            child: Icon(Icons.menu, size: 22, color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(width: 10),
           Text(
             'Vitalis',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
