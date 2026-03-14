@@ -201,7 +201,8 @@ class NotificationService {
     // ── Timezone: set tz.local to device timezone ──────────────────────────
     tz_data.initializeTimeZones();
     try {
-      final tzName = await FlutterTimezone.getLocalTimezone();
+      final tzInfo = await FlutterTimezone.getLocalTimezone();
+      final tzName = tzInfo.identifier;
       tz.setLocalLocation(tz.getLocation(tzName));
       debugPrint('[Notifications] timezone set to $tzName');
     } catch (e) {
