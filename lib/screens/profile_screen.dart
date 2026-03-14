@@ -644,11 +644,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
+              // Capture values before closing dialog
+              final imgPath = pendingImagePath;
+              final nameVal = nameCtrl.text.trim();
+              final ageVal = int.tryParse(ageCtrl.text);
+              final genderVal = gender;
+              final allergiesVal = allergiesCtrl.text.trim();
+              final heightVal = double.tryParse(heightCtrl.text);
+              final emailVal = emailCtrl.text.trim();
               Navigator.pop(ctx);
+
               final notifier = ref.read(profileProvider.notifier);
-              if (pendingImagePath != null) {
+              if (imgPath != null) {
                 try {
-                  await notifier.uploadChildAvatar(child.id, pendingImagePath!);
+                  await notifier.uploadChildAvatar(child.id, imgPath);
                 } catch (e) {
                   if (mounted) {
                     final msg = e is DioException
@@ -659,17 +668,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   }
                 }
               }
-              await notifier.updateChild(
-                childId: child.id,
-                name: nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
-                age: int.tryParse(ageCtrl.text),
-                gender: gender,
-                allergies: allergiesCtrl.text.trim().isEmpty ? null : allergiesCtrl.text.trim(),
-                height: double.tryParse(heightCtrl.text),
-                email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
-              );
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated!')));
+              try {
+                await notifier.updateChild(
+                  childId: child.id,
+                  name: nameVal.isEmpty ? null : nameVal,
+                  age: ageVal,
+                  gender: genderVal,
+                  allergies: allergiesVal.isEmpty ? null : allergiesVal,
+                  height: heightVal,
+                  email: emailVal.isEmpty ? null : emailVal,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated!')));
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Failed to update profile')));
+                }
               }
             },
             child: const Text('Save'),

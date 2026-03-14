@@ -113,10 +113,14 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
       options: Options(contentType: 'multipart/form-data'),
     );
     final avatarUrl = res.data['avatar_url'] as String;
-    final res2 = await apiClient.dio.get(ApiConstants.user);
-    final user = AppUser.fromJson(res2.data);
-    state = AsyncValue.data(user);
-    _ref.read(authProvider.notifier).updateUser(user);
+    try {
+      final res2 = await apiClient.dio.get(ApiConstants.user);
+      final user = AppUser.fromJson(res2.data);
+      state = AsyncValue.data(user);
+      _ref.read(authProvider.notifier).updateUser(user);
+    } catch (_) {
+      // User refresh failed — avatar was uploaded, just refresh on next screen load
+    }
     return avatarUrl;
   }
 

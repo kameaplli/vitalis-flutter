@@ -7,6 +7,8 @@ class FamilyMember {
   final double? height;
   final String? avatarUrl;
   final String? email;
+  final bool isPregnant;
+  final bool isLactating;
 
   FamilyMember({
     required this.id,
@@ -17,6 +19,8 @@ class FamilyMember {
     this.height,
     this.avatarUrl,
     this.email,
+    this.isPregnant = false,
+    this.isLactating = false,
   });
 
   factory FamilyMember.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,8 @@ class FamilyMember {
       height: (json['height'] as num?)?.toDouble(),
       avatarUrl: json['avatar_url'],
       email: json['email'],
+      isPregnant: json['is_pregnant'] == true,
+      isLactating: json['is_lactating'] == true,
     );
   }
 
@@ -41,5 +47,7 @@ class FamilyMember {
     'height': height,
     'avatar_url': avatarUrl,
     'email': email,
+    'is_pregnant': isPregnant,
+    'is_lactating': isLactating,
   };
 }
