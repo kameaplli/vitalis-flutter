@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/food_item.dart';
 import '../../providers/food_provider.dart';
@@ -21,7 +22,8 @@ class MealSuggestionsSection extends ConsumerWidget {
               child: CircularProgressIndicator(strokeWidth: 2)),
           const SizedBox(width: 8),
           Text('Loading suggestions...',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade500)),
         ]),
       ),
       error: (_, __) => const SizedBox.shrink(),
@@ -39,18 +41,18 @@ class MealSuggestionsSection extends ConsumerWidget {
             Row(
               children: [
                 Icon(Icons.lightbulb_outline, size: 16, color: cs.primary),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 Text('Suggested for $mealLabel',
-                    style: Theme.of(context).textTheme.titleSmall),
+                    style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 88,
+              height: 92,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: meals.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
                 itemBuilder: (ctx, i) =>
                     _SuggestionCard(meal: meals[i]),
               ),
@@ -70,87 +72,81 @@ class _SuggestionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    // Calculate total calories for the meal
+
     double totalCal = 0;
     for (final item in meal.items) {
       final cal = item.calPer100g ?? 0;
       totalCal += (cal / 100) * item.grams;
     }
-    final emojis = meal.items
-        .take(3)
-        .map((i) => i.emoji ?? '🍽️')
-        .join(' ');
+    final emojis = meal.items.take(3).map((i) => i.emoji ?? '🍽️').join(' ');
 
-    return InkWell(
-      onTap: () {
-        ref.read(nutritionProvider.notifier).loadRecentMeal(
-          meal.items
-              .map((item) =>
-                  SelectedFood(food: item.toFoodItem(), grams: item.grams))
-              .toList(),
-          meal.mealType,
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 190,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              cs.primaryContainer.withOpacity(0.3),
-              cs.primaryContainer.withOpacity(0.1),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Material(
+      color: cs.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          ref.read(nutritionProvider.notifier).loadRecentMeal(
+            meal.items
+                .map((item) =>
+                    SelectedFood(food: item.toFoodItem(), grams: item.grams))
+                .toList(),
+            meal.mealType,
+          );
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.25)),
           ),
-          border: Border.all(color: cs.primaryContainer),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(emojis, style: const TextStyle(fontSize: 14)),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(emojis, style: const TextStyle(fontSize: 14)),
+                  const Spacer(),
+                  // Frequency badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${meal.count}x',
+                      style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w700,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    '${meal.count}x',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: cs.primary),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Expanded(
-              child: Text(
-                meal.display,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurface),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                ],
               ),
-            ),
-            Text(
-              '${totalCal.round()} kcal',
-              style: TextStyle(
-                  fontSize: 11,
+              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  meal.display,
+                  style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500,
+                    color: cs.onSurface, height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${totalCal.round()} kcal',
+                style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700,
                   color: cs.onSurfaceVariant,
-                  fontWeight: FontWeight.w600),
-            ),
-          ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

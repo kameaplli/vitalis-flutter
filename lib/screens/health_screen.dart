@@ -256,7 +256,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
                 crossAxisCount: 3,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                childAspectRatio: 0.85,
+                childAspectRatio: 0.95,
               ),
               itemBuilder: (context, i) => _HealthCard(
                 def: cards[i],
@@ -305,42 +305,29 @@ class _HealthCard extends StatefulWidget {
 }
 
 class _HealthCardState extends State<_HealthCard>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late final AnimationController _entryCtrl;
   late final Animation<double> _entryAnim;
-  late final AnimationController _pulseCtrl;
-  late final Animation<double> _pulseAnim;
 
   @override
   void initState() {
     super.initState();
-    // Staggered entrance
     _entryCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 400),
     );
     _entryAnim = CurvedAnimation(
       parent: _entryCtrl,
-      curve: Curves.easeOutBack,
+      curve: Curves.easeOutCubic,
     );
-    Future.delayed(Duration(milliseconds: 60 * widget.index), () {
+    Future.delayed(Duration(milliseconds: 50 * widget.index), () {
       if (mounted) _entryCtrl.forward();
     });
-
-    // Subtle breathing
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
   }
 
   @override
   void dispose() {
     _entryCtrl.dispose();
-    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -353,112 +340,90 @@ class _HealthCardState extends State<_HealthCard>
     final entryCount = def.logsAsync.whenOrNull(data: (list) => list.length);
     final badge = entryCount != null && entryCount > 0 ? '$entryCount' : null;
 
-    return ScaleTransition(
-      scale: _entryAnim,
-      child: FadeTransition(
-        opacity: _entryAnim,
-        child: AnimatedBuilder(
-          animation: _pulseAnim,
-          builder: (context, _) {
-            final p = _pulseAnim.value;
-
-            return Semantics(
-              button: true,
-              label: '${def.label}${badge != null ? ', $badge entries' : ''}',
-              child: GestureDetector(
+    return FadeTransition(
+      opacity: _entryAnim,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(_entryAnim),
+        child: Semantics(
+          button: true,
+          label: '${def.label}${badge != null ? ', $badge entries' : ''}',
+          child: Material(
+            color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
               onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(16),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      isDark
-                          ? cs.surface
-                          : Colors.white,
-                      def.color.withValues(alpha: 0.06 + p * 0.04),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: def.color.withValues(alpha: 0.12 + p * 0.06),
-                    width: 1.2,
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: def.color.withValues(alpha: 0.08 + p * 0.04),
-                      blurRadius: 10 + p * 4,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
                 ),
-                child: Stack(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Accent dot top-right
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Container(
-                        width: 6 + p * 2,
-                        height: 6 + p * 2,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: def.color.withValues(alpha: 0.25 + p * 0.15),
-                        ),
-                      ),
-                    ),
-                    // Badge
-                    if (badge != null)
-                      Positioned(
-                        top: 8,
-                        left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: def.color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(badge,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: def.color)),
-                        ),
-                      ),
-                    // Center content
-                    Center(
+                    // ── Top section: icon + badge ──────────────────────
+                    Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Transform.scale(
-                              scale: 1.0 + p * 0.04,
-                              child: VitalisIcon(
-                                icon: def.icon,
+                            // Color accent bar
+                            Container(
+                              width: 3,
+                              height: 28,
+                              decoration: BoxDecoration(
                                 color: def.color,
-                                size: VitalisIconSize.large,
+                                borderRadius: BorderRadius.circular(2),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              def.label,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? cs.onSurface : Colors.grey.shade800,
+                            const SizedBox(width: 10),
+                            Icon(def.icon, size: 24, color: def.color),
+                            const Spacer(),
+                            if (badge != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(badge,
+                                  style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.w700,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
                               ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
                           ],
                         ),
+                      ),
+                    ),
+                    // ── Bottom: label ──────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      child: Text(
+                        def.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.1,
+                          color: cs.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            );
-          },
+          ),
         ),
       ),
     );
@@ -488,8 +453,8 @@ class _InsightChip extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: color)),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
         ],
       ),
     );
@@ -551,8 +516,8 @@ class _SymptomInsights extends StatelessWidget {
               spacing: 6,
               runSpacing: 4,
               children: sortedSymptoms.take(5).map((e) => Chip(
-                avatar: Text('${e.value}x', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
-                label: Text(e.key, style: const TextStyle(fontSize: 11)),
+                avatar: Text('${e.value}x', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                label: Text(e.key, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               )).toList(),
@@ -699,8 +664,9 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
               Text(
                 '$takenToday / $total taken today',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
                   color: allDone ? Colors.green.shade700 : Colors.amber.shade800,
                 ),
               ),
@@ -717,7 +683,7 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
           // ── Remaining — tap to log ───────────────────────────────────
           if (remaining.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text('Tap to log:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+            Text('Tap to log:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey.shade600)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 8,
@@ -832,7 +798,8 @@ class _SymptomsTab extends ConsumerWidget {
                       item['symptom_type'] ?? '',
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -2368,8 +2335,9 @@ class _MoodTab extends ConsumerWidget {
                   child: Text(
                     '$score',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
                       color: scoreColor,
                     ),
                   ),
@@ -2384,7 +2352,8 @@ class _MoodTab extends ConsumerWidget {
                       moodDisplay,
                       style: const TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -2588,7 +2557,7 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title),
+        title: null,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
