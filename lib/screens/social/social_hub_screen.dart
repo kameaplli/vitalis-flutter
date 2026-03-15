@@ -54,12 +54,12 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => _ComposeSheet(
         onPosted: () {
-          ref.invalidate(socialFeedProvider(null));
+          forceRefreshFeed(ref);
         },
         onOptimisticPost: (event) => _addOptimisticPost(event),
         onConfirmed: (tempId) {
           _removeOptimisticPost(tempId);
-          ref.invalidate(socialFeedProvider(null));
+          forceRefreshFeed(ref);
         },
       ),
     );
@@ -285,7 +285,7 @@ class _FeedTab extends ConsumerWidget {
       builder: (_) => CommentSheet(
         event: event,
         onCommentAdded: () {
-          ref.invalidate(socialFeedProvider(null));
+          forceRefreshFeed(ref);
         },
       ),
     );
@@ -319,7 +319,10 @@ class _FeedTab extends ConsumerWidget {
 
     return feedAsync.when(
       skipLoadingOnReload: true,
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        children: const [FeedCardShimmer(), FeedCardShimmer(), FeedCardShimmer()],
+      ),
       error: (e, __) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -330,7 +333,7 @@ class _FeedTab extends ConsumerWidget {
                 style: TextStyle(color: cs.onSurfaceVariant)),
             const SizedBox(height: 8),
             FilledButton.tonal(
-              onPressed: () => ref.invalidate(socialFeedProvider(null)),
+              onPressed: () => forceRefreshFeed(ref),
               child: const Text('Retry'),
             ),
           ],
@@ -351,7 +354,7 @@ class _FeedTab extends ConsumerWidget {
         return RefreshIndicator(
           color: cs.primary,
           onRefresh: () async {
-            ref.invalidate(socialFeedProvider(null));
+            forceRefreshFeed(ref);
             ref.invalidate(connectionsProvider);
           },
           child: CustomScrollView(
@@ -361,10 +364,9 @@ class _FeedTab extends ConsumerWidget {
                 child: _ComposePromptBar(onTap: onCompose),
               ),
               SliverToBoxAdapter(
-                child: Divider(
-                  height: 1,
-                  thickness: 6,
-                  color: cs.outlineVariant.withValues(alpha: 0.12),
+                child: Container(
+                  height: 8,
+                  color: cs.surfaceContainerLow,
                 ),
               ),
               // Feed items
@@ -373,19 +375,15 @@ class _FeedTab extends ConsumerWidget {
                   (_, i) {
                     final event = allEvents[i];
                     return FeedCard(
+                      key: ValueKey(event.id),
                       event: event,
-                      onReact: (type) async {
+                      onReact: (type) {
                         HapticFeedback.lightImpact();
-                        try {
-                          await apiClient.dio.post(
-                            ApiConstants.socialReactions,
-                            data: {
-                              'feed_event_id': event.id,
-                              'reaction_type': type,
-                            },
-                          );
-                          ref.invalidate(socialFeedProvider(null));
-                        } catch (_) {}
+                        optimisticReaction(
+                          ref: ref,
+                          event: event,
+                          reactionType: type,
+                        );
                       },
                       onComment: () => _showCommentSheet(context, ref, event),
                       onShare: () => _sharePost(context, event),
