@@ -205,6 +205,22 @@ final userSearchProvider =
   }
 });
 
+// ── Comments ─────────────────────────────────────────────────────────────────
+
+final commentsProvider =
+    FutureProvider.family<List<Comment>, String>((ref, feedEventId) async {
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.socialCommentsForEvent(feedEventId),
+    );
+    return _extractList(res.data, 'comments')
+        .map((c) => Comment.fromJson(c as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
 // ── Share Card Data ──────────────────────────────────────────────────────────
 
 final shareCardDataProvider =

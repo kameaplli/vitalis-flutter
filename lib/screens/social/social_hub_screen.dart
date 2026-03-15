@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/social_models.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../widgets/social/feed_card.dart';
+import '../../widgets/social/comment_sheet.dart';
 
 // ── Social Hub Screen ──────────────────────────────────────────────────────────
 
@@ -21,10 +24,13 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabCtrl;
 
+  /// Optimistic posts that appear instantly before server confirms.
+  final List<FeedEvent> _optimisticPosts = [];
+
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -33,16 +39,26 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
     super.dispose();
   }
 
+  void _addOptimisticPost(FeedEvent event) {
+    setState(() => _optimisticPosts.insert(0, event));
+  }
+
+  void _removeOptimisticPost(String tempId) {
+    setState(() => _optimisticPosts.removeWhere((e) => e.id == tempId));
+  }
+
   void _showComposeSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (_) => _ComposeSheet(
         onPosted: () {
+          ref.invalidate(socialFeedProvider(null));
+        },
+        onOptimisticPost: (event) => _addOptimisticPost(event),
+        onConfirmed: (tempId) {
+          _removeOptimisticPost(tempId);
           ref.invalidate(socialFeedProvider(null));
         },
       ),
@@ -70,18 +86,21 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
       children: [
         Column(
           children: [
-            // Title row
+            // ── Title row ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
               child: Row(
                 children: [
                   Text(
                     'Community',
-                    style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    style: tt.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.search, color: cs.onSurfaceVariant),
+                    icon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant),
                     onPressed: () {
                       HapticFeedback.lightImpact();
                       _showUserSearch(context);
@@ -98,47 +117,54 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
               ),
             ),
 
-            // Tab bar
-            TabBar(
-              controller: _tabCtrl,
-              labelColor: cs.primary,
-              unselectedLabelColor: cs.onSurfaceVariant,
-              indicatorColor: cs.primary,
-              tabs: const [
-                Tab(text: 'Feed'),
-                Tab(text: 'Recipes'),
-                Tab(text: 'Challenges'),
-              ],
+            // ── Tab bar (sleek underline) ──
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              child: TabBar(
+                controller: _tabCtrl,
+                labelColor: cs.onSurface,
+                unselectedLabelColor: cs.onSurfaceVariant,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                ),
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorWeight: 3,
+                indicatorColor: cs.primary,
+                dividerColor: Colors.transparent,
+                tabs: const [
+                  Tab(text: 'Feed'),
+                  Tab(text: 'Discover'),
+                ],
+              ),
             ),
 
-            // Tab content
+            // ── Tab content ──
             Expanded(
               child: TabBarView(
                 controller: _tabCtrl,
-                children: const [
-                  _FeedTab(),
-                  _RecipesTab(),
-                  _ChallengesTab(),
+                children: [
+                  _FeedTab(optimisticPosts: _optimisticPosts),
+                  const _DiscoverTab(),
                 ],
               ),
             ),
           ],
         ),
 
-        // ── FAB: Compose / Create Post ──────────────────────────────────────
-        // Methods are defined below in the state class
+        // ── Gradient FAB ──
         Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton(
-            heroTag: 'social_compose',
-            backgroundColor: cs.primary,
-            foregroundColor: cs.onPrimary,
+          right: 20,
+          bottom: 20,
+          child: _GradientFab(
             onPressed: () {
               HapticFeedback.lightImpact();
               _showComposeSheet(context);
             },
-            child: const Icon(Icons.edit_outlined),
           ),
         ),
       ],
@@ -146,10 +172,236 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
   }
 }
 
+// ── Gradient FAB with glow ──────────────────────────────────────────────────
+
+class _GradientFab extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _GradientFab({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.4),
+            blurRadius: 16,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: FloatingActionButton(
+        heroTag: 'social_compose',
+        onPressed: onPressed,
+        elevation: 0,
+        shape: const CircleBorder(),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [cs.primary, cs.tertiary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Stories Row ──────────────────────────────────────────────────────────────
+
+class _StoriesRow extends ConsumerWidget {
+  const _StoriesRow();
+
+  static const _storyGradient = [
+    Color(0xFFE040FB),
+    Color(0xFFFF5722),
+    Color(0xFFFFC107),
+    Color(0xFF4CAF50),
+    Color(0xFF2196F3),
+    Color(0xFFE040FB),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectionsAsync = ref.watch(connectionsProvider);
+
+    return SizedBox(
+      height: 100,
+      child: connectionsAsync.when(
+        loading: () => _buildWithConnections(context, []),
+        error: (_, __) => _buildWithConnections(context, []),
+        data: (connections) => _buildWithConnections(context, connections),
+      ),
+    );
+  }
+
+  Widget _buildWithConnections(
+      BuildContext context, List<Connection> connections) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Filter to accepted connections only
+    final accepted =
+        connections.where((c) => c.status == 'accepted').toList();
+
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: 1 + accepted.length, // +1 for "Your Story"
+      itemBuilder: (_, i) {
+        if (i == 0) {
+          // "Your Story" / compose item
+          return Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 62,
+                  height: 62,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Icon(Icons.add, color: cs.primary, size: 26),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'You',
+                  style: tt.labelSmall?.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final conn = accepted[i - 1];
+        final name = conn.requesterName ?? 'Friend';
+        final firstName = name.split(' ').first;
+        final initial =
+            (name.isNotEmpty ? name[0] : '?').toUpperCase();
+        final hasAvatar = conn.requesterAvatarUrl != null &&
+            conn.requesterAvatarUrl!.isNotEmpty;
+
+        return Padding(
+          padding: const EdgeInsets.only(right: 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Gradient ring
+              Container(
+                width: 62,
+                height: 62,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: SweepGradient(colors: _storyGradient),
+                ),
+                padding: const EdgeInsets.all(2.5),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surface,
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: hasAvatar
+                      ? CircleAvatar(
+                          radius: 25,
+                          backgroundImage:
+                              NetworkImage(conn.requesterAvatarUrl!),
+                          backgroundColor: cs.primaryContainer,
+                        )
+                      : CircleAvatar(
+                          radius: 25,
+                          backgroundColor: cs.primaryContainer,
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: 62,
+                child: Text(
+                  firstName,
+                  style: tt.labelSmall?.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ── Feed Tab ────────────────────────────────────────────────────────────────────
 
 class _FeedTab extends ConsumerWidget {
-  const _FeedTab();
+  final List<FeedEvent> optimisticPosts;
+  const _FeedTab({this.optimisticPosts = const []});
+
+  void _showCommentSheet(BuildContext context, WidgetRef ref, FeedEvent event) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CommentSheet(
+        event: event,
+        onCommentAdded: () {
+          ref.invalidate(socialFeedProvider(null));
+        },
+      ),
+    );
+  }
+
+  void _sharePost(BuildContext context, FeedEvent event) {
+    final snap = event.contentSnapshot;
+    final ct = event.contentType;
+    String shareText = '${event.actorName} on Vitalis:\n';
+
+    if (ct == 'note') {
+      shareText += snap['note']?.toString() ?? snap['text']?.toString() ?? '';
+    } else if (ct == 'streak') {
+      final days = snap['streak_days'] ?? snap['days'] ?? '?';
+      shareText += 'On a $days-day wellness streak!';
+    } else if (ct == 'daily_nutrition') {
+      final cals = snap['total_calories'] ?? snap['calories'];
+      shareText += 'Logged ${cals ?? '?'} kcal today';
+    } else {
+      shareText += snap['description']?.toString() ?? 'Check out this update!';
+    }
+    shareText += '\n\nTracked with Vitalis';
+
+    Share.share(shareText);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -163,12 +415,12 @@ class _FeedTab extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: cs.error),
+            Icon(Icons.wifi_off_rounded, size: 48, color: cs.error),
             const SizedBox(height: 12),
             Text('Failed to load feed',
                 style: TextStyle(color: cs.onSurfaceVariant)),
             const SizedBox(height: 8),
-            TextButton(
+            FilledButton.tonal(
               onPressed: () => ref.invalidate(socialFeedProvider(null)),
               child: const Text('Retry'),
             ),
@@ -176,39 +428,66 @@ class _FeedTab extends ConsumerWidget {
         ),
       ),
       data: (events) {
-        if (events.isEmpty) {
-          return _EmptyFeedState();
+        // Merge optimistic posts with server data (dedup by checking temp IDs)
+        final serverIds = events.map((e) => e.id).toSet();
+        final allEvents = [
+          ...optimisticPosts.where((op) => !serverIds.contains(op.id)),
+          ...events,
+        ];
+
+        if (allEvents.isEmpty) {
+          return const _EmptyFeedState();
         }
 
         return RefreshIndicator(
+          color: cs.primary,
           onRefresh: () async {
             ref.invalidate(socialFeedProvider(null));
+            ref.invalidate(connectionsProvider);
           },
-          child: ListView.builder(
-            padding: const EdgeInsets.only(top: 8, bottom: 80),
-            itemCount: events.length,
-            itemBuilder: (_, i) {
-              final event = events[i];
-              return FeedCard(
-                event: event,
-                onReact: (type) async {
-                  HapticFeedback.lightImpact();
-                  try {
-                    await apiClient.dio.post(
-                      ApiConstants.socialReactions,
-                      data: {
-                        'feed_event_id': event.id,
-                        'reaction_type': type,
+          child: CustomScrollView(
+            slivers: [
+              // Stories row
+              const SliverToBoxAdapter(child: _StoriesRow()),
+              SliverToBoxAdapter(
+                child: Divider(
+                  height: 1,
+                  thickness: 6,
+                  color: cs.outlineVariant.withValues(alpha: 0.12),
+                ),
+              ),
+              // Feed items
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (_, i) {
+                    final event = allEvents[i];
+                    return FeedCard(
+                      event: event,
+                      onReact: (type) async {
+                        HapticFeedback.lightImpact();
+                        try {
+                          await apiClient.dio.post(
+                            ApiConstants.socialReactions,
+                            data: {
+                              'feed_event_id': event.id,
+                              'reaction_type': type,
+                            },
+                          );
+                          ref.invalidate(socialFeedProvider(null));
+                        } catch (_) {}
+                      },
+                      onComment: () => _showCommentSheet(context, ref, event),
+                      onShare: () => _sharePost(context, event),
+                      onProfileTap: () {
+                        context.push('/social/profile/${event.actorId}');
                       },
                     );
-                    ref.invalidate(socialFeedProvider(null));
-                  } catch (_) {}
-                },
-                onProfileTap: () {
-                  context.push('/social/profile/${event.actorId}');
-                },
-              );
-            },
+                  },
+                  childCount: allEvents.length,
+                ),
+              ),
+              const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+            ],
           ),
         );
       },
@@ -216,30 +495,336 @@ class _FeedTab extends ConsumerWidget {
   }
 }
 
+// ── Empty Feed State ────────────────────────────────────────────────────────
+
 class _EmptyFeedState extends StatelessWidget {
+  const _EmptyFeedState();
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.people_outline, size: 64,
-                color: cs.onSurfaceVariant.withOpacity(0.4)),
-            const SizedBox(height: 16),
-            Text(
-              'No activity yet',
-              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const _StoriesRow(),
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: cs.outlineVariant.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 60),
+          // Warm illustration-style empty state
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  cs.primary.withValues(alpha: 0.1),
+                  cs.tertiary.withValues(alpha: 0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Connect with friends to see their updates!',
+            child: Center(
+              child: Text(
+                '\uD83C\uDF1F',
+                style: const TextStyle(fontSize: 48),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Your feed is waiting',
+            style: tt.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 48),
+            child: Text(
+              'Connect with friends and share your wellness journey together. Your community starts here!',
               textAlign: TextAlign.center,
-              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              style: tt.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.person_add_rounded, size: 18),
+            label: const Text('Find Friends'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Discover Tab ────────────────────────────────────────────────────────────────
+
+class _DiscoverTab extends ConsumerStatefulWidget {
+  const _DiscoverTab();
+
+  @override
+  ConsumerState<_DiscoverTab> createState() => _DiscoverTabState();
+}
+
+class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
+  String _selectedFilter = 'All';
+
+  static const _filters = [
+    'All',
+    'Recipes',
+    'Challenges',
+    'Streaks',
+    'Achievements',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return RefreshIndicator(
+      color: cs.primary,
+      onRefresh: () async {
+        ref.invalidate(recipeFeedProvider(null));
+        ref.invalidate(challengesProvider);
+      },
+      child: CustomScrollView(
+        slivers: [
+          // Filter chips
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 52,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                itemCount: _filters.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final filter = _filters[i];
+                  final selected = filter == _selectedFilter;
+                  return FilterChip(
+                    label: Text(filter),
+                    selected: selected,
+                    onSelected: (_) {
+                      HapticFeedback.lightImpact();
+                      setState(() => _selectedFilter = filter);
+                    },
+                    selectedColor: cs.primaryContainer,
+                    checkmarkColor: cs.onPrimaryContainer,
+                    backgroundColor:
+                        cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Challenges section
+          if (_selectedFilter == 'All' || _selectedFilter == 'Challenges') ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: Text(
+                  'Challenges',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(child: _buildChallengesSection()),
+          ],
+
+          // Recipes section
+          if (_selectedFilter == 'All' || _selectedFilter == 'Recipes') ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  'Recipes',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(child: _buildRecipesSection()),
+          ],
+
+          const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChallengesSection() {
+    final cs = Theme.of(context).colorScheme;
+    final allAsync = ref.watch(challengesProvider);
+
+    return allAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox(
+        height: 140,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (challenges) {
+        final available = challenges.where((c) => c.isOpen).toList();
+        if (available.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'No challenges available right now',
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 160,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: available.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, i) => _AvailableChallengeCard(
+              challenge: available[i],
+              onTap: () =>
+                  context.push('/social/challenge/${available[i].id}'),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRecipesSection() {
+    final cs = Theme.of(context).colorScheme;
+    final recipesAsync = ref.watch(recipeFeedProvider(null));
+
+    return recipesAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const SizedBox(
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (recipes) {
+        if (recipes.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: Text('No recipes shared yet',
+                  style: TextStyle(color: cs.onSurfaceVariant)),
+            ),
+          );
+        }
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.72,
+          ),
+          itemCount: recipes.length,
+          itemBuilder: (_, i) => _RecipeCard(event: recipes[i]),
+        );
+      },
+    );
+  }
+}
+
+// ── Available Challenge Card (horizontal scroll) ─────────────────────────────
+
+class _AvailableChallengeCard extends StatelessWidget {
+  final Challenge challenge;
+  final VoidCallback? onTap;
+
+  const _AvailableChallengeCard({required this.challenge, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+              const Color(0xFF6366F1).withValues(alpha: 0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+              ),
+              child: const Center(
+                child: Text('\uD83D\uDEA9', style: TextStyle(fontSize: 18)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              challenge.title,
+              style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Text(
+              '${challenge.participantCount} joined \u00B7 ${challenge.durationDays}d',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonal(
+                onPressed: onTap,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('View', style: TextStyle(fontSize: 12)),
+              ),
             ),
           ],
         ),
@@ -248,104 +833,7 @@ class _EmptyFeedState extends StatelessWidget {
   }
 }
 
-// ── Recipes Tab ─────────────────────────────────────────────────────────────────
-
-class _RecipesTab extends ConsumerStatefulWidget {
-  const _RecipesTab();
-
-  @override
-  ConsumerState<_RecipesTab> createState() => _RecipesTabState();
-}
-
-class _RecipesTabState extends ConsumerState<_RecipesTab> {
-  String _selectedFilter = 'All';
-
-  static const _filters = [
-    'All',
-    'Breakfast',
-    'Lunch',
-    'Dinner',
-    'Snack',
-    'High Protein',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final recipesAsync = ref.watch(recipeFeedProvider(null));
-    final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      children: [
-        // Filter chips
-        SizedBox(
-          height: 48,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: _filters.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (_, i) {
-              final filter = _filters[i];
-              final selected = filter == _selectedFilter;
-              return FilterChip(
-                label: Text(filter),
-                selected: selected,
-                onSelected: (_) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _selectedFilter = filter);
-                },
-                selectedColor: cs.primaryContainer,
-                checkmarkColor: cs.onPrimaryContainer,
-                backgroundColor: cs.surfaceContainerHighest.withOpacity(0.5),
-              );
-            },
-          ),
-        ),
-
-        // Recipe grid
-        Expanded(
-          child: recipesAsync.when(
-            skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => Center(
-              child: Text('Failed to load recipes',
-                  style: TextStyle(color: cs.onSurfaceVariant)),
-            ),
-            data: (recipes) {
-              if (recipes.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.menu_book,
-                          size: 48,
-                          color: cs.onSurfaceVariant.withOpacity(0.4)),
-                      const SizedBox(height: 12),
-                      Text('No recipes shared yet',
-                          style: TextStyle(color: cs.onSurfaceVariant)),
-                    ],
-                  ),
-                );
-              }
-
-              return GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.72,
-                ),
-                itemCount: recipes.length,
-                itemBuilder: (_, i) => _RecipeCard(event: recipes[i]),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
+// ── Recipe Card ──────────────────────────────────────────────────────────────
 
 class _RecipeCard extends StatelessWidget {
   final FeedEvent event;
@@ -361,40 +849,41 @@ class _RecipeCard extends StatelessWidget {
         'Recipe';
     final calories = (snap['calories'] as num?)?.toInt();
     final rating = (snap['rating'] as num?)?.toDouble();
-    final triedCount = (snap['tried_count'] as num?)?.toInt() ?? 0;
 
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         color: cs.surface,
-        border: Border.all(
-          color: cs.outlineVariant.withOpacity(0.3),
-          width: 1,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image placeholder with colored gradient
+          // Image placeholder with gradient
           Container(
             height: 100,
             decoration: BoxDecoration(
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+                  const BorderRadius.vertical(top: Radius.circular(20)),
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF22C55E).withOpacity(0.7),
-                  const Color(0xFF10B981).withOpacity(0.5),
+                  const Color(0xFF22C55E).withValues(alpha: 0.7),
+                  const Color(0xFF10B981).withValues(alpha: 0.5),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
             child: const Center(
-              child: Icon(Icons.restaurant_menu, color: Colors.white, size: 32),
+              child: Text('\uD83C\uDF73', style: TextStyle(fontSize: 32)),
             ),
           ),
-
           // Content
           Expanded(
             child: Padding(
@@ -404,7 +893,8 @@ class _RecipeCard extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style:
+                        tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -420,7 +910,6 @@ class _RecipeCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      // Author avatar
                       CircleAvatar(
                         radius: 10,
                         backgroundColor: cs.primaryContainer,
@@ -446,8 +935,8 @@ class _RecipeCard extends StatelessWidget {
                         ),
                       ),
                       if (rating != null) ...[
-                        Icon(Icons.star, size: 12,
-                            color: const Color(0xFFEAB308)),
+                        const Text('\u2B50', style: TextStyle(fontSize: 10)),
+                        const SizedBox(width: 2),
                         Text(
                           rating.toStringAsFixed(1),
                           style: TextStyle(
@@ -456,389 +945,10 @@ class _RecipeCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  if (triedCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        '$triedCount tried',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: cs.onSurfaceVariant.withOpacity(0.7),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Challenges Tab ──────────────────────────────────────────────────────────────
-
-class _ChallengesTab extends ConsumerWidget {
-  const _ChallengesTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final myAsync = ref.watch(myChallengesProvider);
-    final allAsync = ref.watch(challengesProvider);
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(myChallengesProvider);
-        ref.invalidate(challengesProvider);
-      },
-      child: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 80),
-        children: [
-          // ── Active Challenges ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Text(
-              'Active Challenges',
-              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          myAsync.when(
-            skipLoadingOnReload: true,
-            loading: () => const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (_, __) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Failed to load',
-                  style: TextStyle(color: cs.onSurfaceVariant)),
-            ),
-            data: (challenges) {
-              final active =
-                  challenges.where((c) => c.isActive).toList();
-              final completed =
-                  challenges.where((c) => c.isCompleted).toList();
-
-              if (active.isEmpty && completed.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: Text(
-                      'No challenges joined yet',
-                      style: TextStyle(color: cs.onSurfaceVariant),
-                    ),
-                  ),
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Active progress cards
-                  ...active.map(
-                    (c) => _ActiveChallengeCard(
-                      challenge: c,
-                      onTap: () => context.push('/social/challenge/${c.id}'),
-                    ),
-                  ),
-
-                  // Completed section
-                  if (completed.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(
-                        'Completed',
-                        style: tt.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    ...completed.map(
-                      (c) => _CompletedChallengeCard(challenge: c),
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 8),
-
-          // ── Available Challenges ───────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Text(
-              'Available Challenges',
-              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          allAsync.when(
-            skipLoadingOnReload: true,
-            loading: () => const SizedBox(
-              height: 140,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (challenges) {
-              final available =
-                  challenges.where((c) => c.isOpen).toList();
-              if (available.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'No challenges available right now',
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                );
-              }
-
-              return SizedBox(
-                height: 160,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: available.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) => _AvailableChallengeCard(
-                    challenge: available[i],
-                    onTap: () =>
-                        context.push('/social/challenge/${available[i].id}'),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Active Challenge Card ────────────────────────────────────────────────────
-
-class _ActiveChallengeCard extends StatelessWidget {
-  final Challenge challenge;
-  final VoidCallback? onTap;
-
-  const _ActiveChallengeCard({required this.challenge, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final pct = challenge.myCompletionPct ?? 0;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: cs.surface,
-          border: Border.all(
-            color: cs.outlineVariant.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                    ),
-                  ),
-                  child: const Icon(Icons.flag, color: Colors.white, size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        challenge.title,
-                        style: tt.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${challenge.participantCount} participants · ${challenge.daysRemaining} days left',
-                        style: tt.bodySmall
-                            ?.copyWith(color: cs.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right,
-                    size: 18, color: cs.onSurfaceVariant),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: pct / 100,
-                minHeight: 6,
-                color: pct >= 100
-                    ? const Color(0xFF22C55E)
-                    : const Color(0xFF8B5CF6),
-                backgroundColor: cs.surfaceContainerHighest,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${pct.round()}% complete',
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Available Challenge Card (horizontal scroll) ─────────────────────────────
-
-class _AvailableChallengeCard extends StatelessWidget {
-  final Challenge challenge;
-  final VoidCallback? onTap;
-
-  const _AvailableChallengeCard({required this.challenge, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF8B5CF6).withOpacity(0.15),
-              const Color(0xFF6366F1).withOpacity(0.08),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border.all(
-            color: const Color(0xFF8B5CF6).withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: const Color(0xFF8B5CF6).withOpacity(0.2),
-              ),
-              child: const Icon(Icons.flag,
-                  color: Color(0xFF8B5CF6), size: 16),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              challenge.title,
-              style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            Text(
-              '${challenge.participantCount} joined · ${challenge.durationDays}d',
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonal(
-                onPressed: onTap,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('View', style: TextStyle(fontSize: 12)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Completed Challenge Card ─────────────────────────────────────────────────
-
-class _CompletedChallengeCard extends StatelessWidget {
-  final Challenge challenge;
-  const _CompletedChallengeCard({required this.challenge});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: cs.surface,
-        border: Border.all(
-          color: cs.outlineVariant.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: const Color(0xFFFBBF24).withOpacity(0.15),
-            ),
-            child: const Icon(Icons.emoji_events,
-                color: Color(0xFFFBBF24), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  challenge.title,
-                  style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'Completed',
-                  style: tt.bodySmall?.copyWith(
-                    color: const Color(0xFF22C55E),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.military_tech,
-              color: Color(0xFFFBBF24), size: 24),
         ],
       ),
     );
@@ -849,7 +959,9 @@ class _CompletedChallengeCard extends StatelessWidget {
 
 class _ComposeSheet extends ConsumerStatefulWidget {
   final VoidCallback onPosted;
-  const _ComposeSheet({required this.onPosted});
+  final ValueChanged<FeedEvent>? onOptimisticPost;
+  final ValueChanged<String>? onConfirmed;
+  const _ComposeSheet({required this.onPosted, this.onOptimisticPost, this.onConfirmed});
 
   @override
   ConsumerState<_ComposeSheet> createState() => _ComposeSheetState();
@@ -863,6 +975,16 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
 
   final apiClient = ApiClient();
 
+  static const _postTypes = [
+    {'key': 'note', 'emoji': '\uD83D\uDCDD', 'label': 'Note'},
+    {
+      'key': 'share_nutrition',
+      'emoji': '\uD83C\uDF7D\uFE0F',
+      'label': 'Nutrition'
+    },
+    {'key': 'share_streak', 'emoji': '\uD83D\uDD25', 'label': 'Streak'},
+  ];
+
   @override
   void dispose() {
     _textCtrl.dispose();
@@ -873,24 +995,61 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
     final text = _textCtrl.text.trim();
     if (text.isEmpty && _postType == 'note') return;
 
-    setState(() => _posting = true);
+    // Create optimistic post immediately
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    final authState = ref.read(authProvider);
+    final userName = authState.user?.name ?? 'You';
+
+    String contentType;
+    Map<String, dynamic> snapshot;
+    if (_postType == 'note') {
+      contentType = 'note';
+      snapshot = {'note': text, 'text': text};
+    } else if (_postType == 'share_nutrition') {
+      contentType = 'daily_nutrition';
+      snapshot = {'description': 'Nutrition summary', 'title': 'Daily Nutrition'};
+      if (text.isNotEmpty) snapshot['note'] = text;
+    } else {
+      contentType = 'streak';
+      snapshot = {'title': 'Streak', 'description': 'Wellness streak'};
+      if (text.isNotEmpty) snapshot['note'] = text;
+    }
+
+    final optimisticEvent = FeedEvent(
+      id: tempId,
+      actorId: authState.user?.id ?? '',
+      actorName: userName,
+      actorAvatarUrl: authState.user?.avatarUrl,
+      eventType: 'share',
+      contentType: contentType,
+      contentSnapshot: snapshot,
+      isRead: true,
+      createdAt: DateTime.now(),
+    );
+
+    // Show post immediately and close sheet
+    widget.onOptimisticPost?.call(optimisticEvent);
+    if (mounted) Navigator.pop(context);
+
+    // Sync to server in background
     try {
       if (_postType == 'note') {
-        // Post a text note to feed
         await apiClient.dio.post(
           ApiConstants.socialShare,
           data: {
             'content_type': 'note',
+            'content_id': 'note_${DateTime.now().millisecondsSinceEpoch}',
             'audience': _audience,
             'note': text,
           },
         );
       } else if (_postType == 'share_nutrition') {
-        // Share today's nutrition summary
         await apiClient.dio.post(
           ApiConstants.socialShare,
           data: {
             'content_type': 'daily_nutrition',
+            'content_id':
+                'nutrition_${DateTime.now().toIso8601String().substring(0, 10)}',
             'audience': _audience,
             'note': text.isNotEmpty ? text : null,
           },
@@ -900,27 +1059,18 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
           ApiConstants.socialShare,
           data: {
             'content_type': 'streak',
+            'content_id': 'streak_${DateTime.now().millisecondsSinceEpoch}',
             'audience': _audience,
             'note': text.isNotEmpty ? text : null,
           },
         );
       }
-
+      // Server confirmed — remove optimistic and refresh with real data
+      widget.onConfirmed?.call(tempId);
+    } catch (e) {
+      debugPrint('[Social] Post failed: $e');
+      // Keep optimistic post visible, but refresh feed anyway
       widget.onPosted();
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Posted!')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to post. Try again.')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _posting = false);
     }
   }
 
@@ -930,8 +1080,12 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
     final tt = Theme.of(context).textTheme;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -939,95 +1093,247 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
           // Handle
           Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // Title
-          Text('Create Post', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-
-          // Post type chips
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(
-                label: const Text('Note'),
-                selected: _postType == 'note',
-                onSelected: (_) => setState(() => _postType = 'note'),
-                avatar: const Icon(Icons.edit_note, size: 18),
-              ),
-              ChoiceChip(
-                label: const Text("Today's Nutrition"),
-                selected: _postType == 'share_nutrition',
-                onSelected: (_) => setState(() => _postType = 'share_nutrition'),
-                avatar: const Icon(Icons.restaurant, size: 18),
-              ),
-              ChoiceChip(
-                label: const Text('My Streak'),
-                selected: _postType == 'share_streak',
-                onSelected: (_) => setState(() => _postType = 'share_streak'),
-                avatar: const Icon(Icons.local_fire_department, size: 18),
-              ),
-            ],
+          Text(
+            'Create Post',
+            style: tt.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Text input
+          // Post type chips (horizontal scroll with emojis)
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _postTypes.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) {
+                final type = _postTypes[i];
+                final selected = _postType == type['key'];
+                return GestureDetector(
+                  onTap: () =>
+                      setState(() => _postType = type['key'] as String),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: selected
+                          ? cs.primary.withValues(alpha: 0.12)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: selected
+                          ? Border.all(
+                              color: cs.primary.withValues(alpha: 0.3),
+                              width: 1.5)
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(type['emoji'] as String,
+                            style: const TextStyle(fontSize: 16)),
+                        const SizedBox(width: 6),
+                        Text(
+                          type['label'] as String,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            color: selected ? cs.primary : cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Text input (larger area)
           TextField(
             controller: _textCtrl,
-            maxLines: 4,
+            maxLines: 5,
             maxLength: 280,
+            style: const TextStyle(fontSize: 16, height: 1.5),
             decoration: InputDecoration(
               hintText: _postType == 'note'
                   ? "What's on your mind?"
                   : 'Add a note (optional)...',
+              hintStyle: TextStyle(
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                fontSize: 16,
+              ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
               ),
               filled: true,
               fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+              contentPadding: const EdgeInsets.all(16),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // Audience picker
-          Row(
-            children: [
-              Text('Who can see:', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Friends'),
-                selected: _audience == 'buddies',
-                onSelected: (_) => setState(() => _audience = 'buddies'),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Everyone'),
-                selected: _audience == 'public',
-                onSelected: (_) => setState(() => _audience = 'public'),
-              ),
-            ],
           ),
           const SizedBox(height: 16),
 
-          // Post button
+          // Audience picker (segmented button style)
+          Row(
+            children: [
+              Text(
+                'Audience',
+                style: tt.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Row(
+                    children: [
+                      _AudienceSegment(
+                        label: 'Friends',
+                        icon: Icons.people_outline,
+                        selected: _audience == 'buddies',
+                        onTap: () => setState(() => _audience = 'buddies'),
+                      ),
+                      _AudienceSegment(
+                        label: 'Everyone',
+                        icon: Icons.public,
+                        selected: _audience == 'public',
+                        onTap: () => setState(() => _audience = 'public'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Post button (gradient)
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _posting ? null : _post,
-              icon: _posting
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.send),
-              label: Text(_posting ? 'Posting...' : 'Post'),
-            ),
+            height: 50,
+            child: _posting
+                ? const Center(child: CircularProgressIndicator())
+                : Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(
+                        colors: [cs.primary, cs.tertiary],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: _post,
+                        child: const Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.send_rounded,
+                                  color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Post',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Audience segmented button item
+class _AudienceSegment extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AudienceSegment({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: selected ? cs.surface : Colors.transparent,
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: cs.shadow.withValues(alpha: 0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1083,7 +1389,8 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
             // Handle
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
@@ -1092,7 +1399,9 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
             ),
             const SizedBox(height: 16),
 
-            Text('Find People', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Find People',
+                style: tt.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
 
             // Search field
@@ -1106,7 +1415,8 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 filled: true,
-                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                fillColor:
+                    cs.surfaceContainerHighest.withValues(alpha: 0.3),
               ),
             ),
             const SizedBox(height: 12),
@@ -1117,19 +1427,25 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
                   ? Center(
                       child: Text(
                         'Type at least 2 characters to search',
-                        style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                        style: tt.bodyMedium
+                            ?.copyWith(color: cs.onSurfaceVariant),
                       ),
                     )
                   : Consumer(
                       builder: (context, ref, _) {
-                        final resultsAsync = ref.watch(userSearchProvider(_query));
+                        final resultsAsync =
+                            ref.watch(userSearchProvider(_query));
                         return resultsAsync.when(
-                          loading: () => const Center(child: CircularProgressIndicator()),
-                          error: (_, __) => const Center(child: Text('Search failed')),
+                          loading: () => const Center(
+                              child: CircularProgressIndicator()),
+                          error: (_, __) =>
+                              const Center(child: Text('Search failed')),
                           data: (users) {
                             if (users.isEmpty) {
                               return Center(
-                                child: Text('No users found', style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                                child: Text('No users found',
+                                    style: tt.bodyMedium?.copyWith(
+                                        color: cs.onSurfaceVariant)),
                               );
                             }
                             return ListView.builder(
@@ -1140,25 +1456,36 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
                                   leading: CircleAvatar(
                                     backgroundColor: cs.primaryContainer,
                                     child: Text(
-                                      (user.name.isNotEmpty ? user.name[0] : '?').toUpperCase(),
-                                      style: TextStyle(color: cs.onPrimaryContainer),
+                                      (user.name.isNotEmpty
+                                              ? user.name[0]
+                                              : '?')
+                                          .toUpperCase(),
+                                      style: TextStyle(
+                                          color: cs.onPrimaryContainer),
                                     ),
                                   ),
                                   title: Text(user.name),
-                                  trailing: user.connectionStatus == 'accepted'
-                                      ? Chip(
-                                          label: const Text('Friends'),
-                                          backgroundColor: cs.primaryContainer,
-                                        )
-                                      : user.connectionStatus == 'pending'
-                                          ? const Chip(label: Text('Pending'))
-                                          : FilledButton.tonal(
-                                              onPressed: () => _sendRequest(user.id),
-                                              child: const Text('Add'),
-                                            ),
+                                  trailing:
+                                      user.connectionStatus == 'accepted'
+                                          ? Chip(
+                                              label: const Text('Friends'),
+                                              backgroundColor:
+                                                  cs.primaryContainer,
+                                            )
+                                          : user.connectionStatus ==
+                                                  'pending'
+                                              ? const Chip(
+                                                  label: Text('Pending'))
+                                              : FilledButton.tonal(
+                                                  onPressed: () =>
+                                                      _sendRequest(
+                                                          user.id),
+                                                  child: const Text('Add'),
+                                                ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.push('/social/profile/${user.id}');
+                                    context.push(
+                                        '/social/profile/${user.id}');
                                   },
                                 );
                               },

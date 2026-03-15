@@ -210,6 +210,9 @@ class ApiConstants {
   static const String socialShare = '/api/social/share';
   static const String socialReactions = '/api/social/reactions';
   static String socialReactionRemove(String id) => '/api/social/reactions/$id';
+  static const String socialComments = '/api/social/comments';
+  static String socialCommentsForEvent(String id) => '/api/social/comments/$id';
+  static String socialCommentDelete(String id) => '/api/social/comments/$id';
   static const String challenges = '/api/challenges';
   static String challengeDetail(String id) => '/api/challenges/$id';
   static String challengeJoin(String id) => '/api/challenges/$id/join';

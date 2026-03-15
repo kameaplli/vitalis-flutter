@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/router.dart';
 import '../providers/interests_provider.dart';
+import '../providers/voice_locale_provider.dart';
 import '../services/notification_service.dart';
 
 const _kOnboardingCompleteKey = 'onboarding_complete';
@@ -33,6 +34,7 @@ const _pageGradients = <List<Color>>[
   [Color(0xFF8B5E0A), Color(0xFFD97706), Color(0xFFE8A317)], // Triggers
   [Color(0xFF2D3A8C), Color(0xFF4F46E5), Color(0xFF7C6FF7)], // Location
   [Color(0xFF0F4A3F), Color(0xFF1A6B5C), Color(0xFF2D9F8A)], // Reminders
+  [Color(0xFF6B21A8), Color(0xFF9333EA), Color(0xFFAB5CF0)], // Voice locale
   [Color(0xFF1A6B5C), Color(0xFF2D9F8A), Color(0xFF50C9B0)], // Ready
 ];
 
@@ -49,7 +51,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   // Whether eczema interest is selected — determines which pages to show
   late final bool _showEczema;
-  int get _totalPages => _showEczema ? 6 : 4; // Without eczema: Welcome, Location, Reminders, Ready
+  int get _totalPages => _showEczema ? 7 : 5; // +1 for voice locale page
 
   // Swipe-up dismiss state
   double _dismissDy = 0;
@@ -195,12 +197,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   // ── Gradient sets for dynamic pages ──────────────────────────────────────
   List<List<Color>> get _activeGradients {
     if (_showEczema) return _pageGradients;
-    // Without eczema pages: Welcome, Location, Reminders, Ready
+    // Without eczema pages: Welcome, Location, Reminders, Voice, Ready
     return [
       _pageGradients[0], // Welcome
       _pageGradients[3], // Location
       _pageGradients[4], // Reminders
-      _pageGradients[5], // Ready
+      _pageGradients[5], // Voice locale
+      _pageGradients[6], // Ready
     ];
   }
 
@@ -324,6 +327,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                             onHydrationChanged: (v) => setState(() => _hydrationReminders = v),
                                             onMealsChanged: (v) => setState(() => _mealReminders = v),
                                           ),
+                                          const _VoiceLocalePage(),
                                           _ReadyPage(orbCtrl: _orbCtrl),
                                         ],
                                       ),
@@ -1054,7 +1058,75 @@ class _MealTimeRow extends StatelessWidget {
   }
 }
 
-// ── PAGE 5: Ready ────────────────────────────────────────────────────────────
+// ── PAGE: Voice Language ──────────────────────────────────────────────────────
+class _VoiceLocalePage extends ConsumerWidget {
+  const _VoiceLocalePage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLocale = ref.watch(voiceLocaleProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          const Icon(Icons.mic, size: 48, color: Colors.white),
+          const SizedBox(height: 16),
+          const Text('Voice Language',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900,
+                  color: Colors.white, letterSpacing: -0.5)),
+          const SizedBox(height: 8),
+          Text(
+            'Choose your preferred language for voice meal logging. '
+            'This helps the app understand your accent and food names better.',
+            style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8),
+                height: 1.5),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: ListView(
+              children: voiceLocaleOptions.entries.map((entry) {
+                final isSelected = currentLocale == entry.key;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.25)
+                        : Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      onTap: () => ref.read(voiceLocaleProvider.notifier).setLocale(entry.key),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Row(
+                          children: [
+                            Text(entry.value,
+                                style: TextStyle(
+                                  fontSize: 15, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                                  color: Colors.white,
+                                )),
+                            const Spacer(),
+                            if (isSelected)
+                              const Icon(Icons.check_circle, color: Colors.white, size: 22),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── PAGE: Ready ──────────────────────────────────────────────────────────────
 class _ReadyPage extends StatelessWidget {
   final AnimationController orbCtrl;
   const _ReadyPage({required this.orbCtrl});

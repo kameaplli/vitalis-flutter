@@ -733,25 +733,30 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                _WaterBtn('200 ml', 200, cs, _logging, _log),
-                const SizedBox(width: 6),
-                _WaterBtn('350 ml', 350, cs, _logging, _log),
-                const SizedBox(width: 6),
-                _WaterBtn('500 ml', 500, cs, _logging, _log),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: FilledButton.tonal(
-                    onPressed: _logging ? null : _logCustom,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            SizedBox(
+              height: 36,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _WaterBtn('50 ml', 50, cs, _logging, _log),
+                  const SizedBox(width: 6),
+                  _WaterBtn('100 ml', 100, cs, _logging, _log),
+                  const SizedBox(width: 6),
+                  _WaterBtn('200 ml', 200, cs, _logging, _log),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    height: 36,
+                    child: FilledButton.tonal(
+                      onPressed: _logging ? null : _logCustom,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Custom', style: TextStyle(fontSize: 12)),
                     ),
-                    child: const Text('Custom', style: TextStyle(fontSize: 12)),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             // Timeline of today's entries
             if (todayEntries != null && todayEntries.isNotEmpty) ...[
@@ -802,11 +807,12 @@ class _WaterBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return SizedBox(
+      height: 36,
       child: FilledButton.tonal(
         onPressed: disabled ? null : () => onLog(ml),
         style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           backgroundColor: cs.primaryContainer.withValues(alpha: 0.5),
         ),

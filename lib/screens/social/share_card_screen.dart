@@ -52,11 +52,9 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/vitalis_card_${DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(imageBytes);
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: 'Check out my Vitalis health report!',
-        ),
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Check out my Vitalis health report!',
       );
     } catch (e) {
       _showSnackBar('Failed to share: $e');

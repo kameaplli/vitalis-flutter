@@ -147,8 +147,30 @@ class FeedEvent {
     this.contentSnapshot = const {},
     this.isRead = false,
     this.reactions = const [],
+    this.commentCount = 0,
     required this.createdAt,
   });
+
+  final int commentCount;
+
+  FeedEvent copyWith({
+    List<ReactionSummary>? reactions,
+    int? commentCount,
+  }) {
+    return FeedEvent(
+      id: id,
+      actorId: actorId,
+      actorName: actorName,
+      actorAvatarUrl: actorAvatarUrl,
+      eventType: eventType,
+      contentType: contentType,
+      contentSnapshot: contentSnapshot,
+      isRead: isRead,
+      reactions: reactions ?? this.reactions,
+      commentCount: commentCount ?? this.commentCount,
+      createdAt: createdAt,
+    );
+  }
 
   factory FeedEvent.fromJson(Map<String, dynamic> json) {
     return FeedEvent(
@@ -166,6 +188,8 @@ class FeedEvent {
                   ReactionSummary.fromJson(r as Map<String, dynamic>))
               .toList() ??
           const [],
+      commentCount: (json['comment_count'] as num?)?.toInt() ??
+          (json['content_snapshot']?['comment_count'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
@@ -173,7 +197,7 @@ class FeedEvent {
   // Helper getters
   bool get isAchievement => eventType == 'achievement';
   bool get isRecipe => contentType == 'recipe';
-  bool get isStreak => eventType == 'streak';
+  bool get isStreak => eventType == 'streak' || contentType == 'streak';
   bool get isNote => contentType == 'note';
   bool get isMealPhoto => contentType == 'meal_photo';
 }
@@ -428,6 +452,43 @@ class CommunityPulse {
               .toList() ??
           const [],
       unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+// ─── Comment ──────────────────────────────────────────────────────────────
+
+class Comment {
+  final String id;
+  final String feedEventId;
+  final String userId;
+  final String userName;
+  final String? userAvatarUrl;
+  final String? parentId;
+  final String text;
+  final DateTime createdAt;
+
+  Comment({
+    required this.id,
+    required this.feedEventId,
+    required this.userId,
+    required this.userName,
+    this.userAvatarUrl,
+    this.parentId,
+    required this.text,
+    required this.createdAt,
+  });
+
+  factory Comment.fromJson(Map<String, dynamic> json) {
+    return Comment(
+      id: json['id'] ?? '',
+      feedEventId: json['feed_event_id'] ?? '',
+      userId: json['user_id'] ?? '',
+      userName: json['user_name'] ?? '',
+      userAvatarUrl: json['user_avatar_url'],
+      parentId: json['parent_id'],
+      text: json['text'] ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
 }
