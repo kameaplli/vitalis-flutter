@@ -54,12 +54,12 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => _ComposeSheet(
         onPosted: () {
-          forceRefreshFeed(ref);
+          ref.read(socialFeedNotifierProvider.notifier).refreshInBackground();
         },
         onOptimisticPost: (event) => _addOptimisticPost(event),
         onConfirmed: (tempId) {
           _removeOptimisticPost(tempId);
-          forceRefreshFeed(ref);
+          ref.read(socialFeedNotifierProvider.notifier).refreshInBackground();
         },
       ),
     );
@@ -285,7 +285,9 @@ class _FeedTab extends ConsumerWidget {
       builder: (_) => CommentSheet(
         event: event,
         onCommentAdded: () {
-          forceRefreshFeed(ref);
+          // Optimistic increment — no full refresh needed
+          ref.read(socialFeedNotifierProvider.notifier)
+              .incrementCommentCount(event.id);
         },
       ),
     );
@@ -314,16 +316,21 @@ class _FeedTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final feedAsync = ref.watch(socialFeedProvider(null));
+    // Watch FeedState directly — never flickers through loading after first load
+    final feedState = ref.watch(socialFeedNotifierProvider);
     final cs = Theme.of(context).colorScheme;
 
-    return feedAsync.when(
-      skipLoadingOnReload: true,
-      loading: () => ListView(
+    // First load only — show shimmer skeletons
+    if (feedState.isLoading) {
+      return ListView(
         physics: const NeverScrollableScrollPhysics(),
         children: const [FeedCardShimmer(), FeedCardShimmer(), FeedCardShimmer()],
-      ),
-      error: (e, __) => Center(
+      );
+    }
+
+    // Error with no data
+    if (feedState.error != null && feedState.events.isEmpty) {
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -338,68 +345,65 @@ class _FeedTab extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-      data: (events) {
-        // Merge optimistic posts with server data (dedup by checking temp IDs)
-        final serverIds = events.map((e) => e.id).toSet();
-        final allEvents = [
-          ...optimisticPosts.where((op) => !serverIds.contains(op.id)),
-          ...events,
-        ];
+      );
+    }
 
-        if (allEvents.isEmpty) {
-          return const _EmptyFeedState();
-        }
+    // Merge optimistic posts with server data
+    final events = feedState.events;
+    final serverIds = events.map((e) => e.id).toSet();
+    final allEvents = [
+      ...optimisticPosts.where((op) => !serverIds.contains(op.id)),
+      ...events,
+    ];
 
-        return RefreshIndicator(
-          color: cs.primary,
-          onRefresh: () async {
-            forceRefreshFeed(ref);
-            ref.invalidate(connectionsProvider);
-          },
-          child: CustomScrollView(
-            slivers: [
-              // Compose prompt bar (LinkedIn-style "Start a post")
-              SliverToBoxAdapter(
-                child: _ComposePromptBar(onTap: onCompose),
-              ),
-              SliverToBoxAdapter(
-                child: Container(
-                  height: 8,
-                  color: cs.surfaceContainerLow,
-                ),
-              ),
-              // Feed items
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (_, i) {
-                    final event = allEvents[i];
-                    return FeedCard(
-                      key: ValueKey(event.id),
+    if (allEvents.isEmpty) {
+      return const _EmptyFeedState();
+    }
+
+    return RefreshIndicator(
+      color: cs.primary,
+      onRefresh: () async {
+        await ref.read(socialFeedNotifierProvider.notifier).forceRefresh();
+        ref.invalidate(connectionsProvider);
+      },
+      child: CustomScrollView(
+        slivers: [
+          // Compose prompt bar
+          SliverToBoxAdapter(
+            child: _ComposePromptBar(onTap: onCompose),
+          ),
+          SliverToBoxAdapter(
+            child: Container(height: 8, color: cs.surfaceContainerLow),
+          ),
+          // Feed items
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (_, i) {
+                final event = allEvents[i];
+                return FeedCard(
+                  key: ValueKey(event.id),
+                  event: event,
+                  onReact: (type) {
+                    HapticFeedback.lightImpact();
+                    optimisticReaction(
+                      ref: ref,
                       event: event,
-                      onReact: (type) {
-                        HapticFeedback.lightImpact();
-                        optimisticReaction(
-                          ref: ref,
-                          event: event,
-                          reactionType: type,
-                        );
-                      },
-                      onComment: () => _showCommentSheet(context, ref, event),
-                      onShare: () => _sharePost(context, event),
-                      onProfileTap: () {
-                        context.push('/social/profile/${event.actorId}');
-                      },
+                      reactionType: type,
                     );
                   },
-                  childCount: allEvents.length,
-                ),
-              ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
-            ],
+                  onComment: () => _showCommentSheet(context, ref, event),
+                  onShare: () => _sharePost(context, event),
+                  onProfileTap: () {
+                    context.push('/social/profile/${event.actorId}');
+                  },
+                );
+              },
+              childCount: allEvents.length,
+            ),
           ),
-        );
-      },
+          const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+        ],
+      ),
     );
   }
 }
