@@ -228,6 +228,18 @@ class ApiConstants {
   static const String socialCommunityPulse = '/api/social/pulse';
   static const String socialShareCard = '/api/social/share-card';
 
+  // Health Intelligence
+  static const String healthScoreDaily       = '/api/health-intelligence/score/daily';
+  static const String healthScoreWeekly      = '/api/health-intelligence/score/weekly';
+  static const String healthScoreHistory     = '/api/health-intelligence/score/history';
+  static const String healthAlerts           = '/api/health-intelligence/alerts';
+  static String healthAlertDismiss(String id) => '/api/health-intelligence/alerts/$id/dismiss';
+  static String healthAlertRead(String id)    => '/api/health-intelligence/alerts/$id/read';
+  static const String healthTriggerCheck     = '/api/health-intelligence/triggers/check';
+  static const String healthRiskProfile      = '/api/health-intelligence/risk-profile';
+  static const String healthClinicalReport   = '/api/health-intelligence/clinical-report';
+  static const String healthClinicalReportPdf = '/api/health-intelligence/clinical-report/pdf';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';
