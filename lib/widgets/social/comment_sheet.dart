@@ -23,9 +23,11 @@ class CommentSheet extends ConsumerStatefulWidget {
 class _CommentSheetState extends ConsumerState<CommentSheet> {
   final _textCtrl = TextEditingController();
   final _focusNode = FocusNode();
+  final _scrollCtrl = ScrollController();
   bool _posting = false;
   List<Comment> _localComments = [];
   bool _loaded = false;
+  String? _error;
 
   @override
   void initState() {
@@ -37,15 +39,24 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
   void dispose() {
     _textCtrl.dispose();
     _focusNode.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _loadComments() async {
+    // Don't try to load comments for optimistic (temp) posts
+    if (widget.event.id.startsWith('temp_')) {
+      if (mounted) setState(() => _loaded = true);
+      return;
+    }
+
     try {
       final res = await apiClient.dio.get(
         ApiConstants.socialCommentsForEvent(widget.event.id),
       );
-      final list = res.data is List ? res.data as List : (res.data['comments'] ?? []) as List;
+      final list = res.data is List
+          ? res.data as List
+          : (res.data is Map ? (res.data['comments'] ?? res.data['data'] ?? []) as List : []);
       if (mounted) {
         setState(() {
           _localComments = list
@@ -54,14 +65,29 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
           _loaded = true;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loaded = true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loaded = true;
+          _error = 'Could not load comments';
+        });
+      }
     }
   }
 
   Future<void> _postComment() async {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) return;
+
+    // Can't comment on optimistic posts
+    if (widget.event.id.startsWith('temp_')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Post is still uploading, try again shortly')),
+        );
+      }
+      return;
+    }
 
     setState(() => _posting = true);
     try {
@@ -72,22 +98,47 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
           'text': text,
         },
       );
-      final newComment = Comment.fromJson(res.data as Map<String, dynamic>);
-      setState(() {
-        _localComments.add(newComment);
+      if (res.data is Map<String, dynamic>) {
+        final newComment = Comment.fromJson(res.data as Map<String, dynamic>);
+        setState(() {
+          _localComments.add(newComment);
+          _textCtrl.clear();
+        });
+      } else {
+        // Even if response shape is unexpected, clear input and reload
         _textCtrl.clear();
-      });
+        await _loadComments();
+      }
       widget.onCommentAdded?.call();
       ref.invalidate(commentsProvider(widget.event.id));
+
+      // Auto-scroll to bottom after posting
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollCtrl.hasClients) {
+          _scrollCtrl.animateTo(
+            _scrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to post comment')),
+          SnackBar(content: Text('Failed to post comment: ${_friendlyError(e)}')),
         );
       }
     } finally {
       if (mounted) setState(() => _posting = false);
     }
+  }
+
+  String _friendlyError(dynamic e) {
+    final s = e.toString();
+    if (s.contains('404')) return 'Post not found';
+    if (s.contains('401') || s.contains('403')) return 'Not authorized';
+    if (s.contains('SocketException') || s.contains('Connection')) return 'No connection';
+    return 'Please try again';
   }
 
   String _timeAgo(DateTime dt) {
@@ -185,51 +236,79 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                       child: CircularProgressIndicator(),
                     ),
                   )
-                : _localComments.isEmpty
+                : _error != null
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(40),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.chat_bubble_outline_rounded,
-                                size: 48,
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                              ),
+                              Icon(Icons.error_outline_rounded,
+                                  size: 40, color: cs.error),
                               const SizedBox(height: 12),
-                              Text(
-                                'No comments yet',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Be the first to comment!',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                                ),
+                              Text(_error!,
+                                  style: TextStyle(color: cs.onSurfaceVariant)),
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _error = null;
+                                    _loaded = false;
+                                  });
+                                  _loadComments();
+                                },
+                                child: const Text('Retry'),
                               ),
                             ],
                           ),
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shrinkWrap: true,
-                        itemCount: _localComments.length,
-                        itemBuilder: (_, i) {
-                          final c = _localComments[i];
-                          return _CommentTile(
-                            comment: c,
-                            timeAgo: _timeAgo(c.createdAt),
-                          );
-                        },
-                      ),
+                    : _localComments.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(40),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 48,
+                                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No comments yet',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Be the first to comment!',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollCtrl,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shrinkWrap: true,
+                            itemCount: _localComments.length,
+                            itemBuilder: (_, i) {
+                              final c = _localComments[i];
+                              return _CommentTile(
+                                comment: c,
+                                timeAgo: _timeAgo(c.createdAt),
+                              );
+                            },
+                          ),
           ),
 
           // Input area
@@ -249,6 +328,8 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                     maxLines: 3,
                     minLines: 1,
                     textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _postComment(),
                     style: const TextStyle(fontSize: 14.5),
                     decoration: InputDecoration(
                       hintText: 'Write a comment...',

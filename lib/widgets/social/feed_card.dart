@@ -1,10 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/social_models.dart';
-import 'reaction_bar.dart';
 
-/// Modern feed card inspired by clean social platform design.
-class FeedCard extends StatelessWidget {
+/// Modern feed card — LinkedIn/Instagram style with inline reactions.
+class FeedCard extends StatefulWidget {
   final FeedEvent event;
   final ValueChanged<String>? onReact;
   final VoidCallback? onComment;
@@ -38,20 +39,48 @@ class FeedCard extends StatelessWidget {
     'meal_photo': '\uD83D\uDCF8',
   };
 
+  // Avatar gradient colors (Instagram-story-ring style)
+  static const _avatarGradientColors = [
+    Color(0xFFE040FB),
+    Color(0xFFFF5722),
+    Color(0xFFFFC107),
+    Color(0xFF4CAF50),
+    Color(0xFF2196F3),
+    Color(0xFFE040FB),
+  ];
+
+  @override
+  State<FeedCard> createState() => _FeedCardState();
+}
+
+class _FeedCardState extends State<FeedCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _doubleTapCtrl;
+  late final Animation<double> _doubleTapScale;
+  late final Animation<double> _doubleTapOpacity;
+  bool _showDoubleTapHeart = false;
+
+  FeedEvent get event => widget.event;
+  ValueChanged<String>? get onReact => widget.onReact;
+  VoidCallback? get onComment => widget.onComment;
+  VoidCallback? get onShare => widget.onShare;
+  VoidCallback? get onProfileTap => widget.onProfileTap;
+
+  // Forward getters from the widget's static/instance members
   List<Color> get _gradient {
-    if (event.isStreak) return _typeGradients['streak']!;
-    if (event.isRecipe) return _typeGradients['recipe']!;
-    if (event.isAchievement) return _typeGradients['achievement']!;
-    if (event.eventType == 'challenge') return _typeGradients['challenge']!;
+    if (event.isStreak) return FeedCard._typeGradients['streak']!;
+    if (event.isRecipe) return FeedCard._typeGradients['recipe']!;
+    if (event.isAchievement) return FeedCard._typeGradients['achievement']!;
+    if (event.eventType == 'challenge') return FeedCard._typeGradients['challenge']!;
     if (event.contentType == 'daily_nutrition') {
-      return _typeGradients['daily_nutrition']!;
+      return FeedCard._typeGradients['daily_nutrition']!;
     }
     return [const Color(0xFF64748B), const Color(0xFF94A3B8)];
   }
 
   String get _emoji {
-    return _typeEmojis[event.contentType] ??
-        _typeEmojis[event.eventType] ??
+    return FeedCard._typeEmojis[event.contentType] ??
+        FeedCard._typeEmojis[event.eventType] ??
         '\u2728';
   }
 
@@ -119,85 +148,155 @@ class FeedCard extends StatelessWidget {
     return total;
   }
 
-  // Avatar gradient colors (Instagram-story-ring style)
-  static const _avatarGradientColors = [
-    Color(0xFFE040FB),
-    Color(0xFFFF5722),
-    Color(0xFFFFC107),
-    Color(0xFF4CAF50),
-    Color(0xFF2196F3),
-    Color(0xFFE040FB),
-  ];
+  bool get _userLiked {
+    for (final r in event.reactions) {
+      if (r.userReacted) return true;
+    }
+    return false;
+  }
+
+  List<String> get _topReactionEmojis {
+    const emojiMap = <String, String>{
+      'love': '\u2764\uFE0F',
+      'fire': '\uD83D\uDD25',
+      'clap': '\uD83D\uDC4F',
+      'inspiring': '\uD83D\uDCAA',
+      'agree': '\uD83D\uDE4C',
+    };
+    final sorted = [...event.reactions]..sort((a, b) => b.count.compareTo(a.count));
+    return sorted
+        .where((r) => r.count > 0)
+        .take(3)
+        .map((r) => emojiMap[r.type] ?? '\u2764\uFE0F')
+        .toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _doubleTapCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _doubleTapScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.2), weight: 25),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 0.95), weight: 15),
+      TweenSequenceItem(tween: Tween(begin: 0.95, end: 1.0), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 20),
+    ]).animate(CurvedAnimation(parent: _doubleTapCtrl, curve: Curves.easeOut));
+    _doubleTapOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 20),
+    ]).animate(_doubleTapCtrl);
+
+    _doubleTapCtrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() => _showDoubleTapHeart = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _doubleTapCtrl.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    HapticFeedback.mediumImpact();
+    setState(() => _showDoubleTapHeart = true);
+    _doubleTapCtrl.forward(from: 0);
+    onReact?.call('love');
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Container(
-      color: cs.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header: Avatar + Name + Time ──
-          _buildHeader(context),
+    return GestureDetector(
+      onDoubleTap: _handleDoubleTap,
+      child: Container(
+        color: cs.surface,
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header: Avatar + Name + Time ──
+                _buildHeader(context),
 
-          // ── Content area ──
-          if (_isNoteType) ...[
-            _buildNoteContent(context),
-          ] else ...[
-            _buildActivityContent(context),
-            const SizedBox(height: 12),
-            _buildGradientContentCard(context),
-          ],
+                // ── Content area ──
+                if (_isNoteType) ...[
+                  _buildNoteContent(context),
+                ] else ...[
+                  _buildActivityContent(context),
+                  const SizedBox(height: 12),
+                  _buildGradientContentCard(context),
+                ],
 
-          // ── Note text for non-note types ──
-          if (!_isNoteType && _noteText.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Text(
-                _noteText,
-                style: TextStyle(
-                  fontSize: 14.5,
-                  height: 1.5,
-                  color: cs.onSurface.withValues(alpha: 0.85),
-                  letterSpacing: 0.1,
-                ),
-              ),
-            ),
+                // ── Note text for non-note types ──
+                if (!_isNoteType && _noteText.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Text(
+                      _noteText,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.5,
+                        color: cs.onSurface.withValues(alpha: 0.85),
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                  ),
 
-          // ── Reaction summary ──
-          if (_totalReactions > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: ReactionBar(
-                reactions: event.reactions,
-                onReact: onReact,
-              ),
-            ),
-
-          // ── Engagement stats line ──
+          // ── Engagement stats line (like LinkedIn: emoji icons + count · comments) ──
           if (_totalReactions > 0 || event.commentCount > 0)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Row(
                 children: [
-                  if (_totalReactions > 0)
+                  if (_totalReactions > 0) ...[
+                    // Show top reaction emojis stacked
+                    SizedBox(
+                      width: _topReactionEmojis.length * 16.0 + 4,
+                      height: 20,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          for (var i = 0; i < _topReactionEmojis.length; i++)
+                            Positioned(
+                              left: i * 14.0,
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: cs.surface,
+                                  border: Border.all(color: cs.surface, width: 1.5),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _topReactionEmojis[i],
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
                     Text(
-                      '$_totalReactions ${_totalReactions == 1 ? 'like' : 'likes'}',
+                      '$_totalReactions',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface.withValues(alpha: 0.7),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                       ),
                     ),
-                  if (_totalReactions > 0 && event.commentCount > 0)
-                    Text(
-                      '  \u00B7  ',
-                      style: TextStyle(
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                  ],
+                  const Spacer(),
                   if (event.commentCount > 0)
                     GestureDetector(
                       onTap: onComment,
@@ -205,8 +304,7 @@ class FeedCard extends StatelessWidget {
                         '${event.commentCount} ${event.commentCount == 1 ? 'comment' : 'comments'}',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onSurface.withValues(alpha: 0.7),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -216,7 +314,7 @@ class FeedCard extends StatelessWidget {
 
           // ── Divider before actions ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Divider(
               height: 1,
               thickness: 0.5,
@@ -224,47 +322,124 @@ class FeedCard extends StatelessWidget {
             ),
           ),
 
-          // ── Bottom actions row ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-            child: Row(
-              children: [
-                // React button
-                _ActionButton(
-                  icon: Icons.favorite_outline_rounded,
-                  label: 'Like',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onReact?.call('love');
-                  },
-                ),
-                // Comment button
-                _ActionButton(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  label: 'Comment',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onComment?.call();
-                  },
-                ),
-                // Share button
-                _ActionButton(
-                  icon: Icons.share_outlined,
-                  label: 'Share',
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onShare?.call();
-                  },
-                ),
-              ],
-            ),
+          // ── Bottom actions row (LinkedIn style: Like · Comment · Share) ──
+          _ActionBar(
+            userLiked: _userLiked,
+            onLike: () {
+              HapticFeedback.lightImpact();
+              onReact?.call('love');
+            },
+            onLongPressLike: () {
+              HapticFeedback.mediumImpact();
+              _showReactionPicker(context);
+            },
+            onComment: () {
+              HapticFeedback.lightImpact();
+              onComment?.call();
+            },
+            onShare: () {
+              HapticFeedback.lightImpact();
+              onShare?.call();
+            },
           ),
 
-          // ── Bottom divider ──
+          // ── Bottom divider (thick separator between posts) ──
           Divider(
             height: 1,
             thickness: 6,
             color: cs.outlineVariant.withValues(alpha: 0.12),
+          ),
+              ],
+            ),
+            // ── Double-tap heart overlay (Instagram-style) ──
+            if (_showDoubleTapHeart)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: FadeTransition(
+                      opacity: _doubleTapOpacity,
+                      child: ScaleTransition(
+                        scale: _doubleTapScale,
+                        child: const Icon(
+                          Icons.favorite_rounded,
+                          size: 80,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 24,
+                              color: Color(0x88E53935),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReactionPicker(BuildContext context) {
+    const reactions = <String, String>{
+      'love': '\u2764\uFE0F',
+      'fire': '\uD83D\uDD25',
+      'clap': '\uD83D\uDC4F',
+      'inspiring': '\uD83D\uDCAA',
+      'agree': '\uD83D\uDE4C',
+    };
+
+    final cs = Theme.of(context).colorScheme;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => Stack(
+        children: [
+          // Dismiss on tap outside
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(ctx),
+              behavior: HitTestBehavior.opaque,
+            ),
+          ),
+          Center(
+            child: Material(
+              elevation: 12,
+              borderRadius: BorderRadius.circular(32),
+              shadowColor: Colors.black26,
+              color: cs.surface,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: reactions.entries.map((entry) {
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        HapticFeedback.lightImpact();
+                        onReact?.call(entry.key);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          entry.value,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -337,7 +512,7 @@ class FeedCard extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: SweepGradient(
-          colors: _avatarGradientColors,
+          colors: FeedCard._avatarGradientColors,
         ),
       ),
       padding: const EdgeInsets.all(2),
@@ -532,45 +707,257 @@ class FeedCard extends StatelessWidget {
   }
 }
 
-/// Action button used in the bottom row (Like, Comment, Share).
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
+/// LinkedIn-style action bar with Instagram-style heart animation.
+class _ActionBar extends StatefulWidget {
+  final bool userLiked;
+  final VoidCallback onLike;
+  final VoidCallback onLongPressLike;
+  final VoidCallback onComment;
+  final VoidCallback onShare;
 
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    this.onTap,
+  const _ActionBar({
+    required this.userLiked,
+    required this.onLike,
+    required this.onLongPressLike,
+    required this.onComment,
+    required this.onShare,
   });
+
+  @override
+  State<_ActionBar> createState() => _ActionBarState();
+}
+
+class _ActionBarState extends State<_ActionBar> with TickerProviderStateMixin {
+  late final AnimationController _heartCtrl;
+  late final Animation<double> _heartScale;
+  late final AnimationController _burstCtrl;
+  bool _wasLiked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wasLiked = widget.userLiked;
+
+    _heartCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _heartScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 0.85), weight: 30),
+      TweenSequenceItem(tween: Tween(begin: 0.85, end: 1.0), weight: 40),
+    ]).animate(CurvedAnimation(parent: _heartCtrl, curve: Curves.easeOut));
+
+    _burstCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_ActionBar old) {
+    super.didUpdateWidget(old);
+    // Trigger animation when transitioning from not-liked to liked
+    if (widget.userLiked && !_wasLiked) {
+      _heartCtrl.forward(from: 0);
+      _burstCtrl.forward(from: 0);
+    }
+    _wasLiked = widget.userLiked;
+  }
+
+  @override
+  void dispose() {
+    _heartCtrl.dispose();
+    _burstCtrl.dispose();
+    super.dispose();
+  }
+
+  void _handleLikeTap() {
+    if (!widget.userLiked) {
+      // Trigger animation immediately (optimistic)
+      _heartCtrl.forward(from: 0);
+      _burstCtrl.forward(from: 0);
+    }
+    widget.onLike();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.2,
+    final inactiveColor = cs.onSurfaceVariant.withValues(alpha: 0.65);
+    const likedColor = Color(0xFFE53935);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+      child: Row(
+        children: [
+          // Like button with animation
+          Expanded(
+            child: GestureDetector(
+              onLongPress: widget.onLongPressLike,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: _handleLikeTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Particle burst (behind heart)
+                            AnimatedBuilder(
+                              animation: _burstCtrl,
+                              builder: (_, __) {
+                                if (!_burstCtrl.isAnimating &&
+                                    _burstCtrl.status != AnimationStatus.completed) {
+                                  return const SizedBox.shrink();
+                                }
+                                return CustomPaint(
+                                  size: const Size(28, 28),
+                                  painter: _BurstPainter(
+                                    progress: _burstCtrl.value,
+                                    color: likedColor,
+                                  ),
+                                );
+                              },
+                            ),
+                            // Heart icon
+                            ScaleTransition(
+                              scale: _heartScale,
+                              child: Icon(
+                                widget.userLiked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 19,
+                                color: widget.userLiked
+                                    ? likedColor
+                                    : inactiveColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Like',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: widget.userLiked ? likedColor : inactiveColor,
+                          fontWeight: widget.userLiked
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          // Comment button
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: widget.onComment,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline_rounded,
+                        size: 18, color: inactiveColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Comment',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: inactiveColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Share button
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: widget.onShare,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.share_outlined,
+                        size: 18, color: inactiveColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Share',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: inactiveColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// Paints a ring of particles bursting outward (Instagram heart animation).
+class _BurstPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _BurstPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width * 0.9;
+    final particleCount = 8;
+
+    // Ring that expands and fades
+    final ringRadius = maxRadius * progress;
+    final ringOpacity = (1 - progress).clamp(0.0, 0.6);
+    final ringPaint = Paint()
+      ..color = color.withValues(alpha: ringOpacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5 * (1 - progress);
+    canvas.drawCircle(center, ringRadius, ringPaint);
+
+    // Small dots bursting outward
+    for (int i = 0; i < particleCount; i++) {
+      final angle = (i / particleCount) * 2 * math.pi;
+      final dotRadius = maxRadius * 0.6 + maxRadius * 0.4 * progress;
+      final dotX = center.dx + math.cos(angle) * dotRadius;
+      final dotY = center.dy + math.sin(angle) * dotRadius;
+      final dotOpacity = (1 - progress * 1.2).clamp(0.0, 0.8);
+      final dotSize = 2.0 * (1 - progress * 0.7);
+
+      final dotPaint = Paint()
+        ..color = (i.isEven ? color : const Color(0xFFFF9800))
+            .withValues(alpha: dotOpacity);
+      canvas.drawCircle(Offset(dotX, dotY), dotSize, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BurstPainter old) => old.progress != progress;
 }

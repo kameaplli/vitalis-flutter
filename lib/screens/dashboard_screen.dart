@@ -487,7 +487,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
 
           // ── Health score ──────────────────────────────────────────────────
           SliverToBoxAdapter(
-            child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
+            child: GestureDetector(
+              onTap: () => context.push('/health-intelligence'),
+              child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
+            ),
           ),
 
           // ── Flare risk snapshot ─────────────────────────────────────────

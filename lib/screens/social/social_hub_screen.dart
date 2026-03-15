@@ -87,68 +87,74 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
         Column(
           children: [
             // ── Title row ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-              child: Row(
-                children: [
-                  Text(
-                    'Community',
-                    style: tt.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      _showUserSearch(context);
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.notifications_outlined,
-                        color: cs.onSurfaceVariant),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                    },
-                  ),
-                ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+          child: Row(
+            children: [
+              Text(
+                'Community',
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
               ),
-            ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _showUserSearch(context);
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.notifications_outlined,
+                    color: cs.onSurfaceVariant),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                },
+              ),
+            ],
+          ),
+        ),
 
-            // ── Tab bar (sleek underline) ──
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              child: TabBar(
-                controller: _tabCtrl,
-                labelColor: cs.onSurface,
-                unselectedLabelColor: cs.onSurfaceVariant,
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                ),
-                indicatorSize: TabBarIndicatorSize.label,
-                indicatorWeight: 3,
-                indicatorColor: cs.primary,
-                dividerColor: Colors.transparent,
-                tabs: const [
-                  Tab(text: 'Feed'),
-                  Tab(text: 'Discover'),
-                ],
-              ),
+        // ── Tab bar (sleek underline) ──
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          child: TabBar(
+            controller: _tabCtrl,
+            labelColor: cs.onSurface,
+            unselectedLabelColor: cs.onSurfaceVariant,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
             ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+            ),
+            indicatorSize: TabBarIndicatorSize.label,
+            indicatorWeight: 3,
+            indicatorColor: cs.primary,
+            dividerColor: Colors.transparent,
+            tabs: const [
+              Tab(text: 'Feed'),
+              Tab(text: 'Discover'),
+            ],
+          ),
+        ),
 
             // ── Tab content ──
             Expanded(
               child: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  _FeedTab(optimisticPosts: _optimisticPosts),
+                  _FeedTab(
+                    optimisticPosts: _optimisticPosts,
+                    onCompose: () {
+                      HapticFeedback.lightImpact();
+                      _showComposeSheet(context);
+                    },
+                  ),
                   const _DiscoverTab(),
                 ],
               ),
@@ -216,148 +222,50 @@ class _GradientFab extends StatelessWidget {
   }
 }
 
-// ── Stories Row ──────────────────────────────────────────────────────────────
+// ── Compose Prompt Bar (LinkedIn-style "Start a post") ─────────────────────
 
-class _StoriesRow extends ConsumerWidget {
-  const _StoriesRow();
-
-  static const _storyGradient = [
-    Color(0xFFE040FB),
-    Color(0xFFFF5722),
-    Color(0xFFFFC107),
-    Color(0xFF4CAF50),
-    Color(0xFF2196F3),
-    Color(0xFFE040FB),
-  ];
+class _ComposePromptBar extends StatelessWidget {
+  final VoidCallback? onTap;
+  const _ComposePromptBar({this.onTap});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final connectionsAsync = ref.watch(connectionsProvider);
-
-    return SizedBox(
-      height: 100,
-      child: connectionsAsync.when(
-        loading: () => _buildWithConnections(context, []),
-        error: (_, __) => _buildWithConnections(context, []),
-        data: (connections) => _buildWithConnections(context, connections),
-      ),
-    );
-  }
-
-  Widget _buildWithConnections(
-      BuildContext context, List<Connection> connections) {
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
 
-    // Filter to accepted connections only
-    final accepted =
-        connections.where((c) => c.status == 'accepted').toList();
-
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: 1 + accepted.length, // +1 for "Your Story"
-      itemBuilder: (_, i) {
-        if (i == 0) {
-          // "Your Story" / compose item
-          return Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 62,
-                  height: 62,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                    border: Border.all(
-                      color: cs.outlineVariant.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Icon(Icons.add, color: cs.primary, size: 26),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'You',
-                  style: tt.labelSmall?.copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: cs.primaryContainer,
+              child: Icon(Icons.person_rounded,
+                  size: 20, color: cs.onPrimaryContainer),
             ),
-          );
-        }
-
-        final conn = accepted[i - 1];
-        final name = conn.requesterName ?? 'Friend';
-        final firstName = name.split(' ').first;
-        final initial =
-            (name.isNotEmpty ? name[0] : '?').toUpperCase();
-        final hasAvatar = conn.requesterAvatarUrl != null &&
-            conn.requesterAvatarUrl!.isNotEmpty;
-
-        return Padding(
-          padding: const EdgeInsets.only(right: 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Gradient ring
-              Container(
-                width: 62,
-                height: 62,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: SweepGradient(colors: _storyGradient),
-                ),
-                padding: const EdgeInsets.all(2.5),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: cs.surface,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.4),
                   ),
-                  padding: const EdgeInsets.all(2),
-                  child: hasAvatar
-                      ? CircleAvatar(
-                          radius: 25,
-                          backgroundImage:
-                              NetworkImage(conn.requesterAvatarUrl!),
-                          backgroundColor: cs.primaryContainer,
-                        )
-                      : CircleAvatar(
-                          radius: 25,
-                          backgroundColor: cs.primaryContainer,
-                          child: Text(
-                            initial,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onPrimaryContainer,
-                            ),
-                          ),
-                        ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              SizedBox(
-                width: 62,
                 child: Text(
-                  firstName,
-                  style: tt.labelSmall?.copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                  'Share something with your community...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
                 ),
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -366,7 +274,8 @@ class _StoriesRow extends ConsumerWidget {
 
 class _FeedTab extends ConsumerWidget {
   final List<FeedEvent> optimisticPosts;
-  const _FeedTab({this.optimisticPosts = const []});
+  final VoidCallback? onCompose;
+  const _FeedTab({this.optimisticPosts = const [], this.onCompose});
 
   void _showCommentSheet(BuildContext context, WidgetRef ref, FeedEvent event) {
     showModalBottomSheet(
@@ -447,8 +356,10 @@ class _FeedTab extends ConsumerWidget {
           },
           child: CustomScrollView(
             slivers: [
-              // Stories row
-              const SliverToBoxAdapter(child: _StoriesRow()),
+              // Compose prompt bar (LinkedIn-style "Start a post")
+              SliverToBoxAdapter(
+                child: _ComposePromptBar(onTap: onCompose),
+              ),
               SliverToBoxAdapter(
                 child: Divider(
                   height: 1,
@@ -508,12 +419,6 @@ class _EmptyFeedState extends StatelessWidget {
     return SingleChildScrollView(
       child: Column(
         children: [
-          const _StoriesRow(),
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: cs.outlineVariant.withValues(alpha: 0.3),
-          ),
           const SizedBox(height: 60),
           // Warm illustration-style empty state
           Container(
