@@ -144,9 +144,9 @@ const _hydrationChannel = AndroidNotificationDetails(
   priority: Priority.defaultPriority,
   icon: '@mipmap/ic_launcher',
   actions: [
-    AndroidNotificationAction('hydrate_250', '250ml', showsUserInterface: false),
-    AndroidNotificationAction('hydrate_500', '500ml', showsUserInterface: false),
-    AndroidNotificationAction('hydrate_open', 'Open App', showsUserInterface: true),
+    AndroidNotificationAction('hydrate_50', '50ml', showsUserInterface: false),
+    AndroidNotificationAction('hydrate_100', '100ml', showsUserInterface: false),
+    AndroidNotificationAction('hydrate_150', '150ml', showsUserInterface: false),
   ],
 );
 
@@ -224,6 +224,17 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
 
+    // Delete and recreate hydration channel to pick up updated action buttons
+    await androidPlugin?.deleteNotificationChannel('vitalis_hydration');
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'vitalis_hydration',
+        'Hydration Reminders',
+        description: 'Reminders to drink water throughout the day',
+        importance: Importance.defaultImportance,
+      ),
+    );
+
     // Check exact alarm capability — on Android 14+ this requires explicit permission
     try {
       _canUseExactAlarms = await androidPlugin?.canScheduleExactNotifications() ?? false;
@@ -244,17 +255,20 @@ class NotificationService {
   /// The schedule mode to use — exact if permitted, inexact otherwise.
   static AndroidScheduleMode get _scheduleMode =>
       _canUseExactAlarms
-          ? AndroidScheduleMode.exactAllowWhileIdle
+          ? AndroidScheduleMode.alarmClock
           : AndroidScheduleMode.inexactAllowWhileIdle;
 
   /// Handle notification tap / action button in foreground.
   static void _onNotificationAction(NotificationResponse response) {
     final actionId = response.actionId ?? '';
 
-    if (actionId == 'hydrate_250' || actionId == 'hydrate_500') {
-      // Store pending quick-log action for the app to process
-      final ml = actionId == 'hydrate_250' ? 250 : 500;
-      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': ml}));
+    final hydrationAmounts = {
+      'hydrate_50': 50,
+      'hydrate_100': 100,
+      'hydrate_150': 150,
+    };
+    if (hydrationAmounts.containsKey(actionId)) {
+      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': hydrationAmounts[actionId]}));
     }
     // Other taps just open the app (default behavior)
   }
@@ -263,9 +277,13 @@ class NotificationService {
   @pragma('vm:entry-point')
   static void _onBackgroundAction(NotificationResponse response) {
     final actionId = response.actionId ?? '';
-    if (actionId == 'hydrate_250' || actionId == 'hydrate_500') {
-      final ml = actionId == 'hydrate_250' ? 250 : 500;
-      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': ml}));
+    final hydrationAmounts = {
+      'hydrate_50': 50,
+      'hydrate_100': 100,
+      'hydrate_150': 150,
+    };
+    if (hydrationAmounts.containsKey(actionId)) {
+      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': hydrationAmounts[actionId]}));
     }
   }
 
@@ -553,5 +571,16 @@ class NotificationService {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     return scheduled;
+  }
+
+  /// Diagnostic: print all pending notifications for debugging.
+  static Future<void> debugPendingNotifications() async {
+    if (!_initialized) await init();
+    final pending = await _plugin.pendingNotificationRequests();
+    debugPrint('[Notifications] ── ${pending.length} pending notifications ──');
+    for (final n in pending) {
+      debugPrint('[Notifications]   #${n.id}: ${n.title} | ${n.body}');
+    }
+    debugPrint('[Notifications] ── timezone: ${tz.local.name}, exactAlarms: $_canUseExactAlarms ──');
   }
 }

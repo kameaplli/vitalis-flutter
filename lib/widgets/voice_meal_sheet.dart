@@ -5,12 +5,13 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:intl/intl.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../providers/voice_locale_provider.dart';
 import 'help_tooltip.dart';
 
 /// Voice meal logging bottom sheet.
 ///
-/// Flow: tap mic → speak naturally → AI parses → confirm → logged.
-/// Supports multi-accent English, compound meals, cultural foods,
+/// Flow: tap mic → speak naturally (continuous) → tap Done → AI parses → confirm → logged.
+/// Supports Indian English accent, compound meals, cultural foods,
 /// conversational corrections, and family logging.
 class VoiceMealSheet extends ConsumerStatefulWidget {
   final String? personId;
@@ -27,10 +28,13 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     with SingleTickerProviderStateMixin {
   final _speech = stt.SpeechToText();
   var _state = _VoiceState.idle;
-  String _transcript = '';
-  String _partialText = '';
   String _errorMsg = '';
   bool _speechAvailable = false;
+
+  // Continuous listening: accumulate transcript segments
+  final List<String> _segments = [];
+  String _currentPartial = '';
+  bool _isRestarting = false;
 
   // Parsed result
   List<Map<String, dynamic>> _meals = [];
@@ -38,6 +42,9 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
   // Conversation context for corrections
   final List<Map<String, dynamic>> _context = [];
+
+  // Locale for speech recognition — loaded from user preference
+  List<stt.LocaleName> _availableLocales = [];
 
   // Animation
   late AnimationController _pulseCtrl;
@@ -58,10 +65,18 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   Future<void> _initSpeech() async {
     _speechAvailable = await _speech.initialize(
       onError: (e) {
-        if (mounted && _state == _VoiceState.listening) {
-          // If we have a partial transcript, process it
-          if (_transcript.isNotEmpty || _partialText.isNotEmpty) {
-            _processTranscript(_transcript.isNotEmpty ? _transcript : _partialText);
+        // 'error_speech_timeout' and 'error_no_match' are normal during
+        // continuous listening — just restart the listener.
+        if (_state == _VoiceState.listening && !_isRestarting) {
+          if (e.errorMsg == 'error_speech_timeout' ||
+              e.errorMsg == 'error_no_match') {
+            _restartListening();
+            return;
+          }
+          // Real error — process what we have
+          final fullText = _fullTranscript;
+          if (fullText.isNotEmpty) {
+            _processTranscript(fullText);
           } else {
             setState(() {
               _state = _VoiceState.error;
@@ -71,14 +86,24 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         }
       },
       onStatus: (status) {
-        if (status == 'done' && _state == _VoiceState.listening) {
-          if (_transcript.isNotEmpty) {
-            _processTranscript(_transcript);
-          }
+        // When the speech engine finishes a segment, auto-restart for continuous listening
+        if (status == 'done' && _state == _VoiceState.listening && !_isRestarting) {
+          _restartListening();
         }
       },
     );
+
+    // Get available locales
+    if (_speechAvailable) {
+      _availableLocales = await _speech.locales();
+    }
     if (mounted) setState(() {});
+  }
+
+  String get _fullTranscript {
+    final parts = [..._segments];
+    if (_currentPartial.isNotEmpty) parts.add(_currentPartial);
+    return parts.join(' ').trim();
   }
 
   void _startListening() {
@@ -92,31 +117,67 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
     setState(() {
       _state = _VoiceState.listening;
-      _transcript = '';
-      _partialText = '';
+      _segments.clear();
+      _currentPartial = '';
     });
+
+    _beginListenSession();
+  }
+
+  void _beginListenSession() {
+    final localeId = ref.read(voiceLocaleProvider);
+    // Verify locale is available, fallback to en_IN or first available
+    final effectiveLocale = _availableLocales.any((l) => l.localeId == localeId)
+        ? localeId
+        : (_availableLocales.any((l) => l.localeId == 'en_IN')
+            ? 'en_IN'
+            : (_availableLocales.isNotEmpty ? _availableLocales.first.localeId : 'en'));
 
     _speech.listen(
       onResult: (result) {
+        if (!mounted || _state != _VoiceState.listening) return;
         setState(() {
           if (result.finalResult) {
-            _transcript = result.recognizedWords;
+            // A segment is finalized — add it to accumulated transcript
+            final words = result.recognizedWords.trim();
+            if (words.isNotEmpty) {
+              _segments.add(words);
+            }
+            _currentPartial = '';
           } else {
-            _partialText = result.recognizedWords;
+            // Partial result — show live feedback
+            _currentPartial = result.recognizedWords;
           }
         });
       },
-      listenFor: const Duration(seconds: 30),
-      pauseFor: const Duration(seconds: 3),
-      localeId: 'en',
+      listenFor: const Duration(seconds: 60),
+      pauseFor: const Duration(seconds: 5),
+      localeId: effectiveLocale,
       cancelOnError: false,
       partialResults: true,
+      listenMode: stt.ListenMode.dictation,
     );
   }
 
-  void _stopListening() {
+  /// Restart listening after a natural pause to keep continuous mode going.
+  void _restartListening() {
+    if (_state != _VoiceState.listening || _isRestarting) return;
+    _isRestarting = true;
+
+    // Small delay before restarting to let the engine reset
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted || _state != _VoiceState.listening) {
+        _isRestarting = false;
+        return;
+      }
+      _isRestarting = false;
+      _beginListenSession();
+    });
+  }
+
+  void _stopAndProcess() {
     _speech.stop();
-    final text = _transcript.isNotEmpty ? _transcript : _partialText;
+    final text = _fullTranscript;
     if (text.isNotEmpty) {
       _processTranscript(text);
     } else {
@@ -127,7 +188,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   Future<void> _processTranscript(String transcript) async {
     setState(() {
       _state = _VoiceState.processing;
-      _transcript = transcript;
     });
 
     try {
@@ -263,15 +323,18 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
                 style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               )),
               const HelpTooltip(
-                message: "Describe your meal naturally, e.g. 'I had two scrambled eggs and toast with butter for breakfast'. Zenie will parse the foods and quantities automatically.",
+                message: "Describe your entire meal naturally — speak continuously. "
+                    "Say things like '2 dosa, 1 idli with peanut chutney and coffee'. "
+                    "Tap Done when finished. Supports Indian food names.",
               ),
               if (_state != _VoiceState.idle)
                 TextButton(
                   onPressed: () => setState(() {
                     _state = _VoiceState.idle;
-                    _transcript = '';
-                    _partialText = '';
+                    _segments.clear();
+                    _currentPartial = '';
                     _meals = [];
+                    _speech.stop();
                   }),
                   child: const Text('Reset'),
                 ),
@@ -328,9 +391,24 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       Text('Tap to speak', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
       const SizedBox(height: 8),
       Text(
-        'Describe your meal naturally',
+        'Describe your full meal — speak continuously',
         style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
       ),
+      const SizedBox(height: 6),
+      // Locale indicator
+      Builder(builder: (context) {
+        final currentLocale = ref.watch(voiceLocaleProvider);
+        final label = voiceLocaleOptions[currentLocale] ?? '🌐 $currentLocale';
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: cs.primaryContainer.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(label,
+            style: tt.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
+        );
+      }),
       const SizedBox(height: 20),
       // Examples
       Container(
@@ -344,10 +422,10 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           children: [
             Text('Try saying:', style: tt.labelLarge?.copyWith(color: cs.primary)),
             const SizedBox(height: 8),
+            _exampleChip('"2 dosa, 1 idli with peanut chutney and filter coffee"'),
             _exampleChip('"I had 2 rotis with dal and a glass of milk for lunch"'),
-            _exampleChip('"Oatmeal with banana and coffee for breakfast"'),
-            _exampleChip('"Same as yesterday\'s dinner"'),
-            _exampleChip('"Chicken sandwich, fries, and a coke"'),
+            _exampleChip('"Poha with chai for breakfast and rice with sambar for lunch"'),
+            _exampleChip('"Chicken biryani, raita and gulab jamun for dinner"'),
           ],
         ),
       ),
@@ -371,7 +449,44 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           ]),
         ),
       ],
+
+      // Locale switcher — quick toggle (full settings in profile)
+      if (_availableLocales.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Builder(builder: (context) {
+          final currentLocale = ref.watch(voiceLocaleProvider);
+          return Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Text('Language: ', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              for (final entry in voiceLocaleOptions.entries)
+                if (_availableLocales.any((l) => l.localeId == entry.key))
+                  _localePill(entry.key, entry.value.split(' ').take(2).join(' '), cs, currentLocale),
+            ],
+          );
+        }),
+      ],
     ]);
+  }
+
+  Widget _localePill(String localeId, String label, ColorScheme cs, String currentLocale) {
+    final isSelected = currentLocale == localeId;
+    return GestureDetector(
+      onTap: () => ref.read(voiceLocaleProvider.notifier).setLocale(localeId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? cs.primary : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(label, style: TextStyle(
+          fontSize: 12, fontWeight: FontWeight.w700,
+          color: isSelected ? cs.onPrimary : cs.onSurface,
+        )),
+      ),
+    );
   }
 
   Widget _exampleChip(String text) {
@@ -386,6 +501,9 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   }
 
   Widget _buildListeningState(ColorScheme cs, TextTheme tt) {
+    final transcript = _fullTranscript;
+    final segmentCount = _segments.length;
+
     return Column(children: [
       const SizedBox(height: 20),
       // Pulsing mic
@@ -393,67 +511,128 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         animation: _pulseAnim,
         builder: (_, __) => Transform.scale(
           scale: _pulseAnim.value,
-          child: GestureDetector(
-            onTap: _stopListening,
-            child: Container(
-              width: 100, height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.red,
-                boxShadow: [BoxShadow(
-                  color: Colors.red.withValues(alpha: 0.4),
-                  blurRadius: 20 * _pulseAnim.value,
-                  spreadRadius: 5 * _pulseAnim.value,
-                )],
-              ),
-              child: const Icon(Icons.stop, size: 48, color: Colors.white),
+          child: Container(
+            width: 100, height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.red,
+              boxShadow: [BoxShadow(
+                color: Colors.red.withValues(alpha: 0.4),
+                blurRadius: 20 * _pulseAnim.value,
+                spreadRadius: 5 * _pulseAnim.value,
+              )],
             ),
+            child: const Icon(Icons.mic, size: 48, color: Colors.white),
           ),
         ),
       ),
-      const SizedBox(height: 24),
-      Text('Listening...', style: tt.titleMedium?.copyWith(
+      const SizedBox(height: 16),
+      Text('Listening continuously...', style: tt.titleMedium?.copyWith(
         fontWeight: FontWeight.bold, color: Colors.red,
       )),
-      const SizedBox(height: 8),
-      Text('Tap to stop', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      const SizedBox(height: 4),
+      Text(
+        'Keep speaking — list all your foods',
+        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      ),
+      if (segmentCount > 0) ...[
+        const SizedBox(height: 4),
+        Text(
+          '$segmentCount segment${segmentCount == 1 ? '' : 's'} captured',
+          style: tt.bodySmall?.copyWith(
+            color: cs.primary, fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
       const SizedBox(height: 20),
-      // Live transcript
+
+      // Live transcript box
       Container(
         width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 80),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
         ),
-        child: Text(
-          (_partialText.isNotEmpty ? _partialText : _transcript).isEmpty
-              ? 'Say something...'
-              : _partialText.isNotEmpty ? _partialText : _transcript,
-          style: tt.bodyLarge?.copyWith(
-            color: (_partialText + _transcript).isEmpty ? cs.onSurfaceVariant : cs.onSurface,
-            fontStyle: (_partialText + _transcript).isEmpty ? FontStyle.italic : FontStyle.normal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (transcript.isEmpty)
+              Text(
+                'Say something like "2 dosa, 1 idli with chutney..."',
+                style: tt.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+              )
+            else ...[
+              // Show finalized segments
+              if (_segments.isNotEmpty)
+                Text(
+                  _segments.join(' '),
+                  style: tt.bodyLarge?.copyWith(color: cs.onSurface),
+                ),
+              // Show current partial in lighter color
+              if (_currentPartial.isNotEmpty)
+                Text(
+                  _currentPartial,
+                  style: tt.bodyLarge?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+
+      // Done button — user taps when finished speaking
+      SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: FilledButton.icon(
+          onPressed: _stopAndProcess,
+          icon: const Icon(Icons.check),
+          label: const Text('Done — Process my meal', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          style: FilledButton.styleFrom(
+            backgroundColor: cs.primary,
           ),
         ),
+      ),
+      const SizedBox(height: 8),
+      TextButton(
+        onPressed: () {
+          _speech.stop();
+          setState(() {
+            _state = _VoiceState.idle;
+            _segments.clear();
+            _currentPartial = '';
+          });
+        },
+        child: const Text('Cancel'),
       ),
     ]);
   }
 
   Widget _buildProcessingState(ColorScheme cs, TextTheme tt) {
+    final transcript = _fullTranscript;
     return Column(children: [
       const SizedBox(height: 40),
       CircularProgressIndicator(color: cs.primary),
       const SizedBox(height: 24),
       Text('Understanding your meal...', style: tt.titleMedium),
       const SizedBox(height: 8),
-      if (_transcript.isNotEmpty)
+      if (transcript.isNotEmpty)
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text('"$_transcript"', style: tt.bodyMedium?.copyWith(
+          child: Text('"$transcript"', style: tt.bodyMedium?.copyWith(
             fontStyle: FontStyle.italic,
           )),
         ),
@@ -469,6 +648,8 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       ]);
     }
 
+    final transcript = _fullTranscript;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -482,7 +663,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           child: Row(children: [
             Icon(Icons.record_voice_over, size: 16, color: cs.onSurfaceVariant),
             const SizedBox(width: 8),
-            Expanded(child: Text('"$_transcript"', style: tt.bodySmall?.copyWith(
+            Expanded(child: Text('"$transcript"', style: tt.bodySmall?.copyWith(
               fontStyle: FontStyle.italic,
             ))),
           ]),
@@ -655,7 +836,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           controller: ctrl,
           autofocus: true,
           decoration: const InputDecoration(
-            hintText: 'e.g. 2 rotis with dal for lunch',
+            hintText: 'e.g. 2 dosa, 1 idli with peanut chutney',
             border: OutlineInputBorder(),
           ),
           maxLines: 3,

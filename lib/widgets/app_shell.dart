@@ -656,7 +656,7 @@ class _FullScreenMenu extends StatelessWidget {
                       color: const Color(0xFF2563EB),
                       onTap: () {
                         Navigator.pop(context);
-                        context.push('/weight');
+                        context.push('/health/weight');
                       },
                     ),
                     _MenuTile(

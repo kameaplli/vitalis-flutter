@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/weight_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../providers/dashboard_provider.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/weight_log.dart';
@@ -233,6 +234,8 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                                     '${ApiConstants.weightLog}/${log.id}');
                                 ref.invalidate(
                                     weightHistoryProvider);
+                                final p = ref.read(selectedPersonProvider);
+                                ref.invalidate(dashboardProvider((p, DateTime.now().toIso8601String().substring(0, 10))));
                               }
                             },
                             child: ListTile(
@@ -333,6 +336,8 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                     },
                   );
                   ref.invalidate(weightHistoryProvider);
+                  final p = ref.read(selectedPersonProvider);
+                  ref.invalidate(dashboardProvider((p, DateTime.now().toIso8601String().substring(0, 10))));
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -381,6 +386,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
       _weightCtrl.clear();
       _notesCtrl.clear();
       ref.invalidate(weightHistoryProvider);
+      ref.invalidate(dashboardProvider((person, DateTime.now().toIso8601String().substring(0, 10))));
       HapticFeedback.mediumImpact();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

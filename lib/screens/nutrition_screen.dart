@@ -14,16 +14,12 @@ import '../providers/selected_person_provider.dart';
 import '../providers/nutrition_analytics_provider.dart';
 import '../models/food_item.dart';
 import '../widgets/voice_meal_sheet.dart';
-import 'entries_screen.dart' show NutritionHistoryContent;
-
 // ─── Extracted widget imports ─────────────────────────────────────────────────
-import 'nutrition/daily_progress_header.dart';
 import 'nutrition/barcode_scan_sheet.dart';
 import 'nutrition/meal_suggestions.dart';
 import 'nutrition/recent_meals.dart';
 import 'nutrition/food_item_tile.dart';
 import 'nutrition/food_search_sheet.dart';
-import 'nutrition/analytics_tab.dart';
 import '../widgets/medical_disclaimer.dart';
 
 // Re-export FoodSearchSheet so existing imports continue to work
@@ -37,15 +33,12 @@ class NutritionScreen extends ConsumerStatefulWidget {
   ConsumerState<NutritionScreen> createState() => _NutritionScreenState();
 }
 
-class _NutritionScreenState extends ConsumerState<NutritionScreen>
-    with SingleTickerProviderStateMixin {
+class _NutritionScreenState extends ConsumerState<NutritionScreen> {
   static const _mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
-  late TabController _tab;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
     // Restore any saved meal draft (e.g. user navigated away accidentally).
     Future.microtask(() {
       final notifier = ref.read(nutritionProvider.notifier);
@@ -55,12 +48,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
         notifier.loadDraft();
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _tab.dispose();
-    super.dispose();
   }
 
   @override
@@ -84,65 +71,69 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                 : Text(isEditMode ? 'Update Meal' : 'Log Meal'),
           ),
         ],
-        bottom: TabBar(
-          controller: _tab,
-          tabs: const [
-            Tab(text: 'Log'),
-            Tab(text: 'History'),
-            Tab(text: 'Insights'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tab,
-        children: [
-          // Tab 0: meal logging form
-          SingleChildScrollView(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Daily progress header ──────────────────────────────────────
-            DailyProgressHeader(nutrition: nutrition),
-
-            const SizedBox(height: 16),
-
-            // ── 5-method food entry hub ────────────────────────────────────
-            Text('Add Food', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  EntryMethodCard(
-                    icon: Icons.search,
-                    label: 'Search',
-                    color: Colors.blue,
-                    onTap: () => _showFoodSearch(context),
+            // ── Full-width search bar ─────────────────────────────────────
+            Material(
+              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: () => _showFoodSearch(context),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, color: colorScheme.onSurfaceVariant, size: 22),
+                      const SizedBox(width: 12),
+                      Text('Search food...',
+                          style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w500,
+                            color: colorScheme.onSurfaceVariant,
+                          )),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  EntryMethodCard(
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Entry methods: 4 bigger cards ────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: _BigEntryCard(
                     icon: Icons.qr_code_scanner,
                     label: 'Barcode',
                     color: Colors.orange,
                     onTap: () => _showBarcodeScan(context),
                   ),
-                  const SizedBox(width: 8),
-                  EntryMethodCard(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _BigEntryCard(
                     icon: Icons.camera_alt_outlined,
                     label: 'Label',
                     color: Colors.green,
                     onTap: () => _showLabelScanOptions(context),
                   ),
-                  const SizedBox(width: 8),
-                  EntryMethodCard(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _BigEntryCard(
                     icon: Icons.restaurant,
                     label: 'Photo AI',
                     color: Colors.teal,
                     onTap: () => _showPhotoFoodRecognition(context),
                   ),
-                  const SizedBox(width: 8),
-                  EntryMethodCard(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _BigEntryCard(
                     icon: Icons.mic,
                     label: 'Voice',
                     color: Colors.purple,
@@ -165,8 +156,8 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
                       );
                     },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 16),
@@ -251,12 +242,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
             const MedicalDisclaimer(),
           ],
         ),
-          ),
-          // Tab 1: nutrition history
-          const NutritionHistoryContent(),
-          // Tab 2: analytics
-          const AnalyticsTab(),
-        ],
       ),
     );
   }
@@ -620,5 +605,56 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen>
         );
       }
     }
+  }
+}
+
+// ─── Big entry method card ────────────────────────────────────────────────────
+
+class _BigEntryCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _BigEntryCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 8),
+              Text(label, style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

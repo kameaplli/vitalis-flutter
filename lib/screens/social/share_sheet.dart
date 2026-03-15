@@ -52,7 +52,7 @@ class ShareSheet extends ConsumerStatefulWidget {
 
 class _ShareSheetState extends ConsumerState<ShareSheet> {
   final _noteCtrl = TextEditingController();
-  String _audience = 'connections'; // connections, everyone, specific
+  String _audience = 'buddies'; // buddies, public, specific
   bool _sharing = false;
 
   @override
@@ -70,8 +70,9 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
         ApiConstants.socialShare,
         data: {
           'content_type': widget.contentType,
-          if (widget.contentId != null) 'content_id': widget.contentId,
+          'content_id': widget.contentId ?? '${widget.contentType}_${DateTime.now().millisecondsSinceEpoch}',
           'audience': _audience,
+          if (_noteCtrl.text.trim().isNotEmpty) 'note': _noteCtrl.text.trim(),
           'content_snapshot': {
             'title': widget.title,
             if (widget.subtitle != null) 'subtitle': widget.subtitle,
@@ -175,14 +176,14 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
             _PrivacyOption(
               label: 'Friends only',
               icon: Icons.people_outline,
-              selected: _audience == 'connections',
-              onTap: () => setState(() => _audience = 'connections'),
+              selected: _audience == 'buddies',
+              onTap: () => setState(() => _audience = 'buddies'),
             ),
             _PrivacyOption(
               label: 'Everyone',
               icon: Icons.public,
-              selected: _audience == 'everyone',
-              onTap: () => setState(() => _audience = 'everyone'),
+              selected: _audience == 'public',
+              onTap: () => setState(() => _audience = 'public'),
             ),
             _PrivacyOption(
               label: 'Specific people',

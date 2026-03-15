@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
@@ -514,6 +515,53 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
               ),
             ),
           ],
+
+          const Divider(height: 32),
+
+          // ── Diagnostics ──────────────────────────────────────────────
+          _SectionHeader(icon: Icons.bug_report, title: 'Diagnostics', color: Colors.grey),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final plugin = FlutterLocalNotificationsPlugin();
+                final pending = await plugin.pendingNotificationRequests();
+                if (!mounted) return;
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('${pending.length} Scheduled Notifications'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      height: 400,
+                      child: pending.isEmpty
+                          ? const Center(child: Text('No notifications scheduled'))
+                          : ListView.separated(
+                              itemCount: pending.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final n = pending[i];
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.notifications_active, size: 20),
+                                  title: Text(n.title ?? 'No title', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                  subtitle: Text(n.body ?? '', style: const TextStyle(fontSize: 12)),
+                                  trailing: Text('ID: ${n.id}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                );
+                              },
+                            ),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.schedule, size: 18),
+              label: const Text('Show pending notifications'),
+            ),
+          ),
 
           const SizedBox(height: 32),
           FilledButton.icon(

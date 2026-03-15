@@ -377,14 +377,14 @@ class _HealthCardState extends State<_HealthCard>
                             // Color accent bar
                             Container(
                               width: 3,
-                              height: 28,
+                              height: 36,
                               decoration: BoxDecoration(
                                 color: def.color,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Icon(def.icon, size: 24, color: def.color),
+                            Icon(def.icon, size: 36, color: def.color),
                             const Spacer(),
                             if (badge != null)
                               Container(

@@ -14,6 +14,7 @@ import '../services/biometric_service.dart';
 import '../providers/achievements_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/icon_theme_provider.dart';
+import '../providers/voice_locale_provider.dart';
 import '../core/icon_theme.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/achievement_badges.dart';
@@ -275,6 +276,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),
+            _VoiceLocaleSetting(),
             _DarkModeToggle(),
             _ThemePicker(),
             _IconThemePicker(),
@@ -823,6 +825,55 @@ class _AchievementsSection extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Voice Language Setting ──────────────────────────────────────────────────
+
+class _VoiceLocaleSetting extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLocale = ref.watch(voiceLocaleProvider);
+    final label = voiceLocaleOptions[currentLocale] ?? currentLocale;
+
+    return ListTile(
+      leading: const Icon(Icons.mic),
+      title: const Text('Voice language'),
+      subtitle: Text(label),
+      trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+      onTap: () => _showLocalePicker(context, ref, currentLocale),
+    );
+  }
+
+  void _showLocalePicker(BuildContext context, WidgetRef ref, String current) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Voice Recognition Language',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            ),
+            const Divider(height: 1),
+            ...voiceLocaleOptions.entries.map((entry) => RadioListTile<String>(
+              value: entry.key,
+              groupValue: current,
+              title: Text(entry.value),
+              onChanged: (v) {
+                if (v != null) {
+                  ref.read(voiceLocaleProvider.notifier).setLocale(v);
+                  Navigator.pop(ctx);
+                }
+              },
+            )),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
     );
   }
 }
