@@ -6,14 +6,20 @@ import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../widgets/friendly_error.dart';
-import '../../widgets/shimmer_placeholder.dart';
 
-// Tier colors (shared with dashboard)
-const _kOptimalColor = Color(0xFF22C55E);
-const _kSufficientColor = Color(0xFF3B82F6);
-const _kSuboptimalColor = Color(0xFFF59E0B);
-const _kCriticalColor = Color(0xFFEF4444);
-const _kUnknownColor = Color(0xFF9CA3AF);
+// ── Design Tokens (matching dashboard) ───────────────────────────────────────
+
+const _kOptimalColor = Color(0xFF00E676);
+const _kSufficientColor = Color(0xFF448AFF);
+const _kSuboptimalColor = Color(0xFFFFAB00);
+const _kCriticalColor = Color(0xFFFF5252);
+const _kUnknownColor = Color(0xFF78909C);
+
+const _kDarkBg = Color(0xFF0F1923);
+const _kCardBg = Color(0xFF1A2732);
+const _kCardBorder = Color(0xFF2A3A48);
+const _kTextPrimary = Color(0xFFF5F5F5);
+const _kTextSecondary = Color(0xFF90A4AE);
 
 Color _tierColor(String? tier) => switch (tier) {
       'optimal' => _kOptimalColor,
@@ -21,6 +27,14 @@ Color _tierColor(String? tier) => switch (tier) {
       'suboptimal' => _kSuboptimalColor,
       'critical' => _kCriticalColor,
       _ => _kUnknownColor,
+    };
+
+String _tierLabel(String? tier) => switch (tier) {
+      'optimal' => 'OPTIMAL',
+      'sufficient' => 'SUFFICIENT',
+      'suboptimal' => 'NEEDS WORK',
+      'critical' => 'CRITICAL',
+      _ => 'UNKNOWN',
     };
 
 class BiomarkerDetailScreen extends ConsumerWidget {
@@ -32,144 +46,321 @@ class BiomarkerDetailScreen extends ConsumerWidget {
     final person = ref.watch(selectedPersonProvider);
     final historyAsync = ref.watch(biomarkerHistoryProvider(
         (code: biomarkerCode, person: person)));
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(biomarkerCode)),
-      body: historyAsync.when(
-        loading: () => const ShimmerList(),
-        error: (e, st) => FriendlyError(error: e),
-        data: (history) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Name + description
-              Text(history.name,
-                  style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('${history.category} • ${history.healthPillar}',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-              if (history.description != null) ...[
-                const SizedBox(height: 12),
-                Text(history.description!,
-                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-              ],
-
-              const SizedBox(height: 24),
-
-              // ── Range Bar (large) ───────────────────────────────
-              if (history.ranges != null) ...[
-                Text('Reference Ranges',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _LargeRangeBar(
-                  ranges: history.ranges!,
-                  currentValue: history.dataPoints.isNotEmpty
-                      ? history.dataPoints.last.value
-                      : null,
-                  unit: history.unit,
-                ),
-
-                // Evidence grade disclosure
-                if (history.ranges!.evidenceGrade == 'midrange') ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded,
-                          size: 16, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Optimal range based on midrange of standard clinical reference. '
-                          'No specific guideline-endorsed optimal exists for this biomarker.',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ] else if (history.ranges!.source != null) ...[
-                  const SizedBox(height: 8),
-                  Text('Source: ${history.ranges!.source}',
-                      style: tt.bodySmall?.copyWith(
-                          color: cs.primary, fontWeight: FontWeight.w500)),
-                ],
-              ],
-
-              const SizedBox(height: 24),
-
-              // ── History Chart ────────────────────────────────────
-              if (history.dataPoints.length >= 2) ...[
-                Text('History',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 220,
-                  child: _HistoryChart(
-                    dataPoints: history.dataPoints,
-                    ranges: history.ranges,
-                    unit: history.unit,
-                  ),
-                ),
-              ] else if (history.dataPoints.length == 1) ...[
-                Text('History',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text('Only 1 data point. Upload more reports to see trends.',
-                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-              ],
-
-              const SizedBox(height: 24),
-
-              // ── Data Points Table ───────────────────────────────
-              if (history.dataPoints.isNotEmpty) ...[
-                Text('All Results',
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                for (final dp in history.dataPoints.reversed)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 10, height: 10,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _tierColor(dp.tier),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(dp.date ?? '',
-                            style: tt.bodyMedium),
-                        const Spacer(),
-                        Text('${dp.value} ${history.unit}',
-                            style: tt.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: _tierColor(dp.tier))),
-                      ],
-                    ),
-                  ),
-              ],
-            ],
-          ),
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: _kDarkBg,
+        colorScheme: const ColorScheme.dark(
+          surface: _kDarkBg,
+          primary: _kOptimalColor,
         ),
       ),
+      child: Builder(builder: (context) {
+        return Scaffold(
+          backgroundColor: _kDarkBg,
+          appBar: AppBar(
+            backgroundColor: _kDarkBg,
+            surfaceTintColor: Colors.transparent,
+            title: Text(biomarkerCode,
+                style: const TextStyle(
+                    color: _kTextPrimary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5)),
+            iconTheme: const IconThemeData(color: _kTextPrimary),
+          ),
+          body: historyAsync.when(
+            loading: () => const Center(
+                child: CircularProgressIndicator(color: _kOptimalColor)),
+            error: (e, st) => FriendlyError(error: e),
+            data: (history) => _DetailBody(history: history),
+          ),
+        );
+      }),
     );
   }
 }
 
-// ── Large Range Bar ──────────────────────────────────────────────────────────
+class _DetailBody extends StatelessWidget {
+  final BiomarkerHistory history;
+  const _DetailBody({required this.history});
 
-class _LargeRangeBar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final latestValue =
+        history.dataPoints.isNotEmpty ? history.dataPoints.last.value : null;
+    final latestTier =
+        history.dataPoints.isNotEmpty ? history.dataPoints.last.tier : null;
+    final tierColor = _tierColor(latestTier);
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Hero: Name + Latest Value ────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(history.name,
+                        style: const TextStyle(
+                            color: _kTextPrimary,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(
+                        '${history.category ?? ''} ${history.healthPillar != null ? "  ${history.healthPillar}" : ""}',
+                        style: const TextStyle(
+                            color: _kTextSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+              if (latestValue != null) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(_formatValue(latestValue),
+                        style: TextStyle(
+                            color: tierColor,
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            height: 1)),
+                    const SizedBox(height: 2),
+                    Text(history.unit,
+                        style: const TextStyle(
+                            color: _kTextSecondary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ],
+            ],
+          ),
+
+          if (latestTier != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: tierColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: tierColor.withValues(alpha: 0.3)),
+              ),
+              child: Text(_tierLabel(latestTier),
+                  style: TextStyle(
+                      color: tierColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1)),
+            ),
+          ],
+
+          if (history.description != null) ...[
+            const SizedBox(height: 16),
+            Text(history.description!,
+                style: const TextStyle(
+                    color: _kTextSecondary,
+                    fontSize: 14,
+                    height: 1.5)),
+          ],
+
+          const SizedBox(height: 28),
+
+          // ── Range Visualization ──────────────────────────
+          if (history.ranges != null) ...[
+            _SectionTitle('REFERENCE RANGES'),
+            const SizedBox(height: 12),
+            _WhoopLargeRangeBar(
+              ranges: history.ranges!,
+              currentValue: latestValue,
+              unit: history.unit,
+            ),
+
+            // Evidence grade
+            if (history.ranges!.evidenceGrade == 'midrange') ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _kCardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _kCardBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded,
+                        size: 16,
+                        color: _kTextSecondary.withValues(alpha: 0.6)),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Optimal range based on midrange of standard clinical reference. '
+                        'No specific guideline-endorsed optimal exists.',
+                        style: TextStyle(
+                            color: _kTextSecondary,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (history.ranges!.source != null) ...[
+              const SizedBox(height: 8),
+              Text('Source: ${history.ranges!.source}',
+                  style: const TextStyle(
+                      color: _kOptimalColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ],
+
+          const SizedBox(height: 28),
+
+          // ── History Chart ────────────────────────────────
+          if (history.dataPoints.length >= 2) ...[
+            _SectionTitle('TREND'),
+            const SizedBox(height: 16),
+            Container(
+              height: 240,
+              padding: const EdgeInsets.fromLTRB(0, 16, 16, 8),
+              decoration: BoxDecoration(
+                color: _kCardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _kCardBorder),
+              ),
+              child: _HistoryChart(
+                dataPoints: history.dataPoints,
+                ranges: history.ranges,
+                unit: history.unit,
+              ),
+            ),
+          ] else if (history.dataPoints.length == 1) ...[
+            _SectionTitle('TREND'),
+            const SizedBox(height: 8),
+            const Text('Upload more reports to see trends over time.',
+                style: TextStyle(color: _kTextSecondary, fontSize: 13)),
+          ],
+
+          const SizedBox(height: 28),
+
+          // ── All Results ──────────────────────────────────
+          if (history.dataPoints.isNotEmpty) ...[
+            _SectionTitle('ALL RESULTS'),
+            const SizedBox(height: 12),
+            for (final dp in history.dataPoints.reversed)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _kCardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _kCardBorder),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _tierColor(dp.tier),
+                        boxShadow: [
+                          BoxShadow(
+                              color: _tierColor(dp.tier)
+                                  .withValues(alpha: 0.5),
+                              blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(dp.date ?? '',
+                        style: const TextStyle(
+                            color: _kTextPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500)),
+                    if (dp.labProvider != null) ...[
+                      const SizedBox(width: 8),
+                      Text(dp.labProvider!,
+                          style: const TextStyle(
+                              color: _kTextSecondary, fontSize: 11)),
+                    ],
+                    const Spacer(),
+                    Text(_formatValue(dp.value),
+                        style: TextStyle(
+                            color: _tierColor(dp.tier),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 4),
+                    Text(history.unit,
+                        style: const TextStyle(
+                            color: _kTextSecondary, fontSize: 11)),
+                  ],
+                ),
+              ),
+          ],
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  String _formatValue(double value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    if (value < 10) return value.toStringAsFixed(2);
+    if (value < 100) return value.toStringAsFixed(1);
+    return value.toInt().toString();
+  }
+}
+
+// ── Section Title ────────────────────────────────────────────────────────────
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            color: _kOptimalColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(text,
+            style: const TextStyle(
+                color: _kTextSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5)),
+      ],
+    );
+  }
+}
+
+// ── Whoop Large Range Bar ────────────────────────────────────────────────────
+
+class _WhoopLargeRangeBar extends StatelessWidget {
   final BiomarkerRange ranges;
   final double? currentValue;
   final String unit;
 
-  const _LargeRangeBar({
+  const _WhoopLargeRangeBar({
     required this.ranges,
     this.currentValue,
     required this.unit,
@@ -177,104 +368,201 @@ class _LargeRangeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kCardBorder),
+      ),
+      child: Column(
+        children: [
+          // Gradient range bar with marker
+          SizedBox(
+            height: 40,
+            child: LayoutBuilder(builder: (context, constraints) {
+              final barWidth = constraints.maxWidth;
+              double position = 0.5;
 
-    return Column(
-      children: [
-        // Range bar
-        SizedBox(
-          height: 32,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
-              children: [
-                Expanded(flex: 1, child: Container(color: _kCriticalColor.withValues(alpha: 0.4))),
-                Expanded(flex: 1, child: Container(color: _kSuboptimalColor.withValues(alpha: 0.4))),
-                Expanded(flex: 1, child: Container(color: _kSufficientColor.withValues(alpha: 0.4))),
-                Expanded(flex: 2, child: Container(color: _kOptimalColor.withValues(alpha: 0.5))),
-                Expanded(flex: 1, child: Container(color: _kSufficientColor.withValues(alpha: 0.4))),
-                Expanded(flex: 1, child: Container(color: _kSuboptimalColor.withValues(alpha: 0.4))),
-                Expanded(flex: 1, child: Container(color: _kCriticalColor.withValues(alpha: 0.4))),
-              ],
-            ),
+              if (currentValue != null &&
+                  ranges.standardLow != null &&
+                  ranges.standardHigh != null) {
+                final low = ranges.standardLow!;
+                final high = ranges.standardHigh!;
+                final range = high - low;
+                if (range > 0) {
+                  final normalized = (currentValue! - low) / range;
+                  position = 0.15 + normalized * 0.7;
+                  position = position.clamp(0.02, 0.98);
+                }
+              }
+
+              final markerX = position * barWidth;
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Gradient bar
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 14,
+                    height: 16,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CustomPaint(
+                        painter: _GradientBarPainter(),
+                      ),
+                    ),
+                  ),
+                  // Marker
+                  if (currentValue != null)
+                    Positioned(
+                      left: markerX - 8,
+                      top: 0,
+                      child: Column(
+                        children: [
+                          CustomPaint(
+                            size: const Size(16, 10),
+                            painter: _TriangleMarkerPainter(
+                                color: _tierColor(null)),
+                          ),
+                          Container(
+                            width: 3,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    blurRadius: 4),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            }),
           ),
-        ),
 
-        const SizedBox(height: 8),
+          const SizedBox(height: 16),
 
-        // Labels
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _RangeLabel('Critical', _kCriticalColor, tt),
-            _RangeLabel('Suboptimal', _kSuboptimalColor, tt),
-            _RangeLabel('Sufficient', _kSufficientColor, tt),
-            _RangeLabel('Optimal', _kOptimalColor, tt),
-          ],
-        ),
-
-        // Current value
-        if (currentValue != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Latest: ', style: tt.bodyMedium),
-                Text('$currentValue $unit',
-                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
+          // Range rows
+          _RangeRow('Optimal', ranges.optimalLow, ranges.optimalHigh,
+              unit, _kOptimalColor),
+          _RangeRow('Sufficient', ranges.sufficientLow,
+              ranges.sufficientHigh, unit, _kSufficientColor),
+          _RangeRow('Standard', ranges.standardLow, ranges.standardHigh,
+              unit, _kSuboptimalColor),
         ],
-
-        // Numeric ranges
-        const SizedBox(height: 12),
-        _RangeRow('Optimal', ranges.optimalLow, ranges.optimalHigh, unit, _kOptimalColor, tt),
-        _RangeRow('Sufficient', ranges.sufficientLow, ranges.sufficientHigh, unit, _kSufficientColor, tt),
-        _RangeRow('Standard', ranges.standardLow, ranges.standardHigh, unit, _kSuboptimalColor, tt),
-      ],
+      ),
     );
   }
 }
 
-Widget _RangeLabel(String label, Color color, TextTheme tt) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(width: 8, height: 8,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
-      const SizedBox(width: 4),
-      Text(label, style: tt.labelSmall),
-    ],
-  );
+class _RangeRow extends StatelessWidget {
+  final String label;
+  final double? low;
+  final double? high;
+  final String unit;
+  final Color color;
+
+  const _RangeRow(this.label, this.low, this.high, this.unit, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    final range = low != null && high != null
+        ? '${_fmt(low!)} - ${_fmt(high!)} $unit'
+        : low != null
+            ? '> ${_fmt(low!)} $unit'
+            : high != null
+                ? '< ${_fmt(high!)} $unit'
+                : '--';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 14,
+            height: 4,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 80,
+            child: Text(label,
+                style: const TextStyle(
+                    color: _kTextSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500)),
+          ),
+          Text(range,
+              style: const TextStyle(
+                  color: _kTextPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  String _fmt(double v) {
+    if (v == v.roundToDouble()) return v.toInt().toString();
+    return v.toStringAsFixed(1);
+  }
 }
 
-Widget _RangeRow(String label, double? low, double? high, String unit,
-    Color color, TextTheme tt) {
-  final range = low != null && high != null
-      ? '$low – $high $unit'
-      : low != null
-          ? '> $low $unit'
-          : high != null
-              ? '< $high $unit'
-              : '—';
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: Row(
-      children: [
-        Container(width: 12, height: 3, color: color),
-        const SizedBox(width: 8),
-        SizedBox(width: 80, child: Text(label, style: tt.bodySmall)),
-        Text(range, style: tt.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+// ── Gradient Bar Painter ─────────────────────────────────────────────────────
+
+class _GradientBarPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final gradient = LinearGradient(
+      colors: [
+        _kCriticalColor.withValues(alpha: 0.7),
+        _kSuboptimalColor.withValues(alpha: 0.6),
+        _kSufficientColor.withValues(alpha: 0.5),
+        _kOptimalColor.withValues(alpha: 0.6),
+        _kOptimalColor.withValues(alpha: 0.6),
+        _kSufficientColor.withValues(alpha: 0.5),
+        _kSuboptimalColor.withValues(alpha: 0.6),
+        _kCriticalColor.withValues(alpha: 0.7),
       ],
-    ),
-  );
+      stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
+    );
+    final paint = Paint()..shader = gradient.createShader(rect);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
+    canvas.drawRRect(rrect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _TriangleMarkerPainter extends CustomPainter {
+  final Color color;
+  _TriangleMarkerPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TriangleMarkerPainter old) =>
+      old.color != color;
 }
 
 // ── History Chart ────────────────────────────────────────────────────────────
@@ -292,8 +580,6 @@ class _HistoryChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     final spots = <FlSpot>[];
     for (int i = 0; i < dataPoints.length; i++) {
       spots.add(FlSpot(i.toDouble(), dataPoints[i].value));
@@ -303,14 +589,13 @@ class _HistoryChart extends StatelessWidget {
     final minY = values.reduce((a, b) => a < b ? a : b) * 0.85;
     final maxY = values.reduce((a, b) => a > b ? a : b) * 1.15;
 
-    // Build horizontal range bands
     final rangeAnnotations = <HorizontalRangeAnnotation>[];
     if (ranges != null) {
       if (ranges!.optimalLow != null && ranges!.optimalHigh != null) {
         rangeAnnotations.add(HorizontalRangeAnnotation(
           y1: ranges!.optimalLow!.clamp(minY, maxY),
           y2: ranges!.optimalHigh!.clamp(minY, maxY),
-          color: _kOptimalColor.withValues(alpha: 0.1),
+          color: _kOptimalColor.withValues(alpha: 0.08),
         ));
       }
     }
@@ -323,7 +608,7 @@ class _HistoryChart extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           getDrawingHorizontalLine: (value) => FlLine(
-            color: cs.outlineVariant.withValues(alpha: 0.3),
+            color: _kCardBorder.withValues(alpha: 0.5),
             strokeWidth: 1,
           ),
         ),
@@ -334,7 +619,8 @@ class _HistoryChart extends StatelessWidget {
               reservedSize: 50,
               getTitlesWidget: (value, meta) => Text(
                 value.toStringAsFixed(1),
-                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                style: const TextStyle(
+                    fontSize: 10, color: _kTextSecondary),
               ),
             ),
           ),
@@ -347,18 +633,21 @@ class _HistoryChart extends StatelessWidget {
                 if (i < 0 || i >= dataPoints.length) return const SizedBox();
                 final dp = dataPoints[i];
                 final label = dp.date != null && dp.date!.length >= 10
-                    ? dp.date!.substring(5, 10) // MM-DD
+                    ? dp.date!.substring(5, 10)
                     : '';
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(label,
-                      style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant)),
+                      style: const TextStyle(
+                          fontSize: 9, color: _kTextSecondary)),
                 );
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         rangeAnnotations: RangeAnnotations(
@@ -369,7 +658,7 @@ class _HistoryChart extends StatelessWidget {
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.2,
-            color: cs.primary,
+            color: _kOptimalColor,
             barWidth: 3,
             dotData: FlDotData(
               show: true,
@@ -381,24 +670,34 @@ class _HistoryChart extends StatelessWidget {
                   radius: 5,
                   color: _tierColor(tier),
                   strokeWidth: 2,
-                  strokeColor: Colors.white,
+                  strokeColor: _kDarkBg,
                 );
               },
             ),
             belowBarData: BarAreaData(
               show: true,
-              color: cs.primary.withValues(alpha: 0.08),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _kOptimalColor.withValues(alpha: 0.15),
+                  _kOptimalColor.withValues(alpha: 0.02),
+                ],
+              ),
             ),
           ),
         ],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => _kCardBg,
+            tooltipBorder: const BorderSide(color: _kCardBorder),
+            tooltipRoundedRadius: 10,
             getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
               final i = spot.spotIndex;
               final dp = dataPoints[i];
               return LineTooltipItem(
                 '${dp.value} $unit\n${dp.date ?? ''}',
-                TextStyle(color: cs.onSurface, fontSize: 12),
+                const TextStyle(color: _kTextPrimary, fontSize: 12),
               );
             }).toList(),
           ),
