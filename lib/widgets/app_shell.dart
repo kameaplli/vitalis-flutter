@@ -76,7 +76,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       _wentToBackground = false;
       _checkBiometricLock();
       // Re-schedule notifications (Android may kill them on force-stop)
-      NotificationService.scheduleAll();
+      NotificationService.scheduleAll().catchError((_) {});
       // Check for new social notifications on resume
       BackgroundService.checkSocialNotifications();
     }
