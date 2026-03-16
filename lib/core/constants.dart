@@ -30,6 +30,8 @@ class ApiConstants {
   static const String deleteAccount = '/api/auth/account';
   static const String forgotPassword = '/api/auth/forgot-password';
   static const String resetPassword = '/api/auth/reset-password';
+  static const String registerDevice = '/api/auth/register-device';
+  static const String unregisterDevice = '/api/auth/unregister-device';
 
   // Dashboard
   static const String dashboard = '/api/dashboard';
