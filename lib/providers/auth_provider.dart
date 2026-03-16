@@ -5,6 +5,7 @@ import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../models/user.dart';
 import '../services/biometric_service.dart';
+import '../services/fcm_service.dart';
 import '../services/notification_service.dart';
 
 enum AuthStatus { loading, authenticated, unauthenticated }
@@ -50,6 +51,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = AppUser.fromJson(res.data);
       state = AuthState(status: AuthStatus.authenticated, user: user);
       try { await NotificationService.scheduleAll(); } catch (_) {}
+      try { await FcmService.getAndRegisterToken(); } catch (_) {}
       SecureStorage.setNotificationsEnabled(true);
     } catch (_) {
       await apiClient.clearToken();
@@ -69,6 +71,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (refreshToken != null) await SecureStorage.saveRefreshToken(refreshToken);
       final user = AppUser.fromJson(res.data['user']);
       try { await NotificationService.scheduleAll(); } catch (_) {}
+      try { await FcmService.getAndRegisterToken(); } catch (_) {}
       SecureStorage.setNotificationsEnabled(true);
 
       // ── Biometric setup ───────────────────────────────────────────────────
@@ -123,6 +126,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final refreshToken = res.data['refresh_token'] as String?;
       if (refreshToken != null) await SecureStorage.saveRefreshToken(refreshToken);
       final user = AppUser.fromJson(res.data['user']);
+      try { await FcmService.getAndRegisterToken(); } catch (_) {}
 
       final available = await BiometricService.isAvailable();
       final prompted  = await SecureStorage.getBiometricsPrompted();
@@ -162,6 +166,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await apiClient.dio.post(ApiConstants.logout);
     } catch (_) {}
+    try { await FcmService.unregisterToken(); } catch (_) {}
     await apiClient.clearToken();
     await SecureStorage.clearRefreshToken();
     NotificationService.cancelAll();

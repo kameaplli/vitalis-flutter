@@ -74,6 +74,17 @@ class SecureStorage {
         _storage.write(key: 'biometrics_enabled', value: 'false'),
       ]);
 
+  // ── FCM token ───────────────────────────────────────────────────────────────
+
+  static Future<void> saveFcmToken(String token) =>
+      _storage.write(key: 'fcm_token', value: token);
+
+  static Future<String?> getFcmToken() =>
+      _storage.read(key: 'fcm_token');
+
+  static Future<void> clearFcmToken() =>
+      _storage.delete(key: 'fcm_token');
+
   // ── Notification preferences ──────────────────────────────────────────────
 
   static Future<bool> getNotificationsEnabled() async {
