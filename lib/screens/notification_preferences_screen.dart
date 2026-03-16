@@ -172,8 +172,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
   Future<void> _sendTestReport() async {
     setState(() => _reportSending = true);
     try {
-      final type = _weeklyReportEnabled ? 'weekly' : 'monthly';
-      await apiClient.dio.post(ApiConstants.reportSendNow, data: {'report_type': type});
+      // Test report always uses 'monthly' (comprehensive) covering all user data
+      await apiClient.dio.post(ApiConstants.reportSendNow, data: {'report_type': 'monthly'});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Report sent! Check your email.')),
