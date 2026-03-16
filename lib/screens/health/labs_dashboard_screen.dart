@@ -184,12 +184,39 @@ class _UploadButton extends StatelessWidget {
 
 // ── Dashboard Body ───────────────────────────────────────────────────────────
 
-class _DashboardBody extends ConsumerWidget {
+class _DashboardBody extends ConsumerStatefulWidget {
   final LabDashboard dash;
   const _DashboardBody({required this.dash});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DashboardBody> createState() => _DashboardBodyState();
+}
+
+class _DashboardBodyState extends ConsumerState<_DashboardBody> {
+  final Map<String, GlobalKey> _pillarKeys = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final pillar in widget.dash.pillars.keys) {
+      _pillarKeys[pillar] = GlobalKey();
+    }
+  }
+
+  void _scrollToPillar(String pillar) {
+    final key = _pillarKeys[pillar];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        alignment: 0.0,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
     final reportsAsync = ref.watch(labReportsProvider(person));
 
@@ -200,10 +227,10 @@ class _DashboardBody extends ConsumerWidget {
         _buildSliverAppBar(context),
 
         // ── Score Ring + Summary ────────────────────────────
-        SliverToBoxAdapter(child: _ScoreSection(dash: dash)),
+        SliverToBoxAdapter(child: _ScoreSection(dash: widget.dash)),
 
         // ── Tier Breakdown Bar ─────────────────────────────
-        SliverToBoxAdapter(child: _TierBreakdownBar(dash: dash)),
+        SliverToBoxAdapter(child: _TierBreakdownBar(dash: widget.dash)),
 
         const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
@@ -218,11 +245,15 @@ class _DashboardBody extends ConsumerWidget {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: dash.pillars.length,
+              itemCount: widget.dash.pillars.length,
               itemBuilder: (context, i) {
-                final pillar = dash.pillars.keys.elementAt(i);
-                final summary = dash.pillars[pillar]!;
-                return _PillarCard(pillar: pillar, summary: summary);
+                final pillar = widget.dash.pillars.keys.elementAt(i);
+                final summary = widget.dash.pillars[pillar]!;
+                return _PillarCard(
+                  pillar: pillar,
+                  summary: summary,
+                  onTap: () => _scrollToPillar(pillar),
+                );
               },
             ),
           ),
@@ -231,10 +262,13 @@ class _DashboardBody extends ConsumerWidget {
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
         // ── Biomarkers by Pillar ───────────────────────────
-        for (final entry in dash.pillars.entries) ...[
+        for (final entry in widget.dash.pillars.entries) ...[
           SliverToBoxAdapter(
             child: _PillarHeader(
-                pillar: entry.key, summary: entry.value),
+              key: _pillarKeys[entry.key],
+              pillar: entry.key,
+              summary: entry.value,
+            ),
           ),
           SliverList(
             delegate: SliverChildBuilderDelegate(
@@ -784,14 +818,17 @@ class _TierLegendItem extends StatelessWidget {
 class _PillarCard extends StatelessWidget {
   final String pillar;
   final PillarSummary summary;
-  const _PillarCard({required this.pillar, required this.summary});
+  final VoidCallback? onTap;
+  const _PillarCard({required this.pillar, required this.summary, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final accent = _pillarAccent(pillar);
     final tierColor = _tierColor(summary.status);
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       width: 140,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
@@ -853,6 +890,7 @@ class _PillarCard extends StatelessWidget {
                   fontWeight: FontWeight.w500)),
         ],
       ),
+    ),
     );
   }
 }
@@ -862,7 +900,7 @@ class _PillarCard extends StatelessWidget {
 class _PillarHeader extends StatelessWidget {
   final String pillar;
   final PillarSummary summary;
-  const _PillarHeader({required this.pillar, required this.summary});
+  const _PillarHeader({super.key, required this.pillar, required this.summary});
 
   @override
   Widget build(BuildContext context) {
@@ -923,30 +961,38 @@ class _BiomarkerCard extends StatelessWidget {
       },
       child: Container(
         margin: EdgeInsets.fromLTRB(20, 0, 20, isLast ? 0 : 8),
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: _kCardBg,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _kCardBorder),
+          border: Border.all(color: tierColor.withValues(alpha: 0.25)),
         ),
-        child: Column(
+        child: Row(
+          children: [
+            // Tier-colored left accent bar
+            Container(
+              width: 4,
+              height: 110,
+              decoration: BoxDecoration(
+                color: tierColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(14),
+                  bottomLeft: Radius.circular(14),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                      color: tierColor.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(2, 0)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
           children: [
             Row(
               children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: tierColor,
-                    boxShadow: [
-                      BoxShadow(
-                          color: tierColor.withValues(alpha: 0.5),
-                          blurRadius: 6),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                       result.biomarkerName ?? result.biomarkerCode ?? '',
@@ -1004,6 +1050,10 @@ class _BiomarkerCard extends StatelessWidget {
                         fontWeight: FontWeight.w500),
                   ),
               ],
+            ),
+          ],
+        ),
+              ),
             ),
           ],
         ),
