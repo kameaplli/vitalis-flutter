@@ -80,35 +80,11 @@ class LabsDashboardScreen extends ConsumerWidget {
       child: Builder(builder: (context) {
         return Scaffold(
           backgroundColor: _kDarkBg,
-          appBar: AppBar(
-            backgroundColor: _kDarkBg,
-            surfaceTintColor: Colors.transparent,
-            title: const Text('Blood Tests',
-                style: TextStyle(
-                    color: _kTextPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 20,
-                    letterSpacing: 0.5)),
-            iconTheme: const IconThemeData(color: _kTextPrimary),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.history_rounded),
-                tooltip: 'Reports',
-                onPressed: () => _showReportsList(context, ref),
-              ),
-            ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => context.push('/health/labs/upload'),
-            backgroundColor: _kOptimalColor,
-            foregroundColor: _kDarkBg,
-            icon: const Icon(Icons.add_rounded, size: 22),
-            label: const Text('Upload Report',
-                style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-          ),
           body: dashAsync.when(
             loading: () => const _DarkShimmer(),
-            error: (e, st) => FriendlyError(error: e),
+            error: (e, st) => _ScaffoldWrapper(
+              child: FriendlyError(error: e),
+            ),
             data: (dash) {
               if (dash.totalBiomarkers == 0) {
                 return const _EmptyState();
@@ -118,109 +94,6 @@ class LabsDashboardScreen extends ConsumerWidget {
           ),
         );
       }),
-    );
-  }
-
-  void _showReportsList(BuildContext context, WidgetRef ref) {
-    final person = ref.read(selectedPersonProvider);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: _kCardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        expand: false,
-        builder: (context, scrollController) {
-          return Consumer(builder: (context, ref, _) {
-            final reports = ref.watch(labReportsProvider(person));
-            return reports.when(
-              loading: () => const Center(
-                  child: CircularProgressIndicator(color: _kOptimalColor)),
-              error: (e, st) => Center(
-                  child: Text('Error: $e',
-                      style: const TextStyle(color: _kTextSecondary))),
-              data: (reports) => ListView.builder(
-                controller: scrollController,
-                itemCount: reports.length + 1,
-                itemBuilder: (context, i) {
-                  if (i == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: _kOptimalColor,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text('Lab Reports',
-                              style: TextStyle(
-                                  color: _kTextPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    );
-                  }
-                  final report = reports[i - 1];
-                  return Container(
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _kDarkBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _kCardBorder),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: _kOptimalColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.description_rounded,
-                            color: _kOptimalColor, size: 20),
-                      ),
-                      title: Text(
-                          report.labProvider ?? 'Lab Report',
-                          style: const TextStyle(
-                              color: _kTextPrimary,
-                              fontWeight: FontWeight.w600)),
-                      subtitle: Text(report.testDate ?? '',
-                          style: const TextStyle(color: _kTextSecondary)),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _kOptimalColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text('${report.results.length} results',
-                            style: const TextStyle(
-                                color: _kOptimalColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12)),
-                      ),
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                  );
-                },
-              ),
-            );
-          });
-        },
-      ),
     );
   }
 }
@@ -235,17 +108,95 @@ ThemeData _buildDarkTheme(BuildContext context) {
   );
 }
 
-// ── Dashboard Body ───────────────────────────────────────────────────────────
+// ── Scaffold wrapper for error state ─────────────────────────────────────────
 
-class _DashboardBody extends StatelessWidget {
-  final LabDashboard dash;
-  const _DashboardBody({required this.dash});
+class _ScaffoldWrapper extends StatelessWidget {
+  final Widget child;
+  const _ScaffoldWrapper({required this.child});
 
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
+      slivers: [
+        _buildSliverAppBar(context),
+        SliverFillRemaining(child: child),
+      ],
+    );
+  }
+}
+
+SliverAppBar _buildSliverAppBar(BuildContext context, {List<Widget>? actions}) {
+  return SliverAppBar(
+    floating: true,
+    backgroundColor: _kDarkBg,
+    surfaceTintColor: Colors.transparent,
+    title: const Text('Blood Tests',
+        style: TextStyle(
+            color: _kTextPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            letterSpacing: 0.5)),
+    iconTheme: const IconThemeData(color: _kTextPrimary),
+    actions: actions ??
+        [
+          _UploadButton(onTap: () => context.push('/health/labs/upload')),
+        ],
+  );
+}
+
+// ── Upload Button (AppBar action) ────────────────────────────────────────────
+
+class _UploadButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _UploadButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: _kOptimalColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded, size: 18, color: _kDarkBg),
+              SizedBox(width: 4),
+              Text('Upload',
+                  style: TextStyle(
+                      color: _kDarkBg,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Dashboard Body ───────────────────────────────────────────────────────────
+
+class _DashboardBody extends ConsumerWidget {
+  final LabDashboard dash;
+  const _DashboardBody({required this.dash});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final person = ref.watch(selectedPersonProvider);
+    final reportsAsync = ref.watch(labReportsProvider(person));
+
+    return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
+        // ── AppBar ─────────────────────────────────────────
+        _buildSliverAppBar(context),
+
         // ── Score Ring + Summary ────────────────────────────
         SliverToBoxAdapter(child: _ScoreSection(dash: dash)),
 
@@ -256,28 +207,7 @@ class _DashboardBody extends StatelessWidget {
 
         // ── Health Pillars ─────────────────────────────────
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: _kOptimalColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text('HEALTH PILLARS',
-                    style: TextStyle(
-                        color: _kTextSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5)),
-              ],
-            ),
-          ),
+          child: _SectionHeader('HEALTH PILLARS'),
         ),
 
         SliverToBoxAdapter(
@@ -315,8 +245,172 @@ class _DashboardBody extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
 
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        // ── Recent Reports (inline) ────────────────────────
+        SliverToBoxAdapter(
+          child: _SectionHeader('RECENT REPORTS'),
+        ),
+        SliverToBoxAdapter(
+          child: reportsAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(
+                  child: CircularProgressIndicator(
+                      color: _kOptimalColor, strokeWidth: 2)),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text('Could not load reports',
+                  style: TextStyle(color: _kTextSecondary)),
+            ),
+            data: (reports) => _ReportsSection(reports: reports),
+          ),
+        ),
+
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ],
+    );
+  }
+}
+
+// ── Section Header ───────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final String text;
+  const _SectionHeader(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 20,
+            decoration: BoxDecoration(
+              color: _kOptimalColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(text,
+              style: const TextStyle(
+                  color: _kTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Reports Section (inline) ─────────────────────────────────────────────────
+
+class _ReportsSection extends StatelessWidget {
+  final List<LabReport> reports;
+  const _ReportsSection({required this.reports});
+
+  @override
+  Widget build(BuildContext context) {
+    if (reports.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _kCardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _kCardBorder),
+          ),
+          child: const Center(
+            child: Text('No reports uploaded yet',
+                style: TextStyle(color: _kTextSecondary, fontSize: 13)),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < reports.length; i++)
+          _ReportTile(report: reports[i]),
+      ],
+    );
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  final LabReport report;
+  const _ReportTile({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      decoration: BoxDecoration(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kCardBorder),
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: _kOptimalColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(Icons.description_rounded,
+              color: _kOptimalColor, size: 20),
+        ),
+        title: Text(report.labProvider ?? 'Lab Report',
+            style: const TextStyle(
+                color: _kTextPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600)),
+        subtitle: Row(
+          children: [
+            Text(report.testDate ?? '',
+                style: const TextStyle(color: _kTextSecondary, fontSize: 12)),
+            if (report.parseMethod != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: _kCardBorder,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(report.parseMethod!.toUpperCase(),
+                    style: const TextStyle(
+                        color: _kTextSecondary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5)),
+              ),
+            ],
+          ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: report.results.isEmpty
+                ? _kCriticalColor.withValues(alpha: 0.12)
+                : _kOptimalColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '${report.results.length} results',
+            style: TextStyle(
+              color: report.results.isEmpty ? _kCriticalColor : _kOptimalColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -340,7 +434,6 @@ class _ScoreSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Row(
         children: [
-          // Score Ring
           SizedBox(
             width: 120,
             height: 120,
@@ -370,10 +463,7 @@ class _ScoreSection extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(width: 24),
-
-          // Summary stats
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,7 +479,6 @@ class _ScoreSection extends StatelessWidget {
                       style: const TextStyle(
                           color: _kTextSecondary, fontSize: 13)),
                 const SizedBox(height: 12),
-                // Mini tier stats
                 Row(
                   children: [
                     _MiniStat(
@@ -455,7 +544,6 @@ class _ScoreRingPainter extends CustomPainter {
     const strokeWidth = 10.0;
     const startAngle = -math.pi / 2;
 
-    // Background ring
     final bgPaint = Paint()
       ..color = _kCardBorder
       ..style = PaintingStyle.stroke
@@ -463,7 +551,6 @@ class _ScoreRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, bgPaint);
 
-    // Good (sufficient + optimal) arc
     if (goodPercent > 0) {
       final goodPaint = Paint()
         ..color = _kSufficientColor
@@ -479,7 +566,6 @@ class _ScoreRingPainter extends CustomPainter {
       );
     }
 
-    // Optimal arc (on top)
     if (optimalPercent > 0) {
       final optPaint = Paint()
         ..color = _kOptimalColor
@@ -522,7 +608,6 @@ class _TierBreakdownBar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Stacked bar
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: SizedBox(
@@ -549,10 +634,7 @@ class _TierBreakdownBar extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -587,8 +669,8 @@ class _TierLegendItem extends StatelessWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle, color: color),
+              decoration:
+                  BoxDecoration(shape: BoxShape.circle, color: color),
             ),
             const SizedBox(width: 4),
             Text('$count',
@@ -713,11 +795,13 @@ class _PillarHeader extends StatelessWidget {
                   letterSpacing: 1.2)),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
               color: tierColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: tierColor.withValues(alpha: 0.3)),
+              border:
+                  Border.all(color: tierColor.withValues(alpha: 0.3)),
             ),
             child: Text(_tierLabel(summary.status),
                 style: TextStyle(
@@ -759,10 +843,8 @@ class _BiomarkerCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Top row: name + value
             Row(
               children: [
-                // Tier dot with glow
                 Container(
                   width: 10,
                   height: 10,
@@ -800,23 +882,18 @@ class _BiomarkerCard extends StatelessWidget {
                         fontWeight: FontWeight.w500)),
                 const SizedBox(width: 6),
                 Icon(Icons.chevron_right_rounded,
-                    size: 18, color: _kTextSecondary.withValues(alpha: 0.5)),
+                    size: 18,
+                    color: _kTextSecondary.withValues(alpha: 0.5)),
               ],
             ),
-
             const SizedBox(height: 10),
-
-            // Range bar with value marker
             _WhoopRangeBar(result: result),
-
             const SizedBox(height: 6),
-
-            // Tier label + reference range
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: tierColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
@@ -829,7 +906,8 @@ class _BiomarkerCard extends StatelessWidget {
                           letterSpacing: 0.8)),
                 ),
                 const Spacer(),
-                if (result.referenceLow != null || result.referenceHigh != null)
+                if (result.referenceLow != null ||
+                    result.referenceHigh != null)
                   Text(
                     _referenceText(result),
                     style: const TextStyle(
@@ -877,20 +955,19 @@ class _WhoopRangeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final tierColor = _tierColor(result.tier);
 
-    // Calculate position on bar (0.0 to 1.0)
-    double position = 0.5; // default center
+    double position = 0.5;
     if (result.referenceLow != null && result.referenceHigh != null) {
       final low = result.referenceLow!;
       final high = result.referenceHigh!;
       final range = high - low;
       if (range > 0) {
-        // Map value: ref_low = 0.2, ref_high = 0.8 (middle 60% is normal range)
         final normalized = (result.value - low) / range;
         position = 0.2 + normalized * 0.6;
         position = position.clamp(0.02, 0.98);
       }
     } else if (result.referenceHigh != null) {
-      position = (result.value / result.referenceHigh! * 0.7).clamp(0.02, 0.98);
+      position =
+          (result.value / result.referenceHigh! * 0.7).clamp(0.02, 0.98);
     } else if (result.referenceLow != null) {
       final ratio = result.value / result.referenceLow!;
       position = (0.1 + (ratio - 0.5) * 0.6).clamp(0.02, 0.98);
@@ -905,17 +982,12 @@ class _WhoopRangeBar extends StatelessWidget {
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            // Background gradient bar
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: CustomPaint(
-                  painter: _GradientBarPainter(),
-                ),
+                child: CustomPaint(painter: _GradientBarPainter()),
               ),
             ),
-
-            // Value marker (triangle + line)
             Positioned(
               left: markerX - 6,
               top: 0,
@@ -924,12 +996,11 @@ class _WhoopRangeBar extends StatelessWidget {
                 width: 12,
                 child: Column(
                   children: [
-                    // Triangle marker
                     CustomPaint(
                       size: const Size(12, 7),
-                      painter: _TriangleMarkerPainter(color: tierColor),
+                      painter:
+                          _TriangleMarkerPainter(color: tierColor),
                     ),
-                    // Vertical line
                     Expanded(
                       child: Container(
                         width: 2,
@@ -938,7 +1009,8 @@ class _WhoopRangeBar extends StatelessWidget {
                           borderRadius: BorderRadius.circular(1),
                           boxShadow: [
                             BoxShadow(
-                                color: tierColor.withValues(alpha: 0.6),
+                                color:
+                                    tierColor.withValues(alpha: 0.6),
                                 blurRadius: 4),
                           ],
                         ),
@@ -973,7 +1045,8 @@ class _GradientBarPainter extends CustomPainter {
       stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
     );
     final paint = Paint()..shader = gradient.createShader(rect);
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
+    final rrect =
+        RRect.fromRectAndRadius(rect, const Radius.circular(4));
     canvas.drawRRect(rrect, paint);
   }
 
@@ -1007,54 +1080,90 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: _kOptimalColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+    return CustomScrollView(
+      slivers: [
+        _buildSliverAppBar(context, actions: const []),
+        SliverFillRemaining(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: _kOptimalColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: _kOptimalColor.withValues(alpha: 0.2),
+                          width: 2),
+                    ),
+                    child: const Icon(Icons.biotech_rounded,
+                        size: 44, color: _kOptimalColor),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text('No Lab Results Yet',
+                      style: TextStyle(
+                          color: _kTextPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Upload a blood test report or enter\nyour results manually to get started.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: _kTextSecondary,
+                        fontSize: 14,
+                        height: 1.5),
+                  ),
+                  const SizedBox(height: 36),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          context.push('/health/labs/upload'),
+                      icon: const Icon(Icons.upload_file_rounded),
+                      label: const Text('Upload Report'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _kOptimalColor,
+                        foregroundColor: _kDarkBg,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 16),
+                        textStyle: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          context.push('/health/labs/upload'),
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text('Enter Manually'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _kTextSecondary,
+                        side: const BorderSide(color: _kCardBorder),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 16),
+                        textStyle: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.biotech_rounded,
-                  size: 40, color: _kOptimalColor),
             ),
-            const SizedBox(height: 24),
-            const Text('No Lab Results Yet',
-                style: TextStyle(
-                    color: _kTextPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            const Text(
-              'Upload a blood test report or enter\nyour results manually to get started.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: _kTextSecondary,
-                  fontSize: 14,
-                  height: 1.5),
-            ),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: () => context.push('/health/labs/upload'),
-              icon: const Icon(Icons.upload_file_rounded),
-              label: const Text('Upload Report'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _kOptimalColor,
-                side: const BorderSide(color: _kOptimalColor),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -1067,16 +1176,15 @@ class _DarkShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
       child: Column(
         children: [
-          // Score area shimmer
           Row(
             children: [
               Container(
                 width: 120,
                 height: 120,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: _kCardBg,
                   shape: BoxShape.circle,
                 ),
@@ -1105,7 +1213,6 @@ class _DarkShimmer extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          // Cards shimmer
           for (int i = 0; i < 4; i++) ...[
             Container(
               height: 90,
