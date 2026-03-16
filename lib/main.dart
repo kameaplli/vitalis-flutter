@@ -38,12 +38,12 @@ void main() async {
       if (savedInterests != null)
         userInterestsProvider.overrideWith((ref) => savedInterests!),
     ],
-    child: const VitalisApp(),
+    child: const QorhealthApp(),
   ));
 }
 
-class VitalisApp extends ConsumerWidget {
-  const VitalisApp({super.key});
+class QorhealthApp extends ConsumerWidget {
+  const QorhealthApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,7 +51,7 @@ class VitalisApp extends ConsumerWidget {
     final skin = ref.watch(themeProvider);
     final isDark = ref.watch(darkModeProvider);
     return MaterialApp.router(
-      title: 'Vitalis',
+      title: 'Qorhealth',
       theme: AppTheme.forSkin(skin, darkMode: isDark),
       routerConfig: router,
       debugShowCheckedModeBanner: false,

@@ -15,7 +15,7 @@ import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/days_slider.dart';
-import '../widgets/vitalis_icon.dart';
+import '../widgets/qorhealth_icon.dart';
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -1920,7 +1920,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
     for (final variant in variants) {
       try {
         final dio = Dio();
-        dio.options.headers['User-Agent'] = 'Vitalis/3.0 (vitalis-health-app)';
+        dio.options.headers['User-Agent'] = 'Qorhealth/3.0 (qorhealth-app)';
         final res = await dio.get(
           'https://world.openfoodfacts.org/api/v2/product/$variant',
         );

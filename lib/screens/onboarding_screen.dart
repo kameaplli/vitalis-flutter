@@ -574,7 +574,7 @@ class _WelcomePage extends StatelessWidget {
           ),
           const SizedBox(height: 40),
           const Text(
-            'Vitalis',
+            'Qorhealth',
             style: TextStyle(
               fontSize: 38, fontWeight: FontWeight.w700, color: Colors.white,
               letterSpacing: -1,
@@ -1171,7 +1171,7 @@ class _ReadyPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Start logging to unlock personalized health insights.\nThe more data you provide, the smarter Vitalis gets.',
+            'Start logging to unlock personalized health insights.\nThe more data you provide, the smarter Qorhealth gets.',
             style: TextStyle(
               fontSize: 15, color: Colors.white.withOpacity(0.65),
               fontWeight: FontWeight.w400, height: 1.5,

@@ -4,27 +4,27 @@ import 'package:flutter/material.dart';
 ///
 /// Matches the modern app icon style: fully opaque colored circle with a
 /// contrasting white (or custom) icon inside. Supports two sizes:
-/// - [VitalisIconSize.medium] — 40px circle, 20px icon (for list tiles, cards)
-/// - [VitalisIconSize.large] — 52px circle, 26px icon (for action tiles, grids)
+/// - [QorhealthIconSize.medium] — 40px circle, 20px icon (for list tiles, cards)
+/// - [QorhealthIconSize.large] — 52px circle, 26px icon (for action tiles, grids)
 ///
 /// Usage:
 /// ```dart
-/// VitalisIcon(icon: Icons.restaurant, color: Colors.blue)
-/// VitalisIcon(icon: Icons.water_drop, color: Colors.cyan, size: VitalisIconSize.large)
+/// QorhealthIcon(icon: Icons.restaurant, color: Colors.blue)
+/// QorhealthIcon(icon: Icons.water_drop, color: Colors.cyan, size: QorhealthIconSize.large)
 /// ```
-enum VitalisIconSize { small, medium, large }
+enum QorhealthIconSize { small, medium, large }
 
-class VitalisIcon extends StatelessWidget {
+class QorhealthIcon extends StatelessWidget {
   final IconData icon;
   final Color color;
-  final VitalisIconSize size;
+  final QorhealthIconSize size;
   final Color? iconColor;
 
-  const VitalisIcon({
+  const QorhealthIcon({
     super.key,
     required this.icon,
     required this.color,
-    this.size = VitalisIconSize.medium,
+    this.size = QorhealthIconSize.medium,
     this.iconColor,
   });
 
@@ -34,13 +34,13 @@ class VitalisIcon extends StatelessWidget {
     final double iconSize;
 
     switch (size) {
-      case VitalisIconSize.small:
+      case QorhealthIconSize.small:
         circleSize = 32;
         iconSize = 16;
-      case VitalisIconSize.medium:
+      case QorhealthIconSize.medium:
         circleSize = 40;
         iconSize = 20;
-      case VitalisIconSize.large:
+      case QorhealthIconSize.large:
         circleSize = 52;
         iconSize = 26;
     }

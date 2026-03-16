@@ -120,7 +120,7 @@ class ShareCardPreview extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  'Vitalis',
+                  'Qorhealth',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.5),
                     fontSize: 11,

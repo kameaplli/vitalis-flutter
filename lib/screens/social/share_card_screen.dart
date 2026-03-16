@@ -54,7 +54,7 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
       await file.writeAsBytes(imageBytes);
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'Check out my Vitalis health report!',
+        text: 'Check out my Qorhealth health report!',
       );
     } catch (e) {
       _showSnackBar('Failed to share: $e');
@@ -69,14 +69,14 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
       return;
     }
     try {
-      await Gal.putImageBytes(imageBytes, album: 'Vitalis');
+      await Gal.putImageBytes(imageBytes, album: 'Qorhealth');
       HapticFeedback.heavyImpact();
       _showSnackBar('Card saved to gallery');
     } on GalException catch (e) {
       if (e.type == GalExceptionType.accessDenied) {
         final granted = await Gal.requestAccess();
         if (granted) {
-          await Gal.putImageBytes(imageBytes, album: 'Vitalis');
+          await Gal.putImageBytes(imageBytes, album: 'Qorhealth');
           _showSnackBar('Card saved to gallery');
         } else {
           _showSnackBar('Gallery permission denied');

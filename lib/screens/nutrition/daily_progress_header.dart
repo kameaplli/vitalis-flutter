@@ -4,7 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/nutrition_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import 'daily_intake.dart';
-import '../../widgets/vitalis_icon.dart';
+import '../../widgets/qorhealth_icon.dart';
 
 // ─── Daily progress header ───────────────────────────────────────────────────
 
@@ -157,7 +157,7 @@ class EntryMethodCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                VitalisIcon(icon: icon, color: color),
+                QorhealthIcon(icon: icon, color: color),
                 const SizedBox(height: 8),
                 Text(label, style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w600,

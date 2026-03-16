@@ -4,7 +4,7 @@ import '../providers/theme_provider.dart';
 
 class AppTheme {
   // ── Brand colours ────────────────────────────────────────────────────────────
-  static const Color primarySeed  = Color(0xFF1A6B5C); // Vitalis Teal
+  static const Color primarySeed  = Color(0xFF1A6B5C); // Qorhealth Teal
   static const Color secondarySeed = Color(0xFFD97706); // Amber
   static const Color tertiarySeed  = Color(0xFF4F46E5); // Indigo
 

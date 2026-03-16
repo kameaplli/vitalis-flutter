@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
-        android:label="vitalis"
+        android:label="Qorhealth"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:extractNativeLibs="true">
@@ -57,7 +57,7 @@
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="vitalis_social" />
+            android:value="qorhealth_social" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
