@@ -90,6 +90,26 @@ class LabResult {
       );
 }
 
+class BiomarkerInsights {
+  final String whatItMeans;
+  final String statusSummary;
+  final List<String> actionPoints;
+
+  BiomarkerInsights({
+    required this.whatItMeans,
+    required this.statusSummary,
+    this.actionPoints = const [],
+  });
+
+  factory BiomarkerInsights.fromJson(Map<String, dynamic> json) =>
+      BiomarkerInsights(
+        whatItMeans: json['what_it_means'] ?? '',
+        statusSummary: json['status_summary'] ?? '',
+        actionPoints:
+            (json['action_points'] as List<dynamic>?)?.cast<String>() ?? [],
+      );
+}
+
 class BiomarkerHistory {
   final String code;
   final String name;
@@ -97,6 +117,7 @@ class BiomarkerHistory {
   final String? category;
   final String? healthPillar;
   final String? description;
+  final BiomarkerInsights? insights;
   final BiomarkerRange? ranges;
   final List<BiomarkerDataPoint> dataPoints;
 
@@ -107,6 +128,7 @@ class BiomarkerHistory {
     this.category,
     this.healthPillar,
     this.description,
+    this.insights,
     this.ranges,
     this.dataPoints = const [],
   });
@@ -119,6 +141,10 @@ class BiomarkerHistory {
         category: json['category'],
         healthPillar: json['health_pillar'],
         description: json['description'],
+        insights: json['insights'] != null
+            ? BiomarkerInsights.fromJson(
+                json['insights'] as Map<String, dynamic>)
+            : null,
         ranges: json['ranges'] != null
             ? BiomarkerRange.fromJson(json['ranges'] as Map<String, dynamic>)
             : null,

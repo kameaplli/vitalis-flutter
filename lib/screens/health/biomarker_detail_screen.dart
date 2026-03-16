@@ -171,6 +171,130 @@ class _DetailBody extends StatelessWidget {
                     height: 1.5)),
           ],
 
+          // ── Insights ───────────────────────────────────────
+          if (history.insights != null) ...[
+            const SizedBox(height: 28),
+            _SectionTitle('INSIGHTS'),
+            const SizedBox(height: 12),
+            // Status summary
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: tierColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: tierColor.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    latestTier == 'optimal'
+                        ? Icons.check_circle_rounded
+                        : latestTier == 'critical'
+                            ? Icons.warning_rounded
+                            : Icons.info_rounded,
+                    color: tierColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      history.insights!.statusSummary,
+                      style: TextStyle(
+                        color: tierColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // What it means
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _kCardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _kCardBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('What it means',
+                      style: TextStyle(
+                          color: _kTextPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Text(history.insights!.whatItMeans,
+                      style: const TextStyle(
+                          color: _kTextSecondary,
+                          fontSize: 13,
+                          height: 1.5)),
+                ],
+              ),
+            ),
+            // Action points
+            if (history.insights!.actionPoints.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _kCardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _kCardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.lightbulb_outline_rounded,
+                            color: _kSuboptimalColor, size: 18),
+                        const SizedBox(width: 8),
+                        const Text('Action Points',
+                            style: TextStyle(
+                                color: _kTextPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    for (final point in history.insights!.actionPoints)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 6),
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _kOptimalColor.withValues(alpha: 0.7),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(point,
+                                  style: const TextStyle(
+                                      color: _kTextSecondary,
+                                      fontSize: 13,
+                                      height: 1.4)),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+
           const SizedBox(height: 28),
 
           // ── Range Visualization ──────────────────────────
