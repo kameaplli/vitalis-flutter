@@ -24,6 +24,7 @@ import '../screens/finance_screen.dart'; // ignore: unused_import — kept for v
 import '../screens/social/social_hub_screen.dart';
 import '../screens/social/social_profile_screen.dart';
 import '../screens/social/challenge_detail_screen.dart';
+import '../screens/social/social_notifications_screen.dart';
 import '../screens/health_intelligence_screen.dart';
 import '../providers/interests_provider.dart';
 import '../widgets/app_shell.dart';
@@ -130,6 +131,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // ── Social routes ─────────────────────────────────────────────
           GoRoute(path: '/social', builder: (_, __) => const SocialHubScreen()),
+          GoRoute(path: '/social/notifications', builder: (_, __) => const SocialNotificationsScreen()),
           GoRoute(path: '/social/profile/:id', builder: (_, state) => SocialProfileScreen(userId: state.pathParameters['id']!)),
           GoRoute(path: '/social/challenge/:id', builder: (_, state) => ChallengeDetailScreen(challengeId: state.pathParameters['id']!)),
 

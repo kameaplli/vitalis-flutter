@@ -12,6 +12,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
 import '../services/biometric_service.dart';
+import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
 import '../providers/social_provider.dart';
 import 'vitalis_icon.dart';
@@ -74,6 +75,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (state == AppLifecycleState.resumed && _wentToBackground) {
       _wentToBackground = false;
       _checkBiometricLock();
+      // Re-schedule notifications (Android may kill them on force-stop)
+      NotificationService.scheduleAll();
+      // Check for new social notifications on resume
+      BackgroundService.checkSocialNotifications();
     }
   }
 
@@ -101,6 +106,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   Future<void> _runBackgroundChecks() async {
     await BackgroundService.processPendingActions();
     BackgroundService.checkFlareRisk();
+    BackgroundService.checkSocialNotifications();
     // Prefetch data for screens the user is likely to visit
     final person = ref.read(selectedPersonProvider);
     PrefetchService.warmAll(ref, person);

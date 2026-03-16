@@ -333,8 +333,9 @@ final pendingRequestsProvider = FutureProvider<List<Connection>>((ref) async {
     return _extractList(res.data, 'connections')
         .map((c) => Connection.fromJson(c as Map<String, dynamic>))
         .toList();
-  } catch (_) {
-    return [];
+  } catch (e) {
+    // Rethrow so UI can show errors; silently returning [] hides real issues
+    rethrow;
   }
 });
 
@@ -401,8 +402,9 @@ final socialNotificationsProvider =
     return _extractList(res.data, 'notifications')
         .map((n) => SocialNotification.fromJson(n as Map<String, dynamic>))
         .toList();
-  } catch (_) {
-    return [];
+  } catch (e) {
+    // Rethrow so the UI can show errors instead of silently returning empty
+    rethrow;
   }
 });
 
@@ -410,7 +412,15 @@ final notificationBadgeProvider = FutureProvider<int>((ref) async {
   try {
     final res =
         await apiClient.dio.get(ApiConstants.socialNotificationsUnread);
-    return (res.data['unread_count'] as num?)?.toInt() ?? 0;
+    final count = (res.data['unread_count'] as num?)?.toInt() ?? 0;
+
+    // Auto-refresh badge every 60 seconds
+    final timer = Timer(const Duration(seconds: 60), () {
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
+
+    return count;
   } catch (_) {
     return 0;
   }

@@ -23,8 +23,8 @@ void main() async {
   // Read user interests (null = not yet selected)
   final savedInterests = await loadUserInterests();
   final interestsDone = savedInterests != null;
-  // Launch app immediately — notification init runs in background
-  NotificationService.init(); // fire-and-forget, non-blocking
+  // Initialize notification service (must complete before scheduling)
+  await NotificationService.init();
   runApp(ProviderScope(
     overrides: [
       onboardingCompleteProvider.overrideWith((ref) => onboardingDone),

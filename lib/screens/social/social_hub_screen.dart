@@ -106,13 +106,7 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
                   _showUserSearch(context);
                 },
               ),
-              IconButton(
-                icon: Icon(Icons.notifications_outlined,
-                    color: cs.onSurfaceVariant),
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                },
-              ),
+              _NotificationBellButton(),
             ],
           ),
         ),
@@ -474,6 +468,29 @@ class _EmptyFeedState extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Notification Bell with Badge ─────────────────────────────────────────────
+
+class _NotificationBellButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final badgeAsync = ref.watch(notificationBadgeProvider);
+    final badgeCount = badgeAsync.valueOrNull ?? 0;
+
+    return IconButton(
+      icon: Badge(
+        isLabelVisible: badgeCount > 0,
+        label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
+        child: Icon(Icons.notifications_outlined, color: cs.onSurfaceVariant),
+      ),
+      onPressed: () {
+        HapticFeedback.lightImpact();
+        context.push('/social/notifications');
+      },
     );
   }
 }

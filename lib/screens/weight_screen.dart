@@ -430,7 +430,7 @@ class _WeightInputCardState extends State<_WeightInputCard> {
   late FixedExtentScrollController _gController;
   bool _initialized = false;
 
-  static const _minKg = 20;
+  static const _minKg = 0;
   static const _maxKg = 250;
   // 50g steps: 0, 50, 100, 150, ..., 950 → 20 items
   static const _gramSteps = 20;

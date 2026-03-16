@@ -186,6 +186,17 @@ const _supplementChannel = AndroidNotificationDetails(
   icon: '@mipmap/ic_launcher',
 );
 
+const _socialChannel = AndroidNotificationDetails(
+  'vitalis_social',
+  'Social Notifications',
+  channelDescription: 'Reactions, comments, and buddy requests',
+  importance: Importance.high,
+  priority: Priority.high,
+  icon: '@mipmap/ic_launcher',
+);
+
+// Social notification ID range: 6000 – 6099
+
 // ─── Main Service ────────────────────────────────────────────────────────────
 
 class NotificationService {
@@ -232,6 +243,16 @@ class NotificationService {
         'Hydration Reminders',
         description: 'Reminders to drink water throughout the day',
         importance: Importance.defaultImportance,
+      ),
+    );
+
+    // Social notifications channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'vitalis_social',
+        'Social Notifications',
+        description: 'Reactions, comments, and buddy requests',
+        importance: Importance.high,
       ),
     );
 
@@ -293,17 +314,36 @@ class NotificationService {
   /// Call after login, after prefs change, or on app open.
   static Future<void> scheduleAll() async {
     if (!_initialized) await init();
+
+    // Verify notification permission is granted
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final permissionGranted = await androidPlugin?.areNotificationsEnabled() ?? false;
+    if (!permissionGranted) {
+      debugPrint('[Notifications] WARNING: POST_NOTIFICATIONS permission NOT granted! Requesting...');
+      final granted = await androidPlugin?.requestNotificationsPermission() ?? false;
+      if (!granted) {
+        debugPrint('[Notifications] Permission denied by user — notifications will not work');
+        return;
+      }
+    }
+
     await _plugin.cancelAll();
 
     final hydrationOn    = await NotificationPrefs.hydrationEnabled();
     final mealsOn        = await NotificationPrefs.mealsEnabled();
     final supplementsOn  = await NotificationPrefs.supplementsEnabled();
 
-    debugPrint('[Notifications] scheduleAll — hydration=$hydrationOn, meals=$mealsOn, supplements=$supplementsOn, tz=${tz.local.name}');
+    debugPrint('[Notifications] scheduleAll — hydration=$hydrationOn, meals=$mealsOn, '
+        'supplements=$supplementsOn, tz=${tz.local.name}, exactAlarms=$_canUseExactAlarms');
 
-    if (hydrationOn)   await _scheduleHydration();
-    if (mealsOn)       await _scheduleMeals();
-    if (supplementsOn) await _scheduleSupplements();
+    try {
+      if (hydrationOn)   await _scheduleHydration();
+      if (mealsOn)       await _scheduleMeals();
+      if (supplementsOn) await _scheduleSupplements();
+    } catch (e) {
+      debugPrint('[Notifications] ERROR during scheduling: $e');
+    }
 
     // Log scheduled count for debugging
     final pending = await _plugin.pendingNotificationRequests();
@@ -559,6 +599,26 @@ class NotificationService {
       'This is a test smart suggestion notification.',
       const NotificationDetails(android: _smartChannel),
       payload: 'smart_suggestion',
+    );
+  }
+
+  // ── Social Notifications (device-level alerts for in-app social events) ────
+
+  /// Show a device notification for a social event (reaction, comment, etc.).
+  /// Called by BackgroundService when new unread notifications are detected.
+  static Future<void> showSocialNotification({
+    required int id,
+    required String title,
+    String? body,
+    String? payload,
+  }) async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      6000 + (id.hashCode.abs() % 100), // Keep within 6000-6099 range
+      title,
+      body ?? '',
+      const NotificationDetails(android: _socialChannel),
+      payload: payload ?? 'social',
     );
   }
 
