@@ -51,7 +51,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload PDF'),
+            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload File'),
             Tab(icon: Icon(Icons.edit_rounded), text: 'Manual Entry'),
           ],
         ),
@@ -82,7 +82,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf'],
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'bmp', 'webp'],
     );
     if (result == null || result.files.isEmpty) return;
 
@@ -142,14 +142,14 @@ class _UploadTab extends StatelessWidget {
               Text('Upload your lab report',
                   style: tt.titleMedium),
               const SizedBox(height: 8),
-              Text('PDF files from Quest, LabCorp, and most labs supported',
+              Text('PDF, scanned PDFs, and photos of lab reports supported',
                   style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   textAlign: TextAlign.center),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: onPickFile,
                 icon: const Icon(Icons.file_open_rounded),
-                label: const Text('Select PDF'),
+                label: const Text('Select File'),
               ),
             ],
           ),
