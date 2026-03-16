@@ -14,28 +14,29 @@ import 'services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
+  // Initialize Firebase first (required by Crashlytics, FCM)
   await Firebase.initializeApp();
-  // Send all Flutter errors to Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  // Register FCM background handler (must be top-level, before runApp)
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Read onboarding pref synchronously (fast, local SharedPrefs)
-  final prefs = await SharedPreferences.getInstance();
+  // Parallelize all remaining startup work for faster launch
+  late final SharedPreferences prefs;
+  late final Set<String>? savedInterests;
+  await Future.wait([
+    SharedPreferences.getInstance().then((p) => prefs = p),
+    loadUserInterests().then((i) => savedInterests = i),
+    NotificationService.init().catchError((_) {}),
+    FcmService.init().catchError((_) {}),
+  ]);
+
   final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
-  // Read user interests (null = not yet selected)
-  final savedInterests = await loadUserInterests();
   final interestsDone = savedInterests != null;
-  // Initialize notification + FCM services
-  try { await NotificationService.init(); } catch (_) {}
-  try { await FcmService.init(); } catch (_) {}
   runApp(ProviderScope(
     overrides: [
       onboardingCompleteProvider.overrideWith((ref) => onboardingDone),
       interestsCompleteProvider.overrideWith((ref) => interestsDone),
       if (savedInterests != null)
-        userInterestsProvider.overrideWith((ref) => savedInterests),
+        userInterestsProvider.overrideWith((ref) => savedInterests!),
     ],
     child: const VitalisApp(),
   ));

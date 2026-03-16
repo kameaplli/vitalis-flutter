@@ -187,7 +187,15 @@ final dashboardProvider =
     return DashboardData.fromJson(cached);
   }
 
-  // 2. Fetch from network
+  // 2. Stale cache exists → return immediately, refresh in background
+  final stale = await AppCache.loadDashboard(person, stale: true, date: today);
+  if (stale != null) {
+    // Fire-and-forget background refresh
+    _refreshDashboard(person, today, ref);
+    return DashboardData.fromJson(stale);
+  }
+
+  // 3. No cache at all → fetch from network (first load)
   try {
     final res = await apiClient.dio.get(
       ApiConstants.dashboard,
@@ -199,9 +207,23 @@ final dashboardProvider =
     await AppCache.saveDashboard(person, Map<String, dynamic>.from(res.data as Map), date: today);
     return DashboardData.fromJson(res.data);
   } catch (_) {
-    // 3. Network failed — fall back to stale cache if available
-    final stale = await AppCache.loadDashboard(person, stale: true, date: today);
-    if (stale != null) return DashboardData.fromJson(stale);
-    rethrow; // 4. No cache at all — propagate error to UI
+    rethrow; // No cache at all — propagate error to UI
   }
 });
+
+/// Background refresh — fetches fresh data and invalidates provider to update UI.
+Future<void> _refreshDashboard(String person, String today, Ref ref) async {
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.dashboard,
+      queryParameters: {
+        if (person != 'self') 'person': person,
+        'date': today,
+      },
+    );
+    await AppCache.saveDashboard(person, Map<String, dynamic>.from(res.data as Map), date: today);
+    ref.invalidateSelf();
+  } catch (_) {
+    // Silently ignore — stale data is already showing
+  }
+}

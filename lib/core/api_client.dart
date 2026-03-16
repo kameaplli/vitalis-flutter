@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'secure_storage.dart';
@@ -11,17 +12,18 @@ class ApiClient {
   ApiClient._internal() {
     dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
-      // Increased: Railway cold starts can take 30–60s on free tier.
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 90),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
       headers: {'Content-Type': 'application/json'},
     ));
 
-    // 1. Retry interceptor — must come BEFORE the auth interceptor so retried
-    //    requests still get auth headers re-applied.
+    // 1. Request deduplication — prevents duplicate concurrent GET requests
+    dio.interceptors.add(_DeduplicationInterceptor());
+
+    // 2. Retry interceptor — survives Railway cold starts
     dio.interceptors.add(_RetryInterceptor(dio));
 
-    // 2. Auth + 401 handling
+    // 3. Auth + 401 handling
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await getToken();
@@ -124,5 +126,63 @@ class _RetryInterceptor extends Interceptor {
     if (err.type == DioExceptionType.connectionError) return true;
     final status = err.response?.statusCode;
     return status == 502 || status == 503 || status == 504;
+  }
+}
+
+// ── Deduplication interceptor ────────────────────────────────────────────────
+// Prevents duplicate concurrent GET requests to the same endpoint.
+// If a GET request is already in flight, subsequent identical requests
+// wait for and share the same response.
+
+class _DeduplicationInterceptor extends Interceptor {
+  final Map<String, Completer<Response>> _pending = {};
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.method.toUpperCase() != 'GET') {
+      return handler.next(options);
+    }
+
+    final key = '${options.method}:${options.path}?${options.queryParameters}';
+
+    if (_pending.containsKey(key)) {
+      // Duplicate request — wait for the in-flight one
+      _pending[key]!.future.then(
+        (res) => handler.resolve(Response(
+          requestOptions: options,
+          data: res.data,
+          statusCode: res.statusCode,
+          headers: res.headers,
+        )),
+        onError: (e) => handler.reject(
+          e is DioException ? e : DioException(requestOptions: options, error: e),
+        ),
+      );
+      return;
+    }
+
+    // First request — mark as in-flight
+    _pending[key] = Completer<Response>();
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    final key = '${response.requestOptions.method}:${response.requestOptions.path}?${response.requestOptions.queryParameters}';
+    if (_pending.containsKey(key)) {
+      _pending[key]!.complete(response);
+      _pending.remove(key);
+    }
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    final key = '${err.requestOptions.method}:${err.requestOptions.path}?${err.requestOptions.queryParameters}';
+    if (_pending.containsKey(key)) {
+      _pending[key]!.completeError(err);
+      _pending.remove(key);
+    }
+    handler.next(err);
   }
 }
