@@ -135,6 +135,10 @@ class LabUploadNotifier extends StateNotifier<LabUploadState> {
       final res = await apiClient.dio.post(
         ApiConstants.labUpload,
         data: formData,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 120),
+          sendTimeout: const Duration(seconds: 60),
+        ),
       );
 
       final data = res.data as Map<String, dynamic>;
