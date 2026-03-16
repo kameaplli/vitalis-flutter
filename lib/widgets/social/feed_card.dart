@@ -167,6 +167,21 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
     return false;
   }
 
+  /// Returns the user's current reaction type (e.g., 'love', 'fire'), or null.
+  String? get _userReactionType {
+    for (final r in event.reactions) {
+      if (r.userReacted) return r.type;
+    }
+    return null;
+  }
+
+  /// Returns the emoji for the user's current reaction, or null.
+  String? get _userReactionEmoji {
+    final type = _userReactionType;
+    if (type == null) return null;
+    return FeedCard._reactionEmojis[type];
+  }
+
   int get _totalReactions {
     int t = 0;
     for (final r in event.reactions) t += r.count;
@@ -226,11 +241,13 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
 
   void _handleLikeTap() {
     HapticFeedback.lightImpact();
+    // Toggle: if user already reacted, un-react with same type; otherwise default to 'love'
+    final currentType = _userReactionType ?? 'love';
     if (!_userLiked) {
       _likeCtrl.forward(from: 0);
       _burstCtrl.forward(from: 0);
     }
-    widget.onReact?.call('love');
+    widget.onReact?.call(currentType);
   }
 
   void _showReactionPicker() {
@@ -445,23 +462,34 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                                               );
                                             },
                                           ),
-                                          // Heart icon
+                                          // Reaction icon — shows user's emoji if reacted, heart outline if not
                                           ScaleTransition(
                                             scale: _likeScale,
-                                            child: Icon(
-                                              liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                              size: 20,
-                                              color: liked
-                                                  ? const Color(0xFFE53935)
-                                                  : cs.onSurfaceVariant.withValues(alpha: 0.6),
-                                            ),
+                                            child: liked && _userReactionEmoji != null
+                                                ? Text(
+                                                    _userReactionEmoji!,
+                                                    style: const TextStyle(fontSize: 18),
+                                                  )
+                                                : Icon(
+                                                    liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                                    size: 20,
+                                                    color: liked
+                                                        ? const Color(0xFFE53935)
+                                                        : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                                  ),
                                           ),
                                         ],
                                       ),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Like',
+                                      liked
+                                          ? (_userReactionType == 'love'
+                                              ? 'Liked'
+                                              : _userReactionType != null
+                                                  ? '${_userReactionType![0].toUpperCase()}${_userReactionType!.substring(1)}'
+                                                  : 'Like')
+                                          : 'Like',
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: liked

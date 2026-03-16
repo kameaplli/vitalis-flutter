@@ -121,14 +121,18 @@ class FeedNotifier extends StateNotifier<FeedState> {
   }
 
   /// Optimistic reaction — updates local state instantly, syncs in background.
+  /// Handles: toggle off (same type), switch (different type), new reaction.
   void optimisticReact(FeedEvent event, String reactionType) {
     final oldReactions = event.reactions;
-    final existing =
-        oldReactions.where((r) => r.type == reactionType).firstOrNull;
-    final wasReacted = existing?.userReacted ?? false;
+
+    // Find user's current reaction (any type)
+    final userCurrent = oldReactions.where((r) => r.userReacted).firstOrNull;
+    final tappedSameType = userCurrent?.type == reactionType;
 
     List<ReactionSummary> newReactions;
-    if (wasReacted) {
+
+    if (userCurrent != null && tappedSameType) {
+      // Toggle OFF — user tapped the same reaction they already have
       newReactions = oldReactions.map((r) {
         if (r.type == reactionType) {
           return ReactionSummary(
@@ -139,19 +143,54 @@ class FeedNotifier extends StateNotifier<FeedState> {
         }
         return r;
       }).where((r) => r.count > 0).toList();
-    } else if (existing != null) {
+    } else if (userCurrent != null) {
+      // SWITCH — user already reacted with a different type, replace it
+      // Decrement old type, increment new type
+      var handled = false;
       newReactions = oldReactions.map((r) {
-        if (r.type == reactionType) {
+        if (r.type == userCurrent.type) {
+          // Remove user from old reaction
           return ReactionSummary(
-              type: r.type, count: r.count + 1, userReacted: true);
+            type: r.type,
+            count: (r.count - 1).clamp(0, 99999),
+            userReacted: false,
+          );
+        }
+        if (r.type == reactionType) {
+          // Add user to new reaction
+          handled = true;
+          return ReactionSummary(
+            type: r.type,
+            count: r.count + 1,
+            userReacted: true,
+          );
         }
         return r;
-      }).toList();
+      }).where((r) => r.count > 0).toList();
+      // If the new reaction type didn't exist yet, add it
+      if (!handled) {
+        newReactions.add(
+          ReactionSummary(type: reactionType, count: 1, userReacted: true),
+        );
+      }
     } else {
-      newReactions = [
-        ...oldReactions,
-        ReactionSummary(type: reactionType, count: 1, userReacted: true),
-      ];
+      // NEW — no existing reaction from user
+      final existingType =
+          oldReactions.where((r) => r.type == reactionType).firstOrNull;
+      if (existingType != null) {
+        newReactions = oldReactions.map((r) {
+          if (r.type == reactionType) {
+            return ReactionSummary(
+                type: r.type, count: r.count + 1, userReacted: true);
+          }
+          return r;
+        }).toList();
+      } else {
+        newReactions = [
+          ...oldReactions,
+          ReactionSummary(type: reactionType, count: 1, userReacted: true),
+        ];
+      }
     }
 
     // Update state instantly
