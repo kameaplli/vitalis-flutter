@@ -9,11 +9,11 @@ import '../../widgets/friendly_error.dart';
 
 // ── Design Tokens (matching dashboard) ───────────────────────────────────────
 
-const _kOptimalColor = Color(0xFF00E676);
-const _kSufficientColor = Color(0xFF448AFF);
-const _kSuboptimalColor = Color(0xFFFFAB00);
-const _kCriticalColor = Color(0xFFFF5252);
-const _kUnknownColor = Color(0xFF78909C);
+const _kOptimalColor = Color(0xFF4ADE80);    // soft green
+const _kSufficientColor = Color(0xFF60A5FA); // soft blue
+const _kSuboptimalColor = Color(0xFFFBBF24); // warm amber
+const _kCriticalColor = Color(0xFFF87171);   // soft red
+const _kUnknownColor = Color(0xFF94A3B8);    // slate
 
 const _kDarkBg = Color(0xFF0F1923);
 const _kCardBg = Color(0xFF1A2732);
@@ -503,7 +503,7 @@ class _WhoopLargeRangeBar extends StatelessWidget {
         children: [
           // Gradient range bar with marker
           SizedBox(
-            height: 40,
+            height: 28,
             child: LayoutBuilder(builder: (context, constraints) {
               final barWidth = constraints.maxWidth;
               double position = 0.5;
@@ -526,45 +526,42 @@ class _WhoopLargeRangeBar extends StatelessWidget {
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Gradient bar
+                  // Thin gradient bar
                   Positioned(
                     left: 0,
                     right: 0,
-                    top: 14,
-                    height: 16,
+                    top: 10,
+                    height: 8,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       child: CustomPaint(
                         painter: _GradientBarPainter(),
                       ),
                     ),
                   ),
-                  // Marker
+                  // Dot marker with glow
                   if (currentValue != null)
                     Positioned(
-                      left: markerX - 8,
-                      top: 0,
-                      child: Column(
-                        children: [
-                          CustomPaint(
-                            size: const Size(16, 10),
-                            painter: _TriangleMarkerPainter(
-                                color: _tierColor(null)),
+                      left: markerX - 7,
+                      top: 7,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            width: 2,
                           ),
-                          Container(
-                            width: 3,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(1.5),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.white.withValues(alpha: 0.5),
-                                    blurRadius: 4),
-                              ],
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              blurRadius: 8,
+                              spreadRadius: 2,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                 ],
@@ -650,19 +647,19 @@ class _GradientBarPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final gradient = LinearGradient(
       colors: [
-        _kCriticalColor.withValues(alpha: 0.7),
-        _kSuboptimalColor.withValues(alpha: 0.6),
-        _kSufficientColor.withValues(alpha: 0.5),
-        _kOptimalColor.withValues(alpha: 0.6),
-        _kOptimalColor.withValues(alpha: 0.6),
-        _kSufficientColor.withValues(alpha: 0.5),
-        _kSuboptimalColor.withValues(alpha: 0.6),
-        _kCriticalColor.withValues(alpha: 0.7),
+        _kCriticalColor.withValues(alpha: 0.40),
+        _kSuboptimalColor.withValues(alpha: 0.35),
+        _kSufficientColor.withValues(alpha: 0.30),
+        _kOptimalColor.withValues(alpha: 0.40),
+        _kOptimalColor.withValues(alpha: 0.40),
+        _kSufficientColor.withValues(alpha: 0.30),
+        _kSuboptimalColor.withValues(alpha: 0.35),
+        _kCriticalColor.withValues(alpha: 0.40),
       ],
       stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
     );
     final paint = Paint()..shader = gradient.createShader(rect);
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
     canvas.drawRRect(rrect, paint);
   }
 

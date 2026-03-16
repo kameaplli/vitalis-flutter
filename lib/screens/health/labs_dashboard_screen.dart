@@ -13,11 +13,11 @@ import '../../widgets/friendly_error.dart';
 
 // ── Design Tokens ────────────────────────────────────────────────────────────
 
-const _kOptimalColor = Color(0xFF00E676);
-const _kSufficientColor = Color(0xFF448AFF);
-const _kSuboptimalColor = Color(0xFFFFAB00);
-const _kCriticalColor = Color(0xFFFF5252);
-const _kUnknownColor = Color(0xFF78909C);
+const _kOptimalColor = Color(0xFF4ADE80);    // soft green
+const _kSufficientColor = Color(0xFF60A5FA); // soft blue
+const _kSuboptimalColor = Color(0xFFFBBF24); // warm amber
+const _kCriticalColor = Color(0xFFF87171);   // soft red
+const _kUnknownColor = Color(0xFF94A3B8);    // slate
 
 const _kDarkBg = Color(0xFF0F1923);
 const _kCardBg = Color(0xFF1A2732);
@@ -1112,7 +1112,7 @@ class _WhoopRangeBar extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 20,
+      height: 14,
       child: LayoutBuilder(builder: (context, constraints) {
         final barWidth = constraints.maxWidth;
         final markerX = position * barWidth;
@@ -1120,39 +1120,33 @@ class _WhoopRangeBar extends StatelessWidget {
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            Positioned.fill(
+            // Thin gradient bar
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 4,
+              height: 6,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(3),
                 child: CustomPaint(painter: _GradientBarPainter()),
               ),
             ),
+            // Dot marker
             Positioned(
-              left: markerX - 6,
-              top: 0,
-              bottom: 0,
-              child: SizedBox(
-                width: 12,
-                child: Column(
-                  children: [
-                    CustomPaint(
-                      size: const Size(12, 7),
-                      painter:
-                          _TriangleMarkerPainter(color: tierColor),
-                    ),
-                    Expanded(
-                      child: Container(
-                        width: 2,
-                        decoration: BoxDecoration(
-                          color: tierColor,
-                          borderRadius: BorderRadius.circular(1),
-                          boxShadow: [
-                            BoxShadow(
-                                color:
-                                    tierColor.withValues(alpha: 0.6),
-                                blurRadius: 4),
-                          ],
-                        ),
-                      ),
+              left: markerX - 5,
+              top: 2,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: tierColor,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tierColor.withValues(alpha: 0.5),
+                      blurRadius: 6,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
@@ -1171,20 +1165,20 @@ class _GradientBarPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final gradient = LinearGradient(
       colors: [
-        _kCriticalColor.withValues(alpha: 0.6),
-        _kSuboptimalColor.withValues(alpha: 0.5),
-        _kSufficientColor.withValues(alpha: 0.4),
-        _kOptimalColor.withValues(alpha: 0.5),
-        _kOptimalColor.withValues(alpha: 0.5),
-        _kSufficientColor.withValues(alpha: 0.4),
-        _kSuboptimalColor.withValues(alpha: 0.5),
-        _kCriticalColor.withValues(alpha: 0.6),
+        _kCriticalColor.withValues(alpha: 0.35),
+        _kSuboptimalColor.withValues(alpha: 0.30),
+        _kSufficientColor.withValues(alpha: 0.28),
+        _kOptimalColor.withValues(alpha: 0.35),
+        _kOptimalColor.withValues(alpha: 0.35),
+        _kSufficientColor.withValues(alpha: 0.28),
+        _kSuboptimalColor.withValues(alpha: 0.30),
+        _kCriticalColor.withValues(alpha: 0.35),
       ],
       stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
     );
     final paint = Paint()..shader = gradient.createShader(rect);
     final rrect =
-        RRect.fromRectAndRadius(rect, const Radius.circular(4));
+        RRect.fromRectAndRadius(rect, const Radius.circular(3));
     canvas.drawRRect(rrect, paint);
   }
 
