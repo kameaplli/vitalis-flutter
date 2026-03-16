@@ -49,7 +49,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final res = await apiClient.dio.get(ApiConstants.user);
       final user = AppUser.fromJson(res.data);
       state = AuthState(status: AuthStatus.authenticated, user: user);
-      await NotificationService.scheduleAll();
+      try { await NotificationService.scheduleAll(); } catch (_) {}
       SecureStorage.setNotificationsEnabled(true);
     } catch (_) {
       await apiClient.clearToken();
@@ -68,7 +68,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final refreshToken = res.data['refresh_token'] as String?;
       if (refreshToken != null) await SecureStorage.saveRefreshToken(refreshToken);
       final user = AppUser.fromJson(res.data['user']);
-      await NotificationService.scheduleAll();
+      try { await NotificationService.scheduleAll(); } catch (_) {}
       SecureStorage.setNotificationsEnabled(true);
 
       // ── Biometric setup ───────────────────────────────────────────────────

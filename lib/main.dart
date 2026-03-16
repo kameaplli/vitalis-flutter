@@ -24,7 +24,7 @@ void main() async {
   final savedInterests = await loadUserInterests();
   final interestsDone = savedInterests != null;
   // Initialize notification service (must complete before scheduling)
-  await NotificationService.init();
+  try { await NotificationService.init(); } catch (_) {}
   runApp(ProviderScope(
     overrides: [
       onboardingCompleteProvider.overrideWith((ref) => onboardingDone),
