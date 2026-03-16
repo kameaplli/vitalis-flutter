@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_client.dart';
@@ -408,7 +409,7 @@ class _CommentTile extends StatelessWidget {
           hasAvatar
               ? CircleAvatar(
                   radius: 16,
-                  backgroundImage: NetworkImage(comment.userAvatarUrl!),
+                  backgroundImage: CachedNetworkImageProvider(comment.userAvatarUrl!),
                   backgroundColor: cs.primaryContainer,
                 )
               : CircleAvatar(
