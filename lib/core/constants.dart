@@ -230,6 +230,16 @@ class ApiConstants {
   static const String socialCommunityPulse = '/api/social/pulse';
   static const String socialShareCard = '/api/social/share-card';
 
+  // Blood Test Intelligence (Labs)
+  static const String labUpload     = '/api/labs/upload';
+  static const String labConfirm    = '/api/labs/confirm';
+  static const String labManual     = '/api/labs/manual';
+  static const String labReports    = '/api/labs/reports';
+  static String labReport(String id) => '/api/labs/reports/$id';
+  static String biomarkerHistory(String code) => '/api/labs/biomarker/$code/history';
+  static const String labDashboard  = '/api/labs/dashboard';
+  static const String labBiomarkers = '/api/labs/biomarkers';
+
   // Health Intelligence
   static const String healthScoreDaily       = '/api/health-intelligence/score/daily';
   static const String healthScoreWeekly      = '/api/health-intelligence/score/weekly';

@@ -222,6 +222,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           const AsyncValue.data([])),
       _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
           const AsyncValue.data([])),
+      _CardDef('labs',        'Blood Tests', Icons.biotech_rounded,          const Color(0xFFD32F2F),
+          const AsyncValue.data([])),
     ];
 
     // Filter cards based on user interests

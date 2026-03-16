@@ -26,6 +26,9 @@ import '../screens/social/social_profile_screen.dart';
 import '../screens/social/challenge_detail_screen.dart';
 import '../screens/social/social_notifications_screen.dart';
 import '../screens/health_intelligence_screen.dart';
+import '../screens/health/labs_dashboard_screen.dart';
+import '../screens/health/lab_upload_screen.dart';
+import '../screens/health/biomarker_detail_screen.dart';
 import '../providers/interests_provider.dart';
 import '../widgets/app_shell.dart';
 
@@ -134,6 +137,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/social/notifications', builder: (_, __) => const SocialNotificationsScreen()),
           GoRoute(path: '/social/profile/:id', builder: (_, state) => SocialProfileScreen(userId: state.pathParameters['id']!)),
           GoRoute(path: '/social/challenge/:id', builder: (_, state) => ChallengeDetailScreen(challengeId: state.pathParameters['id']!)),
+
+          // ── Blood Test Intelligence ──────────────────────────────────────
+          GoRoute(path: '/health/labs', builder: (_, __) => const LabsDashboardScreen()),
+          GoRoute(path: '/health/labs/upload', builder: (_, __) => const LabUploadScreen()),
+          GoRoute(path: '/health/labs/biomarker/:code', builder: (_, state) => BiomarkerDetailScreen(biomarkerCode: state.pathParameters['code']!)),
 
           // ── Health Intelligence ──────────────────────────────────────────
           GoRoute(path: '/health-intelligence', builder: (_, __) => const HealthIntelligenceScreen()),
