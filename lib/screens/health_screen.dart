@@ -208,6 +208,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
           ref.watch(medicationsProvider('${person}_7'))),
+      _CardDef('labs',        'Blood Tests', Icons.biotech_rounded,          const Color(0xFFD32F2F),
+          const AsyncValue.data([])),
       _CardDef('supplements', 'Supplements', Icons.science_rounded,         const Color(0xFFF9A825),
           ref.watch(supplementsProvider('${person}_7'))),
       _CardDef('mood',        'Mood',        Icons.self_improvement_rounded, const Color(0xFF43A047),
@@ -221,8 +223,6 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
       _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   const Color(0xFF3949AB),
           const AsyncValue.data([])),
       _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
-          const AsyncValue.data([])),
-      _CardDef('labs',        'Blood Tests', Icons.biotech_rounded,          const Color(0xFFD32F2F),
           const AsyncValue.data([])),
     ];
 
