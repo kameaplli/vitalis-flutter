@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
-/// Icon theme system for Vitalis.
+/// Icon theme system for Qorhealth.
 /// Each theme defines a complete set of icons used across the app.
 /// Themes can be swapped at runtime to personalize the look.
 
@@ -27,7 +27,7 @@ class VIcon {
 }
 
 /// All icon slots used across the app.
-class VitalisIcons {
+class QorhealthIcons {
   // Navigation
   final VIcon home;
   final VIcon nutrition;
@@ -90,7 +90,7 @@ class VitalisIcons {
   final VIcon thermometer;
   final VIcon warning;
 
-  const VitalisIcons({
+  const QorhealthIcons({
     required this.home,
     required this.nutrition,
     required this.hydration,
@@ -149,7 +149,7 @@ class VitalisIcons {
 }
 
 /// Default Material Design icons — the classic look.
-const materialIcons = VitalisIcons(
+const materialIcons = QorhealthIcons(
   home: VIcon.material(Icons.dashboard_rounded),
   nutrition: VIcon.material(Icons.restaurant_rounded),
   hydration: VIcon.material(Icons.water_drop_rounded),
@@ -207,7 +207,7 @@ const materialIcons = VitalisIcons(
 );
 
 /// HugeIcons theme — modern, clean stroke icons.
-final hugeIconsTheme = VitalisIcons(
+final hugeIconsTheme = QorhealthIcons(
   home: VIcon.huge(HugeIcons.strokeRoundedHome01),
   nutrition: VIcon.huge(HugeIcons.strokeRoundedRestaurant01),
   hydration: VIcon.huge(HugeIcons.strokeRoundedDroplet),
@@ -273,7 +273,7 @@ enum IconThemeChoice {
   final String label;
   final String description;
 
-  VitalisIcons get icons {
+  QorhealthIcons get icons {
     switch (this) {
       case IconThemeChoice.material:
         return materialIcons;

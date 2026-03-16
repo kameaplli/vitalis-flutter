@@ -290,7 +290,7 @@ class _FeedTab extends ConsumerWidget {
   void _sharePost(BuildContext context, FeedEvent event) {
     final snap = event.contentSnapshot;
     final ct = event.contentType;
-    String shareText = '${event.actorName} on Vitalis:\n';
+    String shareText = '${event.actorName} on Qorhealth:\n';
 
     if (ct == 'note') {
       shareText += snap['note']?.toString() ?? snap['text']?.toString() ?? '';
@@ -303,7 +303,7 @@ class _FeedTab extends ConsumerWidget {
     } else {
       shareText += snap['description']?.toString() ?? 'Check out this update!';
     }
-    shareText += '\n\nTracked with Vitalis';
+    shareText += '\n\nTracked with Qorhealth';
 
     Share.share(shareText);
   }

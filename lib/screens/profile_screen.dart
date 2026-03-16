@@ -293,7 +293,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Sign out?'),
-                    content: const Text('You will need to sign in again to use Vitalis.'),
+                    content: const Text('You will need to sign in again to use Qorhealth.'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                       FilledButton(

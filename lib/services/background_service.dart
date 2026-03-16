@@ -80,7 +80,7 @@ class BackgroundService {
 
       // Show device notifications for up to 5 newest
       for (final n in newNotifs.take(5)) {
-        final title = n['title']?.toString() ?? 'Vitalis';
+        final title = n['title']?.toString() ?? 'Qorhealth';
         final body = n['body']?.toString();
         final id = n['id']?.toString() ?? '';
         await NotificationService.showSocialNotification(

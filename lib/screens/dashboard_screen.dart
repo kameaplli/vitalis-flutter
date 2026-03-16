@@ -21,7 +21,7 @@ import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
-import '../widgets/vitalis_icon.dart';
+import '../widgets/qorhealth_icon.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -574,7 +574,7 @@ class _QuickActionsBar extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(child: VitalisIcon(icon: icon, color: color)),
+                  ExcludeSemantics(child: QorhealthIcon(icon: icon, color: color)),
                   const SizedBox(height: 8),
                   ExcludeSemantics(child: Text(label, style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w600,
@@ -1806,7 +1806,7 @@ class _StatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  VitalisIcon(icon: icon, color: color, size: VitalisIconSize.small),
+                  QorhealthIcon(icon: icon, color: color, size: QorhealthIconSize.small),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(label.toUpperCase(),

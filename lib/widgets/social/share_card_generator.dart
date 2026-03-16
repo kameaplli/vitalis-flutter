@@ -128,7 +128,7 @@ class ShareCardGenerator extends StatelessWidget {
   // ── User Header ──────────────────────────────────────────────────────────
 
   Widget _buildUserHeader() {
-    final userName = data['user_display_name'] ?? 'Vitalis User';
+    final userName = data['user_display_name'] ?? 'Qorhealth User';
     final dateStr = data['date'] ?? '';
 
     return Row(
@@ -429,7 +429,7 @@ class ShareCardGenerator extends StatelessWidget {
     return _buildGlassSection(
       child: Row(
         children: [
-          // Vitalis branding
+          // Qorhealth branding
           Container(
             width: 36,
             height: 36,
@@ -445,7 +445,7 @@ class ShareCardGenerator extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Vitalis',
+                  'Qorhealth',
                   style: _textStyle(14, FontWeight.w700),
                 ),
                 const SizedBox(height: 2),

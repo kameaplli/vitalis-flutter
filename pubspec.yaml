@@ -1,5 +1,5 @@
-name: vitalis
-description: Vitalis - Health & Nutrition Tracking App
+name: qorhealth
+description: Qorhealth - Health & Nutrition Tracking App
 publish_to: "none"
 version: 5.9.0+7
 
@@ -95,9 +95,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/vitalis_app_icon.png"
-  adaptive_icon_foreground: "assets/vitalis_app_icon.png"
-  adaptive_icon_background: "#0D7377"
+  image_path: "assets/qorhealth_app_icon.png"
+  adaptive_icon_foreground: "assets/qorhealth_app_icon.png"
+  adaptive_icon_background: "#000000"
 
 flutter:
   uses-material-design: true

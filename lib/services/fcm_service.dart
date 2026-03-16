@@ -106,7 +106,7 @@ class FcmService {
     // Use the existing NotificationService to show a local notification
     NotificationService.showSocialNotification(
       id: message.hashCode,
-      title: notification.title ?? 'Vitalis',
+      title: notification.title ?? 'Qorhealth',
       body: notification.body,
       payload: message.data['route'] ?? channel,
     );

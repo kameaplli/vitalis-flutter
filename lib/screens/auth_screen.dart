@@ -99,7 +99,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
     if (_bioLoading) return;
     setState(() => _bioLoading = true);
     try {
-      final ok = await BiometricService.authenticate(reason: 'Sign in to Vitalis');
+      final ok = await BiometricService.authenticate(reason: 'Sign in to Qorhealth');
       if (!ok) {
         if (mounted) {
           setState(() => _bioLoading = false);
@@ -269,7 +269,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
                     // Logo
                     _AnimatedLogo(orbCtrl: _orbCtrl),
                     const SizedBox(height: 12),
-                    const Text('Vitalis',
+                    const Text('Qorhealth',
                         style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1)),
                     const SizedBox(height: 4),
                     Text('Health & Nutrition Tracker',
@@ -643,7 +643,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                   children: [
                     _AnimatedLogo(orbCtrl: widget.orbCtrl),
                     const SizedBox(height: 12),
-                    const Text('Vitalis',
+                    const Text('Qorhealth',
                         style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white)),
                     const SizedBox(height: 36),
                     Text('Welcome back, $name',

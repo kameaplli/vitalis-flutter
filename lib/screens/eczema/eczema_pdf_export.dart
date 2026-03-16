@@ -34,7 +34,7 @@ const kDangerLight = PdfColor(1, 0.92, 0.93);     // red 50
 const kSuccess = PdfColor(0.19, 0.55, 0.24);      // green 800
 const kSuccessLight = PdfColor(0.91, 0.96, 0.91); // green 50
 
-// ─── PDF Logo (vector-drawn Vitalis "V" leaf mark) ──────────────────────────
+// ─── PDF Logo (vector-drawn Qorhealth "V" leaf mark) ──────────────────────────
 
 class PdfLogo extends pw.StatelessWidget {
   final double size;
@@ -211,7 +211,7 @@ pw.Widget pdfPageHeader(String title, int days) => pw.Container(
     pw.Text(title,
         style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
     pw.Spacer(),
-    pw.Text('Last $days days  |  Vitalis',
+    pw.Text('Last  days  |  Qorhealth',
         style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
   ]),
 );
@@ -356,7 +356,7 @@ Future<void> exportEczemaPdf({
               pw.Text('Eczema Assessment Report',
                   style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
               pw.SizedBox(height: 2),
-              pw.Text('Vitalis Health Tracker',
+              pw.Text('Qorhealth Health Tracker',
                   style: const pw.TextStyle(fontSize: 10, color: PdfColor(1, 1, 1, 0.75))),
             ]),
             pw.Spacer(),
@@ -690,7 +690,7 @@ Future<void> exportEczemaPdf({
       ],
     ),
     footer: (ctx) => pw.Row(children: [
-      pw.Text('Vitalis Eczema Report',
+      pw.Text('Qorhealth Eczema Report',
           style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
       pw.Spacer(),
       pw.Text('Page ${ctx.pageNumber}',

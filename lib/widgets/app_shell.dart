@@ -15,7 +15,7 @@ import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
 import '../providers/social_provider.dart';
-import 'vitalis_icon.dart';
+import 'qorhealth_icon.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
       setState(() => _locked = true);
       final ok = await BiometricService.authenticate(
-        reason: 'Unlock Vitalis',
+        reason: 'Unlock Qorhealth',
       );
       if (mounted) setState(() => _locked = !ok);
     } finally {
@@ -525,7 +525,7 @@ class _FullScreenMenu extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
               child: Row(
                 children: [
-                  Text('Vitalis', style: tt.titleLarge?.copyWith(
+                  Text('Qorhealth', style: tt.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
                     color: cs.primary,
@@ -701,7 +701,7 @@ class _FullScreenMenu extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Text(
-                'Vitalis v5.0',
+                'Qorhealth v5.0',
                 style: tt.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant.withOpacity(0.4),
                 ),
@@ -744,7 +744,7 @@ class _MenuTile extends StatelessWidget {
             Badge(
               isLabelVisible: badgeCount > 0,
               label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
-              child: VitalisIcon(icon: icon, color: color),
+              child: QorhealthIcon(icon: icon, color: color),
             ),
             const SizedBox(height: 10),
             Text(label, style: TextStyle(
@@ -774,7 +774,7 @@ class _BiometricLockScreen extends StatelessWidget {
           children: [
             Icon(Icons.lock_outline, size: 64, color: cs.primary),
             const SizedBox(height: 16),
-            Text('Vitalis is locked',
+            Text('Qorhealth is locked',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: cs.onSurface)),
             const SizedBox(height: 8),
             Text('Verify your identity to continue',
@@ -845,7 +845,7 @@ class _SoloTopBar extends ConsumerWidget {
       child: Row(
         children: [
           Text(
-            'Vitalis',
+            'Qorhealth',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
