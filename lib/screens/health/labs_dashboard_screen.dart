@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api_client.dart';
+import '../../core/constants.dart';
 import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
@@ -307,12 +309,12 @@ class _SectionHeader extends StatelessWidget {
 
 // ── Reports Section (inline) ─────────────────────────────────────────────────
 
-class _ReportsSection extends StatelessWidget {
+class _ReportsSection extends ConsumerWidget {
   final List<LabReport> reports;
   const _ReportsSection({required this.reports});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (reports.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -334,7 +336,7 @@ class _ReportsSection extends StatelessWidget {
     return Column(
       children: [
         for (int i = 0; i < reports.length; i++)
-          _ReportTile(report: reports[i]),
+          _ReportTile(report: reports[i], ref: ref),
       ],
     );
   }
@@ -342,71 +344,157 @@ class _ReportsSection extends StatelessWidget {
 
 class _ReportTile extends StatelessWidget {
   final LabReport report;
-  const _ReportTile({required this.report});
+  final WidgetRef ref;
+  const _ReportTile({required this.report, required this.ref});
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _kCardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Report?',
+            style: TextStyle(color: _kTextPrimary, fontWeight: FontWeight.w700)),
+        content: Text(
+          'This will permanently delete the ${report.labProvider ?? "lab"} report'
+          '${report.testDate != null ? " from ${report.testDate}" : ""}'
+          ' and all its results.',
+          style: const TextStyle(color: _kTextSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel',
+                style: TextStyle(color: _kTextSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete',
+                style: TextStyle(
+                    color: _kCriticalColor, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _deleteReport(BuildContext context) async {
+    try {
+      await apiClient.dio.delete(ApiConstants.labReport(report.id));
+      final person = ref.read(selectedPersonProvider);
+      ref.invalidate(labDashboardProvider(person));
+      ref.invalidate(labReportsProvider(person));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Report deleted'),
+            backgroundColor: _kCardBg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+            backgroundColor: _kCriticalColor,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kCardBorder),
-      ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: _kOptimalColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.description_rounded,
-              color: _kOptimalColor, size: 20),
+    return Dismissible(
+      key: ValueKey(report.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDelete(context),
+      onDismissed: (_) => _deleteReport(context),
+      background: Container(
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        decoration: BoxDecoration(
+          color: _kCriticalColor.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(12),
         ),
-        title: Text(report.labProvider ?? 'Lab Report',
-            style: const TextStyle(
-                color: _kTextPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600)),
-        subtitle: Row(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(report.testDate ?? '',
-                style: const TextStyle(color: _kTextSecondary, fontSize: 12)),
-            if (report.parseMethod != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: _kCardBorder,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(report.parseMethod!.toUpperCase(),
-                    style: const TextStyle(
-                        color: _kTextSecondary,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5)),
-              ),
-            ],
+            Text('Delete',
+                style: TextStyle(
+                    color: _kCriticalColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14)),
+            SizedBox(width: 8),
+            Icon(Icons.delete_rounded, color: _kCriticalColor, size: 22),
           ],
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: report.results.isEmpty
-                ? _kCriticalColor.withValues(alpha: 0.12)
-                : _kOptimalColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+      ),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        decoration: BoxDecoration(
+          color: _kCardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _kCardBorder),
+        ),
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _kOptimalColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.description_rounded,
+                color: _kOptimalColor, size: 20),
           ),
-          child: Text(
-            '${report.results.length} results',
-            style: TextStyle(
-              color: report.results.isEmpty ? _kCriticalColor : _kOptimalColor,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+          title: Text(report.labProvider ?? 'Lab Report',
+              style: const TextStyle(
+                  color: _kTextPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600)),
+          subtitle: Row(
+            children: [
+              Text(report.testDate ?? '',
+                  style: const TextStyle(color: _kTextSecondary, fontSize: 12)),
+              if (report.parseMethod != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: _kCardBorder,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(report.parseMethod!.toUpperCase(),
+                      style: const TextStyle(
+                          color: _kTextSecondary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5)),
+                ),
+              ],
+            ],
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: report.results.isEmpty
+                  ? _kCriticalColor.withValues(alpha: 0.12)
+                  : _kOptimalColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${report.results.length} results',
+              style: TextStyle(
+                color: report.results.isEmpty ? _kCriticalColor : _kOptimalColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
             ),
           ),
         ),
