@@ -26,6 +26,8 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     text: DateTime.now().toIso8601String().substring(0, 10),
   );
   final _notesController = TextEditingController();
+  final ValueNotifier<double> _uploadProgress = ValueNotifier(0);
+  final ValueNotifier<String> _uploadStage = ValueNotifier('Preparing...');
 
   @override
   void initState() {
@@ -38,6 +40,8 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     _tabController.dispose();
     _dateController.dispose();
     _notesController.dispose();
+    _uploadProgress.dispose();
+    _uploadStage.dispose();
     super.dispose();
   }
 
@@ -79,11 +83,17 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
 
     if (!mounted) return;
 
-    // Show uploading indicator
+    _uploadProgress.value = 0;
+    _uploadStage.value = 'Uploading report...';
+
+    // Show upload progress dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const _UploadingDialog(),
+      builder: (_) => _UploadingDialog(
+        progress: _uploadProgress,
+        stage: _uploadStage,
+      ),
     );
 
     try {
@@ -99,20 +109,29 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         ApiConstants.labUpload,
         data: formData,
         options: Options(
-          sendTimeout: const Duration(seconds: 180),
-          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 300),
+          receiveTimeout: const Duration(seconds: 60),
         ),
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            _uploadProgress.value = sent / total;
+            if (sent < total) {
+              _uploadStage.value = 'Uploading... ${(sent / 1024).toStringAsFixed(0)} KB / ${(total / 1024).toStringAsFixed(0)} KB';
+            } else {
+              _uploadStage.value = 'Sent! Waiting for server...';
+            }
+          }
+        },
       );
 
       if (!mounted) return;
-      Navigator.of(context).pop(); // dismiss uploading dialog
+      Navigator.of(context).pop(); // dismiss dialog
 
       // Show success screen
       await Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const _SuccessScreen()),
       );
 
-      // On return from success, go back to dashboard and refresh
       if (mounted) {
         ref.invalidate(labDashboardProvider(person));
         ref.invalidate(labReportsProvider(person));
@@ -120,7 +139,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pop(); // dismiss uploading dialog
+      Navigator.of(context).pop(); // dismiss dialog
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -146,23 +165,61 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   }
 }
 
-// ── Uploading Dialog ─────────────────────────────────────────────────────────
+// ── Uploading Dialog with Progress ───────────────────────────────────────────
 
 class _UploadingDialog extends StatelessWidget {
-  const _UploadingDialog();
+  final ValueNotifier<double> progress;
+  final ValueNotifier<String> stage;
+
+  const _UploadingDialog({required this.progress, required this.stage});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     return Dialog(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-        child: Row(
+        padding: const EdgeInsets.all(24),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: cs.primary),
-            const SizedBox(width: 24),
-            Text('Uploading report...', style: Theme.of(context).textTheme.bodyLarge),
+            Icon(Icons.cloud_upload_rounded, size: 40, color: cs.primary),
+            const SizedBox(height: 16),
+            ValueListenableBuilder<double>(
+              valueListenable: progress,
+              builder: (_, value, __) => Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: value > 0 ? value : null,
+                      minHeight: 8,
+                      backgroundColor: cs.surfaceContainerHighest,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (value > 0)
+                    Text(
+                      '${(value * 100).toStringAsFixed(0)}%',
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: cs.primary,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder<String>(
+              valueListenable: stage,
+              builder: (_, text, __) => Text(
+                text,
+                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ],
         ),
       ),
