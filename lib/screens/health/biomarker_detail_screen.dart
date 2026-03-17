@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
@@ -40,6 +41,7 @@ class BiomarkerDetailScreen extends ConsumerWidget {
     final person = ref.watch(selectedPersonProvider);
     final historyAsync = ref.watch(biomarkerHistoryProvider(
         (code: biomarkerCode, person: person)));
+    final recsAsync = ref.watch(labRecommendationsProvider(person));
 
     return Scaffold(
       appBar: AppBar(
@@ -48,7 +50,12 @@ class BiomarkerDetailScreen extends ConsumerWidget {
       body: historyAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         error: (e, st) => FriendlyError(error: e),
-        data: (history) => _DetailBody(history: history),
+        data: (history) => _DetailBody(
+          history: history,
+          recommendations: recsAsync.valueOrNull
+              ?.where((r) => r.biomarkerCode == biomarkerCode)
+              .toList() ?? [],
+        ),
       ),
     );
   }
@@ -56,7 +63,8 @@ class BiomarkerDetailScreen extends ConsumerWidget {
 
 class _DetailBody extends StatelessWidget {
   final BiomarkerHistory history;
-  const _DetailBody({required this.history});
+  final List<BiomarkerRecommendation> recommendations;
+  const _DetailBody({required this.history, this.recommendations = const []});
 
   @override
   Widget build(BuildContext context) {
@@ -120,19 +128,33 @@ class _DetailBody extends StatelessWidget {
 
           if (latestTier != null) ...[
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: tierColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: tierColor.withValues(alpha: 0.25)),
-              ),
-              child: Text(_tierLabel(latestTier),
-                  style: TextStyle(
-                      color: tierColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1)),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: tierColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: tierColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Text(_tierLabel(latestTier),
+                      style: TextStyle(
+                          color: tierColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1)),
+                ),
+                // Trend badge
+                if (history.trendDirection != null &&
+                    history.trendDirection != 'new') ...[
+                  const SizedBox(width: 8),
+                  _TrendBadge(
+                    direction: history.trendDirection!,
+                    velocity: history.trendVelocity,
+                    isImproving: history.isImproving,
+                  ),
+                ],
+              ],
             ),
           ],
 
@@ -143,6 +165,14 @@ class _DetailBody extends StatelessWidget {
                     color: cs.onSurfaceVariant,
                     fontSize: 14,
                     height: 1.5)),
+          ],
+
+          // ── Trend Summary Card ─────────────────────────────
+          if (history.trendDirection != null &&
+              history.trendDirection != 'new' &&
+              history.dataPoints.length >= 2) ...[
+            const SizedBox(height: 20),
+            _TrendSummaryCard(history: history),
           ],
 
           // ── Population Comparison ──────────────────────────
@@ -164,7 +194,6 @@ class _DetailBody extends StatelessWidget {
             const SizedBox(height: 24),
             _SectionTitle('INSIGHTS'),
             const SizedBox(height: 12),
-            // Status summary
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -199,7 +228,6 @@ class _DetailBody extends StatelessWidget {
                 ],
               ),
             ),
-            // What it means
             const SizedBox(height: 12),
             Card(
               margin: EdgeInsets.zero,
@@ -223,7 +251,6 @@ class _DetailBody extends StatelessWidget {
                 ),
               ),
             ),
-            // Action points
             if (history.insights!.actionPoints.isNotEmpty) ...[
               const SizedBox(height: 12),
               Card(
@@ -290,8 +317,6 @@ class _DetailBody extends StatelessWidget {
               currentValue: latestValue,
               unit: history.unit,
             ),
-
-            // Evidence grade
             if (history.ranges!.evidenceGrade == 'midrange') ...[
               const SizedBox(height: 12),
               Card(
@@ -330,6 +355,31 @@ class _DetailBody extends StatelessWidget {
           ],
 
           const SizedBox(height: 24),
+
+          // ── Nutrient Connections ──────────────────────────
+          if (history.nutrientConnections.isNotEmpty) ...[
+            _SectionTitle('NUTRIENT CONNECTIONS'),
+            const SizedBox(height: 12),
+            _NutrientConnectionsCard(connections: history.nutrientConnections),
+            const SizedBox(height: 24),
+          ],
+
+          // ── Related Biomarkers ─────────────────────────────
+          if (history.relatedBiomarkers.isNotEmpty) ...[
+            _SectionTitle('RELATED BIOMARKERS'),
+            const SizedBox(height: 12),
+            _RelatedBiomarkersCard(related: history.relatedBiomarkers),
+            const SizedBox(height: 24),
+          ],
+
+          // ── Recommendations ─────────────────────────────────
+          if (recommendations.isNotEmpty) ...[
+            _SectionTitle('RECOMMENDATIONS'),
+            const SizedBox(height: 12),
+            for (final rec in recommendations)
+              _RecommendationCard(rec: rec),
+            const SizedBox(height: 24),
+          ],
 
           // ── History Chart ────────────────────────────────
           if (history.dataPoints.length >= 2) ...[
@@ -420,6 +470,435 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
+// ── Trend Badge ─────────────────────────────────────────────────────────────
+
+class _TrendBadge extends StatelessWidget {
+  final String direction;
+  final double? velocity;
+  final bool? isImproving;
+  const _TrendBadge({required this.direction, this.velocity, this.isImproving});
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final Color color;
+    final String label;
+
+    switch (direction) {
+      case 'rising':
+        icon = Icons.trending_up_rounded;
+        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        label = isImproving == true ? 'Improving' : 'Rising';
+        break;
+      case 'falling':
+        icon = Icons.trending_down_rounded;
+        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        label = isImproving == true ? 'Improving' : 'Declining';
+        break;
+      case 'stable':
+        icon = Icons.trending_flat_rounded;
+        color = _kSufficientColor;
+        label = 'Stable';
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Trend Summary Card ──────────────────────────────────────────────────────
+
+class _TrendSummaryCard extends StatelessWidget {
+  final BiomarkerHistory history;
+  const _TrendSummaryCard({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = history.isImproving == true
+        ? _kOptimalColor
+        : history.isImproving == false
+            ? _kCriticalColor
+            : _kSufficientColor;
+
+    final dirLabel = switch (history.direction) {
+      'lower_better' => 'Lower is better',
+      'higher_better' => 'Higher is better',
+      _ => 'Balance matters',
+    };
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.show_chart_rounded, color: color, size: 20),
+                const SizedBox(width: 8),
+                Text('Trend Analysis',
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _TrendInfoChip(
+                  label: 'Direction',
+                  value: history.trendDirection ?? 'stable',
+                  color: color,
+                ),
+                const SizedBox(width: 8),
+                if (history.responsiveness != null)
+                  _TrendInfoChip(
+                    label: 'Response',
+                    value: history.responsiveness!,
+                    color: cs.primary,
+                  ),
+                const SizedBox(width: 8),
+                _TrendInfoChip(
+                  label: 'Type',
+                  value: dirLabel,
+                  color: cs.onSurfaceVariant,
+                ),
+              ],
+            ),
+            if (history.trendVelocity != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Rate of change: ${history.trendVelocity!.toStringAsFixed(1)}% per report',
+                style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 12,
+                    height: 1.4),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrendInfoChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _TrendInfoChip({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text(label,
+                style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(value,
+                style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Nutrient Connections Card ───────────────────────────────────────────────
+
+class _NutrientConnectionsCard extends StatelessWidget {
+  final List<NutrientConnection> connections;
+  const _NutrientConnectionsCard({required this.connections});
+
+  IconData _relationshipIcon(String rel) => switch (rel) {
+        'increases' => Icons.arrow_upward_rounded,
+        'decreases' => Icons.arrow_downward_rounded,
+        'supports' => Icons.favorite_rounded,
+        _ => Icons.link_rounded,
+      };
+
+  Color _strengthColor(String strength) => switch (strength) {
+        'strong' => _kOptimalColor,
+        'moderate' => _kSufficientColor,
+        'weak' => _kUnknownColor,
+        _ => _kUnknownColor,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.eco_rounded, color: _kOptimalColor, size: 18),
+                const SizedBox(width: 8),
+                Text('Nutrients that affect this biomarker',
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            for (final conn in connections)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(_relationshipIcon(conn.relationship),
+                        color: _strengthColor(conn.strength), size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(conn.nutrientName ?? conn.nutrientTagname,
+                              style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
+                          Text('${conn.relationship} | ${conn.strength} evidence',
+                              style: TextStyle(
+                                  color: cs.onSurfaceVariant, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _strengthColor(conn.strength).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(conn.strength.toUpperCase(),
+                          style: TextStyle(
+                              color: _strengthColor(conn.strength),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Related Biomarkers Card ──────────────────────────────────────────────────
+
+class _RelatedBiomarkersCard extends StatelessWidget {
+  final List<RelatedBiomarker> related;
+  const _RelatedBiomarkersCard({required this.related});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: related.map((r) => GestureDetector(
+        onTap: () => context.push('/health/labs/biomarker/${r.code}'),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.biotech_rounded, color: cs.primary, size: 16),
+              const SizedBox(width: 6),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.name,
+                      style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                  if (r.healthPillar != null)
+                    Text(r.healthPillar!,
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant, fontSize: 10)),
+                ],
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 16),
+            ],
+          ),
+        ),
+      )).toList(),
+    );
+  }
+}
+
+// ── Recommendation Card ─────────────────────────────────────────────────────
+
+class _RecommendationCard extends StatelessWidget {
+  final BiomarkerRecommendation rec;
+  const _RecommendationCard({required this.rec});
+
+  IconData _categoryIcon(String category) => switch (category) {
+        'diet' => Icons.restaurant_rounded,
+        'supplement' => Icons.medication_rounded,
+        'lifestyle' => Icons.self_improvement_rounded,
+        'exercise' => Icons.fitness_center_rounded,
+        'medical' => Icons.local_hospital_rounded,
+        _ => Icons.lightbulb_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(_categoryIcon(rec.category),
+                      color: cs.primary, size: 16),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(rec.title,
+                      style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700)),
+                ),
+                if (rec.impactScore != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _kOptimalColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('${(rec.impactScore! * 10).round()}/10',
+                        style: const TextStyle(
+                            color: _kOptimalColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700)),
+                  ),
+              ],
+            ),
+            if (rec.description != null) ...[
+              const SizedBox(height: 8),
+              Text(rec.description!,
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 13,
+                      height: 1.4)),
+            ],
+            if (rec.mechanism != null) ...[
+              const SizedBox(height: 6),
+              Text('How: ${rec.mechanism}',
+                  style: TextStyle(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      height: 1.3)),
+            ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(rec.category.toUpperCase(),
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5)),
+                ),
+                if (rec.evidenceGrade != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(rec.evidenceGrade!,
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Section Title ────────────────────────────────────────────────────────────
 
 class _SectionTitle extends StatelessWidget {
@@ -482,7 +961,6 @@ class _PopulationComparison extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Visual bar comparison
             _ComparisonBar(
               yourValue: yourValue,
               populationAvg: populationAvg,
@@ -490,10 +968,8 @@ class _PopulationComparison extends StatelessWidget {
               tierColor: tierColor,
             ),
             const SizedBox(height: 16),
-            // Stats row
             Row(
               children: [
-                // Your value
                 Expanded(
                   child: Column(
                     children: [
@@ -514,13 +990,11 @@ class _PopulationComparison extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Divider
                 Container(
                   width: 1,
                   height: 50,
                   color: cs.outlineVariant.withValues(alpha: 0.3),
                 ),
-                // Population average
                 Expanded(
                   child: Column(
                     children: [
@@ -541,7 +1015,6 @@ class _PopulationComparison extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Difference
                 Expanded(
                   child: Column(
                     children: [
@@ -612,7 +1085,6 @@ class _ComparisonBar extends StatelessWidget {
       child: LayoutBuilder(builder: (context, constraints) {
         final barWidth = constraints.maxWidth;
 
-        // Determine range for positioning
         double low = ranges?.standardLow ?? (populationAvg * 0.5);
         double high = ranges?.standardHigh ?? (populationAvg * 1.5);
         final range = high - low;
@@ -624,7 +1096,6 @@ class _ComparisonBar extends StatelessWidget {
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            // Gradient range bar
             Positioned(
               left: 0,
               right: 0,
@@ -637,7 +1108,6 @@ class _ComparisonBar extends StatelessWidget {
                 ),
               ),
             ),
-            // Population average marker (triangle)
             Positioned(
               left: avgPos * barWidth - 6,
               top: 26,
@@ -653,7 +1123,6 @@ class _ComparisonBar extends StatelessWidget {
                 ],
               ),
             ),
-            // Your value marker (circle)
             Positioned(
               left: yourPos * barWidth - 7,
               top: 9,
@@ -719,7 +1188,6 @@ class _LargeRangeBar extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Gradient range bar with marker
             SizedBox(
               height: 28,
               child: LayoutBuilder(builder: (context, constraints) {
@@ -745,7 +1213,6 @@ class _LargeRangeBar extends StatelessWidget {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Gradient bar
                     Positioned(
                       left: 0,
                       right: 0,
@@ -758,7 +1225,6 @@ class _LargeRangeBar extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Marker dot
                     if (currentValue != null)
                       Positioned(
                         left: markerX - 7,
@@ -786,7 +1252,6 @@ class _LargeRangeBar extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Range rows
             _RangeRow('Optimal', ranges.optimalLow, ranges.optimalHigh,
                 unit, _kOptimalColor),
             _RangeRow('Sufficient', ranges.sufficientLow,
@@ -926,7 +1391,6 @@ class _HistoryChart extends StatelessWidget {
     double minY = values.reduce((a, b) => a < b ? a : b) * 0.85;
     double maxY = values.reduce((a, b) => a > b ? a : b) * 1.15;
 
-    // Include population avg in range if present
     if (populationAvg != null) {
       if (populationAvg! < minY) minY = populationAvg! * 0.85;
       if (populationAvg! > maxY) maxY = populationAvg! * 1.15;
@@ -943,7 +1407,6 @@ class _HistoryChart extends StatelessWidget {
       }
     }
 
-    // Population average line
     final extraLines = <HorizontalLine>[];
     if (populationAvg != null) {
       extraLines.add(HorizontalLine(

@@ -140,7 +140,6 @@ class _LabsMenuButton extends ConsumerWidget {
       messenger.showSnackBar(
         SnackBar(content: Text('Done! Fixed $fixed of $total results.')),
       );
-      // Refresh dashboard
       final person = ref.read(selectedPersonProvider);
       ref.invalidate(labDashboardProvider(person));
       ref.invalidate(labReportsProvider(person));
@@ -190,19 +189,64 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   Widget build(BuildContext context) {
     final person = ref.watch(selectedPersonProvider);
     final reportsAsync = ref.watch(labReportsProvider(person));
+    final insightsAsync = ref.watch(labInsightsProvider(person));
+    final recsAsync = ref.watch(labRecommendationsProvider(person));
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
         _buildSliverAppBar(context),
 
-        // Score ring + summary
+        // Panic alerts (emergency / see_doctor)
+        if (widget.dash.panicValues.isNotEmpty)
+          SliverToBoxAdapter(child: _PanicBanner(alerts: widget.dash.panicValues)),
+
+        // Health score + summary
         SliverToBoxAdapter(child: _ScoreSection(dash: widget.dash)),
 
         // Tier breakdown bar
         SliverToBoxAdapter(child: _TierBreakdownBar(dash: widget.dash)),
 
+        // Attention Needed section
+        if (widget.dash.attentionNeeded.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          SliverToBoxAdapter(child: _SectionHeader('ATTENTION NEEDED')),
+          SliverToBoxAdapter(
+            child: _HorizontalResultCards(
+              results: widget.dash.attentionNeeded,
+              accentColor: _kCriticalColor,
+              icon: Icons.warning_amber_rounded,
+            ),
+          ),
+        ],
+
+        // Improvements section
+        if (widget.dash.improvements.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(child: _SectionHeader('IMPROVING')),
+          SliverToBoxAdapter(
+            child: _HorizontalResultCards(
+              results: widget.dash.improvements,
+              accentColor: _kOptimalColor,
+              icon: Icons.trending_up_rounded,
+            ),
+          ),
+        ],
+
         const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+        // Insights (cross-biomarker correlations)
+        SliverToBoxAdapter(
+          child: insightsAsync.when(
+            loading: () => const SizedBox(),
+            error: (_, __) => const SizedBox(),
+            data: (insights) {
+              final active = insights.where((i) => !i.isDismissed).toList();
+              if (active.isEmpty) return const SizedBox();
+              return _InsightsSection(insights: active);
+            },
+          ),
+        ),
 
         // Health pillar cards
         SliverToBoxAdapter(child: _SectionHeader('HEALTH PILLARS')),
@@ -219,6 +263,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
                 return _PillarCard(
                   pillar: pillar,
                   summary: summary,
+                  score: widget.dash.pillarScores?[pillar],
                   onTap: () => _scrollToPillar(pillar),
                 );
               },
@@ -248,6 +293,18 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
 
+        // Recommendations
+        SliverToBoxAdapter(
+          child: recsAsync.when(
+            loading: () => const SizedBox(),
+            error: (_, __) => const SizedBox(),
+            data: (recs) {
+              if (recs.isEmpty) return const SizedBox();
+              return _RecommendationsSection(recommendations: recs);
+            },
+          ),
+        ),
+
         // Recent reports
         SliverToBoxAdapter(child: _SectionHeader('RECENT REPORTS')),
         SliverToBoxAdapter(
@@ -267,6 +324,127 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
 
         const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ],
+    );
+  }
+}
+
+// ── Panic Alert Banner ──────────────────────────────────────────────────────
+
+class _PanicBanner extends StatelessWidget {
+  final List<PanicAlert> alerts;
+  const _PanicBanner({required this.alerts});
+
+  @override
+  Widget build(BuildContext context) {
+    final emergencies = alerts.where((a) => a.severity == 'emergency').toList();
+    final seeDoctor = alerts.where((a) => a.severity == 'see_doctor').toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        children: [
+          for (final alert in emergencies)
+            _AlertCard(
+              alert: alert,
+              bgColor: const Color(0xFFFEE2E2),
+              borderColor: _kCriticalColor,
+              icon: Icons.emergency_rounded,
+              iconColor: _kCriticalColor,
+              label: 'EMERGENCY',
+            ),
+          for (final alert in seeDoctor)
+            _AlertCard(
+              alert: alert,
+              bgColor: const Color(0xFFFEF3C7),
+              borderColor: _kSuboptimalColor,
+              icon: Icons.local_hospital_rounded,
+              iconColor: _kSuboptimalColor,
+              label: 'SEE DOCTOR',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlertCard extends StatelessWidget {
+  final PanicAlert alert;
+  final Color bgColor;
+  final Color borderColor;
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+
+  const _AlertCard({
+    required this.alert,
+    required this.bgColor,
+    required this.borderColor,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor.withValues(alpha: 0.4), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: iconColor.withValues(alpha: 0.15),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: iconColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(label,
+                          style: TextStyle(
+                              color: iconColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('${alert.name} (${alert.code})',
+                        style: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(alert.message,
+                    style: TextStyle(
+                        color: cs.onSurface.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        height: 1.3)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -305,6 +483,391 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+// ── Horizontal Result Cards (Attention / Improvements) ──────────────────────
+
+class _HorizontalResultCards extends StatelessWidget {
+  final List<LabResult> results;
+  final Color accentColor;
+  final IconData icon;
+  const _HorizontalResultCards({
+    required this.results,
+    required this.accentColor,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 90,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: results.length,
+        itemBuilder: (context, i) {
+          final r = results[i];
+          final tierColor = _tierColor(r.tier);
+          return GestureDetector(
+            onTap: () {
+              final code = r.biomarkerCode ?? '';
+              if (code.isNotEmpty) context.push('/health/labs/biomarker/$code');
+            },
+            child: Container(
+              width: 160,
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: accentColor.withValues(alpha: 0.25)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, color: accentColor, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(r.biomarkerName ?? r.biomarkerCode ?? '',
+                            style: TextStyle(
+                                color: cs.onSurface,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_formatValue(r.value),
+                          style: TextStyle(
+                              color: tierColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(width: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(r.unit ?? '',
+                            style: TextStyle(
+                                color: cs.onSurfaceVariant, fontSize: 10)),
+                      ),
+                      const Spacer(),
+                      if (r.trendDirection != null && r.trendDirection != 'new')
+                        _TrendArrow(
+                          direction: r.trendDirection!,
+                          isImproving: r.isImproving,
+                          size: 18,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Trend Arrow Widget ──────────────────────────────────────────────────────
+
+class _TrendArrow extends StatelessWidget {
+  final String direction; // rising, falling, stable, new
+  final bool? isImproving;
+  final double size;
+  const _TrendArrow({required this.direction, this.isImproving, this.size = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final Color color;
+
+    switch (direction) {
+      case 'rising':
+        icon = Icons.trending_up_rounded;
+        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        break;
+      case 'falling':
+        icon = Icons.trending_down_rounded;
+        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        break;
+      case 'stable':
+        icon = Icons.trending_flat_rounded;
+        color = _kSufficientColor;
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Icon(icon, color: color, size: size);
+  }
+}
+
+// ── Insights Section ────────────────────────────────────────────────────────
+
+class _InsightsSection extends ConsumerWidget {
+  final List<BiomarkerInsightModel> insights;
+  const _InsightsSection({required this.insights});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader('INSIGHTS'),
+          for (final insight in insights)
+            _InsightCard(insight: insight, ref: ref),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightCard extends StatelessWidget {
+  final BiomarkerInsightModel insight;
+  final WidgetRef ref;
+  const _InsightCard({required this.insight, required this.ref});
+
+  Color _severityColor() => switch (insight.severity) {
+        'critical' => _kCriticalColor,
+        'warning' => _kSuboptimalColor,
+        'info' => _kSufficientColor,
+        _ => _kUnknownColor,
+      };
+
+  IconData _severityIcon() => switch (insight.severity) {
+        'critical' => Icons.error_rounded,
+        'warning' => Icons.warning_amber_rounded,
+        'info' => Icons.lightbulb_rounded,
+        _ => Icons.info_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = _severityColor();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_severityIcon(), color: color, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(insight.title,
+                    style: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ),
+              if (insight.evidenceGrade != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(insight.evidenceGrade!.toUpperCase(),
+                      style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5)),
+                ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () async {
+                  await dismissInsight(insight.id);
+                  final person = ref.read(selectedPersonProvider);
+                  ref.invalidate(labInsightsProvider(person));
+                },
+                child: Icon(Icons.close_rounded,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(insight.body,
+              style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 13,
+                  height: 1.4)),
+          if (insight.biomarkerCodes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              children: insight.biomarkerCodes
+                  .map((code) => GestureDetector(
+                        onTap: () => context.push('/health/labs/biomarker/$code'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: cs.primaryContainer.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(code,
+                              style: TextStyle(
+                                  color: cs.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Recommendations Section ──────────────────────────────────────────────────
+
+class _RecommendationsSection extends StatelessWidget {
+  final List<BiomarkerRecommendation> recommendations;
+  const _RecommendationsSection({required this.recommendations});
+
+  IconData _categoryIcon(String category) => switch (category) {
+        'diet' => Icons.restaurant_rounded,
+        'supplement' => Icons.medication_rounded,
+        'lifestyle' => Icons.self_improvement_rounded,
+        'exercise' => Icons.fitness_center_rounded,
+        'medical' => Icons.local_hospital_rounded,
+        _ => Icons.lightbulb_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeader('RECOMMENDATIONS'),
+          for (final rec in recommendations.take(6))
+            Container(
+              margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(_categoryIcon(rec.category),
+                        color: cs.primary, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(rec.title,
+                                  style: TextStyle(
+                                      color: cs.onSurface,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                            if (rec.impactScore != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _kOptimalColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                    'Impact ${(rec.impactScore! * 10).round()}/10',
+                                    style: const TextStyle(
+                                        color: _kOptimalColor,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700)),
+                              ),
+                          ],
+                        ),
+                        if (rec.description != null) ...[
+                          const SizedBox(height: 4),
+                          Text(rec.description!,
+                              style: TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontSize: 12,
+                                  height: 1.4),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: cs.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(rec.category.toUpperCase(),
+                                  style: TextStyle(
+                                      color: cs.onSurfaceVariant,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5)),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(rec.biomarkerCode,
+                                style: TextStyle(
+                                    color: cs.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600)),
+                            if (rec.evidenceGrade != null) ...[
+                              const SizedBox(width: 6),
+                              Text(rec.evidenceGrade!,
+                                  style: TextStyle(
+                                      color: cs.onSurfaceVariant,
+                                      fontSize: 10)),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Reports Section ──────────────────────────────────────────────────────────
 
 class _ReportsSection extends ConsumerWidget {
@@ -313,8 +876,8 @@ class _ReportsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     if (reports.isEmpty) {
+      final cs = Theme.of(context).colorScheme;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         child: Card(
@@ -344,7 +907,6 @@ class _ReportTile extends StatelessWidget {
   const _ReportTile({required this.report, required this.ref});
 
   Future<bool> _confirmDelete(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -493,6 +1055,7 @@ class _ScoreSection extends StatelessWidget {
     final total = dash.totalBiomarkers;
     final optimalPercent = total > 0 ? dash.optimalCount / total : 0.0;
     final cs = Theme.of(context).colorScheme;
+    final hasScore = dash.healthScore != null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -514,16 +1077,29 @@ class _ScoreSection extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('${(optimalPercent * 100).round()}%',
-                        style: TextStyle(
-                            color: cs.onSurface,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800)),
-                    Text('Optimal',
-                        style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500)),
+                    if (hasScore) ...[
+                      Text('${dash.healthScore!.round()}',
+                          style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800)),
+                      Text('Health',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500)),
+                    ] else ...[
+                      Text('${(optimalPercent * 100).round()}%',
+                          style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800)),
+                      Text('Optimal',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                    ],
                   ],
                 ),
               ),
@@ -541,16 +1117,57 @@ class _ScoreSection extends StatelessWidget {
                         fontSize: 16,
                         fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                if (dash.latestReportDate != null)
-                  Text('Latest: ${dash.latestReportDate}',
+                if (hasScore)
+                  Text('${(optimalPercent * 100).round()}% in optimal range',
                       style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          fontSize: 12)),
+                          color: _kOptimalColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                if (dash.previousOptimalPercent != null) ...[
+                  const SizedBox(height: 2),
+                  _OptimalTrendChip(
+                    current: optimalPercent,
+                    previous: dash.previousOptimalPercent!,
+                  ),
+                ],
+                if (dash.latestReportDate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('Latest: ${dash.latestReportDate}',
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 12)),
+                  ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OptimalTrendChip extends StatelessWidget {
+  final double current;
+  final double previous;
+  const _OptimalTrendChip({required this.current, required this.previous});
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = current - previous;
+    if (diff.abs() < 0.001) return const SizedBox.shrink();
+
+    final isUp = diff > 0;
+    final color = isUp ? _kOptimalColor : _kCriticalColor;
+    final icon = isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        Text('${(diff.abs() * 100).round()}% vs previous',
+            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }
@@ -578,7 +1195,6 @@ class _TierBreakdownBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Column(
         children: [
-          // Stacked bar
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: SizedBox(
@@ -596,7 +1212,6 @@ class _TierBreakdownBar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          // Legend chips
           Wrap(
             spacing: 12,
             runSpacing: 4,
@@ -635,8 +1250,14 @@ class _TierBreakdownBar extends StatelessWidget {
 class _PillarCard extends StatelessWidget {
   final String pillar;
   final PillarSummary summary;
+  final double? score;
   final VoidCallback onTap;
-  const _PillarCard({required this.pillar, required this.summary, required this.onTap});
+  const _PillarCard({
+    required this.pillar,
+    required this.summary,
+    this.score,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -657,14 +1278,26 @@ class _PillarCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: tierColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(_pillarIcon(pillar), color: tierColor, size: 20),
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: tierColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(_pillarIcon(pillar), color: tierColor, size: 18),
+                ),
+                if (score != null) ...[
+                  const Spacer(),
+                  Text('${score!.round()}',
+                      style: TextStyle(
+                          color: tierColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800)),
+                ],
+              ],
             ),
             const Spacer(),
             Text(pillar,
@@ -761,6 +1394,13 @@ class _BiomarkerCard extends StatelessWidget {
     final tierColor = _tierColor(result.tier);
     final code = result.biomarkerCode ?? '';
 
+    // Urgency border for critical/suboptimal
+    final borderColor = result.tier == 'critical'
+        ? _kCriticalColor.withValues(alpha: 0.4)
+        : result.tier == 'suboptimal'
+            ? _kSuboptimalColor.withValues(alpha: 0.3)
+            : cs.outlineVariant.withValues(alpha: 0.2);
+
     return GestureDetector(
       onTap: () {
         if (code.isNotEmpty) {
@@ -773,7 +1413,7 @@ class _BiomarkerCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surfaceContainerLow,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.2)),
+          border: Border.all(color: borderColor, width: result.tier == 'critical' ? 1.5 : 1),
         ),
         child: Column(
           children: [
@@ -789,7 +1429,7 @@ class _BiomarkerCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Name
+                // Name + tier + trend
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,16 +1440,29 @@ class _BiomarkerCard extends StatelessWidget {
                               fontSize: 14,
                               fontWeight: FontWeight.w600)),
                       const SizedBox(height: 1),
-                      Text(_tierLabel(result.tier),
-                          style: TextStyle(
-                              color: tierColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5)),
+                      Row(
+                        children: [
+                          Text(_tierLabel(result.tier),
+                              style: TextStyle(
+                                  color: tierColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5)),
+                          if (result.trendDirection != null &&
+                              result.trendDirection != 'new') ...[
+                            const SizedBox(width: 6),
+                            _TrendArrow(
+                              direction: result.trendDirection!,
+                              isImproving: result.isImproving,
+                              size: 14,
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                // Value + unit (original from report)
+                // Value + unit + previous
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -823,6 +1476,13 @@ class _BiomarkerCard extends StatelessWidget {
                             color: cs.onSurfaceVariant,
                             fontSize: 10,
                             fontWeight: FontWeight.w500)),
+                    // Previous value comparison
+                    if (result.previousValue != null)
+                      _PreviousValueChip(
+                        current: result.value,
+                        previous: result.previousValue!,
+                        isImproving: result.isImproving,
+                      ),
                   ],
                 ),
                 const SizedBox(width: 6),
@@ -838,12 +1498,47 @@ class _BiomarkerCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  String _formatValue(double value) {
-    if (value == value.roundToDouble()) return value.toInt().toString();
-    if (value < 10) return value.toStringAsFixed(2);
-    if (value < 100) return value.toStringAsFixed(1);
-    return value.toInt().toString();
+class _PreviousValueChip extends StatelessWidget {
+  final double current;
+  final double previous;
+  final bool? isImproving;
+  const _PreviousValueChip({
+    required this.current,
+    required this.previous,
+    this.isImproving,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = current - previous;
+    if (diff.abs() < 0.001) return const SizedBox.shrink();
+
+    final isUp = diff > 0;
+    final color = isImproving == true
+        ? _kOptimalColor
+        : isImproving == false
+            ? _kCriticalColor
+            : _kUnknownColor;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+            color: color,
+            size: 10,
+          ),
+          Text(
+            _formatValue(diff.abs()),
+            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -878,7 +1573,6 @@ class _WhoopRangeBar extends StatelessWidget {
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            // Gradient bar
             Positioned(
               left: 0,
               right: 0,
@@ -891,7 +1585,6 @@ class _WhoopRangeBar extends StatelessWidget {
                 ),
               ),
             ),
-            // Dot marker
             Positioned(
               left: markerX - 5,
               top: 1,
@@ -971,7 +1664,6 @@ class _ScoreRingPainter extends CustomPainter {
     const startAngle = -math.pi / 2;
     const gap = 0.04;
 
-    // Background track
     canvas.drawCircle(
       center,
       radius,
@@ -1075,4 +1767,13 @@ class _LoadingShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(child: CircularProgressIndicator(strokeWidth: 2));
   }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+String _formatValue(double value) {
+  if (value == value.roundToDouble()) return value.toInt().toString();
+  if (value < 10) return value.toStringAsFixed(2);
+  if (value < 100) return value.toStringAsFixed(1);
+  return value.toInt().toString();
 }

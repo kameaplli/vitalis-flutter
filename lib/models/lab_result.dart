@@ -1,4 +1,4 @@
-/// Blood Test Intelligence — Data models for lab reports, results, and dashboard.
+// Blood Test Intelligence — Data models for lab reports, results, and dashboard.
 
 class LabReport {
   final String id;
@@ -54,8 +54,14 @@ class LabResult {
   final double? normalizedValue;
   final double? referenceLow;
   final double? referenceHigh;
-  final String? tier; // optimal, sufficient, suboptimal, critical
+  final String? tier;
   final bool isFlagged;
+  // v2.0 fields
+  final double? previousValue;
+  final String? previousTier;
+  final String? trendDirection; // new, stable, rising, falling
+  final bool? isImproving;
+  final String? direction; // symmetric, lower_better, higher_better
 
   LabResult({
     required this.id,
@@ -71,6 +77,11 @@ class LabResult {
     this.referenceHigh,
     this.tier,
     this.isFlagged = false,
+    this.previousValue,
+    this.previousTier,
+    this.trendDirection,
+    this.isImproving,
+    this.direction,
   });
 
   factory LabResult.fromJson(Map<String, dynamic> json) => LabResult(
@@ -87,6 +98,11 @@ class LabResult {
         referenceHigh: (json['reference_high'] as num?)?.toDouble(),
         tier: json['tier'],
         isFlagged: json['is_flagged'] ?? false,
+        previousValue: (json['previous_value'] as num?)?.toDouble(),
+        previousTier: json['previous_tier'],
+        trendDirection: json['trend_direction'],
+        isImproving: json['is_improving'],
+        direction: json['direction'],
       );
 }
 
@@ -122,6 +138,14 @@ class BiomarkerHistory {
   final BiomarkerInsights? insights;
   final BiomarkerRange? ranges;
   final List<BiomarkerDataPoint> dataPoints;
+  // v2.0 fields
+  final String? direction;
+  final String? responsiveness;
+  final String? trendDirection;
+  final double? trendVelocity;
+  final bool? isImproving;
+  final List<RelatedBiomarker> relatedBiomarkers;
+  final List<NutrientConnection> nutrientConnections;
 
   BiomarkerHistory({
     required this.code,
@@ -135,6 +159,13 @@ class BiomarkerHistory {
     this.insights,
     this.ranges,
     this.dataPoints = const [],
+    this.direction,
+    this.responsiveness,
+    this.trendDirection,
+    this.trendVelocity,
+    this.isImproving,
+    this.relatedBiomarkers = const [],
+    this.nutrientConnections = const [],
   });
 
   factory BiomarkerHistory.fromJson(Map<String, dynamic> json) =>
@@ -160,6 +191,21 @@ class BiomarkerHistory {
                     BiomarkerDataPoint.fromJson(d as Map<String, dynamic>))
                 .toList() ??
             [],
+        direction: json['direction'],
+        responsiveness: json['responsiveness'],
+        trendDirection: json['trend_direction'],
+        trendVelocity: (json['trend_velocity'] as num?)?.toDouble(),
+        isImproving: json['is_improving'],
+        relatedBiomarkers: (json['related_biomarkers'] as List<dynamic>?)
+                ?.map((r) =>
+                    RelatedBiomarker.fromJson(r as Map<String, dynamic>))
+                .toList() ??
+            [],
+        nutrientConnections: (json['nutrient_connections'] as List<dynamic>?)
+                ?.map((n) =>
+                    NutrientConnection.fromJson(n as Map<String, dynamic>))
+                .toList() ??
+            [],
       );
 }
 
@@ -172,16 +218,11 @@ class BiomarkerRange {
   final String? source;
 
   BiomarkerRange({
-    this.optimalLow,
-    this.optimalHigh,
-    this.sufficientLow,
-    this.sufficientHigh,
-    this.standardLow,
-    this.standardHigh,
-    this.criticalLow,
-    this.criticalHigh,
-    this.evidenceGrade,
-    this.source,
+    this.optimalLow, this.optimalHigh,
+    this.sufficientLow, this.sufficientHigh,
+    this.standardLow, this.standardHigh,
+    this.criticalLow, this.criticalHigh,
+    this.evidenceGrade, this.source,
   });
 
   factory BiomarkerRange.fromJson(Map<String, dynamic> json) => BiomarkerRange(
@@ -229,6 +270,13 @@ class LabDashboard {
   final int criticalCount;
   final int totalBiomarkers;
   final String? latestReportDate;
+  // v2.0 fields
+  final List<PanicAlert> panicValues;
+  final List<LabResult> improvements;
+  final List<LabResult> attentionNeeded;
+  final double? healthScore;
+  final Map<String, double>? pillarScores;
+  final double? previousOptimalPercent;
 
   LabDashboard({
     required this.pillars,
@@ -239,12 +287,25 @@ class LabDashboard {
     this.criticalCount = 0,
     this.totalBiomarkers = 0,
     this.latestReportDate,
+    this.panicValues = const [],
+    this.improvements = const [],
+    this.attentionNeeded = const [],
+    this.healthScore,
+    this.pillarScores,
+    this.previousOptimalPercent,
   });
 
   factory LabDashboard.fromJson(Map<String, dynamic> json) {
     final pillarsJson = json['pillars'] as Map<String, dynamic>? ?? {};
     final pillars = pillarsJson.map((k, v) =>
         MapEntry(k, PillarSummary.fromJson(v as Map<String, dynamic>)));
+
+    // Parse pillar_scores
+    Map<String, double>? pillarScores;
+    if (json['pillar_scores'] is Map) {
+      pillarScores = (json['pillar_scores'] as Map<String, dynamic>)
+          .map((k, v) => MapEntry(k, (v as num).toDouble()));
+    }
 
     return LabDashboard(
       pillars: pillars,
@@ -258,12 +319,28 @@ class LabDashboard {
       criticalCount: json['critical_count'] ?? 0,
       totalBiomarkers: json['total_biomarkers'] ?? 0,
       latestReportDate: json['latest_report_date'],
+      panicValues: (json['panic_values'] as List<dynamic>?)
+              ?.map((p) => PanicAlert.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
+      improvements: (json['improvements'] as List<dynamic>?)
+              ?.map((r) => LabResult.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
+      attentionNeeded: (json['attention_needed'] as List<dynamic>?)
+              ?.map((r) => LabResult.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
+      healthScore: (json['health_score'] as num?)?.toDouble(),
+      pillarScores: pillarScores,
+      previousOptimalPercent:
+          (json['previous_optimal_percent'] as num?)?.toDouble(),
     );
   }
 }
 
 class PillarSummary {
-  final String status; // worst tier
+  final String status;
   final int biomarkerCount;
   final List<LabResult> results;
 
@@ -292,6 +369,9 @@ class BiomarkerDefinition {
   final String unit;
   final String? description;
   final int displayOrder;
+  final String? direction;
+  final String? responsiveness;
+  final String? panelName;
 
   BiomarkerDefinition({
     required this.id,
@@ -302,6 +382,9 @@ class BiomarkerDefinition {
     required this.unit,
     this.description,
     this.displayOrder = 0,
+    this.direction,
+    this.responsiveness,
+    this.panelName,
   });
 
   factory BiomarkerDefinition.fromJson(Map<String, dynamic> json) =>
@@ -314,6 +397,9 @@ class BiomarkerDefinition {
         unit: json['unit'] ?? '',
         description: json['description'],
         displayOrder: json['display_order'] ?? 0,
+        direction: json['direction'],
+        responsiveness: json['responsiveness'],
+        panelName: json['panel_name'],
       );
 }
 
@@ -356,4 +442,191 @@ class ParsedLabResult {
         'reference_high': referenceHigh,
         'is_flagged': isFlagged,
       };
+}
+
+// ── v2.0 New Models ─────────────────────────────────────────────────────────
+
+class PanicAlert {
+  final String code;
+  final String name;
+  final double value;
+  final String unit;
+  final String severity; // emergency, see_doctor
+  final String message;
+
+  PanicAlert({
+    required this.code,
+    required this.name,
+    required this.value,
+    required this.unit,
+    required this.severity,
+    required this.message,
+  });
+
+  factory PanicAlert.fromJson(Map<String, dynamic> json) => PanicAlert(
+        code: json['code'] ?? '',
+        name: json['name'] ?? '',
+        value: (json['value'] as num?)?.toDouble() ?? 0,
+        unit: json['unit'] ?? '',
+        severity: json['severity'] ?? 'see_doctor',
+        message: json['message'] ?? '',
+      );
+}
+
+class BiomarkerInsightModel {
+  final String id;
+  final String insightType;
+  final String severity;
+  final String title;
+  final String body;
+  final String? ruleId;
+  final List<String> biomarkerCodes;
+  final String? evidenceGrade;
+  final bool isDismissed;
+  final String? createdAt;
+
+  BiomarkerInsightModel({
+    required this.id,
+    required this.insightType,
+    required this.severity,
+    required this.title,
+    required this.body,
+    this.ruleId,
+    this.biomarkerCodes = const [],
+    this.evidenceGrade,
+    this.isDismissed = false,
+    this.createdAt,
+  });
+
+  factory BiomarkerInsightModel.fromJson(Map<String, dynamic> json) =>
+      BiomarkerInsightModel(
+        id: json['id'] ?? '',
+        insightType: json['insight_type'] ?? '',
+        severity: json['severity'] ?? 'info',
+        title: json['title'] ?? '',
+        body: json['body'] ?? '',
+        ruleId: json['rule_id'],
+        biomarkerCodes:
+            (json['biomarker_codes'] as List<dynamic>?)?.cast<String>() ?? [],
+        evidenceGrade: json['evidence_grade'],
+        isDismissed: json['is_dismissed'] ?? false,
+        createdAt: json['created_at'],
+      );
+}
+
+class HealthScoreSummary {
+  final String id;
+  final String? reportId;
+  final double? overallScore;
+  final Map<String, double> pillarScores;
+  final double? bioAgeEstimate;
+  final String? calculationVersion;
+  final String? createdAt;
+
+  HealthScoreSummary({
+    required this.id,
+    this.reportId,
+    this.overallScore,
+    this.pillarScores = const {},
+    this.bioAgeEstimate,
+    this.calculationVersion,
+    this.createdAt,
+  });
+
+  factory HealthScoreSummary.fromJson(Map<String, dynamic> json) =>
+      HealthScoreSummary(
+        id: json['id'] ?? '',
+        reportId: json['report_id'],
+        overallScore: (json['overall_score'] as num?)?.toDouble(),
+        pillarScores: (json['pillar_scores'] as Map<String, dynamic>?)
+                ?.map((k, v) => MapEntry(k, (v as num).toDouble())) ??
+            {},
+        bioAgeEstimate: (json['bio_age_estimate'] as num?)?.toDouble(),
+        calculationVersion: json['calculation_version'],
+        createdAt: json['created_at'],
+      );
+}
+
+class RelatedBiomarker {
+  final String code;
+  final String name;
+  final String? healthPillar;
+
+  RelatedBiomarker({
+    required this.code,
+    required this.name,
+    this.healthPillar,
+  });
+
+  factory RelatedBiomarker.fromJson(Map<String, dynamic> json) =>
+      RelatedBiomarker(
+        code: json['code'] ?? '',
+        name: json['name'] ?? '',
+        healthPillar: json['health_pillar'],
+      );
+}
+
+class NutrientConnection {
+  final String biomarkerCode;
+  final String nutrientTagname;
+  final String? nutrientName;
+  final String relationship;
+  final String strength;
+  final String? relevantWhen;
+
+  NutrientConnection({
+    required this.biomarkerCode,
+    required this.nutrientTagname,
+    this.nutrientName,
+    required this.relationship,
+    required this.strength,
+    this.relevantWhen,
+  });
+
+  factory NutrientConnection.fromJson(Map<String, dynamic> json) =>
+      NutrientConnection(
+        biomarkerCode: json['biomarker_code'] ?? '',
+        nutrientTagname: json['nutrient_tagname'] ?? '',
+        nutrientName: json['nutrient_name'],
+        relationship: json['relationship'] ?? '',
+        strength: json['strength'] ?? '',
+        relevantWhen: json['relevant_when'],
+      );
+}
+
+class BiomarkerRecommendation {
+  final String id;
+  final String biomarkerCode;
+  final String direction;
+  final String category;
+  final String title;
+  final String? description;
+  final String? mechanism;
+  final String? evidenceGrade;
+  final double? impactScore;
+
+  BiomarkerRecommendation({
+    required this.id,
+    required this.biomarkerCode,
+    required this.direction,
+    required this.category,
+    required this.title,
+    this.description,
+    this.mechanism,
+    this.evidenceGrade,
+    this.impactScore,
+  });
+
+  factory BiomarkerRecommendation.fromJson(Map<String, dynamic> json) =>
+      BiomarkerRecommendation(
+        id: json['id'] ?? '',
+        biomarkerCode: json['biomarker_code'] ?? '',
+        direction: json['direction'] ?? '',
+        category: json['category'] ?? '',
+        title: json['title'] ?? '',
+        description: json['description'],
+        mechanism: json['mechanism'],
+        evidenceGrade: json['evidence_grade'],
+        impactScore: (json['impact_score'] as num?)?.toDouble(),
+      );
 }
