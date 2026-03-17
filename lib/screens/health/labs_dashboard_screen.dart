@@ -85,7 +85,7 @@ SliverAppBar _buildSliverAppBar(BuildContext context, {List<Widget>? actions}) {
     actions: actions ??
         [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 4),
             child: FilledButton.icon(
               onPressed: () => context.push('/health/labs/upload'),
               icon: const Icon(Icons.add_rounded, size: 18),
@@ -96,8 +96,61 @@ SliverAppBar _buildSliverAppBar(BuildContext context, {List<Widget>? actions}) {
               ),
             ),
           ),
+          const _LabsMenuButton(),
         ],
   );
+}
+
+class _LabsMenuButton extends ConsumerWidget {
+  const _LabsMenuButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (value) async {
+        if (value == 'reprocess') {
+          _reprocessData(context, ref);
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'reprocess',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.refresh_rounded),
+            title: Text('Fix & Reprocess Data'),
+            subtitle: Text('Re-classify all biomarkers', style: TextStyle(fontSize: 11)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _reprocessData(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Reprocessing biomarker data...')),
+    );
+    try {
+      final result = await reprocessLabResults();
+      final fixed = result['fixed_results'] ?? 0;
+      final total = result['total_results'] ?? 0;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Done! Fixed $fixed of $total results.')),
+      );
+      // Refresh dashboard
+      final person = ref.read(selectedPersonProvider);
+      ref.invalidate(labDashboardProvider(person));
+      ref.invalidate(labReportsProvider(person));
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Reprocess failed: $e')),
+      );
+    }
+  }
 }
 
 // ── Dashboard Body ───────────────────────────────────────────────────────────

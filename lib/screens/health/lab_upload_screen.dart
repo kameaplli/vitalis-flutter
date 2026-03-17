@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
@@ -42,9 +43,6 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
 
   @override
   Widget build(BuildContext context) {
-    final uploadState = ref.watch(labUploadProvider);
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Lab Results'),
@@ -59,17 +57,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // ── Upload Tab ──────────────────────────────────────────
-          _UploadTab(
-            uploadState: uploadState,
-            dateController: _dateController,
-            notesController: _notesController,
-            onPickFile: _pickFile,
-            onConfirm: _confirmResults,
-            onReset: () => ref.read(labUploadProvider.notifier).reset(),
-          ),
-
-          // ── Manual Entry Tab ────────────────────────────────────
+          _UploadTab(onPickFile: _pickAndUpload),
           _ManualEntryTab(
             dateController: _dateController,
             notesController: _notesController,
@@ -79,7 +67,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     );
   }
 
-  Future<void> _pickFile() async {
+  Future<void> _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'bmp', 'webp'],
@@ -87,267 +75,319 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     if (result == null || result.files.isEmpty) return;
 
     final file = File(result.files.single.path!);
-    ref.read(labUploadProvider.notifier).uploadFile(file);
+    final person = ref.read(selectedPersonProvider);
+
+    if (!mounted) return;
+
+    // Show uploading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _UploadingDialog(),
+    );
+
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split(Platform.pathSeparator).last,
+        ),
+        if (person != 'self') 'family_member_id': person,
+      });
+
+      await apiClient.dio.post(
+        ApiConstants.labUpload,
+        data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 180),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // dismiss uploading dialog
+
+      // Show success screen
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const _SuccessScreen()),
+      );
+
+      // On return from success, go back to dashboard and refresh
+      if (mounted) {
+        ref.invalidate(labDashboardProvider(person));
+        ref.invalidate(labReportsProvider(person));
+        context.pop();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // dismiss uploading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload failed: ${_friendlyError(e)}'),
+          action: SnackBarAction(label: 'Retry', onPressed: _pickAndUpload),
+        ),
+      );
+    }
   }
 
-  Future<void> _confirmResults() async {
-    final person = ref.read(selectedPersonProvider);
-    final success = await ref.read(labUploadProvider.notifier).confirmResults(
-          testDate: _dateController.text,
-          familyMemberId: person == 'self' ? null : person,
-          notes: _notesController.text.isEmpty ? null : _notesController.text,
-        );
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lab results saved successfully!')),
-      );
-      context.pop();
+  String _friendlyError(dynamic e) {
+    if (e is DioException) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return 'Connection timed out. Please check your internet and try again.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'Cannot reach server. Please check your internet connection.';
+      }
+      return e.message ?? 'Network error';
     }
+    return e.toString();
   }
 }
 
-// ── Upload Tab ───────────────────────────────────────────────────────────────
+// ── Uploading Dialog ─────────────────────────────────────────────────────────
 
-class _UploadTab extends StatelessWidget {
-  final LabUploadState uploadState;
-  final TextEditingController dateController;
-  final TextEditingController notesController;
-  final VoidCallback onPickFile;
-  final VoidCallback onConfirm;
-  final VoidCallback onReset;
+class _UploadingDialog extends StatelessWidget {
+  const _UploadingDialog();
 
-  const _UploadTab({
-    required this.uploadState,
-    required this.dateController,
-    required this.notesController,
-    required this.onPickFile,
-    required this.onConfirm,
-    required this.onReset,
-  });
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Dialog(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: cs.primary),
+            const SizedBox(width: 24),
+            Text('Uploading report...', style: Theme.of(context).textTheme.bodyLarge),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Success Screen ──────────────────────────────────────────────────────────
+
+class _SuccessScreen extends StatelessWidget {
+  const _SuccessScreen();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    switch (uploadState.status) {
-      case LabUploadStatus.idle:
-        return Center(
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.upload_file_rounded,
-                  size: 64, color: cs.primary.withValues(alpha: 0.6)),
-              const SizedBox(height: 16),
-              Text('Upload your lab report',
-                  style: tt.titleMedium),
-              const SizedBox(height: 8),
-              Text('PDF, scanned PDFs, and photos of lab reports supported',
-                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onPickFile,
-                icon: const Icon(Icons.file_open_rounded),
-                label: const Text('Select File'),
+              const Spacer(flex: 2),
+
+              // Animated check icon
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                ),
+                child: const Icon(
+                  Icons.cloud_done_rounded,
+                  size: 52,
+                  color: Color(0xFF16A34A),
+                ),
               ),
-            ],
-          ),
-        );
+              const SizedBox(height: 28),
 
-      case LabUploadStatus.uploading:
-        return const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Parsing lab report...'),
-            ],
-          ),
-        );
-
-      case LabUploadStatus.parsed:
-        return _ReviewResults(
-          uploadState: uploadState,
-          dateController: dateController,
-          notesController: notesController,
-          onConfirm: onConfirm,
-          onReset: onReset,
-        );
-
-      case LabUploadStatus.confirming:
-        return const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Saving results...'),
-            ],
-          ),
-        );
-
-      case LabUploadStatus.done:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle_rounded, size: 64, color: cs.primary),
+              Text(
+                'Report Uploaded',
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                ),
+              ),
               const SizedBox(height: 16),
-              Text('Results saved!', style: tt.titleMedium),
-            ],
-          ),
-        );
 
-      case LabUploadStatus.error:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_rounded, size: 64, color: cs.error),
-              const SizedBox(height: 16),
-              Text(uploadState.errorMessage ?? 'An error occurred',
-                  style: tt.bodyMedium?.copyWith(color: cs.error),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(onPressed: onReset, child: const Text('Try Again')),
-            ],
-          ),
-        );
-    }
-  }
-}
+              Text(
+                'Your lab report is being analysed by our engine. '
+                'Biomarkers will be extracted, classified, and '
+                'added to your dashboard automatically.',
+                textAlign: TextAlign.center,
+                style: tt.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 32),
 
-// ── Review Parsed Results ────────────────────────────────────────────────────
+              // Timeline steps
+              _TimelineStep(
+                icon: Icons.upload_file_rounded,
+                title: 'Report received',
+                subtitle: 'Your file has been securely uploaded',
+                isComplete: true,
+                color: cs,
+              ),
+              _TimelineStep(
+                icon: Icons.psychology_rounded,
+                title: 'Analysing biomarkers',
+                subtitle: 'Extracting values, units, and reference ranges',
+                isInProgress: true,
+                color: cs,
+              ),
+              _TimelineStep(
+                icon: Icons.assessment_rounded,
+                title: 'Classification & insights',
+                subtitle: 'Categorising each biomarker into health tiers',
+                color: cs,
+              ),
+              _TimelineStep(
+                icon: Icons.dashboard_rounded,
+                title: 'Dashboard updated',
+                subtitle: 'Results appear on your Blood Tests dashboard',
+                isLast: true,
+                color: cs,
+              ),
 
-class _ReviewResults extends ConsumerWidget {
-  final LabUploadState uploadState;
-  final TextEditingController dateController;
-  final TextEditingController notesController;
-  final VoidCallback onConfirm;
-  final VoidCallback onReset;
+              const Spacer(flex: 2),
 
-  const _ReviewResults({
-    required this.uploadState,
-    required this.dateController,
-    required this.notesController,
-    required this.onConfirm,
-    required this.onReset,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final results = uploadState.parsedResults;
-
-    return Column(
-      children: [
-        // Header info
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: cs.primaryContainer.withValues(alpha: 0.3),
-          child: Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: cs.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Info card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
                   children: [
-                    Text('${results.length} biomarkers found',
-                        style: tt.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                    if (uploadState.labProvider != null &&
-                        uploadState.labProvider != 'generic')
-                      Text('Provider: ${uploadState.labProvider}',
-                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                    if (uploadState.confidence != null)
-                      Text(
-                          'Confidence: ${(uploadState.confidence! * 100).toStringAsFixed(0)}%',
-                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                    Icon(Icons.schedule_rounded, color: cs.primary, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'This usually takes 1-2 minutes. You can close this '
+                        'screen and check your dashboard later.',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.restart_alt_rounded),
-                onPressed: onReset,
-                tooltip: 'Start over',
+              const SizedBox(height: 16),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('Back to Dashboard'),
+                ),
               ),
+
+              const SizedBox(height: 32),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
 
-        // Date + notes
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TextField(
-            controller: dateController,
-            decoration: const InputDecoration(
-              labelText: 'Test Date',
-              hintText: 'YYYY-MM-DD',
-              prefixIcon: Icon(Icons.calendar_today_rounded),
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
+// ── Timeline Step Widget ─────────────────────────────────────────────────────
+
+class _TimelineStep extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isComplete;
+  final bool isInProgress;
+  final bool isLast;
+  final ColorScheme color;
+
+  const _TimelineStep({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.isComplete = false,
+    this.isInProgress = false,
+    this.isLast = false,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final activeColor = isComplete
+        ? const Color(0xFF16A34A)
+        : isInProgress
+            ? color.primary
+            : color.onSurfaceVariant.withValues(alpha: 0.4);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Icon + connector line
+        SizedBox(
+          width: 36,
+          child: Column(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isComplete
+                      ? const Color(0xFF16A34A).withValues(alpha: 0.15)
+                      : isInProgress
+                          ? color.primary.withValues(alpha: 0.12)
+                          : color.surfaceContainerHigh,
+                ),
+                child: Icon(
+                  isComplete ? Icons.check_rounded : icon,
+                  size: 16,
+                  color: activeColor,
+                ),
+              ),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 28,
+                  color: isComplete
+                      ? const Color(0xFF16A34A).withValues(alpha: 0.3)
+                      : color.outlineVariant.withValues(alpha: 0.3),
+                ),
+            ],
           ),
         ),
-
-        // Warnings
-        if (uploadState.errors.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: cs.errorContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final err in uploadState.errors)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text('• $err',
-                          style: tt.bodySmall?.copyWith(color: cs.error)),
-                    ),
-                ],
-              ),
-            ),
-          ),
-
-        // Results list
+        const SizedBox(width: 10),
+        // Text
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: results.length,
-            itemBuilder: (context, i) {
-              final r = results[i];
-              return _EditableResultTile(
-                result: r,
-                index: i,
-                onValueChanged: (val) {
-                  r.value = val;
-                  ref.read(labUploadProvider.notifier).updateResult(i, r);
-                },
-                onRemove: () {
-                  ref.read(labUploadProvider.notifier).removeResult(i);
-                },
-              );
-            },
-          ),
-        ),
-
-        // Confirm button
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: results.isNotEmpty ? onConfirm : null,
-              icon: const Icon(Icons.save_rounded),
-              label: Text('Save ${results.length} Results'),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: tt.bodyMedium?.copyWith(
+                      fontWeight: isInProgress ? FontWeight.w700 : FontWeight.w600,
+                      color: isComplete || isInProgress
+                          ? color.onSurface
+                          : color.onSurfaceVariant.withValues(alpha: 0.6),
+                    )),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: tt.bodySmall?.copyWith(
+                      color: color.onSurfaceVariant.withValues(
+                          alpha: isComplete || isInProgress ? 0.7 : 0.4),
+                    )),
+              ],
             ),
           ),
         ),
@@ -356,63 +396,67 @@ class _ReviewResults extends ConsumerWidget {
   }
 }
 
-class _EditableResultTile extends StatelessWidget {
-  final ParsedLabResult result;
-  final int index;
-  final ValueChanged<double> onValueChanged;
-  final VoidCallback onRemove;
+// ── Upload Tab (simplified — just file picker) ──────────────────────────────
 
-  const _EditableResultTile({
-    required this.result,
-    required this.index,
-    required this.onValueChanged,
-    required this.onRemove,
-  });
+class _UploadTab extends StatelessWidget {
+  final VoidCallback onPickFile;
+
+  const _UploadTab({required this.onPickFile});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
-    return Dismissible(
-      key: ValueKey('${result.biomarkerCode}_$index'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: cs.error,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        child: const Icon(Icons.delete_rounded, color: Colors.white),
-      ),
-      onDismissed: (_) => onRemove(),
-      child: ListTile(
-        dense: true,
-        title: Text(result.biomarkerName,
-            style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-        subtitle: Text(
-          '${result.unit}${result.referenceLow != null ? ' • Ref: ${result.referenceLow}-${result.referenceHigh}' : ''}',
-          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-        ),
-        trailing: SizedBox(
-          width: 80,
-          child: TextFormField(
-            initialValue: result.value.toString(),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textAlign: TextAlign.end,
-            style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: UnderlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(vertical: 4),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: cs.primary.withValues(alpha: 0.1),
+              ),
+              child: Icon(Icons.upload_file_rounded,
+                  size: 40, color: cs.primary),
             ),
-            onChanged: (val) {
-              final parsed = double.tryParse(val);
-              if (parsed != null) onValueChanged(parsed);
-            },
-          ),
+            const SizedBox(height: 24),
+            Text('Upload your lab report',
+                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              'Select a PDF or photo of your blood test report. '
+              'We\'ll extract and analyse your biomarkers automatically.',
+              style: tt.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: onPickFile,
+                icon: const Icon(Icons.file_open_rounded),
+                label: const Text('Select File'),
+                style: FilledButton.styleFrom(
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Supported: PDF, JPG, PNG, TIFF, BMP, WebP',
+              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
         ),
-        leading: result.isFlagged
-            ? Icon(Icons.flag_rounded, size: 20, color: cs.error)
-            : null,
       ),
     );
   }
@@ -458,7 +502,6 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
           ),
         ),
 
-        // Add biomarker button
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: catalogAsync.when(
@@ -472,7 +515,6 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
           ),
         ),
 
-        // Entries list
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -482,7 +524,7 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
               return Card(
                 child: ListTile(
                   title: Text(entry.name),
-                  subtitle: Text('${entry.unit}'),
+                  subtitle: Text(entry.unit),
                   trailing: SizedBox(
                     width: 80,
                     child: TextFormField(
@@ -508,7 +550,6 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
           ),
         ),
 
-        // Save button
         Padding(
           padding: const EdgeInsets.all(16),
           child: SizedBox(

@@ -240,6 +240,7 @@ class ApiConstants {
   static String biomarkerHistory(String code) => '/api/labs/biomarker/$code/history';
   static const String labDashboard  = '/api/labs/dashboard';
   static const String labBiomarkers = '/api/labs/biomarkers';
+  static const String labReprocess  = '/api/labs/reprocess';
 
   // Health Intelligence
   static const String healthScoreDaily       = '/api/health-intelligence/score/daily';
