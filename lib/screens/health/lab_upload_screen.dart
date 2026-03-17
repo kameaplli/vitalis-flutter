@@ -79,21 +79,21 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     final fileName = filePath.split(Platform.pathSeparator).last;
     final person = ref.read(selectedPersonProvider);
 
-    // Navigate to success screen IMMEDIATELY — don't wait for upload
+    // Fire-and-forget: start upload IMMEDIATELY (before any navigation)
+    _backgroundUploadAndPoll(filePath, fileName, person);
+
+    // Navigate to success screen — user sees upload status timeline
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const _SuccessScreen()),
     );
 
-    // When user returns from success screen, go back to dashboard
+    // When user returns from success screen, refresh and go back to dashboard
     if (mounted) {
       ref.invalidate(labDashboardProvider(person));
       ref.invalidate(labReportsProvider(person));
       context.pop();
     }
-
-    // Fire-and-forget: upload + poll in background
-    _backgroundUploadAndPoll(filePath, fileName, person);
   }
 
   /// Runs entirely in the background — no UI blocking.

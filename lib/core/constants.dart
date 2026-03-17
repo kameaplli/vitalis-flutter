@@ -241,6 +241,11 @@ class ApiConstants {
   static const String labDashboard  = '/api/labs/dashboard';
   static const String labBiomarkers = '/api/labs/biomarkers';
   static const String labReprocess  = '/api/labs/reprocess';
+  static const String labInsights   = '/api/labs/insights';
+  static String labInsightDismiss(String id) => '/api/labs/insights/$id/dismiss';
+  static const String labScore      = '/api/labs/score';
+  static String labCompare(String id, String otherId) => '/api/labs/reports/$id/compare/$otherId';
+  static const String labRecommendations = '/api/labs/recommendations';
 
   // Health Intelligence
   static const String healthScoreDaily       = '/api/health-intelligence/score/daily';

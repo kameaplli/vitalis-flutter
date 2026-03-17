@@ -68,9 +68,68 @@ final biomarkerCatalogProvider =
       .toList();
 });
 
-// ── Reprocess ──────────────────────────────────────────────────────────────
+// ── Insights Provider ───────────────────────────────────────────────────────
+
+final labInsightsProvider =
+    FutureProvider.family<List<BiomarkerInsightModel>, String>(
+        (ref, personId) async {
+  final res = await apiClient.dio.get(
+    ApiConstants.labInsights,
+    queryParameters: {
+      if (personId != 'self') 'person': personId,
+    },
+  );
+  return (res.data['insights'] as List<dynamic>? ?? [])
+      .map((i) => BiomarkerInsightModel.fromJson(i as Map<String, dynamic>))
+      .toList();
+});
+
+// ── Health Score Provider ───────────────────────────────────────────────────
+
+typedef HealthScoreData = ({HealthScoreSummary? latest, List<HealthScoreSummary> history});
+
+final labScoreProvider =
+    FutureProvider.family<HealthScoreData, String>((ref, personId) async {
+  final res = await apiClient.dio.get(
+    ApiConstants.labScore,
+    queryParameters: {
+      if (personId != 'self') 'person': personId,
+    },
+  );
+  final data = res.data as Map<String, dynamic>;
+  return (
+    latest: data['latest'] != null
+        ? HealthScoreSummary.fromJson(data['latest'] as Map<String, dynamic>)
+        : null,
+    history: (data['history'] as List<dynamic>? ?? [])
+        .map((s) => HealthScoreSummary.fromJson(s as Map<String, dynamic>))
+        .toList(),
+  );
+});
+
+// ── Recommendations Provider ────────────────────────────────────────────────
+
+final labRecommendationsProvider =
+    FutureProvider.family<List<BiomarkerRecommendation>, String>(
+        (ref, personId) async {
+  final res = await apiClient.dio.get(
+    ApiConstants.labRecommendations,
+    queryParameters: {
+      if (personId != 'self') 'person': personId,
+    },
+  );
+  return (res.data['recommendations'] as List<dynamic>? ?? [])
+      .map((r) => BiomarkerRecommendation.fromJson(r as Map<String, dynamic>))
+      .toList();
+});
+
+// ── Actions ─────────────────────────────────────────────────────────────────
 
 Future<Map<String, dynamic>> reprocessLabResults() async {
   final res = await apiClient.dio.post(ApiConstants.labReprocess);
   return res.data as Map<String, dynamic>;
+}
+
+Future<void> dismissInsight(String insightId) async {
+  await apiClient.dio.post(ApiConstants.labInsightDismiss(insightId));
 }
