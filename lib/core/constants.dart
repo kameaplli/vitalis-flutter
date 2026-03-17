@@ -232,6 +232,7 @@ class ApiConstants {
 
   // Blood Test Intelligence (Labs)
   static const String labUpload     = '/api/labs/upload';
+  static String labParseStatus(String jobId) => '/api/labs/parse-status/$jobId';
   static const String labConfirm    = '/api/labs/confirm';
   static const String labManual     = '/api/labs/manual';
   static const String labReports    = '/api/labs/reports';

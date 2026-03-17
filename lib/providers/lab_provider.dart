@@ -132,29 +132,62 @@ class LabUploadNotifier extends StateNotifier<LabUploadState> {
             filename: file.path.split('/').last),
       });
 
-      final res = await apiClient.dio.post(
+      // Step 1: Upload file → get job_id (returns immediately)
+      final uploadRes = await apiClient.dio.post(
         ApiConstants.labUpload,
         data: formData,
         options: Options(
-          receiveTimeout: const Duration(seconds: 120),
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
           sendTimeout: const Duration(seconds: 60),
         ),
       );
 
-      final data = res.data as Map<String, dynamic>;
-      final parsed = (data['parsed_results'] as List<dynamic>? ?? [])
-          .map((r) => ParsedLabResult.fromJson(r as Map<String, dynamic>))
-          .toList();
+      final jobId = (uploadRes.data as Map<String, dynamic>)['job_id'] as String;
 
+      // Step 2: Poll for completion (no timeout risk — each poll is fast)
+      const pollInterval = Duration(seconds: 2);
+      const maxPolls = 150; // 5 minutes max
+      for (int i = 0; i < maxPolls; i++) {
+        await Future.delayed(pollInterval);
+
+        final statusRes = await apiClient.dio.get(
+          ApiConstants.labParseStatus(jobId),
+        );
+        final data = statusRes.data as Map<String, dynamic>;
+
+        if (data['status'] == 'parsing') continue;
+
+        if (data['status'] == 'error') {
+          state = state.copyWith(
+            status: LabUploadStatus.error,
+            errorMessage: data['error']?.toString() ?? 'Parsing failed',
+          );
+          return;
+        }
+
+        // Done — parse results
+        final parsed = (data['parsed_results'] as List<dynamic>? ?? [])
+            .map((r) => ParsedLabResult.fromJson(r as Map<String, dynamic>))
+            .toList();
+
+        state = state.copyWith(
+          status: LabUploadStatus.parsed,
+          parsedResults: parsed,
+          labProvider: data['lab_provider'],
+          parseMethod: data['parse_method'],
+          confidence: (data['confidence'] as num?)?.toDouble(),
+          errors:
+              (data['errors'] as List<dynamic>?)?.cast<String>() ?? [],
+          filename: data['filename'],
+        );
+        return;
+      }
+
+      // Timed out after max polls
       state = state.copyWith(
-        status: LabUploadStatus.parsed,
-        parsedResults: parsed,
-        labProvider: data['lab_provider'],
-        parseMethod: data['parse_method'],
-        confidence: (data['confidence'] as num?)?.toDouble(),
-        errors:
-            (data['errors'] as List<dynamic>?)?.cast<String>() ?? [],
-        filename: data['filename'],
+        status: LabUploadStatus.error,
+        errorMessage: 'Parsing is taking longer than expected. Please try again.',
       );
     } catch (e) {
       state = state.copyWith(
