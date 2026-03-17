@@ -137,9 +137,9 @@ class LabUploadNotifier extends StateNotifier<LabUploadState> {
         ApiConstants.labUpload,
         data: formData,
         options: Options(
-          connectTimeout: const Duration(seconds: 30),
-          receiveTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 60),
+          connectTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 120),
+          sendTimeout: const Duration(seconds: 180),
         ),
       );
 

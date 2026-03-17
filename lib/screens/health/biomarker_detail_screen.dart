@@ -7,19 +7,13 @@ import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../widgets/friendly_error.dart';
 
-// ── Design Tokens (matching dashboard) ───────────────────────────────────────
+// ── Tier Colors (consistent across labs screens) ────────────────────────────
 
-const _kOptimalColor = Color(0xFF4ADE80);    // soft green
-const _kSufficientColor = Color(0xFF60A5FA); // soft blue
-const _kSuboptimalColor = Color(0xFFFBBF24); // warm amber
-const _kCriticalColor = Color(0xFFF87171);   // soft red
-const _kUnknownColor = Color(0xFF94A3B8);    // slate
-
-const _kDarkBg = Color(0xFF0F1923);
-const _kCardBg = Color(0xFF1A2732);
-const _kCardBorder = Color(0xFF2A3A48);
-const _kTextPrimary = Color(0xFFF5F5F5);
-const _kTextSecondary = Color(0xFF90A4AE);
+const _kOptimalColor = Color(0xFF16A34A);
+const _kSufficientColor = Color(0xFF2563EB);
+const _kSuboptimalColor = Color(0xFFD97706);
+const _kCriticalColor = Color(0xFFDC2626);
+const _kUnknownColor = Color(0xFF64748B);
 
 Color _tierColor(String? tier) => switch (tier) {
       'optimal' => _kOptimalColor,
@@ -47,35 +41,15 @@ class BiomarkerDetailScreen extends ConsumerWidget {
     final historyAsync = ref.watch(biomarkerHistoryProvider(
         (code: biomarkerCode, person: person)));
 
-    return Theme(
-      data: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: _kDarkBg,
-        colorScheme: const ColorScheme.dark(
-          surface: _kDarkBg,
-          primary: _kOptimalColor,
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(biomarkerCode),
       ),
-      child: Builder(builder: (context) {
-        return Scaffold(
-          backgroundColor: _kDarkBg,
-          appBar: AppBar(
-            backgroundColor: _kDarkBg,
-            surfaceTintColor: Colors.transparent,
-            title: Text(biomarkerCode,
-                style: const TextStyle(
-                    color: _kTextPrimary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5)),
-            iconTheme: const IconThemeData(color: _kTextPrimary),
-          ),
-          body: historyAsync.when(
-            loading: () => const Center(
-                child: CircularProgressIndicator(color: _kOptimalColor)),
-            error: (e, st) => FriendlyError(error: e),
-            data: (history) => _DetailBody(history: history),
-          ),
-        );
-      }),
+      body: historyAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        error: (e, st) => FriendlyError(error: e),
+        data: (history) => _DetailBody(history: history),
+      ),
     );
   }
 }
@@ -86,6 +60,7 @@ class _DetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final latestValue =
         history.dataPoints.isNotEmpty ? history.dataPoints.last.value : null;
     final latestTier =
@@ -107,15 +82,15 @@ class _DetailBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(history.name,
-                        style: const TextStyle(
-                            color: _kTextPrimary,
+                        style: TextStyle(
+                            color: cs.onSurface,
                             fontSize: 26,
                             fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
                     Text(
                         '${history.category ?? ''} ${history.healthPillar != null ? "  ${history.healthPillar}" : ""}',
-                        style: const TextStyle(
-                            color: _kTextSecondary,
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant,
                             fontSize: 13,
                             fontWeight: FontWeight.w500)),
                   ],
@@ -133,8 +108,8 @@ class _DetailBody extends StatelessWidget {
                             height: 1)),
                     const SizedBox(height: 2),
                     Text(history.unit,
-                        style: const TextStyle(
-                            color: _kTextSecondary,
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant,
                             fontSize: 13,
                             fontWeight: FontWeight.w500)),
                   ],
@@ -146,12 +121,11 @@ class _DetailBody extends StatelessWidget {
           if (latestTier != null) ...[
             const SizedBox(height: 12),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: tierColor.withValues(alpha: 0.15),
+                color: tierColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: tierColor.withValues(alpha: 0.3)),
+                border: Border.all(color: tierColor.withValues(alpha: 0.25)),
               ),
               child: Text(_tierLabel(latestTier),
                   style: TextStyle(
@@ -165,24 +139,38 @@ class _DetailBody extends StatelessWidget {
           if (history.description != null) ...[
             const SizedBox(height: 16),
             Text(history.description!,
-                style: const TextStyle(
-                    color: _kTextSecondary,
+                style: TextStyle(
+                    color: cs.onSurfaceVariant,
                     fontSize: 14,
                     height: 1.5)),
           ],
 
+          // ── Population Comparison ──────────────────────────
+          if (latestValue != null && history.populationAverage != null) ...[
+            const SizedBox(height: 24),
+            _SectionTitle('YOUR VALUE vs POPULATION AVERAGE'),
+            const SizedBox(height: 12),
+            _PopulationComparison(
+              yourValue: latestValue,
+              populationAvg: history.populationAverage!,
+              unit: history.unit,
+              tier: latestTier,
+              ranges: history.ranges,
+            ),
+          ],
+
           // ── Insights ───────────────────────────────────────
           if (history.insights != null) ...[
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             _SectionTitle('INSIGHTS'),
             const SizedBox(height: 12),
             // Status summary
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: tierColor.withValues(alpha: 0.08),
+                color: tierColor.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: tierColor.withValues(alpha: 0.2)),
+                border: Border.all(color: tierColor.withValues(alpha: 0.15)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,95 +201,91 @@ class _DetailBody extends StatelessWidget {
             ),
             // What it means
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _kCardBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _kCardBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('What it means',
-                      style: TextStyle(
-                          color: _kTextPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text(history.insights!.whatItMeans,
-                      style: const TextStyle(
-                          color: _kTextSecondary,
-                          fontSize: 13,
-                          height: 1.5)),
-                ],
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('What it means',
+                        style: TextStyle(
+                            color: cs.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Text(history.insights!.whatItMeans,
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 13,
+                            height: 1.5)),
+                  ],
+                ),
               ),
             ),
             // Action points
             if (history.insights!.actionPoints.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _kCardBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _kCardBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.lightbulb_outline_rounded,
-                            color: _kSuboptimalColor, size: 18),
-                        const SizedBox(width: 8),
-                        const Text('Action Points',
-                            style: TextStyle(
-                                color: _kTextPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    for (final point in history.insights!.actionPoints)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _kOptimalColor.withValues(alpha: 0.7),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(point,
-                                  style: const TextStyle(
-                                      color: _kTextSecondary,
-                                      fontSize: 13,
-                                      height: 1.4)),
-                            ),
-                          ],
-                        ),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.lightbulb_outline_rounded,
+                              color: _kSuboptimalColor, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Action Points',
+                              style: TextStyle(
+                                  color: cs.onSurface,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700)),
+                        ],
                       ),
-                  ],
+                      const SizedBox(height: 10),
+                      for (final point in history.insights!.actionPoints)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: const EdgeInsets.only(top: 6),
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(point,
+                                    style: TextStyle(
+                                        color: cs.onSurfaceVariant,
+                                        fontSize: 13,
+                                        height: 1.4)),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ],
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // ── Range Visualization ──────────────────────────
           if (history.ranges != null) ...[
             _SectionTitle('REFERENCE RANGES'),
             const SizedBox(height: 12),
-            _WhoopLargeRangeBar(
+            _LargeRangeBar(
               ranges: history.ranges!,
               currentValue: latestValue,
               unit: history.unit,
@@ -310,125 +294,114 @@ class _DetailBody extends StatelessWidget {
             // Evidence grade
             if (history.ranges!.evidenceGrade == 'midrange') ...[
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _kCardBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _kCardBorder),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline_rounded,
-                        size: 16,
-                        color: _kTextSecondary.withValues(alpha: 0.6)),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Optimal range based on midrange of standard clinical reference. '
-                        'No specific guideline-endorsed optimal exists.',
-                        style: TextStyle(
-                            color: _kTextSecondary,
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic,
-                            height: 1.4),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded,
+                          size: 16,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Optimal range based on midrange of standard clinical reference. '
+                          'No specific guideline-endorsed optimal exists.',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                              height: 1.4),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ] else if (history.ranges!.source != null) ...[
               const SizedBox(height: 8),
               Text('Source: ${history.ranges!.source}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: _kOptimalColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
             ],
           ],
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // ── History Chart ────────────────────────────────
           if (history.dataPoints.length >= 2) ...[
             _SectionTitle('TREND'),
             const SizedBox(height: 16),
-            Container(
-              height: 240,
-              padding: const EdgeInsets.fromLTRB(0, 16, 16, 8),
-              decoration: BoxDecoration(
-                color: _kCardBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _kCardBorder),
-              ),
-              child: _HistoryChart(
-                dataPoints: history.dataPoints,
-                ranges: history.ranges,
-                unit: history.unit,
+            Card(
+              margin: EdgeInsets.zero,
+              child: SizedBox(
+                height: 240,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 16, 16, 8),
+                  child: _HistoryChart(
+                    dataPoints: history.dataPoints,
+                    ranges: history.ranges,
+                    populationAvg: history.populationAverage,
+                    unit: history.unit,
+                  ),
+                ),
               ),
             ),
           ] else if (history.dataPoints.length == 1) ...[
             _SectionTitle('TREND'),
             const SizedBox(height: 8),
-            const Text('Upload more reports to see trends over time.',
-                style: TextStyle(color: _kTextSecondary, fontSize: 13)),
+            Text('Upload more reports to see trends over time.',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
           ],
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // ── All Results ──────────────────────────────────
           if (history.dataPoints.isNotEmpty) ...[
             _SectionTitle('ALL RESULTS'),
             const SizedBox(height: 12),
             for (final dp in history.dataPoints.reversed)
-              Container(
+              Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _kCardBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _kCardBorder),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _tierColor(dp.tier),
-                        boxShadow: [
-                          BoxShadow(
-                              color: _tierColor(dp.tier)
-                                  .withValues(alpha: 0.5),
-                              blurRadius: 4),
-                        ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _tierColor(dp.tier),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(dp.date ?? '',
-                        style: const TextStyle(
-                            color: _kTextPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500)),
-                    if (dp.labProvider != null) ...[
-                      const SizedBox(width: 8),
-                      Text(dp.labProvider!,
-                          style: const TextStyle(
-                              color: _kTextSecondary, fontSize: 11)),
+                      const SizedBox(width: 12),
+                      Text(dp.date ?? '',
+                          style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500)),
+                      if (dp.labProvider != null) ...[
+                        const SizedBox(width: 8),
+                        Text(dp.labProvider!,
+                            style: TextStyle(
+                                color: cs.onSurfaceVariant, fontSize: 11)),
+                      ],
+                      const Spacer(),
+                      Text(_formatValue(dp.value),
+                          style: TextStyle(
+                              color: _tierColor(dp.tier),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(width: 4),
+                      Text(history.unit,
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 11)),
                     ],
-                    const Spacer(),
-                    Text(_formatValue(dp.value),
-                        style: TextStyle(
-                            color: _tierColor(dp.tier),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800)),
-                    const SizedBox(width: 4),
-                    Text(history.unit,
-                        style: const TextStyle(
-                            color: _kTextSecondary, fontSize: 11)),
-                  ],
+                  ),
                 ),
               ),
           ],
@@ -455,20 +428,21 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
           width: 4,
           height: 16,
           decoration: BoxDecoration(
-            color: _kOptimalColor,
+            color: cs.primary,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 8),
         Text(text,
-            style: const TextStyle(
-                color: _kTextSecondary,
+            style: TextStyle(
+                color: cs.onSurfaceVariant,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5)),
@@ -477,14 +451,261 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ── Whoop Large Range Bar ────────────────────────────────────────────────────
+// ── Population Comparison Card ───────────────────────────────────────────────
 
-class _WhoopLargeRangeBar extends StatelessWidget {
+class _PopulationComparison extends StatelessWidget {
+  final double yourValue;
+  final double populationAvg;
+  final String unit;
+  final String? tier;
+  final BiomarkerRange? ranges;
+
+  const _PopulationComparison({
+    required this.yourValue,
+    required this.populationAvg,
+    required this.unit,
+    this.tier,
+    this.ranges,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tierColor = _tierColor(tier);
+    final diff = yourValue - populationAvg;
+    final diffPercent = populationAvg != 0 ? (diff / populationAvg * 100) : 0.0;
+    final isAbove = diff > 0;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Visual bar comparison
+            _ComparisonBar(
+              yourValue: yourValue,
+              populationAvg: populationAvg,
+              ranges: ranges,
+              tierColor: tierColor,
+            ),
+            const SizedBox(height: 16),
+            // Stats row
+            Row(
+              children: [
+                // Your value
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text('Your Value',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Text(_fmt(yourValue),
+                          style: TextStyle(
+                              color: tierColor,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800)),
+                      Text(unit,
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 10)),
+                    ],
+                  ),
+                ),
+                // Divider
+                Container(
+                  width: 1,
+                  height: 50,
+                  color: cs.outlineVariant.withValues(alpha: 0.3),
+                ),
+                // Population average
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text('Population Avg',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Text(_fmt(populationAvg),
+                          style: TextStyle(
+                              color: cs.onSurface,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800)),
+                      Text(unit,
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 10)),
+                    ],
+                  ),
+                ),
+                // Difference
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text('Difference',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isAbove ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                            color: tierColor,
+                            size: 16,
+                          ),
+                          Text('${diffPercent.abs().toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                  color: tierColor,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                      Text(isAbove ? 'above avg' : 'below avg',
+                          style: TextStyle(
+                              color: cs.onSurfaceVariant, fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmt(double v) {
+    if (v == v.roundToDouble()) return v.toInt().toString();
+    if (v < 10) return v.toStringAsFixed(2);
+    if (v < 100) return v.toStringAsFixed(1);
+    return v.toInt().toString();
+  }
+}
+
+// ── Comparison Bar ───────────────────────────────────────────────────────────
+
+class _ComparisonBar extends StatelessWidget {
+  final double yourValue;
+  final double populationAvg;
+  final BiomarkerRange? ranges;
+  final Color tierColor;
+
+  const _ComparisonBar({
+    required this.yourValue,
+    required this.populationAvg,
+    this.ranges,
+    required this.tierColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      height: 40,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final barWidth = constraints.maxWidth;
+
+        // Determine range for positioning
+        double low = ranges?.standardLow ?? (populationAvg * 0.5);
+        double high = ranges?.standardHigh ?? (populationAvg * 1.5);
+        final range = high - low;
+        if (range <= 0) return const SizedBox();
+
+        double yourPos = ((yourValue - low) / range * 0.7 + 0.15).clamp(0.02, 0.98);
+        double avgPos = ((populationAvg - low) / range * 0.7 + 0.15).clamp(0.02, 0.98);
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Gradient range bar
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 16,
+              height: 8,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: CustomPaint(
+                  painter: _GradientBarPainter(),
+                ),
+              ),
+            ),
+            // Population average marker (triangle)
+            Positioned(
+              left: avgPos * barWidth - 6,
+              top: 26,
+              child: Column(
+                children: [
+                  CustomPaint(
+                    size: const Size(12, 8),
+                    painter: _TrianglePainter(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('Avg', style: TextStyle(
+                    color: cs.onSurfaceVariant, fontSize: 9, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            // Your value marker (circle)
+            Positioned(
+              left: yourPos * barWidth - 7,
+              top: 9,
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: tierColor,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: tierColor.withValues(alpha: 0.4),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  _TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(0, size.height)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrianglePainter old) => old.color != color;
+}
+
+// ── Large Range Bar ──────────────────────────────────────────────────────────
+
+class _LargeRangeBar extends StatelessWidget {
   final BiomarkerRange ranges;
   final double? currentValue;
   final String unit;
 
-  const _WhoopLargeRangeBar({
+  const _LargeRangeBar({
     required this.ranges,
     this.currentValue,
     required this.unit,
@@ -492,95 +713,104 @@ class _WhoopLargeRangeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _kCardBorder),
-      ),
-      child: Column(
-        children: [
-          // Gradient range bar with marker
-          SizedBox(
-            height: 28,
-            child: LayoutBuilder(builder: (context, constraints) {
-              final barWidth = constraints.maxWidth;
-              double position = 0.5;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Gradient range bar with marker
+            SizedBox(
+              height: 28,
+              child: LayoutBuilder(builder: (context, constraints) {
+                final barWidth = constraints.maxWidth;
+                double position = 0.5;
 
-              if (currentValue != null &&
-                  ranges.standardLow != null &&
-                  ranges.standardHigh != null) {
-                final low = ranges.standardLow!;
-                final high = ranges.standardHigh!;
-                final range = high - low;
-                if (range > 0) {
-                  final normalized = (currentValue! - low) / range;
-                  position = 0.15 + normalized * 0.7;
-                  position = position.clamp(0.02, 0.98);
+                if (currentValue != null &&
+                    ranges.standardLow != null &&
+                    ranges.standardHigh != null) {
+                  final low = ranges.standardLow!;
+                  final high = ranges.standardHigh!;
+                  final range = high - low;
+                  if (range > 0) {
+                    final normalized = (currentValue! - low) / range;
+                    position = 0.15 + normalized * 0.7;
+                    position = position.clamp(0.02, 0.98);
+                  }
                 }
-              }
 
-              final markerX = position * barWidth;
+                final markerX = position * barWidth;
+                final tierColor = currentValue != null ? _classifyValue(currentValue!) : _kUnknownColor;
 
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Thin gradient bar
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 10,
-                    height: 8,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: CustomPaint(
-                        painter: _GradientBarPainter(),
-                      ),
-                    ),
-                  ),
-                  // Dot marker with glow
-                  if (currentValue != null)
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Gradient bar
                     Positioned(
-                      left: markerX - 7,
-                      top: 7,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                      left: 0,
+                      right: 0,
+                      top: 10,
+                      height: 8,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: CustomPaint(
+                          painter: _GradientBarPainter(),
                         ),
                       ),
                     ),
-                ],
-              );
-            }),
-          ),
+                    // Marker dot
+                    if (currentValue != null)
+                      Positioned(
+                        left: markerX - 7,
+                        top: 7,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: tierColor,
+                            border: Border.all(color: Colors.white, width: 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: tierColor.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              }),
+            ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Range rows
-          _RangeRow('Optimal', ranges.optimalLow, ranges.optimalHigh,
-              unit, _kOptimalColor),
-          _RangeRow('Sufficient', ranges.sufficientLow,
-              ranges.sufficientHigh, unit, _kSufficientColor),
-          _RangeRow('Standard', ranges.standardLow, ranges.standardHigh,
-              unit, _kSuboptimalColor),
-        ],
+            // Range rows
+            _RangeRow('Optimal', ranges.optimalLow, ranges.optimalHigh,
+                unit, _kOptimalColor),
+            _RangeRow('Sufficient', ranges.sufficientLow,
+                ranges.sufficientHigh, unit, _kSufficientColor),
+            _RangeRow('Standard', ranges.standardLow, ranges.standardHigh,
+                unit, _kSuboptimalColor),
+          ],
+        ),
       ),
     );
+  }
+
+  Color _classifyValue(double value) {
+    if (_inRange(value, ranges.optimalLow, ranges.optimalHigh)) return _kOptimalColor;
+    if (_inRange(value, ranges.sufficientLow, ranges.sufficientHigh)) return _kSufficientColor;
+    if (_inRange(value, ranges.standardLow, ranges.standardHigh)) return _kSuboptimalColor;
+    return _kCriticalColor;
+  }
+
+  bool _inRange(double v, double? low, double? high) {
+    if (low == null && high == null) return false;
+    if (low != null && v < low) return false;
+    if (high != null && v > high) return false;
+    return true;
   }
 }
 
@@ -595,6 +825,7 @@ class _RangeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final range = low != null && high != null
         ? '${_fmt(low!)} - ${_fmt(high!)} $unit'
         : low != null
@@ -618,14 +849,14 @@ class _RangeRow extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(label,
-                style: const TextStyle(
-                    color: _kTextSecondary,
+                style: TextStyle(
+                    color: cs.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w500)),
           ),
           Text(range,
-              style: const TextStyle(
-                  color: _kTextPrimary,
+              style: TextStyle(
+                  color: cs.onSurface,
                   fontSize: 12,
                   fontWeight: FontWeight.w600)),
         ],
@@ -647,14 +878,14 @@ class _GradientBarPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final gradient = LinearGradient(
       colors: [
-        _kCriticalColor.withValues(alpha: 0.40),
-        _kSuboptimalColor.withValues(alpha: 0.35),
-        _kSufficientColor.withValues(alpha: 0.30),
-        _kOptimalColor.withValues(alpha: 0.40),
-        _kOptimalColor.withValues(alpha: 0.40),
-        _kSufficientColor.withValues(alpha: 0.30),
-        _kSuboptimalColor.withValues(alpha: 0.35),
-        _kCriticalColor.withValues(alpha: 0.40),
+        _kCriticalColor.withValues(alpha: 0.35),
+        _kSuboptimalColor.withValues(alpha: 0.30),
+        _kSufficientColor.withValues(alpha: 0.25),
+        _kOptimalColor.withValues(alpha: 0.35),
+        _kOptimalColor.withValues(alpha: 0.35),
+        _kSufficientColor.withValues(alpha: 0.25),
+        _kSuboptimalColor.withValues(alpha: 0.30),
+        _kCriticalColor.withValues(alpha: 0.35),
       ],
       stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
     );
@@ -667,48 +898,39 @@ class _GradientBarPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _TriangleMarkerPainter extends CustomPainter {
-  final Color color;
-  _TriangleMarkerPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(path, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TriangleMarkerPainter old) =>
-      old.color != color;
-}
-
 // ── History Chart ────────────────────────────────────────────────────────────
 
 class _HistoryChart extends StatelessWidget {
   final List<BiomarkerDataPoint> dataPoints;
   final BiomarkerRange? ranges;
+  final double? populationAvg;
   final String unit;
 
   const _HistoryChart({
     required this.dataPoints,
     this.ranges,
+    this.populationAvg,
     required this.unit,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     final spots = <FlSpot>[];
     for (int i = 0; i < dataPoints.length; i++) {
       spots.add(FlSpot(i.toDouble(), dataPoints[i].value));
     }
 
     final values = dataPoints.map((d) => d.value).toList();
-    final minY = values.reduce((a, b) => a < b ? a : b) * 0.85;
-    final maxY = values.reduce((a, b) => a > b ? a : b) * 1.15;
+    double minY = values.reduce((a, b) => a < b ? a : b) * 0.85;
+    double maxY = values.reduce((a, b) => a > b ? a : b) * 1.15;
+
+    // Include population avg in range if present
+    if (populationAvg != null) {
+      if (populationAvg! < minY) minY = populationAvg! * 0.85;
+      if (populationAvg! > maxY) maxY = populationAvg! * 1.15;
+    }
 
     final rangeAnnotations = <HorizontalRangeAnnotation>[];
     if (ranges != null) {
@@ -721,6 +943,27 @@ class _HistoryChart extends StatelessWidget {
       }
     }
 
+    // Population average line
+    final extraLines = <HorizontalLine>[];
+    if (populationAvg != null) {
+      extraLines.add(HorizontalLine(
+        y: populationAvg!,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+        strokeWidth: 1,
+        dashArray: [6, 4],
+        label: HorizontalLineLabel(
+          show: true,
+          alignment: Alignment.topRight,
+          style: TextStyle(
+            color: cs.onSurfaceVariant,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+          ),
+          labelResolver: (_) => 'Avg',
+        ),
+      ));
+    }
+
     return LineChart(
       LineChartData(
         minY: minY,
@@ -729,10 +972,11 @@ class _HistoryChart extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           getDrawingHorizontalLine: (value) => FlLine(
-            color: _kCardBorder.withValues(alpha: 0.5),
+            color: cs.outlineVariant.withValues(alpha: 0.3),
             strokeWidth: 1,
           ),
         ),
+        extraLinesData: ExtraLinesData(horizontalLines: extraLines),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -740,8 +984,7 @@ class _HistoryChart extends StatelessWidget {
               reservedSize: 50,
               getTitlesWidget: (value, meta) => Text(
                 value.toStringAsFixed(1),
-                style: const TextStyle(
-                    fontSize: 10, color: _kTextSecondary),
+                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
               ),
             ),
           ),
@@ -759,16 +1002,13 @@ class _HistoryChart extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(label,
-                      style: const TextStyle(
-                          fontSize: 9, color: _kTextSecondary)),
+                      style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant)),
                 );
               },
             ),
           ),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         rangeAnnotations: RangeAnnotations(
@@ -779,7 +1019,7 @@ class _HistoryChart extends StatelessWidget {
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.2,
-            color: _kOptimalColor,
+            color: cs.primary,
             barWidth: 3,
             dotData: FlDotData(
               show: true,
@@ -791,7 +1031,7 @@ class _HistoryChart extends StatelessWidget {
                   radius: 5,
                   color: _tierColor(tier),
                   strokeWidth: 2,
-                  strokeColor: _kDarkBg,
+                  strokeColor: cs.surface,
                 );
               },
             ),
@@ -801,8 +1041,8 @@ class _HistoryChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  _kOptimalColor.withValues(alpha: 0.15),
-                  _kOptimalColor.withValues(alpha: 0.02),
+                  cs.primary.withValues(alpha: 0.12),
+                  cs.primary.withValues(alpha: 0.02),
                 ],
               ),
             ),
@@ -810,15 +1050,14 @@ class _HistoryChart extends StatelessWidget {
         ],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => _kCardBg,
-            tooltipBorder: const BorderSide(color: _kCardBorder),
+            getTooltipColor: (_) => cs.surfaceContainerHighest,
             tooltipRoundedRadius: 10,
             getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
               final i = spot.spotIndex;
               final dp = dataPoints[i];
               return LineTooltipItem(
                 '${dp.value} $unit\n${dp.date ?? ''}',
-                const TextStyle(color: _kTextPrimary, fontSize: 12),
+                TextStyle(color: cs.onSurface, fontSize: 12),
               );
             }).toList(),
           ),

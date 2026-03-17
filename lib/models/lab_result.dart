@@ -114,9 +114,11 @@ class BiomarkerHistory {
   final String code;
   final String name;
   final String unit;
+  final String? canonicalUnit;
   final String? category;
   final String? healthPillar;
   final String? description;
+  final double? populationAverage;
   final BiomarkerInsights? insights;
   final BiomarkerRange? ranges;
   final List<BiomarkerDataPoint> dataPoints;
@@ -125,9 +127,11 @@ class BiomarkerHistory {
     required this.code,
     required this.name,
     required this.unit,
+    this.canonicalUnit,
     this.category,
     this.healthPillar,
     this.description,
+    this.populationAverage,
     this.insights,
     this.ranges,
     this.dataPoints = const [],
@@ -138,9 +142,12 @@ class BiomarkerHistory {
         code: json['code'] ?? '',
         name: json['name'] ?? '',
         unit: json['unit'] ?? '',
+        canonicalUnit: json['canonical_unit'],
         category: json['category'],
         healthPillar: json['health_pillar'],
         description: json['description'],
+        populationAverage:
+            (json['population_average'] as num?)?.toDouble(),
         insights: json['insights'] != null
             ? BiomarkerInsights.fromJson(
                 json['insights'] as Map<String, dynamic>)
