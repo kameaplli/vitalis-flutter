@@ -346,7 +346,6 @@ class _PanicBanner extends StatelessWidget {
           for (final alert in emergencies)
             _AlertCard(
               alert: alert,
-              bgColor: const Color(0xFFFEE2E2),
               borderColor: _kCriticalColor,
               icon: Icons.emergency_rounded,
               iconColor: _kCriticalColor,
@@ -355,7 +354,6 @@ class _PanicBanner extends StatelessWidget {
           for (final alert in seeDoctor)
             _AlertCard(
               alert: alert,
-              bgColor: const Color(0xFFFEF3C7),
               borderColor: _kSuboptimalColor,
               icon: Icons.local_hospital_rounded,
               iconColor: _kSuboptimalColor,
@@ -369,7 +367,6 @@ class _PanicBanner extends StatelessWidget {
 
 class _AlertCard extends StatelessWidget {
   final PanicAlert alert;
-  final Color bgColor;
   final Color borderColor;
   final IconData icon;
   final Color iconColor;
@@ -377,7 +374,6 @@ class _AlertCard extends StatelessWidget {
 
   const _AlertCard({
     required this.alert,
-    required this.bgColor,
     required this.borderColor,
     required this.icon,
     required this.iconColor,
@@ -391,7 +387,7 @@ class _AlertCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: borderColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor.withValues(alpha: 0.4), width: 1.5),
       ),

@@ -79,98 +79,114 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     final fileName = filePath.split(Platform.pathSeparator).last;
     final person = ref.read(selectedPersonProvider);
 
-    // Fire-and-forget: start upload IMMEDIATELY (before any navigation)
-    _backgroundUploadAndPoll(filePath, fileName, person);
-
-    // Navigate to success screen — user sees upload status timeline
+    // Navigate to processing screen immediately
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const _SuccessScreen()),
+    final success = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _ProcessingScreen(
+          filePath: filePath,
+          fileName: fileName,
+          person: person,
+        ),
+      ),
     );
 
-    // When user returns from success screen, refresh and go back to dashboard
+    // When user returns, refresh dashboard and go back
     if (mounted) {
-      ref.invalidate(labDashboardProvider(person));
-      ref.invalidate(labReportsProvider(person));
+      if (success == true) {
+        ref.invalidate(labDashboardProvider(person));
+        ref.invalidate(labReportsProvider(person));
+      }
       context.pop();
     }
   }
+}
 
-  /// Runs entirely in the background — no UI blocking.
-  void _backgroundUploadAndPoll(String filePath, String fileName, String person) async {
+// ── Processing Screen ───────────────────────────────────────────────────────
+
+class _ProcessingScreen extends StatefulWidget {
+  final String filePath;
+  final String fileName;
+  final String person;
+
+  const _ProcessingScreen({
+    required this.filePath,
+    required this.fileName,
+    required this.person,
+  });
+
+  @override
+  State<_ProcessingScreen> createState() => _ProcessingScreenState();
+}
+
+class _ProcessingScreenState extends State<_ProcessingScreen> {
+  int _step = 0; // 0=uploading, 1=analysing, 2=done, -1=error
+  String? _errorMessage;
+  int _savedCount = 0;
+  String? _labProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    _uploadAndProcess();
+  }
+
+  Future<void> _uploadAndProcess() async {
     try {
+      setState(() => _step = 0);
+
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath, filename: fileName),
-        if (person != 'self') 'family_member_id': person,
+        'file': await MultipartFile.fromFile(widget.filePath, filename: widget.fileName),
+        if (widget.person != 'self') 'family_member_id': widget.person,
       });
 
-      await apiClient.dio.post(
+      setState(() => _step = 1);
+
+      final response = await apiClient.dio.post(
         ApiConstants.labUpload,
         data: formData,
         options: Options(
           sendTimeout: const Duration(seconds: 300),
-          receiveTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 120),
         ),
       );
 
-      // Notification 1: Upload received
-      await NotificationService.showLabUploaded();
+      final data = response.data as Map<String, dynamic>;
+      final status = data['status'] as String? ?? '';
 
-      // Poll dashboard for new results (server analyses in background)
-      await _pollForResults(person);
+      if (status == 'completed') {
+        _savedCount = data['saved_count'] as int? ?? 0;
+        _labProvider = data['lab_provider'] as String?;
+        setState(() => _step = 2);
+        await NotificationService.showLabAnalysisComplete(resultsCount: _savedCount);
+      } else {
+        setState(() {
+          _step = -1;
+          _errorMessage = data['detail'] as String? ?? 'Unknown error';
+        });
+      }
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map
+          ? (e.response!.data as Map)['detail']?.toString()
+          : e.message;
+      setState(() {
+        _step = -1;
+        _errorMessage = detail ?? 'Connection error. Please try again.';
+      });
     } catch (e) {
-      debugPrint('[lab_upload] Background upload failed: $e');
-      // Silently fail — user can retry from dashboard
+      setState(() {
+        _step = -1;
+        _errorMessage = e.toString();
+      });
     }
   }
-
-  /// Poll dashboard until new results appear (max ~3 minutes).
-  Future<void> _pollForResults(String person) async {
-    // Get current count before the new report
-    int? initialCount;
-    try {
-      final res = await apiClient.dio.get(
-        ApiConstants.labDashboard,
-        queryParameters: {if (person != 'self') 'person': person},
-      );
-      initialCount = (res.data as Map<String, dynamic>)['total_biomarkers'] as int? ?? 0;
-    } catch (_) {}
-
-    // Poll every 10 seconds for up to 3 minutes
-    for (int i = 0; i < 18; i++) {
-      await Future.delayed(const Duration(seconds: 10));
-      try {
-        final res = await apiClient.dio.get(
-          ApiConstants.labDashboard,
-          queryParameters: {if (person != 'self') 'person': person},
-        );
-        final data = res.data as Map<String, dynamic>;
-        final newCount = data['total_biomarkers'] as int? ?? 0;
-
-        if (initialCount != null && newCount > initialCount) {
-          // New results appeared!
-          await NotificationService.showLabAnalysisComplete(
-            resultsCount: newCount - initialCount,
-          );
-          return;
-        }
-      } catch (_) {}
-    }
-
-    // Timed out — still show a notification so user checks
-    await NotificationService.showLabAnalysisComplete();
-  }
-}
-
-// ── Success Screen ──────────────────────────────────────────────────────────
-
-class _SuccessScreen extends StatelessWidget {
-  const _SuccessScreen();
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final isDone = _step == 2;
+    final isError = _step == -1;
 
     return Scaffold(
       body: SafeArea(
@@ -180,24 +196,39 @@ class _SuccessScreen extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
 
-              // Animated check icon
+              // Status icon
               Container(
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                  color: isError
+                      ? cs.error.withValues(alpha: 0.12)
+                      : isDone
+                          ? const Color(0xFF16A34A).withValues(alpha: 0.12)
+                          : cs.primary.withValues(alpha: 0.12),
                 ),
-                child: const Icon(
-                  Icons.cloud_done_rounded,
-                  size: 52,
-                  color: Color(0xFF16A34A),
-                ),
+                child: isError
+                    ? Icon(Icons.error_outline_rounded, size: 52, color: cs.error)
+                    : isDone
+                        ? const Icon(Icons.check_circle_rounded, size: 52, color: Color(0xFF16A34A))
+                        : SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: cs.primary,
+                            ),
+                          ),
               ),
               const SizedBox(height: 28),
 
               Text(
-                'Report Uploaded',
+                isError
+                    ? 'Analysis Failed'
+                    : isDone
+                        ? 'Report Analysed!'
+                        : 'Analysing Report...',
                 style: tt.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: cs.onSurface,
@@ -205,81 +236,82 @@ class _SuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              Text(
-                'Your lab report is being analysed by our engine. '
-                'Biomarkers will be extracted, classified, and '
-                'added to your dashboard automatically.',
-                textAlign: TextAlign.center,
-                style: tt.bodyLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.5,
+              if (isError)
+                Text(
+                  _errorMessage ?? 'An error occurred',
+                  textAlign: TextAlign.center,
+                  style: tt.bodyLarge?.copyWith(color: cs.error, height: 1.5),
+                )
+              else if (isDone)
+                Text(
+                  '$_savedCount biomarkers extracted'
+                  '${_labProvider != null ? ' from $_labProvider' : ''}'
+                  ' and classified into health tiers.',
+                  textAlign: TextAlign.center,
+                  style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+                )
+              else
+                Text(
+                  'Your lab report is being parsed and classified. '
+                  'This usually takes a few seconds.',
+                  textAlign: TextAlign.center,
+                  style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
                 ),
-              ),
+
               const SizedBox(height: 32),
 
               // Timeline steps
               _TimelineStep(
                 icon: Icons.upload_file_rounded,
                 title: 'Report received',
-                subtitle: 'Your file has been securely uploaded',
-                isComplete: true,
+                subtitle: 'File uploaded securely',
+                isComplete: _step >= 1 || isDone,
                 color: cs,
               ),
               _TimelineStep(
                 icon: Icons.psychology_rounded,
                 title: 'Analysing biomarkers',
                 subtitle: 'Extracting values, units, and reference ranges',
-                isInProgress: true,
+                isComplete: isDone,
+                isInProgress: _step == 1,
                 color: cs,
               ),
               _TimelineStep(
                 icon: Icons.assessment_rounded,
                 title: 'Classification & insights',
-                subtitle: 'Categorising each biomarker into health tiers',
+                subtitle: isDone
+                    ? '$_savedCount biomarkers classified'
+                    : 'Categorising into health tiers',
+                isComplete: isDone,
                 color: cs,
               ),
               _TimelineStep(
                 icon: Icons.dashboard_rounded,
                 title: 'Dashboard updated',
-                subtitle: 'Results appear on your Blood Tests dashboard',
+                subtitle: 'Results ready on your Blood Tests dashboard',
+                isComplete: isDone,
                 isLast: true,
                 color: cs,
               ),
 
               const Spacer(flex: 2),
 
-              // Info card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.schedule_rounded, color: cs.primary, size: 22),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'This usually takes 1-2 minutes. You can close this '
-                        'screen and check your dashboard later.',
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  label: const Text('Back to Dashboard'),
+                  onPressed: (isDone || isError)
+                      ? () => Navigator.of(context).pop(isDone)
+                      : null,
+                  icon: Icon(isDone
+                      ? Icons.dashboard_rounded
+                      : isError
+                          ? Icons.arrow_back_rounded
+                          : Icons.hourglass_top_rounded),
+                  label: Text(isDone
+                      ? 'View Dashboard'
+                      : isError
+                          ? 'Go Back'
+                          : 'Processing...'),
                 ),
               ),
 
