@@ -633,6 +633,50 @@ class NotificationService {
     return scheduled;
   }
 
+  // ── Lab Report Notifications ──────────────────────────────────────────────
+
+  static Future<void> showLabUploaded() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      5001,
+      'Report Uploaded',
+      'Your lab report has been received and is being analysed.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'vitalis_labs',
+          'Lab Reports',
+          channelDescription: 'Lab report upload and analysis updates',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+    );
+  }
+
+  static Future<void> showLabAnalysisComplete({int resultsCount = 0}) async {
+    if (!_initialized) await init();
+    final body = resultsCount > 0
+        ? '$resultsCount biomarkers analysed and added to your dashboard.'
+        : 'Your biomarkers have been analysed and added to your dashboard.';
+    await _plugin.show(
+      5002,
+      'Analysis Complete',
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'vitalis_labs',
+          'Lab Reports',
+          channelDescription: 'Lab report upload and analysis updates',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+      payload: '/health/labs',
+    );
+  }
+
   /// Diagnostic: print all pending notifications for debugging.
   static Future<void> debugPendingNotifications() async {
     if (!_initialized) await init();
