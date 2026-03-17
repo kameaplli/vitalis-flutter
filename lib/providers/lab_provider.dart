@@ -1,4 +1,4 @@
-/// Blood Test Intelligence — Riverpod providers for lab data.
+// Blood Test Intelligence — Riverpod providers for lab data.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api_client.dart';

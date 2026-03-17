@@ -11,6 +11,7 @@ import '../../core/constants.dart';
 import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
+import '../../services/notification_service.dart';
 
 class LabUploadScreen extends ConsumerStatefulWidget {
   const LabUploadScreen({super.key});
@@ -26,8 +27,6 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     text: DateTime.now().toIso8601String().substring(0, 10),
   );
   final _notesController = TextEditingController();
-  final ValueNotifier<double> _uploadProgress = ValueNotifier(0);
-  final ValueNotifier<String> _uploadStage = ValueNotifier('Preparing...');
 
   @override
   void initState() {
@@ -40,8 +39,6 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     _tabController.dispose();
     _dateController.dispose();
     _notesController.dispose();
-    _uploadProgress.dispose();
-    _uploadStage.dispose();
     super.dispose();
   }
 
@@ -78,30 +75,32 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     );
     if (result == null || result.files.isEmpty) return;
 
-    final file = File(result.files.single.path!);
+    final filePath = result.files.single.path!;
+    final fileName = filePath.split(Platform.pathSeparator).last;
     final person = ref.read(selectedPersonProvider);
 
+    // Navigate to success screen IMMEDIATELY — don't wait for upload
     if (!mounted) return;
-
-    _uploadProgress.value = 0;
-    _uploadStage.value = 'Uploading report...';
-
-    // Show upload progress dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _UploadingDialog(
-        progress: _uploadProgress,
-        stage: _uploadStage,
-      ),
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const _SuccessScreen()),
     );
 
+    // When user returns from success screen, go back to dashboard
+    if (mounted) {
+      ref.invalidate(labDashboardProvider(person));
+      ref.invalidate(labReportsProvider(person));
+      context.pop();
+    }
+
+    // Fire-and-forget: upload + poll in background
+    _backgroundUploadAndPoll(filePath, fileName, person);
+  }
+
+  /// Runs entirely in the background — no UI blocking.
+  void _backgroundUploadAndPoll(String filePath, String fileName, String person) async {
     try {
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
-          file.path,
-          filename: file.path.split(Platform.pathSeparator).last,
-        ),
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
         if (person != 'self') 'family_member_id': person,
       });
 
@@ -112,118 +111,54 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           sendTimeout: const Duration(seconds: 300),
           receiveTimeout: const Duration(seconds: 60),
         ),
-        onSendProgress: (sent, total) {
-          if (total > 0) {
-            _uploadProgress.value = sent / total;
-            if (sent < total) {
-              _uploadStage.value = 'Uploading... ${(sent / 1024).toStringAsFixed(0)} KB / ${(total / 1024).toStringAsFixed(0)} KB';
-            } else {
-              _uploadStage.value = 'Sent! Waiting for server...';
-            }
-          }
-        },
       );
 
-      if (!mounted) return;
-      Navigator.of(context).pop(); // dismiss dialog
+      // Notification 1: Upload received
+      await NotificationService.showLabUploaded();
 
-      // Show success screen
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const _SuccessScreen()),
-      );
-
-      if (mounted) {
-        ref.invalidate(labDashboardProvider(person));
-        ref.invalidate(labReportsProvider(person));
-        context.pop();
-      }
+      // Poll dashboard for new results (server analyses in background)
+      await _pollForResults(person);
     } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context).pop(); // dismiss dialog
+      debugPrint('[lab_upload] Background upload failed: $e');
+      // Silently fail — user can retry from dashboard
+    }
+  }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Upload failed: ${_friendlyError(e)}'),
-          action: SnackBarAction(label: 'Retry', onPressed: _pickAndUpload),
-        ),
+  /// Poll dashboard until new results appear (max ~3 minutes).
+  Future<void> _pollForResults(String person) async {
+    // Get current count before the new report
+    int? initialCount;
+    try {
+      final res = await apiClient.dio.get(
+        ApiConstants.labDashboard,
+        queryParameters: {if (person != 'self') 'person': person},
       );
+      initialCount = (res.data as Map<String, dynamic>)['total_biomarkers'] as int? ?? 0;
+    } catch (_) {}
+
+    // Poll every 10 seconds for up to 3 minutes
+    for (int i = 0; i < 18; i++) {
+      await Future.delayed(const Duration(seconds: 10));
+      try {
+        final res = await apiClient.dio.get(
+          ApiConstants.labDashboard,
+          queryParameters: {if (person != 'self') 'person': person},
+        );
+        final data = res.data as Map<String, dynamic>;
+        final newCount = data['total_biomarkers'] as int? ?? 0;
+
+        if (initialCount != null && newCount > initialCount) {
+          // New results appeared!
+          await NotificationService.showLabAnalysisComplete(
+            resultsCount: newCount - initialCount,
+          );
+          return;
+        }
+      } catch (_) {}
     }
-  }
 
-  String _friendlyError(dynamic e) {
-    if (e is DioException) {
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.sendTimeout) {
-        return 'Connection timed out. Please check your internet and try again.';
-      }
-      if (e.type == DioExceptionType.connectionError) {
-        return 'Cannot reach server. Please check your internet connection.';
-      }
-      return e.message ?? 'Network error';
-    }
-    return e.toString();
-  }
-}
-
-// ── Uploading Dialog with Progress ───────────────────────────────────────────
-
-class _UploadingDialog extends StatelessWidget {
-  final ValueNotifier<double> progress;
-  final ValueNotifier<String> stage;
-
-  const _UploadingDialog({required this.progress, required this.stage});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return Dialog(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_upload_rounded, size: 40, color: cs.primary),
-            const SizedBox(height: 16),
-            ValueListenableBuilder<double>(
-              valueListenable: progress,
-              builder: (_, value, __) => Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: value > 0 ? value : null,
-                      minHeight: 8,
-                      backgroundColor: cs.surfaceContainerHighest,
-                      color: cs.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (value > 0)
-                    Text(
-                      '${(value * 100).toStringAsFixed(0)}%',
-                      style: tt.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: cs.primary,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            ValueListenableBuilder<String>(
-              valueListenable: stage,
-              builder: (_, text, __) => Text(
-                text,
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Timed out — still show a notification so user checks
+    await NotificationService.showLabAnalysisComplete();
   }
 }
 
