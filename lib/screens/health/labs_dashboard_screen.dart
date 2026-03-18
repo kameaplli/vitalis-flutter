@@ -203,7 +203,10 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           SliverToBoxAdapter(child: _PanicBanner(alerts: widget.dash.panicValues)),
 
         // Health score + summary
-        SliverToBoxAdapter(child: _ScoreSection(dash: widget.dash)),
+        SliverToBoxAdapter(child: _ScoreSection(
+          dash: widget.dash,
+          onSpokeTap: (spoke) => _scrollToPillar(spoke.key),
+        )),
 
         // Tier breakdown bar
         SliverToBoxAdapter(child: _TierBreakdownBar(dash: widget.dash)),
@@ -384,22 +387,32 @@ class _AlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isEmergency = label == 'EMERGENCY';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: borderColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor.withValues(alpha: 0.4), width: 1.5),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            borderColor.withValues(alpha: 0.12),
+            borderColor.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: iconColor.withValues(alpha: 0.15),
+              color: iconColor.withValues(alpha: 0.18),
+              border: Border.all(color: iconColor.withValues(alpha: 0.3), width: 1),
             ),
             child: Icon(icon, color: iconColor, size: 20),
           ),
@@ -411,32 +424,53 @@ class _AlertCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: iconColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
+                        color: iconColor.withValues(alpha: isEmergency ? 0.9 : 0.15),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(label,
                           style: TextStyle(
-                              color: iconColor,
+                              color: isEmergency ? Colors.white : iconColor,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.8)),
                     ),
-                    const SizedBox(width: 8),
-                    Text('${alert.name} (${alert.code})',
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${alert.value} ${alert.unit}',
                         style: TextStyle(
-                            color: cs.onSurface,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700)),
+                          color: iconColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${alert.name} (${alert.code})',
+                  style: TextStyle(
+                    color: cs.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(alert.message,
                     style: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.8),
+                        color: cs.onSurface.withValues(alpha: 0.75),
                         fontSize: 12,
-                        height: 1.3)),
+                        height: 1.4)),
               ],
             ),
           ),
@@ -1045,7 +1079,8 @@ class _ReportTile extends StatelessWidget {
 
 class _ScoreSection extends StatelessWidget {
   final LabDashboard dash;
-  const _ScoreSection({required this.dash});
+  final void Function(SpokeData spoke)? onSpokeTap;
+  const _ScoreSection({required this.dash, this.onSpokeTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1090,6 +1125,7 @@ class _ScoreSection extends StatelessWidget {
               centerTitle: centerTitle,
               centerSubtitle: centerSub,
               centerColor: hasScore ? _scoreColor(dash.healthScore!) : _kOptimalColor,
+              onSpokeTap: onSpokeTap,
             ),
           )
         else
