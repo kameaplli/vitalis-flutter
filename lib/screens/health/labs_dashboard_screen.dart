@@ -10,6 +10,7 @@ import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../widgets/friendly_error.dart';
+import '../../widgets/radial_spoke_chart.dart';
 
 // ── Tier Colors (kept consistent, work in both light/dark) ──────────────────
 
@@ -1053,91 +1054,120 @@ class _ScoreSection extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final hasScore = dash.healthScore != null;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      child: Row(
-        children: [
-          // Score ring
-          SizedBox(
-            width: 100,
-            height: 100,
-            child: CustomPaint(
-              painter: _ScoreRingPainter(
-                optimalPercent: optimalPercent,
-                sufficientPercent: total > 0 ? dash.sufficientCount / total : 0,
-                suboptimalPercent: total > 0 ? dash.suboptimalCount / total : 0,
-                criticalPercent: total > 0 ? dash.criticalCount / total : 0,
-                bgColor: cs.surfaceContainerHighest,
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (hasScore) ...[
-                      Text('${dash.healthScore!.round()}',
-                          style: TextStyle(
-                              color: cs.onSurface,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800)),
-                      Text('Health',
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500)),
-                    ] else ...[
-                      Text('${(optimalPercent * 100).round()}%',
-                          style: TextStyle(
-                              color: cs.onSurface,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800)),
-                      Text('Optimal',
-                          style: TextStyle(
-                              color: cs.onSurfaceVariant,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500)),
-                    ],
-                  ],
+    // Build spokes from health pillars
+    final spokes = <SpokeData>[];
+    for (final entry in dash.pillars.entries) {
+      final pillar = entry.key;
+      final summary = entry.value;
+      final score = dash.pillarScores?[pillar];
+      final spokeValue = score != null ? (score / 100).clamp(0.0, 1.0) : _tierToValue(summary.status);
+
+      spokes.add(SpokeData(
+        key: pillar,
+        label: pillar,
+        detail: '${summary.biomarkerCount} markers  ·  ${_tierLabel(summary.status)}',
+        value: spokeValue,
+        color: _tierColor(summary.status),
+        subtitle: score != null ? '${score.round()}/100' : null,
+      ));
+    }
+
+    // Center text
+    final centerTitle = hasScore ? '${dash.healthScore!.round()}' : '${(optimalPercent * 100).round()}%';
+    final centerSub = hasScore ? 'Health Score' : 'Optimal';
+
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        // Radial spoke chart
+        if (spokes.isNotEmpty)
+          Center(
+            child: RadialSpokeChart(
+              spokes: spokes,
+              size: MediaQuery.of(context).size.width * 0.78,
+              centerTitle: centerTitle,
+              centerSubtitle: centerSub,
+              centerColor: hasScore ? _scoreColor(dash.healthScore!) : _kOptimalColor,
+            ),
+          )
+        else
+          // Fallback for no pillars
+          _ScoreRingFallback(
+            optimalPercent: optimalPercent,
+            dash: dash,
+          ),
+
+        // Summary row below chart
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('$total Biomarkers',
+                  style: TextStyle(
+                      color: cs.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700)),
+              if (dash.previousOptimalPercent != null) ...[
+                const SizedBox(width: 12),
+                _OptimalTrendChip(
+                  current: optimalPercent,
+                  previous: dash.previousOptimalPercent!,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 20),
-          // Summary text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$total Biomarkers Tracked',
-                    style: TextStyle(
-                        color: cs.onSurface,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                if (hasScore)
-                  Text('${(optimalPercent * 100).round()}% in optimal range',
-                      style: TextStyle(
-                          color: _kOptimalColor,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                if (dash.previousOptimalPercent != null) ...[
-                  const SizedBox(height: 2),
-                  _OptimalTrendChip(
-                    current: optimalPercent,
-                    previous: dash.previousOptimalPercent!,
-                  ),
-                ],
-                if (dash.latestReportDate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text('Latest: ${dash.latestReportDate}',
-                        style: TextStyle(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 12)),
-                  ),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
+        if (dash.latestReportDate != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text('Latest: ${dash.latestReportDate}',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+          ),
+      ],
+    );
+  }
+
+  static double _tierToValue(String? tier) => switch (tier) {
+        'optimal' => 0.95,
+        'sufficient' => 0.7,
+        'suboptimal' => 0.45,
+        'critical' => 0.25,
+        _ => 0.15,
+      };
+
+  static Color _scoreColor(double score) {
+    if (score >= 80) return _kOptimalColor;
+    if (score >= 60) return _kSufficientColor;
+    if (score >= 40) return _kSuboptimalColor;
+    return _kCriticalColor;
+  }
+}
+
+/// Fallback score ring when no pillar data (used only when spokes unavailable)
+class _ScoreRingFallback extends StatelessWidget {
+  final double optimalPercent;
+  final LabDashboard dash;
+  const _ScoreRingFallback({required this.optimalPercent, required this.dash});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final total = dash.totalBiomarkers;
+    return SizedBox(
+      width: 100, height: 100,
+      child: CustomPaint(
+        painter: _ScoreRingPainter(
+          optimalPercent: optimalPercent,
+          sufficientPercent: total > 0 ? dash.sufficientCount / total : 0,
+          suboptimalPercent: total > 0 ? dash.suboptimalCount / total : 0,
+          criticalPercent: total > 0 ? dash.criticalCount / total : 0,
+          bgColor: cs.surfaceContainerHighest,
+        ),
+        child: Center(
+          child: Text('${(optimalPercent * 100).round()}%',
+              style: TextStyle(color: cs.onSurface, fontSize: 24, fontWeight: FontWeight.w800)),
+        ),
       ),
     );
   }
