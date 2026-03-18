@@ -224,46 +224,114 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
     return Colors.redAccent;
   }
 
+  String _severityLabel(int s) {
+    if (s == 0) return 'Clear';
+    if (s <= 2) return 'Mild';
+    if (s <= 4) return 'Moderate';
+    if (s <= 6) return 'Noticeable';
+    if (s <= 8) return 'Severe';
+    return 'Very Severe';
+  }
+
+  String _severityHint(int s) {
+    if (s == 0) return 'No visible irritation';
+    if (s <= 2) return 'Slight redness, barely noticeable';
+    if (s <= 4) return 'Visible redness, mild itch or dryness';
+    if (s <= 6) return 'Clear patches, regular itch or flaking';
+    if (s <= 8) return 'Widespread, painful or very itchy';
+    return 'Extreme flare-up, urgent attention needed';
+  }
+
   void _showUploadSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Severity: $_severity/10',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              Slider(
-                value: _severity.toDouble(),
-                min: 0, max: 10, divisions: 10,
-                label: '$_severity',
-                onChanged: (v) => setState(() => _severity = v.round()),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Camera'),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _takePhoto(ImageSource.camera);
-                    },
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('How does your skin look today?',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                const SizedBox(height: 12),
+                // Severity value + label
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('$_severity',
+                        style: TextStyle(
+                          fontSize: 32, fontWeight: FontWeight.w800,
+                          color: _severityColor(_severity),
+                        )),
+                    const Text('/10', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _severityColor(_severity).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(_severityLabel(_severity),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13,
+                            color: _severityColor(_severity),
+                          )),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: _severity.toDouble(),
+                  min: 0, max: 10, divisions: 10,
+                  activeColor: _severityColor(_severity),
+                  label: '$_severity — ${_severityLabel(_severity)}',
+                  onChanged: (v) {
+                    setState(() => _severity = v.round());
+                    setSheetState(() {});
+                  },
+                ),
+                // Scale guide
+                Text(_severityHint(_severity),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 4),
+                // Mini legend
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('0 Clear', style: TextStyle(fontSize: 10, color: Colors.green.shade600)),
+                      Text('5 Moderate', style: TextStyle(fontSize: 10, color: Colors.orange.shade600)),
+                      Text('10 Severe', style: TextStyle(fontSize: 10, color: Colors.red.shade600)),
+                    ],
                   ),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Gallery'),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _takePhoto(ImageSource.gallery);
-                    },
-                  ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Camera'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _takePhoto(ImageSource.camera);
+                      },
+                    ),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text('Gallery'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _takePhoto(ImageSource.gallery);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -291,8 +359,9 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
                     Text(photo.takenAt!.substring(0, 10),
                         style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                   if (photo.severityUser != null)
-                    Text('Severity: ${photo.severityUser}/10',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text('${photo.severityUser}/10 — ${_severityLabel(photo.severityUser!)}',
+                        style: TextStyle(fontWeight: FontWeight.w600,
+                            color: _severityColor(photo.severityUser!))),
                   if (photo.bodyRegion != null)
                     Text('Zone: ${photo.bodyRegion}',
                         style: const TextStyle(fontSize: 12)),

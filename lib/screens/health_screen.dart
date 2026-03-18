@@ -16,6 +16,7 @@ import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/days_slider.dart';
 import '../widgets/qorhealth_icon.dart';
+import 'skin_photos_screen.dart' show skinPhotosProvider;
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
           ref.watch(medicationsProvider('${person}_7'))),
-      _CardDef('labs',        'Blood Tests', Icons.biotech_rounded,          const Color(0xFFD32F2F),
+      _CardDef('labs',        'Decode', Icons.biotech_rounded,          const Color(0xFFD32F2F),
           const AsyncValue.data([])),
       _CardDef('supplements', 'Supplements', Icons.science_rounded,         const Color(0xFFF9A825),
           ref.watch(supplementsProvider('${person}_7'))),
@@ -219,7 +220,11 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
       _CardDef('eczema',      'Eczema',      Icons.dry_rounded,             const Color(0xFF00897B),
           const AsyncValue.data([])),
       _CardDef('skin-photos', 'Skin Photos', Icons.photo_camera_rounded,    const Color(0xFF6D4C41),
-          const AsyncValue.data([])),
+          ref.watch(skinPhotosProvider(person)).whenData((photos) =>
+              photos.map((p) => <String, dynamic>{'id': p.id}).toList()),
+          photoUrls: ref.watch(skinPhotosProvider(person)).whenOrNull(
+              data: (photos) => photos.take(4).map((p) => ApiConstants.resolveUrl(p.photoUrl)).toList(),
+          ) ?? const []),
       _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   const Color(0xFF3949AB),
           const AsyncValue.data([])),
       _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
@@ -290,8 +295,10 @@ class _CardDef {
   final IconData icon;
   final Color color;
   final AsyncValue<List<Map<String, dynamic>>> logsAsync;
+  final List<String> photoUrls; // thumbnail URLs for skin-photos card
 
-  const _CardDef(this.category, this.label, this.icon, this.color, this.logsAsync);
+  const _CardDef(this.category, this.label, this.icon, this.color, this.logsAsync,
+      {this.photoUrls = const []});
 }
 
 // ─── Health category card ──────────────────────────────────────────────────────
@@ -369,42 +376,76 @@ class _HealthCardState extends State<_HealthCard>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Top section: icon + badge ──────────────────────
+                    // ── Top section: icon + badge (or thumbnails) ─────
                     Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Color accent bar
-                            Container(
-                              width: 3,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: def.color,
-                                borderRadius: BorderRadius.circular(2),
+                      child: def.photoUrls.isNotEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: GridView.count(
+                                      crossAxisCount: 2,
+                                      mainAxisSpacing: 2,
+                                      crossAxisSpacing: 2,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      children: def.photoUrls.take(4).map((url) =>
+                                        Image.network(url, fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              Container(color: Colors.grey.shade200)),
+                                      ).toList(),
+                                    ),
+                                  ),
+                                  if (badge != null)
+                                    Positioned(
+                                      top: 2, right: 2,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(badge,
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                                              color: Colors.white)),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 3, height: 36,
+                                    decoration: BoxDecoration(
+                                      color: def.color,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Icon(def.icon, size: 36, color: def.color),
+                                  const Spacer(),
+                                  if (badge != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: cs.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(badge,
+                                        style: TextStyle(
+                                          fontSize: 11, fontWeight: FontWeight.w700,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Icon(def.icon, size: 36, color: def.color),
-                            const Spacer(),
-                            if (badge != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: cs.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(badge,
-                                  style: TextStyle(
-                                    fontSize: 11, fontWeight: FontWeight.w700,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
                     ),
                     // ── Bottom: label ──────────────────────────────────
                     Padding(

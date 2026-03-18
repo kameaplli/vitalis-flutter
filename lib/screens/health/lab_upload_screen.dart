@@ -109,7 +109,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     super.build(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Lab Results'),
+        title: const Text('Add Results'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -198,7 +198,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                             Text(
                               hasFiles
                                   ? 'Tap to add more files'
-                                  : 'Select your lab reports',
+                                  : 'Select your reports',
                               style: tt.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: cs.onSurface,
@@ -1328,7 +1328,7 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lab results saved!')),
+          const SnackBar(content: Text('Results saved!')),
         );
         context.pop();
       }

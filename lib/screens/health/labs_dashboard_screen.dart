@@ -81,7 +81,7 @@ class LabsDashboardScreen extends ConsumerWidget {
 SliverAppBar _buildSliverAppBar(BuildContext context, {List<Widget>? actions}) {
   return SliverAppBar(
     floating: true,
-    title: const Text('Blood Tests'),
+    title: const Text('Decode'),
     actions: actions ??
         [
           Padding(
@@ -994,7 +994,7 @@ class _ReportTile extends StatelessWidget {
             child: Icon(Icons.description_rounded,
                 color: cs.onPrimaryContainer, size: 20),
           ),
-          title: Text(report.labProvider ?? 'Lab Report',
+          title: Text(report.labProvider ?? 'Report',
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           subtitle: Row(
             children: [
@@ -1725,15 +1725,15 @@ class _EmptyState extends StatelessWidget {
                   Icon(Icons.biotech_rounded,
                       size: 64, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
                   const SizedBox(height: 20),
-                  Text('No Blood Tests Yet',
+                  Text('No Results Yet',
                       style: TextStyle(
                           color: cs.onSurface,
                           fontSize: 20,
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Text(
-                    'Upload your lab report PDF to track biomarkers '
-                    'and get personalized insights.',
+                    'Upload your report to decode your biomarkers '
+                    'and unlock personalized insights.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: cs.onSurfaceVariant,
@@ -1744,7 +1744,7 @@ class _EmptyState extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: () => context.push('/health/labs/upload'),
                     icon: const Icon(Icons.upload_file_rounded),
-                    label: const Text('Upload Lab Report'),
+                    label: const Text('Upload Report'),
                   ),
                 ],
               ),
