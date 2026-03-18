@@ -629,6 +629,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         ApiConstants.labUpload,
         data: formData,
         options: Options(
+          contentType: 'multipart/form-data',
           sendTimeout: const Duration(seconds: 300),
           receiveTimeout: const Duration(seconds: 300),
         ),
