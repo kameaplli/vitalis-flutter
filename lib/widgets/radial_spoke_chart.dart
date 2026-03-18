@@ -20,27 +20,26 @@ class SpokeData {
   });
 }
 
-/// Lighter palette derived from QorHealth app icon (pink → orange → purple).
-/// Use these when building SpokeData if you want consistent brand colors.
+/// Vibrant, high-contrast palette for health pillars.
+/// Colors are maximally distinct for readability on both light and dark themes.
 class ChartColors {
-  // Lighter tints of the brand triad
-  static const Color rosePink     = Color(0xFFF48FB1); // light pink
-  static const Color peach        = Color(0xFFFFAB91); // light orange/peach
-  static const Color lavender     = Color(0xFFCE93D8); // light purple
-  static const Color coral        = Color(0xFFFF8A80); // coral red
-  static const Color amber        = Color(0xFFFFD54F); // warm amber
-  static const Color lilac        = Color(0xFFB39DDB); // soft violet
-  static const Color mint         = Color(0xFF80CBC4); // teal mint
-  static const Color skyBlue      = Color(0xFF81D4FA); // sky blue
-  static const Color salmon       = Color(0xFFEF9A9A); // soft salmon
-  static const Color mauve        = Color(0xFFF48FB1); // mauve pink
-  static const Color apricot      = Color(0xFFFFCC80); // apricot
-  static const Color periwinkle   = Color(0xFF9FA8DA); // periwinkle
+  static const Color emerald      = Color(0xFF10B981); // green — vitality
+  static const Color sapphire     = Color(0xFF3B82F6); // blue — heart/cardio
+  static const Color amber        = Color(0xFFF59E0B); // amber — metabolic
+  static const Color rose         = Color(0xFFF43F5E); // rose — blood
+  static const Color violet       = Color(0xFF8B5CF6); // violet — hormones
+  static const Color teal         = Color(0xFF14B8A6); // teal — kidney/liver
+  static const Color orange       = Color(0xFFF97316); // orange — immune
+  static const Color indigo       = Color(0xFF6366F1); // indigo — thyroid
+  static const Color pink         = Color(0xFFEC4899); // pink — nutrition
+  static const Color cyan         = Color(0xFF06B6D4); // cyan — minerals
+  static const Color lime         = Color(0xFF84CC16); // lime — inflammation
+  static const Color fuchsia      = Color(0xFFD946EF); // fuchsia — vitamins
 
-  /// Ordered palette — cycles through brand-derived colors.
+  /// Ordered palette — maximally distinct, vibrant colors.
   static const List<Color> palette = [
-    rosePink, peach, lavender, coral, amber, lilac,
-    mint, skyBlue, salmon, apricot, periwinkle, mauve,
+    emerald, sapphire, amber, rose, violet, teal,
+    orange, indigo, pink, cyan, lime, fuchsia,
   ];
 
   /// Get color at index, cycling through palette.
@@ -58,6 +57,7 @@ class RadialSpokeChart extends StatefulWidget {
   final Color? centerColor;
   final Color? ringColor;
   final VoidCallback? onCenterTap;
+  final void Function(SpokeData spoke)? onSpokeTap;  // navigate on spoke tap
 
   const RadialSpokeChart({
     super.key,
@@ -68,6 +68,7 @@ class RadialSpokeChart extends StatefulWidget {
     this.centerColor,
     this.ringColor,
     this.onCenterTap,
+    this.onSpokeTap,
   });
 
   @override
@@ -238,9 +239,14 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
     for (int i = 0; i < n; i++) {
       cumulative += segAngle;
       if (adjusted < cumulative) {
+        final wasSame = _selectedIndex == i;
         setState(() {
-          _selectedIndex = (_selectedIndex == i) ? null : i;
+          _selectedIndex = wasSame ? null : i;
         });
+        // Navigate on tap (not deselect)
+        if (!wasSame && widget.onSpokeTap != null) {
+          widget.onSpokeTap!(widget.spokes[i]);
+        }
         return;
       }
       cumulative += gapAngle;
