@@ -54,6 +54,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   final List<_FileProcessState> _files = [];
   bool _processing = false;
   bool _allDone = false;
+  String _statusText = ''; // Overall status message shown during processing
 
   @override
   void initState() {
@@ -229,20 +230,68 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                     ),
                   ),
 
-                // ── 3-tick legend (only while processing or done) ──────────
+                // ── Status text + legend (only while processing or done) ───
                 if (hasFiles && (_processing || _allDone))
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildLegendItem('Uploaded', const Color(0xFF16A34A)),
-                          const SizedBox(width: 16),
-                          _buildLegendItem(
-                              'Analysed', const Color(0xFF2563EB)),
-                          const SizedBox(width: 16),
-                          _buildLegendItem(
-                              'Ready', const Color(0xFF9333EA)),
+                          // Status message
+                          if (_statusText.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  if (_processing)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: cs.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  if (_allDone && !_processing)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 8),
+                                      child: Icon(
+                                        Icons.check_circle_rounded,
+                                        size: 16,
+                                        color: Color(0xFF16A34A),
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      _statusText,
+                                      style: tt.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: _allDone
+                                            ? const Color(0xFF16A34A)
+                                            : cs.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          // Legend
+                          Row(
+                            children: [
+                              _buildLegendItem(
+                                  'Uploaded', const Color(0xFF16A34A)),
+                              const SizedBox(width: 16),
+                              _buildLegendItem(
+                                  'Analysed', const Color(0xFF2563EB)),
+                              const SizedBox(width: 16),
+                              _buildLegendItem(
+                                  'Ready', const Color(0xFF9333EA)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -344,7 +393,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                                 Icons.rocket_launch_rounded, size: 20),
                         label: Text(
                           _processing
-                              ? 'Processing...'
+                              ? _statusText
                               : 'Analyse ${_files.length} '
                                   '${_files.length == 1 ? 'Report' : 'Reports'}',
                           style: const TextStyle(
@@ -465,14 +514,22 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   Future<void> _startProcessing() async {
     if (_files.isEmpty || _processing) return;
 
-    setState(() => _processing = true);
+    setState(() {
+      _processing = true;
+      _statusText = 'Starting...';
+    });
 
-    await NotificationService.showLabUploaded(fileCount: _files.length);
+    // Fire-and-forget notification — don't block processing
+    NotificationService.showLabUploaded(fileCount: _files.length)
+        .catchError((_) {});
 
     final person = ref.read(selectedPersonProvider);
 
     for (int i = 0; i < _files.length; i++) {
       if (!mounted) return;
+      setState(() {
+        _statusText = 'Processing file ${i + 1} of ${_files.length}';
+      });
       await _processFile(i, person);
     }
 
@@ -480,6 +537,10 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     final successCount =
         _files.where((f) => f.analysed == _TickState.done).length;
     if (successCount > 0) {
+      if (mounted) {
+        setState(() => _statusText = 'Updating dashboard...');
+      }
+
       ref.invalidate(labDashboardProvider(person));
       ref.invalidate(labReportsProvider(person));
 
@@ -494,14 +555,22 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           _files.where((f) => f.ready == _TickState.done)
               .fold(0, (sum, f) => sum + f.savedCount);
 
-      await NotificationService.showLabAnalysisComplete(
-          resultsCount: totalSaved);
+      // Fire-and-forget — don't block
+      NotificationService.showLabAnalysisComplete(
+              resultsCount: totalSaved)
+          .catchError((_) {});
     }
 
     if (mounted) {
+      final errorCount =
+          _files.where((f) => f.uploaded == _TickState.error ||
+              f.analysed == _TickState.error).length;
       setState(() {
         _processing = false;
         _allDone = true;
+        _statusText = errorCount > 0
+            ? '$successCount succeeded, $errorCount failed'
+            : '$successCount ${successCount == 1 ? 'report' : 'reports'} analysed';
       });
     }
   }
@@ -520,6 +589,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
 
     try {
       // ── Tick 1: Uploading ──────────────────────────────────────────────
+      debugPrint('[LabUpload] Processing file ${index + 1}: ${state.file.name}');
       setState(() => state.uploaded = _TickState.active);
 
       final formData = FormData.fromMap({
@@ -565,6 +635,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       final status = data['status'] as String? ?? '';
 
       if (status == 'completed') {
+        debugPrint('[LabUpload] File ${index + 1} analysed: ${data['saved_count']} biomarkers');
         setState(() {
           state.analysed = _TickState.done;
           state.savedCount = data['saved_count'] as int? ?? 0;
@@ -573,6 +644,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           state.ready = _TickState.active;
         });
       } else {
+        debugPrint('[LabUpload] File ${index + 1} failed: ${data['detail']}');
         setState(() {
           state.analysed = _TickState.error;
           state.errorMessage =
@@ -583,6 +655,8 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       final detail = e.response?.data is Map
           ? (e.response!.data as Map)['detail']?.toString()
           : e.message;
+      debugPrint('[LabUpload] File ${index + 1} DioException: $detail '
+          '(status=${e.response?.statusCode}, type=${e.type})');
 
       setState(() {
         if (state.uploaded == _TickState.active) {
@@ -593,6 +667,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         state.errorMessage = detail ?? 'Connection error';
       });
     } catch (e) {
+      debugPrint('[LabUpload] File ${index + 1} error: $e');
       setState(() {
         if (state.uploaded == _TickState.active) {
           state.uploaded = _TickState.error;
