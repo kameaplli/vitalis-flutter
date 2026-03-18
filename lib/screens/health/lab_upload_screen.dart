@@ -230,8 +230,8 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                     ),
                   ),
 
-                // ── Status text + legend (only while processing or done) ───
-                if (hasFiles && (_processing || _allDone))
+                // ── Status text + legend ───────────────────────────────────
+                if (hasFiles)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -310,7 +310,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                           key: ValueKey(
                               '${f.file.path}_${f.uploaded}_${f.analysed}_${f.ready}'),
                           state: f,
-                          showTicks: _processing || _allDone,
+                          showTicks: true,
                           onRemove: _processing
                               ? null
                               : () => setState(() => _files.removeAt(i)),
