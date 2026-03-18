@@ -28,6 +28,9 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   );
   final _notesController = TextEditingController();
 
+  // Selected files (before upload)
+  final List<PlatformFile> _selectedFiles = [];
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +53,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload File'),
+            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload Files'),
             Tab(icon: Icon(Icons.edit_rounded), text: 'Manual Entry'),
           ],
         ),
@@ -58,7 +61,12 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _UploadTab(onPickFile: _pickAndUpload),
+          _UploadTab(
+            selectedFiles: _selectedFiles,
+            onPickFiles: _pickFiles,
+            onRemoveFile: _removeFile,
+            onUpload: _uploadFiles,
+          ),
           _ManualEntryTab(
             dateController: _dateController,
             notesController: _notesController,
@@ -68,24 +76,40 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     );
   }
 
-  Future<void> _pickAndUpload() async {
+  Future<void> _pickFiles() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tiff', 'bmp', 'webp'],
+      allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
 
-    final filePath = result.files.single.path!;
-    final fileName = filePath.split(Platform.pathSeparator).last;
-    final person = ref.read(selectedPersonProvider);
+    setState(() {
+      for (final file in result.files) {
+        // Avoid duplicates by path
+        if (!_selectedFiles.any((f) => f.path == file.path)) {
+          _selectedFiles.add(file);
+        }
+      }
+    });
+  }
 
-    // Navigate to processing screen immediately
+  void _removeFile(int index) {
+    setState(() => _selectedFiles.removeAt(index));
+  }
+
+  Future<void> _uploadFiles() async {
+    if (_selectedFiles.isEmpty) return;
+
+    final person = ref.read(selectedPersonProvider);
+    final files = List<PlatformFile>.from(_selectedFiles);
+
+    // Navigate to processing screen
     if (!mounted) return;
     final success = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => _ProcessingScreen(
-          filePath: filePath,
-          fileName: fileName,
+        builder: (_) => _MultiProcessingScreen(
+          files: files,
           person: person,
         ),
       ),
@@ -96,51 +120,268 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       if (success == true) {
         ref.invalidate(labDashboardProvider(person));
         ref.invalidate(labReportsProvider(person));
+        setState(() => _selectedFiles.clear());
       }
       context.pop();
     }
   }
 }
 
-// ── Processing Screen ───────────────────────────────────────────────────────
+// ── Upload Tab (multi-file selection) ──────────────────────────────────────
 
-class _ProcessingScreen extends StatefulWidget {
-  final String filePath;
-  final String fileName;
+class _UploadTab extends StatelessWidget {
+  final List<PlatformFile> selectedFiles;
+  final VoidCallback onPickFiles;
+  final void Function(int) onRemoveFile;
+  final VoidCallback onUpload;
+
+  const _UploadTab({
+    required this.selectedFiles,
+    required this.onPickFiles,
+    required this.onRemoveFile,
+    required this.onUpload,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Column(
+      children: [
+        // Header area
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          child: Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cs.primary.withValues(alpha: 0.1),
+                ),
+                child: Icon(Icons.upload_file_rounded,
+                    size: 32, color: cs.primary),
+              ),
+              const SizedBox(height: 16),
+              Text('Upload Lab Reports',
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(
+                'Select one or more PDFs or photos of your blood test reports.',
+                style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Add files button
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: onPickFiles,
+              icon: const Icon(Icons.add_rounded),
+              label: Text(selectedFiles.isEmpty
+                  ? 'Select Files'
+                  : 'Add More Files'),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Supported: PDF, JPG, PNG, TIFF, BMP, WebP',
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Selected files list
+        Expanded(
+          child: selectedFiles.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.folder_open_rounded,
+                          size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
+                      const SizedBox(height: 8),
+                      Text('No files selected',
+                          style: tt.bodyMedium?.copyWith(
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5))),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: selectedFiles.length,
+                  itemBuilder: (context, i) {
+                    final file = selectedFiles[i];
+                    final name = file.name;
+                    final sizeMb = (file.size / (1024 * 1024)).toStringAsFixed(1);
+                    final isPdf = name.toLowerCase().endsWith('.pdf');
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: (isPdf ? cs.error : cs.tertiary)
+                                .withValues(alpha: 0.1),
+                          ),
+                          child: Icon(
+                            isPdf
+                                ? Icons.picture_as_pdf_rounded
+                                : Icons.image_rounded,
+                            color: isPdf ? cs.error : cs.tertiary,
+                            size: 22,
+                          ),
+                        ),
+                        title: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text('$sizeMb MB'),
+                        trailing: IconButton(
+                          icon: Icon(Icons.close_rounded,
+                              color: cs.onSurfaceVariant),
+                          onPressed: () => onRemoveFile(i),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+
+        // Upload button
+        if (selectedFiles.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: onUpload,
+                icon: const Icon(Icons.cloud_upload_rounded),
+                label: Text(
+                  'Upload & Analyse ${selectedFiles.length} '
+                  '${selectedFiles.length == 1 ? 'File' : 'Files'}',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Multi-file Processing Screen ────────────────────────────────────────────
+
+enum _FileStatus { pending, uploading, analysing, done, error }
+
+class _FileUploadState {
+  final PlatformFile file;
+  _FileStatus status;
+  String? errorMessage;
+  int savedCount;
+  String? labProvider;
+
+  _FileUploadState({required this.file})
+      : status = _FileStatus.pending,
+        savedCount = 0;
+}
+
+class _MultiProcessingScreen extends StatefulWidget {
+  final List<PlatformFile> files;
   final String person;
 
-  const _ProcessingScreen({
-    required this.filePath,
-    required this.fileName,
+  const _MultiProcessingScreen({
+    required this.files,
     required this.person,
   });
 
   @override
-  State<_ProcessingScreen> createState() => _ProcessingScreenState();
+  State<_MultiProcessingScreen> createState() => _MultiProcessingScreenState();
 }
 
-class _ProcessingScreenState extends State<_ProcessingScreen> {
-  int _step = 0; // 0=uploading, 1=analysing, 2=done, -1=error
-  String? _errorMessage;
-  int _savedCount = 0;
-  String? _labProvider;
+class _MultiProcessingScreenState extends State<_MultiProcessingScreen> {
+  late final List<_FileUploadState> _fileStates;
+  bool _allDone = false;
+  int _totalSaved = 0;
 
   @override
   void initState() {
     super.initState();
-    _uploadAndProcess();
+    _fileStates = widget.files
+        .map((f) => _FileUploadState(file: f))
+        .toList();
+    _processAllFiles();
   }
 
-  Future<void> _uploadAndProcess() async {
+  Future<void> _processAllFiles() async {
+    for (int i = 0; i < _fileStates.length; i++) {
+      await _processFile(i);
+    }
+
+    _totalSaved = _fileStates
+        .where((f) => f.status == _FileStatus.done)
+        .fold(0, (sum, f) => sum + f.savedCount);
+
+    final successCount =
+        _fileStates.where((f) => f.status == _FileStatus.done).length;
+
+    setState(() => _allDone = true);
+
+    if (successCount > 0) {
+      await NotificationService.showLabAnalysisComplete(
+          resultsCount: _totalSaved);
+    }
+  }
+
+  Future<void> _processFile(int index) async {
+    final state = _fileStates[index];
+    final filePath = state.file.path;
+    if (filePath == null) {
+      setState(() {
+        state.status = _FileStatus.error;
+        state.errorMessage = 'File path unavailable';
+      });
+      return;
+    }
+
     try {
-      setState(() => _step = 0);
+      setState(() => state.status = _FileStatus.uploading);
 
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(widget.filePath, filename: widget.fileName),
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: state.file.name,
+        ),
         if (widget.person != 'self') 'family_member_id': widget.person,
       });
 
-      setState(() => _step = 1);
+      setState(() => state.status = _FileStatus.analysing);
 
       final response = await apiClient.dio.post(
         ApiConstants.labUpload,
@@ -155,14 +396,16 @@ class _ProcessingScreenState extends State<_ProcessingScreen> {
       final status = data['status'] as String? ?? '';
 
       if (status == 'completed') {
-        _savedCount = data['saved_count'] as int? ?? 0;
-        _labProvider = data['lab_provider'] as String?;
-        setState(() => _step = 2);
-        await NotificationService.showLabAnalysisComplete(resultsCount: _savedCount);
+        setState(() {
+          state.status = _FileStatus.done;
+          state.savedCount = data['saved_count'] as int? ?? 0;
+          state.labProvider = data['lab_provider'] as String?;
+        });
       } else {
         setState(() {
-          _step = -1;
-          _errorMessage = data['detail'] as String? ?? 'Unknown error';
+          state.status = _FileStatus.error;
+          state.errorMessage =
+              data['detail'] as String? ?? 'Unknown error';
         });
       }
     } on DioException catch (e) {
@@ -170,13 +413,13 @@ class _ProcessingScreenState extends State<_ProcessingScreen> {
           ? (e.response!.data as Map)['detail']?.toString()
           : e.message;
       setState(() {
-        _step = -1;
-        _errorMessage = detail ?? 'Connection error. Please try again.';
+        state.status = _FileStatus.error;
+        state.errorMessage = detail ?? 'Connection error';
       });
     } catch (e) {
       setState(() {
-        _step = -1;
-        _errorMessage = e.toString();
+        state.status = _FileStatus.error;
+        state.errorMessage = e.toString();
       });
     }
   }
@@ -185,300 +428,233 @@ class _ProcessingScreenState extends State<_ProcessingScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final isDone = _step == 2;
-    final isError = _step == -1;
+
+    final doneCount =
+        _fileStates.where((f) => f.status == _FileStatus.done).length;
+    final errorCount =
+        _fileStates.where((f) => f.status == _FileStatus.error).length;
+    final total = _fileStates.length;
+    final allSuccess = _allDone && errorCount == 0;
+    final hasErrors = _allDone && errorCount > 0;
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-
-              // Status icon
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isError
-                      ? cs.error.withValues(alpha: 0.12)
-                      : isDone
-                          ? const Color(0xFF16A34A).withValues(alpha: 0.12)
-                          : cs.primary.withValues(alpha: 0.12),
-                ),
-                child: isError
-                    ? Icon(Icons.error_outline_rounded, size: 52, color: cs.error)
-                    : isDone
-                        ? const Icon(Icons.check_circle_rounded, size: 52, color: Color(0xFF16A34A))
-                        : SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: cs.primary,
-                            ),
-                          ),
-              ),
-              const SizedBox(height: 28),
-
-              Text(
-                isError
-                    ? 'Analysis Failed'
-                    : isDone
-                        ? 'Report Analysed!'
-                        : 'Analysing Report...',
-                style: tt.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              if (isError)
+      appBar: AppBar(
+        title: Text(_allDone
+            ? 'Upload Complete'
+            : 'Processing ${doneCount + errorCount}/$total'),
+        automaticallyImplyLeading: false,
+      ),
+      body: Column(
+        children: [
+          // Summary banner
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: _allDone
+                  ? allSuccess
+                      ? const Color(0xFF16A34A).withValues(alpha: 0.08)
+                      : cs.error.withValues(alpha: 0.08)
+                  : cs.primary.withValues(alpha: 0.08),
+            ),
+            child: Column(
+              children: [
+                if (!_allDone)
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 3, color: cs.primary),
+                  )
+                else
+                  Icon(
+                    allSuccess
+                        ? Icons.check_circle_rounded
+                        : Icons.warning_amber_rounded,
+                    size: 48,
+                    color: allSuccess
+                        ? const Color(0xFF16A34A)
+                        : cs.error,
+                  ),
+                const SizedBox(height: 12),
                 Text(
-                  _errorMessage ?? 'An error occurred',
+                  _allDone
+                      ? allSuccess
+                          ? '$_totalSaved biomarkers extracted from $total ${total == 1 ? 'file' : 'files'}'
+                          : '$doneCount of $total files processed successfully'
+                      : 'Analysing your lab reports...',
                   textAlign: TextAlign.center,
-                  style: tt.bodyLarge?.copyWith(color: cs.error, height: 1.5),
-                )
-              else if (isDone)
-                Text(
-                  '$_savedCount biomarkers extracted'
-                  '${_labProvider != null ? ' from $_labProvider' : ''}'
-                  ' and classified into health tiers.',
-                  textAlign: TextAlign.center,
-                  style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
-                )
-              else
-                Text(
-                  'Your lab report is being parsed and classified. '
-                  'This usually takes a few seconds.',
-                  textAlign: TextAlign.center,
-                  style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant, height: 1.5),
+                  style: tt.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                  ),
                 ),
-
-              const SizedBox(height: 32),
-
-              // Timeline steps
-              _TimelineStep(
-                icon: Icons.upload_file_rounded,
-                title: 'Report received',
-                subtitle: 'File uploaded securely',
-                isComplete: _step >= 1 || isDone,
-                color: cs,
-              ),
-              _TimelineStep(
-                icon: Icons.psychology_rounded,
-                title: 'Analysing biomarkers',
-                subtitle: 'Extracting values, units, and reference ranges',
-                isComplete: isDone,
-                isInProgress: _step == 1,
-                color: cs,
-              ),
-              _TimelineStep(
-                icon: Icons.assessment_rounded,
-                title: 'Classification & insights',
-                subtitle: isDone
-                    ? '$_savedCount biomarkers classified'
-                    : 'Categorising into health tiers',
-                isComplete: isDone,
-                color: cs,
-              ),
-              _TimelineStep(
-                icon: Icons.dashboard_rounded,
-                title: 'Dashboard updated',
-                subtitle: 'Results ready on your Blood Tests dashboard',
-                isComplete: isDone,
-                isLast: true,
-                color: cs,
-              ),
-
-              const Spacer(flex: 2),
-
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: (isDone || isError)
-                      ? () => Navigator.of(context).pop(isDone)
-                      : null,
-                  icon: Icon(isDone
-                      ? Icons.dashboard_rounded
-                      : isError
-                          ? Icons.arrow_back_rounded
-                          : Icons.hourglass_top_rounded),
-                  label: Text(isDone
-                      ? 'View Dashboard'
-                      : isError
-                          ? 'Go Back'
-                          : 'Processing...'),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-            ],
+                if (hasErrors) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '$errorCount ${errorCount == 1 ? 'file' : 'files'} failed — see details below',
+                    style: tt.bodySmall?.copyWith(color: cs.error),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+
+          // Per-file status list
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _fileStates.length,
+              itemBuilder: (context, i) {
+                final fs = _fileStates[i];
+                return _FileStatusCard(state: fs);
+              },
+            ),
+          ),
+
+          // Bottom button
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _allDone
+                    ? () => Navigator.of(context).pop(doneCount > 0)
+                    : null,
+                icon: Icon(_allDone
+                    ? Icons.dashboard_rounded
+                    : Icons.hourglass_top_rounded),
+                label: Text(
+                  _allDone ? 'View Dashboard' : 'Processing...',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Timeline Step Widget ─────────────────────────────────────────────────────
+// ── Per-file status card ────────────────────────────────────────────────────
 
-class _TimelineStep extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool isComplete;
-  final bool isInProgress;
-  final bool isLast;
-  final ColorScheme color;
-
-  const _TimelineStep({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.isComplete = false,
-    this.isInProgress = false,
-    this.isLast = false,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final activeColor = isComplete
-        ? const Color(0xFF16A34A)
-        : isInProgress
-            ? color.primary
-            : color.onSurfaceVariant.withValues(alpha: 0.4);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Icon + connector line
-        SizedBox(
-          width: 36,
-          child: Column(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isComplete
-                      ? const Color(0xFF16A34A).withValues(alpha: 0.15)
-                      : isInProgress
-                          ? color.primary.withValues(alpha: 0.12)
-                          : color.surfaceContainerHigh,
-                ),
-                child: Icon(
-                  isComplete ? Icons.check_rounded : icon,
-                  size: 16,
-                  color: activeColor,
-                ),
-              ),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 28,
-                  color: isComplete
-                      ? const Color(0xFF16A34A).withValues(alpha: 0.3)
-                      : color.outlineVariant.withValues(alpha: 0.3),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        // Text
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: tt.bodyMedium?.copyWith(
-                      fontWeight: isInProgress ? FontWeight.w700 : FontWeight.w600,
-                      color: isComplete || isInProgress
-                          ? color.onSurface
-                          : color.onSurfaceVariant.withValues(alpha: 0.6),
-                    )),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: tt.bodySmall?.copyWith(
-                      color: color.onSurfaceVariant.withValues(
-                          alpha: isComplete || isInProgress ? 0.7 : 0.4),
-                    )),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Upload Tab (simplified — just file picker) ──────────────────────────────
-
-class _UploadTab extends StatelessWidget {
-  final VoidCallback onPickFile;
-
-  const _UploadTab({required this.onPickFile});
+class _FileStatusCard extends StatelessWidget {
+  final _FileUploadState state;
+  const _FileStatusCard({required this.state});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final isPdf = state.file.name.toLowerCase().endsWith('.pdf');
 
-    return Center(
+    final Color statusColor;
+    final IconData statusIcon;
+    final String statusText;
+
+    switch (state.status) {
+      case _FileStatus.pending:
+        statusColor = cs.onSurfaceVariant.withValues(alpha: 0.4);
+        statusIcon = Icons.schedule_rounded;
+        statusText = 'Waiting...';
+      case _FileStatus.uploading:
+        statusColor = cs.primary;
+        statusIcon = Icons.cloud_upload_rounded;
+        statusText = 'Uploading...';
+      case _FileStatus.analysing:
+        statusColor = cs.primary;
+        statusIcon = Icons.psychology_rounded;
+        statusText = 'Analysing...';
+      case _FileStatus.done:
+        statusColor = const Color(0xFF16A34A);
+        statusIcon = Icons.check_circle_rounded;
+        statusText = '${state.savedCount} biomarkers'
+            '${state.labProvider != null ? ' • ${state.labProvider}' : ''}';
+      case _FileStatus.error:
+        statusColor = cs.error;
+        statusIcon = Icons.error_outline_rounded;
+        statusText = state.errorMessage ?? 'Failed';
+    }
+
+    final isActive = state.status == _FileStatus.uploading ||
+        state.status == _FileStatus.analysing;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isActive
+            ? BorderSide(color: cs.primary.withValues(alpha: 0.3))
+            : BorderSide.none,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
           children: [
+            // File icon
             Container(
-              width: 80,
-              height: 80,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: cs.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                color: (isPdf ? cs.error : cs.tertiary)
+                    .withValues(alpha: 0.1),
               ),
-              child: Icon(Icons.upload_file_rounded,
-                  size: 40, color: cs.primary),
-            ),
-            const SizedBox(height: 24),
-            Text('Upload your lab report',
-                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-              'Select a PDF or photo of your blood test report. '
-              'We\'ll extract and analyse your biomarkers automatically.',
-              style: tt.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: onPickFile,
-                icon: const Icon(Icons.file_open_rounded),
-                label: const Text('Select File'),
-                style: FilledButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
+              child: Icon(
+                isPdf
+                    ? Icons.picture_as_pdf_rounded
+                    : Icons.image_rounded,
+                color: isPdf ? cs.error : cs.tertiary,
+                size: 20,
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Supported: PDF, JPG, PNG, TIFF, BMP, WebP',
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            const SizedBox(width: 12),
+
+            // File info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    state.file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    statusText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodySmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: state.status == _FileStatus.done ||
+                              state.status == _FileStatus.error
+                          ? FontWeight.w500
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
+
+            // Status indicator
+            if (isActive)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.5, color: cs.primary),
+              )
+            else
+              Icon(statusIcon, color: statusColor, size: 24),
           ],
         ),
       ),
