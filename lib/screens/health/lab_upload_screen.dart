@@ -303,13 +303,19 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverList.builder(
                       itemCount: _files.length,
-                      itemBuilder: (context, i) => _FileTickCard(
-                        state: _files[i],
-                        showTicks: _processing || _allDone,
-                        onRemove: _processing
-                            ? null
-                            : () => setState(() => _files.removeAt(i)),
-                      ),
+                      itemBuilder: (context, i) {
+                        final f = _files[i];
+                        // ValueKey forces Flutter to rebuild when tick states change
+                        return _FileTickCard(
+                          key: ValueKey(
+                              '${f.file.path}_${f.uploaded}_${f.analysed}_${f.ready}'),
+                          state: f,
+                          showTicks: _processing || _allDone,
+                          onRemove: _processing
+                              ? null
+                              : () => setState(() => _files.removeAt(i)),
+                        );
+                      },
                     ),
                   ),
 
@@ -519,59 +525,76 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       _statusText = 'Starting...';
     });
 
-    // Fire-and-forget notification — don't block processing
-    NotificationService.showLabUploaded(fileCount: _files.length)
-        .catchError((_) {});
-
-    final person = ref.read(selectedPersonProvider);
-
-    for (int i = 0; i < _files.length; i++) {
-      if (!mounted) return;
-      setState(() {
-        _statusText = 'Processing file ${i + 1} of ${_files.length}';
-      });
-      await _processFile(i, person);
-    }
-
-    // Invalidate dashboard for all successful files
-    final successCount =
-        _files.where((f) => f.analysed == _TickState.done).length;
-    if (successCount > 0) {
-      if (mounted) {
-        setState(() => _statusText = 'Updating dashboard...');
-      }
-
-      ref.invalidate(labDashboardProvider(person));
-      ref.invalidate(labReportsProvider(person));
-
-      // Mark all analysed files as "ready"
-      for (final f in _files) {
-        if (f.analysed == _TickState.done) {
-          f.ready = _TickState.done;
-        }
-      }
-
-      final totalSaved =
-          _files.where((f) => f.ready == _TickState.done)
-              .fold(0, (sum, f) => sum + f.savedCount);
-
-      // Fire-and-forget — don't block
-      NotificationService.showLabAnalysisComplete(
-              resultsCount: totalSaved)
+    try {
+      // Fire-and-forget notification — don't block processing
+      NotificationService.showLabUploaded(fileCount: _files.length)
           .catchError((_) {});
-    }
 
-    if (mounted) {
-      final errorCount =
-          _files.where((f) => f.uploaded == _TickState.error ||
-              f.analysed == _TickState.error).length;
-      setState(() {
-        _processing = false;
-        _allDone = true;
-        _statusText = errorCount > 0
-            ? '$successCount succeeded, $errorCount failed'
-            : '$successCount ${successCount == 1 ? 'report' : 'reports'} analysed';
-      });
+      final person = ref.read(selectedPersonProvider);
+
+      for (int i = 0; i < _files.length; i++) {
+        if (!mounted) return;
+        setState(() {
+          _statusText = 'Processing file ${i + 1} of ${_files.length}';
+        });
+        await _processFile(i, person);
+      }
+
+      // Invalidate dashboard for all successful files
+      final successCount =
+          _files.where((f) => f.analysed == _TickState.done).length;
+      if (successCount > 0) {
+        if (mounted) {
+          setState(() => _statusText = 'Updating dashboard...');
+        }
+
+        ref.invalidate(labDashboardProvider(person));
+        ref.invalidate(labReportsProvider(person));
+
+        // Mark all analysed files as "ready"
+        for (final f in _files) {
+          if (f.analysed == _TickState.done) {
+            f.ready = _TickState.done;
+          }
+        }
+
+        final totalSaved =
+            _files.where((f) => f.ready == _TickState.done)
+                .fold(0, (sum, f) => sum + f.savedCount);
+
+        // Fire-and-forget — don't block
+        NotificationService.showLabAnalysisComplete(
+                resultsCount: totalSaved)
+            .catchError((_) {});
+      }
+
+      if (mounted) {
+        final errorCount =
+            _files.where((f) => f.uploaded == _TickState.error ||
+                f.analysed == _TickState.error).length;
+        setState(() {
+          _processing = false;
+          _allDone = true;
+          _statusText = errorCount > 0
+              ? '$successCount succeeded, $errorCount failed'
+              : '$successCount ${successCount == 1 ? 'report' : 'reports'} analysed';
+        });
+      }
+    } catch (e) {
+      debugPrint('[LabUpload] FATAL: _startProcessing crashed: $e');
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _allDone = true;
+          _statusText = 'Error: $e';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Processing failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -688,6 +711,7 @@ class _FileTickCard extends StatelessWidget {
   final VoidCallback? onRemove;
 
   const _FileTickCard({
+    super.key,
     required this.state,
     required this.showTicks,
     this.onRemove,
