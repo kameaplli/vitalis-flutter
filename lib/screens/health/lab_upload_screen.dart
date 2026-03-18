@@ -697,11 +697,15 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       final status = data['status'] as String? ?? '';
 
       if (status == 'completed') {
+        final prevCount = data['previous_saved_count'] as int? ?? 0;
+        final prevDate = data['previous_date'] as String?;
         debugPrint(
-            '[LabUpload] File ${index + 1} analysed: ${data['saved_count']} biomarkers${data['duplicate'] == true ? ' (duplicate)' : ''}');
+            '[LabUpload] File ${index + 1} analysed: ${data['saved_count']} biomarkers'
+            '${prevCount > 0 ? ' + $prevCount previous ($prevDate)' : ''}'
+            '${data['duplicate'] == true ? ' (duplicate)' : ''}');
         setState(() {
           state.analysed = _TickState.done;
-          state.savedCount = data['saved_count'] as int? ?? 0;
+          state.savedCount = (data['saved_count'] as int? ?? 0) + prevCount;
           state.labProvider = data['lab_provider'] as String?;
           state.reportId = data['report_id'] as String?;
           state.ready = _TickState.done;

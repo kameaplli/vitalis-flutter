@@ -1054,8 +1054,9 @@ class _ScoreSection extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final hasScore = dash.healthScore != null;
 
-    // Build spokes from health pillars
+    // Build spokes from health pillars — each pillar gets a unique brand color
     final spokes = <SpokeData>[];
+    var colorIdx = 0;
     for (final entry in dash.pillars.entries) {
       final pillar = entry.key;
       final summary = entry.value;
@@ -1067,9 +1068,10 @@ class _ScoreSection extends StatelessWidget {
         label: pillar,
         detail: '${summary.biomarkerCount} markers  ·  ${_tierLabel(summary.status)}',
         value: spokeValue,
-        color: _tierColor(summary.status),
+        color: ChartColors.at(colorIdx),
         subtitle: score != null ? '${score.round()}/100' : null,
       ));
+      colorIdx++;
     }
 
     // Center text

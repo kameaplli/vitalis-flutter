@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'chart_style.dart';
 
 class LineChartWidget extends StatelessWidget {
   final List<FlSpot> spots;
@@ -24,7 +25,7 @@ class LineChartWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = lineColor ?? Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
 
     if (spots.isEmpty) {
       return Center(child: Text('No data yet', style: Theme.of(context).textTheme.bodyMedium));
@@ -32,11 +33,7 @@ class LineChartWidget extends StatelessWidget {
 
     return LineChart(
       LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1),
-        ),
+        gridData: ChartStyle.grid,
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -44,7 +41,7 @@ class LineChartWidget extends StatelessWidget {
               reservedSize: 50,
               getTitlesWidget: (value, _) => Text(
                 value.toStringAsFixed(1),
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
               ),
             ),
           ),
@@ -64,7 +61,7 @@ class LineChartWidget extends StatelessWidget {
                 }
                 return Text(
                   DateFormat('M/d').format(dt),
-                  style: const TextStyle(fontSize: 11),
+                  style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 );
               },
             ),
@@ -72,28 +69,11 @@ class LineChartWidget extends StatelessWidget {
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        borderData: FlBorderData(show: false),
+        borderData: ChartStyle.border,
         minY: minY,
         maxY: maxY,
         lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: color,
-            barWidth: 2.5,
-            dotData: FlDotData(
-              show: spots.length <= 20,
-              getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                radius: 3,
-                color: color,
-                strokeWidth: 0,
-              ),
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              color: color.withValues(alpha: 0.1),
-            ),
-          ),
+          ChartStyle.dataLine(spots, color: lineColor),
         ],
       ),
     );

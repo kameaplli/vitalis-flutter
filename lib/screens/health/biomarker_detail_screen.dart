@@ -7,6 +7,7 @@ import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../widgets/friendly_error.dart';
+import '../../widgets/chart_style.dart';
 
 // ── Tier Colors (consistent across labs screens) ────────────────────────────
 
@@ -1431,14 +1432,7 @@ class _HistoryChart extends StatelessWidget {
       LineChartData(
         minY: minY,
         maxY: maxY,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: cs.outlineVariant.withValues(alpha: 0.3),
-            strokeWidth: 1,
-          ),
-        ),
+        gridData: ChartStyle.grid,
         extraLinesData: ExtraLinesData(horizontalLines: extraLines),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
@@ -1473,42 +1467,30 @@ class _HistoryChart extends StatelessWidget {
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        borderData: FlBorderData(show: false),
+        borderData: ChartStyle.border,
         rangeAnnotations: RangeAnnotations(
           horizontalRangeAnnotations: rangeAnnotations,
         ),
         lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            curveSmoothness: 0.2,
-            color: cs.primary,
-            barWidth: 3,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                final tier = index < dataPoints.length
-                    ? dataPoints[index].tier
-                    : null;
-                return FlDotCirclePainter(
-                  radius: 5,
-                  color: _tierColor(tier),
-                  strokeWidth: 2,
-                  strokeColor: cs.surface,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  cs.primary.withValues(alpha: 0.12),
-                  cs.primary.withValues(alpha: 0.02),
-                ],
-              ),
-            ),
+          ChartStyle.dataLine(
+            spots,
+            dotPainterFn: (spot, percent, barData, index) {
+              final isLast = index == spots.length - 1;
+              final tier = index < dataPoints.length
+                  ? dataPoints[index].tier
+                  : null;
+              if (isLast) {
+                // Glowing latest dot colored by tier
+                return ChartStyle.dotPainter(spot, percent, barData, index,
+                    overrideColor: _tierColor(tier));
+              }
+              return FlDotCirclePainter(
+                radius: ChartStyle.historicalDotRadius,
+                color: _tierColor(tier),
+                strokeWidth: 1.5,
+                strokeColor: cs.surface,
+              );
+            },
           ),
         ],
         lineTouchData: LineTouchData(

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/weight_log.dart';
+import 'chart_style.dart';
 
 class WeightChartWidget extends StatelessWidget {
   final WeightHistory history;
@@ -45,7 +46,6 @@ class WeightChartWidget extends StatelessWidget {
       minY = dataMin - 2;
       maxY = dataMax + 2;
     }
-    // Round to whole kg
     minY = minY.floorToDouble();
     maxY = maxY.ceilToDouble();
 
@@ -103,55 +103,30 @@ class WeightChartWidget extends StatelessWidget {
               minY: minY,
               maxY: maxY,
               clipData: const FlClipData.all(),
-              // Zone backgrounds
               rangeAnnotations: _zones(idealMin, idealMax, minY, maxY),
               lineBarsData: [
-                // Main weight line
-                LineChartBarData(
-                  spots: spots,
-                  isCurved: true,
-                  preventCurveOverShooting: true,
-                  curveSmoothness: 0.25,
-                  color: cs.primary,
-                  barWidth: 2.5,
-                  shadow: Shadow(
-                    color: cs.primary.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                  dotData: FlDotData(
-                    show: logs.length <= 30,
-                    getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
-                      radius: logs.length <= 10 ? 4 : 2.5,
+                // Main weight line — thin coral with glowing latest dot
+                ChartStyle.dataLine(
+                  spots,
+                  dotPainterFn: (spot, percent, barData, index) {
+                    final isLast = index == spots.length - 1;
+                    if (isLast) {
+                      return ChartStyle.dotPainter(spot, percent, barData, index);
+                    }
+                    // Historical dots colored by weight zone
+                    return FlDotCirclePainter(
+                      radius: ChartStyle.historicalDotRadius,
                       color: _dotColor(spot.y, idealMin, idealMax),
-                      strokeWidth: 2,
-                      strokeColor: cs.surface,
-                    ),
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        cs.primary.withValues(alpha: 0.15),
-                        cs.primary.withValues(alpha: 0.0),
-                      ],
-                    ),
-                  ),
+                      strokeWidth: 1.5,
+                      strokeColor: Colors.white,
+                    );
+                  },
                 ),
-                // Ideal weight line
+                // Ideal weight — dashed reference line
                 if (ideal != null && logs.length > 1)
-                  LineChartBarData(
-                    spots: [
-                      FlSpot(0, ideal),
-                      FlSpot((logs.length - 1).toDouble(), ideal),
-                    ],
-                    isCurved: false,
+                  ChartStyle.referenceLine(
+                    [FlSpot(0, ideal), FlSpot((logs.length - 1).toDouble(), ideal)],
                     color: Colors.green.shade400,
-                    barWidth: 1,
-                    dashArray: [8, 6],
-                    dotData: const FlDotData(show: false),
                   ),
               ],
               titlesData: FlTitlesData(
@@ -198,16 +173,8 @@ class WeightChartWidget extends StatelessWidget {
                   ),
                 ),
               ),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: _interval(maxY - minY),
-                getDrawingHorizontalLine: (_) => FlLine(
-                  color: cs.outlineVariant.withValues(alpha: 0.2),
-                  strokeWidth: 0.5,
-                ),
-              ),
-              borderData: FlBorderData(show: false),
+              gridData: ChartStyle.grid,
+              borderData: ChartStyle.border,
               lineTouchData: LineTouchData(
                 handleBuiltInTouches: true,
                 touchTooltipData: LineTouchTooltipData(
@@ -228,7 +195,7 @@ class WeightChartWidget extends StatelessWidget {
                     }
                     return LineTooltipItem(
                       '${s.y.toStringAsFixed(1)} kg\n$fmtDate$extra',
-                      TextStyle(
+                      const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -246,7 +213,7 @@ class WeightChartWidget extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _dot(cs.primary, 'Weight'),
+            _dot(ChartStyle.dataLineColor, 'Weight'),
             if (ideal != null) ...[
               const SizedBox(width: 16),
               _dash(Colors.green.shade400, 'Goal'),
@@ -283,7 +250,7 @@ class WeightChartWidget extends StatelessWidget {
   }
 
   static Color _dotColor(double w, double? idealMin, double? idealMax) {
-    if (idealMin == null || idealMax == null) return Colors.blue.shade600;
+    if (idealMin == null || idealMax == null) return ChartStyle.historicalDotColor;
     if (w >= idealMin && w <= idealMax) return Colors.green.shade500;
     if (w < idealMin - 5 || w > idealMax + 5) return Colors.red.shade400;
     return Colors.amber.shade600;
@@ -293,7 +260,6 @@ class WeightChartWidget extends StatelessWidget {
     if (idealMin == null || idealMax == null) return const RangeAnnotations();
     return RangeAnnotations(
       horizontalRangeAnnotations: [
-        // Green: healthy range
         HorizontalRangeAnnotation(
           y1: idealMin.clamp(minY, maxY),
           y2: idealMax.clamp(minY, maxY),

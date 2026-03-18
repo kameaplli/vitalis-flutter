@@ -221,10 +221,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           const AsyncValue.data([])),
       _CardDef('skin-photos', 'Skin Photos', Icons.photo_camera_rounded,    const Color(0xFF6D4C41),
           ref.watch(skinPhotosProvider(person)).whenData((photos) =>
-              photos.map((p) => <String, dynamic>{'id': p.id}).toList()),
-          photoUrls: ref.watch(skinPhotosProvider(person)).whenOrNull(
-              data: (photos) => photos.take(4).map((p) => ApiConstants.resolveUrl(p.photoUrl)).toList(),
-          ) ?? const []),
+              photos.map((p) => <String, dynamic>{'id': p.id}).toList())),
       _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   const Color(0xFF3949AB),
           const AsyncValue.data([])),
       _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
@@ -295,10 +292,8 @@ class _CardDef {
   final IconData icon;
   final Color color;
   final AsyncValue<List<Map<String, dynamic>>> logsAsync;
-  final List<String> photoUrls; // thumbnail URLs for skin-photos card
 
-  const _CardDef(this.category, this.label, this.icon, this.color, this.logsAsync,
-      {this.photoUrls = const []});
+  const _CardDef(this.category, this.label, this.icon, this.color, this.logsAsync);
 }
 
 // ─── Health category card ──────────────────────────────────────────────────────
@@ -376,76 +371,40 @@ class _HealthCardState extends State<_HealthCard>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Top section: icon + badge (or thumbnails) ─────
+                    // ── Top section: large icon + badge ─────
                     Expanded(
-                      child: def.photoUrls.isNotEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                              child: Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: GridView.count(
-                                      crossAxisCount: 2,
-                                      mainAxisSpacing: 2,
-                                      crossAxisSpacing: 2,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      children: def.photoUrls.take(4).map((url) =>
-                                        Image.network(url, fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              Container(color: Colors.grey.shade200)),
-                                      ).toList(),
-                                    ),
-                                  ),
-                                  if (badge != null)
-                                    Positioned(
-                                      top: 2, right: 2,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(badge,
-                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-                                              color: Colors.white)),
-                                      ),
-                                    ),
-                                ],
+                      child: Center(
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 56, height: 56,
+                              decoration: BoxDecoration(
+                                color: def.color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                            )
-                          : Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 3, height: 36,
-                                    decoration: BoxDecoration(
-                                      color: def.color,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Icon(def.icon, size: 36, color: def.color),
-                                  const Spacer(),
-                                  if (badge != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: cs.surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(badge,
-                                        style: TextStyle(
-                                          fontSize: 11, fontWeight: FontWeight.w700,
-                                          color: cs.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                              child: Icon(def.icon, size: 32, color: def.color),
                             ),
+                            if (badge != null)
+                              Positioned(
+                                top: -4, right: -8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: cs.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(badge,
+                                    style: TextStyle(
+                                      fontSize: 10, fontWeight: FontWeight.w700,
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                     // ── Bottom: label ──────────────────────────────────
                     Padding(
