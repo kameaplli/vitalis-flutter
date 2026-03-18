@@ -20,7 +20,7 @@ class SpokeData {
   });
 }
 
-/// Interactive radial spoke chart — colored bars radiate from a center circle.
+/// Interactive radial spoke chart — rounded bars radiate from a center circle.
 /// Tap a spoke to highlight it and show details in the center.
 class RadialSpokeChart extends StatefulWidget {
   final List<SpokeData> spokes;
@@ -57,7 +57,7 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
     _animValue = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic);
     _animCtrl.forward();
@@ -74,7 +74,7 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = widget.size;
-    final centerR = size * 0.28; // center circle radius
+    final centerR = size * 0.24;
 
     // Determine center content
     String centerTitle;
@@ -115,8 +115,8 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
               ),
               // Center circle with content
               Container(
-                width: centerR * 2 - 4,
-                height: centerR * 2 - 4,
+                width: centerR * 2 - 2,
+                height: centerR * 2 - 2,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isDark
@@ -124,14 +124,14 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
                       : cs.surfaceContainerLowest,
                   border: Border.all(
                     color: widget.ringColor ??
-                        cs.outlineVariant.withValues(alpha: 0.4),
+                        cs.outlineVariant.withValues(alpha: 0.5),
                     width: 2.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (centerAccent ?? cs.primary).withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      spreadRadius: 2,
+                      color: (centerAccent ?? cs.primary).withValues(alpha: 0.12),
+                      blurRadius: 20,
+                      spreadRadius: 4,
                     ),
                   ],
                 ),
@@ -145,36 +145,39 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
                   },
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
-                    child: Column(
+                    child: Padding(
                       key: ValueKey('$centerTitle$centerSubtitle'),
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          centerTitle,
-                          style: TextStyle(
-                            fontSize: centerR * 0.22,
-                            fontWeight: FontWeight.w700,
-                            color: cs.onSurface,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (centerSubtitle != null && centerSubtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                           Text(
-                            centerSubtitle,
+                            centerTitle,
                             style: TextStyle(
-                              fontSize: centerR * 0.16,
-                              color: centerAccent ?? cs.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
+                              fontSize: centerR * 0.24,
+                              fontWeight: FontWeight.w800,
+                              color: cs.onSurface,
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if (centerSubtitle != null && centerSubtitle.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              centerSubtitle,
+                              style: TextStyle(
+                                fontSize: centerR * 0.15,
+                                color: centerAccent ?? cs.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -193,16 +196,13 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
     final dy = tap.dy - center.dy;
     final dist = math.sqrt(dx * dx + dy * dy);
 
-    // Ignore taps inside center circle
     if (dist < centerR) return;
 
-    // Find which spoke was tapped based on angle
     final angle = (math.atan2(dy, dx) + math.pi * 2) % (math.pi * 2);
     final n = widget.spokes.length;
     if (n == 0) return;
 
     final spokeAngle = (2 * math.pi) / n;
-    // Spokes start at -pi/2 (top), offset by half spoke for hit area
     final startAngle = -math.pi / 2;
     final adjusted = (angle - startAngle + spokeAngle / 2 + math.pi * 2) % (math.pi * 2);
     final index = (adjusted / spokeAngle).floor() % n;
@@ -234,68 +234,67 @@ class _SpokePainter extends CustomPainter {
     final n = spokes.length;
     if (n == 0) return;
 
-    final maxSpokeLen = (size.width / 2) - centerRadius - 6; // max length
+    final maxLen = (size.width / 2) - centerRadius - 8;
     final spokeAngle = (2 * math.pi) / n;
-    final startAngle = -math.pi / 2; // start from top
-    final gap = 1.5 * math.pi / 180; // 1.5° gap between spokes
-    final spokeWidth = spokeAngle - gap;
+    final startAngle = -math.pi / 2;
+
+    // Bar width: thicker for fewer spokes, thinner for many
+    final barWidth = math.min(14.0, (spokeAngle * centerRadius * 0.7)).clamp(6.0, 16.0);
+    final barRadius = Radius.circular(barWidth / 2); // rounded ends
 
     for (int i = 0; i < n; i++) {
       final spoke = spokes[i];
       final isSelected = selectedIndex == i;
       final angle = startAngle + spokeAngle * i;
 
-      // Spoke length based on value (min 20% so empty spokes still visible)
-      final rawLen = (0.2 + spoke.value * 0.8) * maxSpokeLen;
+      // Spoke length: min 15% visible, scales with value
+      final rawLen = (0.15 + spoke.value * 0.85) * maxLen;
       final len = rawLen * animProgress;
+      final extra = isSelected ? 8.0 : 0.0;
 
-      // Color: slightly dim unselected when something is selected
+      // Color
       Color color = spoke.color;
       if (selectedIndex != null && !isSelected) {
-        color = color.withValues(alpha: 0.35);
+        color = Color.fromRGBO(
+          color.r ~/ 1 * 255 ~/ 255,
+          color.g ~/ 1 * 255 ~/ 255,
+          color.b ~/ 1 * 255 ~/ 255,
+          0.3,
+        );
+        color = spoke.color.withValues(alpha: 0.3);
       }
 
-      // Draw spoke as a rounded rectangle (arc segment)
-      final innerR = centerRadius + 4;
-      final outerR = innerR + len;
-      final extra = isSelected ? 6.0 : 0.0; // selected spoke extends further
+      final innerR = centerRadius + 5;
+      final outerR = innerR + len + extra;
 
-      final path = Path();
-      path.addArc(
-        Rect.fromCircle(center: center, radius: innerR),
-        angle - spokeWidth / 2,
-        spokeWidth,
+      // Save canvas, rotate to spoke angle, draw rounded rect
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(angle);
+
+      // The bar goes from (innerR, -barWidth/2) to (outerR, barWidth/2)
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(innerR, -barWidth / 2, outerR - innerR, barWidth),
+        barRadius,
       );
-      path.addArc(
-        Rect.fromCircle(center: center, radius: outerR + extra),
-        angle + spokeWidth / 2,
-        -spokeWidth,
-      );
-      path.close();
 
       final paint = Paint()
         ..color = color
         ..style = PaintingStyle.fill;
 
-      canvas.drawPath(path, paint);
-
-      // Rounded tip
-      final tipR = (outerR + extra) * 1.0;
-      final tipAngle = angle;
-      final tipCenter = Offset(
-        center.dx + tipR * math.cos(tipAngle),
-        center.dy + tipR * math.sin(tipAngle),
-      );
-      final tipRadius = math.min(spokeWidth * innerR * 0.4, 5.0);
-      canvas.drawCircle(tipCenter, tipRadius.clamp(1.5, 5.0), paint);
+      canvas.drawRRect(rect, paint);
 
       // Selection glow
       if (isSelected) {
         final glowPaint = Paint()
-          ..color = color.withValues(alpha: 0.3)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-        canvas.drawPath(path, glowPaint);
+          ..color = spoke.color.withValues(alpha: 0.25)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+        canvas.drawRRect(rect.inflate(3), glowPaint);
+        // Re-draw on top of glow for crisp bar
+        canvas.drawRRect(rect, paint);
       }
+
+      canvas.restore();
     }
   }
 

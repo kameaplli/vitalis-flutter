@@ -23,6 +23,7 @@ class _FileProcessState {
   String? errorMessage;
   int savedCount;
   String? labProvider;
+  String? reportId; // backend report ID (for deletion)
   bool processing; // currently being processed
   CancelToken? cancelToken;
 
@@ -50,6 +51,7 @@ class _FileProcessState {
     errorMessage = null;
     savedCount = 0;
     labProvider = null;
+    reportId = null;
     processing = false;
     cancelToken = null;
   }
@@ -536,6 +538,16 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   void _removeFile(int index) {
     final f = _files[index];
     f.cancelToken?.cancel('Removed');
+
+    // If this file was already saved to backend, delete the report
+    if (f.reportId != null) {
+      apiClient.dio.delete(ApiConstants.labReport(f.reportId!)).then((_) {
+        final person = ref.read(selectedPersonProvider);
+        ref.invalidate(labDashboardProvider(person));
+        ref.invalidate(labReportsProvider(person));
+      }).catchError((_) {}); // silent — best effort
+    }
+
     setState(() => _files.removeAt(index));
   }
 
@@ -691,6 +703,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           state.analysed = _TickState.done;
           state.savedCount = data['saved_count'] as int? ?? 0;
           state.labProvider = data['lab_provider'] as String?;
+          state.reportId = data['report_id'] as String?;
           state.ready = _TickState.done;
           state.processing = false;
         });
