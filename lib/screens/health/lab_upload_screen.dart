@@ -27,8 +27,6 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     text: DateTime.now().toIso8601String().substring(0, 10),
   );
   final _notesController = TextEditingController();
-
-  // Selected files (before upload)
   final List<PlatformFile> _selectedFiles = [];
 
   @override
@@ -53,24 +51,226 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload Files'),
-            Tab(icon: Icon(Icons.edit_rounded), text: 'Manual Entry'),
+            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload'),
+            Tab(icon: Icon(Icons.edit_rounded), text: 'Manual'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _UploadTab(
-            selectedFiles: _selectedFiles,
-            onPickFiles: _pickFiles,
-            onRemoveFile: _removeFile,
-            onUpload: _uploadFiles,
-          ),
+          _buildUploadTab(),
           _ManualEntryTab(
             dateController: _dateController,
             notesController: _notesController,
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── Upload Tab (built inline so setState works) ───────────────────────────
+
+  Widget _buildUploadTab() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final hasFiles = _selectedFiles.isNotEmpty;
+
+    return SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                // ── Drop zone / pick area ─────────────────────────────────
+                SliverToBoxAdapter(
+                  child: GestureDetector(
+                    onTap: _pickFiles,
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: cs.primary.withValues(alpha: 0.25),
+                          width: 2,
+                          strokeAlign: BorderSide.strokeAlignInside,
+                        ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            cs.primary.withValues(alpha: 0.04),
+                            cs.tertiary.withValues(alpha: 0.06),
+                          ],
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: hasFiles ? 20 : 40,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    cs.primary.withValues(alpha: 0.15),
+                                    cs.tertiary.withValues(alpha: 0.1),
+                                  ],
+                                ),
+                              ),
+                              child: Icon(
+                                hasFiles
+                                    ? Icons.add_circle_outline_rounded
+                                    : Icons.cloud_upload_rounded,
+                                size: 28,
+                                color: cs.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              hasFiles ? 'Tap to add more files' : 'Select your lab reports',
+                              style: tt.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'PDF, JPG, PNG, TIFF, BMP, WebP',
+                              style: tt.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── Selected files header ─────────────────────────────────
+                if (hasFiles)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.attach_file_rounded,
+                              size: 18, color: cs.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${_selectedFiles.length} ${_selectedFiles.length == 1 ? 'file' : 'files'} selected',
+                            style: tt.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () => setState(() => _selectedFiles.clear()),
+                            icon: Icon(Icons.clear_all_rounded,
+                                size: 18, color: cs.error),
+                            label: Text('Clear all',
+                                style: TextStyle(
+                                    color: cs.error, fontSize: 12)),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // ── File cards ────────────────────────────────────────────
+                if (hasFiles)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList.builder(
+                      itemCount: _selectedFiles.length,
+                      itemBuilder: (context, i) =>
+                          _SelectedFileCard(
+                            file: _selectedFiles[i],
+                            onRemove: () {
+                              setState(() => _selectedFiles.removeAt(i));
+                            },
+                          ),
+                    ),
+                  ),
+
+                // ── Empty hint ────────────────────────────────────────────
+                if (!hasFiles)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 80),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.science_rounded,
+                                size: 44,
+                                color: cs.onSurfaceVariant
+                                    .withValues(alpha: 0.15)),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Your biomarkers will appear here\nonce you upload a report',
+                              textAlign: TextAlign.center,
+                              style: tt.bodyMedium?.copyWith(
+                                color: cs.onSurfaceVariant
+                                    .withValues(alpha: 0.4),
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Bottom action bar ─────────────────────────────────────────
+          if (hasFiles)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton.icon(
+                  onPressed: _uploadFiles,
+                  icon: const Icon(Icons.rocket_launch_rounded, size: 20),
+                  label: Text(
+                    'Analyse ${_selectedFiles.length} '
+                    '${_selectedFiles.length == 1 ? 'Report' : 'Reports'}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -86,16 +286,11 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
 
     setState(() {
       for (final file in result.files) {
-        // Avoid duplicates by path
         if (!_selectedFiles.any((f) => f.path == file.path)) {
           _selectedFiles.add(file);
         }
       }
     });
-  }
-
-  void _removeFile(int index) {
-    setState(() => _selectedFiles.removeAt(index));
   }
 
   Future<void> _uploadFiles() async {
@@ -104,7 +299,9 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
     final person = ref.read(selectedPersonProvider);
     final files = List<PlatformFile>.from(_selectedFiles);
 
-    // Navigate to processing screen
+    // Show "uploading" notification
+    await NotificationService.showLabUploaded(fileCount: files.length);
+
     if (!mounted) return;
     final success = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -115,7 +312,6 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       ),
     );
 
-    // When user returns, refresh dashboard and go back
     if (mounted) {
       if (success == true) {
         ref.invalidate(labDashboardProvider(person));
@@ -127,171 +323,119 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   }
 }
 
-// ── Upload Tab (multi-file selection) ──────────────────────────────────────
+// ── Selected File Card ──────────────────────────────────────────────────────
 
-class _UploadTab extends StatelessWidget {
-  final List<PlatformFile> selectedFiles;
-  final VoidCallback onPickFiles;
-  final void Function(int) onRemoveFile;
-  final VoidCallback onUpload;
+class _SelectedFileCard extends StatelessWidget {
+  final PlatformFile file;
+  final VoidCallback onRemove;
 
-  const _UploadTab({
-    required this.selectedFiles,
-    required this.onPickFiles,
-    required this.onRemoveFile,
-    required this.onUpload,
-  });
+  const _SelectedFileCard({required this.file, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final isPdf = file.name.toLowerCase().endsWith('.pdf');
+    final sizeKb = file.size / 1024;
+    final sizeStr = sizeKb >= 1024
+        ? '${(sizeKb / 1024).toStringAsFixed(1)} MB'
+        : '${sizeKb.toStringAsFixed(0)} KB';
 
-    return Column(
-      children: [
-        // Header area
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-          child: Column(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: cs.primary.withValues(alpha: 0.1),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: cs.surfaceContainerLow,
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            // File type badge
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isPdf
+                      ? [
+                          const Color(0xFFEF4444).withValues(alpha: 0.12),
+                          const Color(0xFFDC2626).withValues(alpha: 0.08),
+                        ]
+                      : [
+                          const Color(0xFF8B5CF6).withValues(alpha: 0.12),
+                          const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                        ],
                 ),
-                child: Icon(Icons.upload_file_rounded,
-                    size: 32, color: cs.primary),
               ),
-              const SizedBox(height: 16),
-              Text('Upload Lab Reports',
-                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Text(
-                'Select one or more PDFs or photos of your blood test reports.',
-                style: tt.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Add files button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: onPickFiles,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(selectedFiles.isEmpty
-                  ? 'Select Files'
-                  : 'Add More Files'),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            'Supported: PDF, JPG, PNG, TIFF, BMP, WebP',
-            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Selected files list
-        Expanded(
-          child: selectedFiles.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.folder_open_rounded,
-                          size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-                      const SizedBox(height: 8),
-                      Text('No files selected',
-                          style: tt.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.5))),
-                    ],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isPdf
+                        ? Icons.picture_as_pdf_rounded
+                        : Icons.image_rounded,
+                    color: isPdf
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF8B5CF6),
+                    size: 20,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: selectedFiles.length,
-                  itemBuilder: (context, i) {
-                    final file = selectedFiles[i];
-                    final name = file.name;
-                    final sizeMb = (file.size / (1024 * 1024)).toStringAsFixed(1);
-                    final isPdf = name.toLowerCase().endsWith('.pdf');
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: (isPdf ? cs.error : cs.tertiary)
-                                .withValues(alpha: 0.1),
-                          ),
-                          child: Icon(
-                            isPdf
-                                ? Icons.picture_as_pdf_rounded
-                                : Icons.image_rounded,
-                            color: isPdf ? cs.error : cs.tertiary,
-                            size: 22,
-                          ),
-                        ),
-                        title: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text('$sizeMb MB'),
-                        trailing: IconButton(
-                          icon: Icon(Icons.close_rounded,
-                              color: cs.onSurfaceVariant),
-                          onPressed: () => onRemoveFile(i),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-
-        // Upload button
-        if (selectedFiles.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: onUpload,
-                icon: const Icon(Icons.cloud_upload_rounded),
-                label: Text(
-                  'Upload & Analyse ${selectedFiles.length} '
-                  '${selectedFiles.length == 1 ? 'File' : 'Files'}',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
+                  Text(
+                    isPdf ? 'PDF' : 'IMG',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                      color: isPdf
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-      ],
+            const SizedBox(width: 12),
+
+            // Name + size
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sizeStr,
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Remove
+            IconButton(
+              onPressed: onRemove,
+              icon: Icon(Icons.remove_circle_rounded,
+                  color: cs.error.withValues(alpha: 0.6), size: 22),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -333,9 +477,8 @@ class _MultiProcessingScreenState extends State<_MultiProcessingScreen> {
   @override
   void initState() {
     super.initState();
-    _fileStates = widget.files
-        .map((f) => _FileUploadState(file: f))
-        .toList();
+    _fileStates =
+        widget.files.map((f) => _FileUploadState(file: f)).toList();
     _processAllFiles();
   }
 
@@ -434,118 +577,175 @@ class _MultiProcessingScreenState extends State<_MultiProcessingScreen> {
     final errorCount =
         _fileStates.where((f) => f.status == _FileStatus.error).length;
     final total = _fileStates.length;
+    final processed = doneCount + errorCount;
     final allSuccess = _allDone && errorCount == 0;
     final hasErrors = _allDone && errorCount > 0;
+    final progress = total > 0 ? processed / total : 0.0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_allDone
-            ? 'Upload Complete'
-            : 'Processing ${doneCount + errorCount}/$total'),
-        automaticallyImplyLeading: false,
-      ),
-      body: Column(
-        children: [
-          // Summary banner
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: _allDone
-                  ? allSuccess
-                      ? const Color(0xFF16A34A).withValues(alpha: 0.08)
-                      : cs.error.withValues(alpha: 0.08)
-                  : cs.primary.withValues(alpha: 0.08),
-            ),
-            child: Column(
-              children: [
-                if (!_allDone)
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 3, color: cs.primary),
-                  )
-                else
-                  Icon(
-                    allSuccess
-                        ? Icons.check_circle_rounded
-                        : Icons.warning_amber_rounded,
-                    size: 48,
-                    color: allSuccess
-                        ? const Color(0xFF16A34A)
-                        : cs.error,
-                  ),
-                const SizedBox(height: 12),
-                Text(
-                  _allDone
-                      ? allSuccess
-                          ? '$_totalSaved biomarkers extracted from $total ${total == 1 ? 'file' : 'files'}'
-                          : '$doneCount of $total files processed successfully'
-                      : 'Analysing your lab reports...',
-                  textAlign: TextAlign.center,
-                  style: tt.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
-                  ),
-                ),
-                if (hasErrors) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '$errorCount ${errorCount == 1 ? 'file' : 'files'} failed — see details below',
-                    style: tt.bodySmall?.copyWith(color: cs.error),
-                  ),
-                ],
-              ],
-            ),
-          ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const Spacer(flex: 2),
 
-          // Per-file status list
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _fileStates.length,
-              itemBuilder: (context, i) {
-                final fs = _fileStates[i];
-                return _FileStatusCard(state: fs);
-              },
-            ),
-          ),
-
-          // Bottom button
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: _allDone
-                    ? () => Navigator.of(context).pop(doneCount > 0)
-                    : null,
-                icon: Icon(_allDone
-                    ? Icons.dashboard_rounded
-                    : Icons.hourglass_top_rounded),
-                label: Text(
-                  _allDone ? 'View Dashboard' : 'Processing...',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
+              // ── Animated status ring ────────────────────────────────────
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Progress ring
+                    SizedBox(
+                      width: 110,
+                      height: 110,
+                      child: CircularProgressIndicator(
+                        value: _allDone ? 1.0 : progress,
+                        strokeWidth: 5,
+                        backgroundColor:
+                            cs.outlineVariant.withValues(alpha: 0.15),
+                        color: _allDone
+                            ? allSuccess
+                                ? const Color(0xFF16A34A)
+                                : cs.error
+                            : cs.primary,
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    // Center icon / count
+                    if (_allDone)
+                      Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: (allSuccess
+                                  ? const Color(0xFF16A34A)
+                                  : cs.error)
+                              .withValues(alpha: 0.1),
+                        ),
+                        child: Icon(
+                          allSuccess
+                              ? Icons.check_rounded
+                              : Icons.warning_rounded,
+                          size: 36,
+                          color: allSuccess
+                              ? const Color(0xFF16A34A)
+                              : cs.error,
+                        ),
+                      )
+                    else
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$processed',
+                            style: tt.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: cs.primary,
+                            ),
+                          ),
+                          Text(
+                            'of $total',
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 24),
+
+              // ── Title ───────────────────────────────────────────────────
+              Text(
+                _allDone
+                    ? allSuccess
+                        ? 'Analysis Complete!'
+                        : '$doneCount of $total Succeeded'
+                    : 'Analysing Reports...',
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (_allDone && _totalSaved > 0)
+                Text(
+                  '$_totalSaved biomarkers extracted and classified',
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              if (hasErrors)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '$errorCount ${errorCount == 1 ? 'file' : 'files'} failed',
+                    style: tt.bodySmall?.copyWith(color: cs.error),
+                  ),
+                ),
+              if (!_allDone)
+                Text(
+                  'This may take a few seconds per file',
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+
+              const SizedBox(height: 28),
+
+              // ── Per-file status list ─────────────────────────────────────
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _fileStates.length,
+                  itemBuilder: (context, i) =>
+                      _FileStatusTile(state: _fileStates[i]),
+                ),
+              ),
+
+              // ── Bottom button ───────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16, top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: FilledButton.icon(
+                    onPressed: _allDone
+                        ? () => Navigator.of(context).pop(doneCount > 0)
+                        : null,
+                    icon: Icon(_allDone
+                        ? Icons.dashboard_rounded
+                        : Icons.hourglass_top_rounded),
+                    label: Text(
+                      _allDone ? 'View Dashboard' : 'Processing...',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ── Per-file status card ────────────────────────────────────────────────────
+// ── Per-file status tile ────────────────────────────────────────────────────
 
-class _FileStatusCard extends StatelessWidget {
+class _FileStatusTile extends StatelessWidget {
   final _FileUploadState state;
-  const _FileStatusCard({required this.state});
+  const _FileStatusTile({required this.state});
 
   @override
   Widget build(BuildContext context) {
@@ -554,109 +754,105 @@ class _FileStatusCard extends StatelessWidget {
     final isPdf = state.file.name.toLowerCase().endsWith('.pdf');
 
     final Color statusColor;
-    final IconData statusIcon;
+    final Widget trailing;
     final String statusText;
 
     switch (state.status) {
       case _FileStatus.pending:
         statusColor = cs.onSurfaceVariant.withValues(alpha: 0.4);
-        statusIcon = Icons.schedule_rounded;
-        statusText = 'Waiting...';
+        statusText = 'Queued';
+        trailing = Icon(Icons.schedule_rounded,
+            color: statusColor, size: 20);
       case _FileStatus.uploading:
         statusColor = cs.primary;
-        statusIcon = Icons.cloud_upload_rounded;
         statusText = 'Uploading...';
+        trailing = SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+              strokeWidth: 2.5, color: cs.primary),
+        );
       case _FileStatus.analysing:
         statusColor = cs.primary;
-        statusIcon = Icons.psychology_rounded;
         statusText = 'Analysing...';
+        trailing = SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+              strokeWidth: 2.5, color: cs.primary),
+        );
       case _FileStatus.done:
         statusColor = const Color(0xFF16A34A);
-        statusIcon = Icons.check_circle_rounded;
         statusText = '${state.savedCount} biomarkers'
-            '${state.labProvider != null ? ' • ${state.labProvider}' : ''}';
+            '${state.labProvider != null ? ' \u2022 ${state.labProvider}' : ''}';
+        trailing = const Icon(Icons.check_circle_rounded,
+            color: Color(0xFF16A34A), size: 22);
       case _FileStatus.error:
         statusColor = cs.error;
-        statusIcon = Icons.error_outline_rounded;
         statusText = state.errorMessage ?? 'Failed';
+        trailing =
+            Icon(Icons.error_rounded, color: cs.error, size: 22);
     }
 
-    final isActive = state.status == _FileStatus.uploading ||
-        state.status == _FileStatus.analysing;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isActive
-            ? BorderSide(color: cs.primary.withValues(alpha: 0.3))
-            : BorderSide.none,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: cs.surfaceContainerLow,
+        border: (state.status == _FileStatus.uploading ||
+                state.status == _FileStatus.analysing)
+            ? Border.all(color: cs.primary.withValues(alpha: 0.25))
+            : null,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            // File icon
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: (isPdf ? cs.error : cs.tertiary)
-                    .withValues(alpha: 0.1),
-              ),
-              child: Icon(
-                isPdf
-                    ? Icons.picture_as_pdf_rounded
-                    : Icons.image_rounded,
-                color: isPdf ? cs.error : cs.tertiary,
-                size: 20,
-              ),
+      child: Row(
+        children: [
+          // File icon
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: (isPdf
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF8B5CF6))
+                  .withValues(alpha: 0.1),
             ),
-            const SizedBox(width: 12),
-
-            // File info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    state.file.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    statusText,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.bodySmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: state.status == _FileStatus.done ||
-                              state.status == _FileStatus.error
-                          ? FontWeight.w500
-                          : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
+            child: Icon(
+              isPdf
+                  ? Icons.picture_as_pdf_rounded
+                  : Icons.image_rounded,
+              color: isPdf
+                  ? const Color(0xFFEF4444)
+                  : const Color(0xFF8B5CF6),
+              size: 18,
             ),
-            const SizedBox(width: 8),
-
-            // Status indicator
-            if (isActive)
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2.5, color: cs.primary),
-              )
-            else
-              Icon(statusIcon, color: statusColor, size: 24),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  state.file.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  statusText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.bodySmall?.copyWith(color: statusColor),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          trailing,
+        ],
       ),
     );
   }
@@ -728,7 +924,8 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
                   trailing: SizedBox(
                     width: 80,
                     child: TextFormField(
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       textAlign: TextAlign.end,
                       decoration: const InputDecoration(
                         hintText: 'Value',
@@ -741,8 +938,10 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
                     ),
                   ),
                   leading: IconButton(
-                    icon: Icon(Icons.remove_circle_outline, color: cs.error),
-                    onPressed: () => setState(() => _entries.removeAt(i)),
+                    icon:
+                        Icon(Icons.remove_circle_outline, color: cs.error),
+                    onPressed: () =>
+                        setState(() => _entries.removeAt(i)),
                   ),
                 ),
               );
@@ -755,10 +954,12 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _entries.isEmpty || _saving ? null : _saveManual,
+              onPressed:
+                  _entries.isEmpty || _saving ? null : _saveManual,
               icon: _saving
                   ? const SizedBox(
-                      width: 16, height: 16,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.save_rounded),
               label: Text('Save ${_entries.length} Results'),
@@ -797,12 +998,16 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
         data: {
           'test_date': widget.dateController.text,
           'family_member_id': person == 'self' ? null : person,
-          'notes': widget.notesController.text.isEmpty ? null : widget.notesController.text,
-          'results': valid.map((e) => {
-            'biomarker_code': e.code,
-            'value': e.value,
-            'unit': e.unit,
-          }).toList(),
+          'notes': widget.notesController.text.isEmpty
+              ? null
+              : widget.notesController.text,
+          'results': valid
+              .map((e) => {
+                    'biomarker_code': e.code,
+                    'value': e.value,
+                    'unit': e.unit,
+                  })
+              .toList(),
         },
       );
 
@@ -832,24 +1037,29 @@ class _ManualEntry {
   final String name;
   final String unit;
   double? value;
-  _ManualEntry({required this.code, required this.name, required this.unit});
+  _ManualEntry(
+      {required this.code, required this.name, required this.unit});
 }
 
 // ── Biomarker Search Delegate ────────────────────────────────────────────────
 
-class _BiomarkerSearchDelegate extends SearchDelegate<BiomarkerDefinition?> {
+class _BiomarkerSearchDelegate
+    extends SearchDelegate<BiomarkerDefinition?> {
   final List<BiomarkerDefinition> catalog;
 
   _BiomarkerSearchDelegate(this.catalog);
 
   @override
   List<Widget> buildActions(BuildContext context) => [
-        IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+        IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () => query = ''),
       ];
 
   @override
-  Widget buildLeading(BuildContext context) =>
-      IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, null));
+  Widget buildLeading(BuildContext context) => IconButton(
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, null));
 
   @override
   Widget buildResults(BuildContext context) => _buildList(context);
@@ -872,10 +1082,13 @@ class _BiomarkerSearchDelegate extends SearchDelegate<BiomarkerDefinition?> {
         final bm = filtered[i];
         return ListTile(
           title: Text(bm.name),
-          subtitle: Text('${bm.category} • ${bm.unit}'),
+          subtitle: Text('${bm.category} \u2022 ${bm.unit}'),
           trailing: Text(bm.code,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary)),
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
+                  ?.copyWith(
+                      color: Theme.of(context).colorScheme.primary)),
           onTap: () => close(context, bm),
         );
       },

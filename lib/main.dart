@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -50,11 +53,36 @@ class QorhealthApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final skin = ref.watch(themeProvider);
     final isDark = ref.watch(darkModeProvider);
+
+    // Wire up notification tap → GoRouter navigation
+    NotificationService.onNavigate = (route) => router.go(route);
+
+    // Process any pending deep-links from notifications tapped while app was killed
+    _processPendingNavigations(router);
+
     return MaterialApp.router(
       title: 'Qorhealth',
       theme: AppTheme.forSkin(skin, darkMode: isDark),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
+  }
+
+  void _processPendingNavigations(GoRouter router) {
+    final toRemove = <String>[];
+    for (final action in NotificationService.pendingActions) {
+      try {
+        final data = Map<String, dynamic>.from(
+          const JsonCodec().decode(action) as Map,
+        );
+        if (data['type'] == 'navigate' && data['route'] is String) {
+          router.go(data['route'] as String);
+          toRemove.add(action);
+        }
+      } catch (_) {}
+    }
+    for (final a in toRemove) {
+      NotificationService.pendingActions.remove(a);
+    }
   }
 }

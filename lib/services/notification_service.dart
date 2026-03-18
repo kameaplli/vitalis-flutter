@@ -279,9 +279,14 @@ class NotificationService {
           ? AndroidScheduleMode.alarmClock
           : AndroidScheduleMode.inexactAllowWhileIdle;
 
+  /// Route to navigate to when user taps a notification.
+  /// Set this from main.dart once the router is available.
+  static void Function(String route)? onNavigate;
+
   /// Handle notification tap / action button in foreground.
   static void _onNotificationAction(NotificationResponse response) {
     final actionId = response.actionId ?? '';
+    final payload = response.payload ?? '';
 
     final hydrationAmounts = {
       'hydrate_50': 50,
@@ -290,14 +295,20 @@ class NotificationService {
     };
     if (hydrationAmounts.containsKey(actionId)) {
       pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': hydrationAmounts[actionId]}));
+      return;
     }
-    // Other taps just open the app (default behavior)
+
+    // Deep-link: if payload starts with '/', navigate to that route
+    if (payload.startsWith('/') && onNavigate != null) {
+      onNavigate!(payload);
+    }
   }
 
   /// Handle notification actions when app is in background/killed.
   @pragma('vm:entry-point')
   static void _onBackgroundAction(NotificationResponse response) {
     final actionId = response.actionId ?? '';
+    final payload = response.payload ?? '';
     final hydrationAmounts = {
       'hydrate_50': 50,
       'hydrate_100': 100,
@@ -305,6 +316,11 @@ class NotificationService {
     };
     if (hydrationAmounts.containsKey(actionId)) {
       pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': hydrationAmounts[actionId]}));
+      return;
+    }
+    // Store deep-link for when app opens
+    if (payload.startsWith('/')) {
+      pendingActions.add(jsonEncode({'type': 'navigate', 'route': payload}));
     }
   }
 
@@ -635,12 +651,15 @@ class NotificationService {
 
   // ── Lab Report Notifications ──────────────────────────────────────────────
 
-  static Future<void> showLabUploaded() async {
+  static Future<void> showLabUploaded({int fileCount = 1}) async {
     if (!_initialized) await init();
+    final body = fileCount > 1
+        ? '$fileCount lab reports are being uploaded and analysed.'
+        : 'Your lab report is being uploaded and analysed.';
     await _plugin.show(
       5001,
-      'Report Uploaded',
-      'Your lab report has been received and is being analysed.',
+      'Analysing Lab Reports',
+      body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'vitalis_labs',
@@ -651,6 +670,7 @@ class NotificationService {
           icon: '@mipmap/ic_launcher',
         ),
       ),
+      payload: '/health/labs',
     );
   }
 
