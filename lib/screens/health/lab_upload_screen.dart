@@ -13,7 +13,7 @@ import '../../services/notification_service.dart';
 
 // ── 3-tick state per file ────────────────────────────────────────────────────
 
-enum _TickState { pending, active, done, error }
+enum _TickState { pending, active, done, error, skipped }
 
 class _FileProcessState {
   final PlatformFile file;
@@ -23,16 +23,36 @@ class _FileProcessState {
   String? errorMessage;
   int savedCount;
   String? labProvider;
+  bool processing; // currently being processed
+  CancelToken? cancelToken;
 
   _FileProcessState({required this.file})
       : uploaded = _TickState.pending,
         analysed = _TickState.pending,
         ready = _TickState.pending,
-        savedCount = 0;
+        savedCount = 0,
+        processing = false;
 
-  bool get isIdle => uploaded == _TickState.pending;
-  bool get isComplete =>
-      ready == _TickState.done || uploaded == _TickState.error;
+  bool get isIdle => uploaded == _TickState.pending && !processing;
+  bool get isDone => ready == _TickState.done;
+  bool get isFailed =>
+      uploaded == _TickState.error || analysed == _TickState.error;
+  bool get isSkipped =>
+      uploaded == _TickState.skipped ||
+      analysed == _TickState.skipped ||
+      ready == _TickState.skipped;
+  bool get isTerminal => isDone || isFailed || isSkipped;
+
+  void reset() {
+    uploaded = _TickState.pending;
+    analysed = _TickState.pending;
+    ready = _TickState.pending;
+    errorMessage = null;
+    savedCount = 0;
+    labProvider = null;
+    processing = false;
+    cancelToken = null;
+  }
 }
 
 // ── Main Screen ──────────────────────────────────────────────────────────────
@@ -45,33 +65,48 @@ class LabUploadScreen extends ConsumerStatefulWidget {
 }
 
 class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   final _dateController = TextEditingController(
     text: DateTime.now().toIso8601String().substring(0, 10),
   );
   final _notesController = TextEditingController();
   final List<_FileProcessState> _files = [];
-  bool _processing = false;
-  bool _allDone = false;
-  String _statusText = ''; // Overall status message shown during processing
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
+    debugPrint('[LabUpload] ===== SCREEN INIT v5 =====');
     _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
+    // Cancel any in-flight uploads
+    for (final f in _files) {
+      f.cancelToken?.cancel('Screen disposed');
+    }
     _tabController.dispose();
     _dateController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
+  // Computed properties
+  int get _doneCount => _files.where((f) => f.isDone).length;
+  int get _failedCount => _files.where((f) => f.isFailed).length;
+  int get _processingCount => _files.where((f) => f.processing).length;
+  bool get _anyProcessing => _processingCount > 0;
+  bool get _anyDone => _doneCount > 0;
+  bool get _allTerminal =>
+      _files.isNotEmpty && _files.every((f) => f.isTerminal);
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Lab Results'),
@@ -112,7 +147,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                 // ── Pick zone ──────────────────────────────────────────────
                 SliverToBoxAdapter(
                   child: GestureDetector(
-                    onTap: _processing ? null : _pickFiles,
+                    onTap: _pickFiles,
                     child: Container(
                       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       decoration: BoxDecoration(
@@ -156,9 +191,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                                     ? Icons.add_circle_outline_rounded
                                     : Icons.cloud_upload_rounded,
                                 size: 26,
-                                color: _processing
-                                    ? cs.onSurfaceVariant.withValues(alpha: 0.4)
-                                    : cs.primary,
+                                color: cs.primary,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -168,9 +201,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                                   : 'Select your lab reports',
                               style: tt.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: _processing
-                                    ? cs.onSurfaceVariant
-                                    : cs.onSurface,
+                                color: cs.onSurface,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -205,12 +236,28 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                               color: cs.onSurface,
                             ),
                           ),
-                          if (_processing) ...[
+                          if (_anyProcessing || _anyDone) ...[
                             const SizedBox(width: 8),
                             _buildSummaryChips(),
                           ],
                           const Spacer(),
-                          if (!_processing)
+                          // Start all idle files
+                          if (_files.any((f) => f.isIdle))
+                            TextButton.icon(
+                              onPressed: _anyProcessing ? null : _startAll,
+                              icon: Icon(Icons.play_arrow_rounded,
+                                  size: 18, color: cs.primary),
+                              label: Text('Start All',
+                                  style: TextStyle(
+                                      color: cs.primary, fontSize: 12)),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8),
+                              ),
+                            ),
+                          if (!_anyProcessing &&
+                              _files.every((f) => f.isIdle))
                             TextButton.icon(
                               onPressed: () =>
                                   setState(() => _files.clear()),
@@ -230,74 +277,27 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                     ),
                   ),
 
-                // ── Status text + legend ───────────────────────────────────
+                // ── Legend ────────────────────────────────────────────────
                 if (hasFiles)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          // Status message
-                          if (_statusText.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
-                                  if (_processing)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: cs.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  if (_allDone && !_processing)
-                                    const Padding(
-                                      padding: EdgeInsets.only(right: 8),
-                                      child: Icon(
-                                        Icons.check_circle_rounded,
-                                        size: 16,
-                                        color: Color(0xFF16A34A),
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Text(
-                                      _statusText,
-                                      style: tt.bodySmall?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: _allDone
-                                            ? const Color(0xFF16A34A)
-                                            : cs.primary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          // Legend
-                          Row(
-                            children: [
-                              _buildLegendItem(
-                                  'Uploaded', const Color(0xFF16A34A)),
-                              const SizedBox(width: 16),
-                              _buildLegendItem(
-                                  'Analysed', const Color(0xFF2563EB)),
-                              const SizedBox(width: 16),
-                              _buildLegendItem(
-                                  'Ready', const Color(0xFF9333EA)),
-                            ],
-                          ),
+                          _buildLegendItem(
+                              'Uploaded', const Color(0xFF16A34A)),
+                          const SizedBox(width: 16),
+                          _buildLegendItem(
+                              'Analysed', const Color(0xFF2563EB)),
+                          const SizedBox(width: 16),
+                          _buildLegendItem(
+                              'Ready', const Color(0xFF9333EA)),
                         ],
                       ),
                     ),
                   ),
 
-                // ── File cards with 3 ticks ────────────────────────────────
+                // ── File cards with per-file controls ────────────────────
                 if (hasFiles)
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -305,15 +305,25 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                       itemCount: _files.length,
                       itemBuilder: (context, i) {
                         final f = _files[i];
-                        // ValueKey forces Flutter to rebuild when tick states change
                         return _FileTickCard(
                           key: ValueKey(
-                              '${f.file.path}_${f.uploaded}_${f.analysed}_${f.ready}'),
+                              '${f.file.path}_${f.uploaded}_${f.analysed}_${f.ready}_${f.processing}'),
                           state: f,
-                          showTicks: true,
-                          onRemove: _processing
+                          onRemove: f.processing
                               ? null
-                              : () => setState(() => _files.removeAt(i)),
+                              : () => _removeFile(i),
+                          onStart: f.isIdle
+                              ? () => _startSingle(i)
+                              : null,
+                          onSkip: f.isIdle
+                              ? () => _skipFile(i)
+                              : null,
+                          onCancel: f.processing
+                              ? () => _cancelFile(i)
+                              : null,
+                          onRetry: f.isFailed
+                              ? () => _retryFile(i)
+                              : null,
                         );
                       },
                     ),
@@ -352,8 +362,8 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
             ),
           ),
 
-          // ── Bottom action bar ──────────────────────────────────────────
-          if (hasFiles)
+          // ── Bottom bar: View Dashboard (only when at least one done) ──
+          if (_anyDone)
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               decoration: BoxDecoration(
@@ -367,50 +377,29 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
               child: SizedBox(
                 width: double.infinity,
                 height: 54,
-                child: _allDone
-                    ? FilledButton.icon(
-                        onPressed: () => context.pop(),
-                        icon: const Icon(
-                            Icons.dashboard_rounded, size: 20),
-                        label: const Text(
-                          'View Dashboard',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700),
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      )
-                    : FilledButton.icon(
-                        onPressed: _processing ? null : _startProcessing,
-                        icon: _processing
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: cs.onPrimary,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.rocket_launch_rounded, size: 20),
-                        label: Text(
-                          _processing
-                              ? _statusText
-                              : 'Analyse ${_files.length} '
-                                  '${_files.length == 1 ? 'Report' : 'Reports'}',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700),
-                        ),
-                        style: FilledButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
+                child: FilledButton.icon(
+                  onPressed: () {
+                    // Invalidate dashboard before navigating
+                    final person = ref.read(selectedPersonProvider);
+                    ref.invalidate(labDashboardProvider(person));
+                    ref.invalidate(labReportsProvider(person));
+                    context.pop();
+                  },
+                  icon: const Icon(Icons.dashboard_rounded, size: 20),
+                  label: Text(
+                    _allTerminal
+                        ? 'View Dashboard'
+                        : 'View Dashboard ($_doneCount done)',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
               ),
             ),
         ],
@@ -445,15 +434,12 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   }
 
   Widget _buildSummaryChips() {
-    final done = _files.where((f) => f.ready == _TickState.done).length;
-    final errors =
-        _files.where((f) => f.uploaded == _TickState.error).length;
     final tt = Theme.of(context).textTheme;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (done > 0)
+        if (_doneCount > 0)
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -462,14 +448,14 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
               color: const Color(0xFF16A34A).withValues(alpha: 0.12),
             ),
             child: Text(
-              '$done done',
+              '$_doneCount done',
               style: tt.labelSmall?.copyWith(
                 color: const Color(0xFF16A34A),
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-        if (errors > 0) ...[
+        if (_failedCount > 0) ...[
           const SizedBox(width: 6),
           Container(
             padding:
@@ -482,9 +468,30 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                   .withValues(alpha: 0.12),
             ),
             child: Text(
-              '$errors failed',
+              '$_failedCount failed',
               style: tt.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+        if (_processingCount > 0) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withValues(alpha: 0.12),
+            ),
+            child: Text(
+              '$_processingCount processing',
+              style: tt.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -497,6 +504,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
   // ── File picking ───────────────────────────────────────────────────────────
 
   Future<void> _pickFiles() async {
+    debugPrint('[LabUpload] _pickFiles called, opening picker...');
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
@@ -504,7 +512,13 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       ],
       allowMultiple: true,
     );
+    debugPrint(
+        '[LabUpload] Picker returned: ${result?.files.length ?? 0} files');
     if (result == null || result.files.isEmpty) return;
+    if (!mounted) {
+      debugPrint('[LabUpload] WARNING: not mounted after picker!');
+      return;
+    }
 
     setState(() {
       for (final file in result.files) {
@@ -512,91 +526,87 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           _files.add(_FileProcessState(file: file));
         }
       }
+      debugPrint(
+          '[LabUpload] Files now: ${_files.length} — ${_files.map((f) => f.file.name).join(', ')}');
     });
   }
 
-  // ── Processing pipeline ────────────────────────────────────────────────────
+  // ── Per-file actions ───────────────────────────────────────────────────────
 
-  Future<void> _startProcessing() async {
-    if (_files.isEmpty || _processing) return;
+  void _removeFile(int index) {
+    final f = _files[index];
+    f.cancelToken?.cancel('Removed');
+    setState(() => _files.removeAt(index));
+  }
 
+  void _skipFile(int index) {
     setState(() {
-      _processing = true;
-      _statusText = 'Starting...';
+      final f = _files[index];
+      f.uploaded = _TickState.skipped;
+      f.analysed = _TickState.skipped;
+      f.ready = _TickState.skipped;
     });
-
-    try {
-      // Fire-and-forget notification — don't block processing
-      NotificationService.showLabUploaded(fileCount: _files.length)
-          .catchError((_) {});
-
-      final person = ref.read(selectedPersonProvider);
-
-      for (int i = 0; i < _files.length; i++) {
-        if (!mounted) return;
-        setState(() {
-          _statusText = 'Processing file ${i + 1} of ${_files.length}';
-        });
-        await _processFile(i, person);
-      }
-
-      // Invalidate dashboard for all successful files
-      final successCount =
-          _files.where((f) => f.analysed == _TickState.done).length;
-      if (successCount > 0) {
-        if (mounted) {
-          setState(() => _statusText = 'Updating dashboard...');
-        }
-
-        ref.invalidate(labDashboardProvider(person));
-        ref.invalidate(labReportsProvider(person));
-
-        // Mark all analysed files as "ready"
-        for (final f in _files) {
-          if (f.analysed == _TickState.done) {
-            f.ready = _TickState.done;
-          }
-        }
-
-        final totalSaved =
-            _files.where((f) => f.ready == _TickState.done)
-                .fold(0, (sum, f) => sum + f.savedCount);
-
-        // Fire-and-forget — don't block
-        NotificationService.showLabAnalysisComplete(
-                resultsCount: totalSaved)
-            .catchError((_) {});
-      }
-
-      if (mounted) {
-        final errorCount =
-            _files.where((f) => f.uploaded == _TickState.error ||
-                f.analysed == _TickState.error).length;
-        setState(() {
-          _processing = false;
-          _allDone = true;
-          _statusText = errorCount > 0
-              ? '$successCount succeeded, $errorCount failed'
-              : '$successCount ${successCount == 1 ? 'report' : 'reports'} analysed';
-        });
-      }
-    } catch (e) {
-      debugPrint('[LabUpload] FATAL: _startProcessing crashed: $e');
-      if (mounted) {
-        setState(() {
-          _processing = false;
-          _allDone = true;
-          _statusText = 'Error: $e';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Processing failed: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
   }
+
+  void _cancelFile(int index) {
+    final f = _files[index];
+    f.cancelToken?.cancel('Cancelled by user');
+    setState(() {
+      f.processing = false;
+      if (f.uploaded == _TickState.active) {
+        f.uploaded = _TickState.error;
+        f.errorMessage = 'Cancelled';
+      } else if (f.analysed == _TickState.active) {
+        f.analysed = _TickState.error;
+        f.errorMessage = 'Cancelled';
+      }
+    });
+  }
+
+  void _retryFile(int index) {
+    setState(() => _files[index].reset());
+    _startSingle(index);
+  }
+
+  Future<void> _startSingle(int index) async {
+    if (_files[index].processing) return;
+    final person = ref.read(selectedPersonProvider);
+    await _processFile(index, person);
+    _onFileCompleted();
+  }
+
+  Future<void> _startAll() async {
+    final person = ref.read(selectedPersonProvider);
+    final idleIndexes = <int>[];
+    for (int i = 0; i < _files.length; i++) {
+      if (_files[i].isIdle) idleIndexes.add(i);
+    }
+
+    for (final i in idleIndexes) {
+      if (!mounted) return;
+      await _processFile(i, person);
+    }
+    _onFileCompleted();
+  }
+
+  void _onFileCompleted() {
+    if (!mounted) return;
+    // Invalidate providers if any files succeeded
+    if (_anyDone) {
+      final person = ref.read(selectedPersonProvider);
+      ref.invalidate(labDashboardProvider(person));
+      ref.invalidate(labReportsProvider(person));
+
+      final totalSaved = _files
+          .where((f) => f.isDone)
+          .fold(0, (sum, f) => sum + f.savedCount);
+      NotificationService.showLabAnalysisComplete(resultsCount: totalSaved)
+          .catchError((_) {});
+    }
+    setState(() {}); // refresh UI
+  }
+
+  // ── Processing pipeline (per file) ─────────────────────────────────────────
 
   Future<void> _processFile(int index, String person) async {
     final state = _files[index];
@@ -610,10 +620,15 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       return;
     }
 
+    state.cancelToken = CancelToken();
+    setState(() {
+      state.processing = true;
+      state.uploaded = _TickState.active;
+    });
+
     try {
-      // ── Tick 1: Uploading ──────────────────────────────────────────────
-      debugPrint('[LabUpload] Processing file ${index + 1}: ${state.file.name}');
-      setState(() => state.uploaded = _TickState.active);
+      debugPrint(
+          '[LabUpload] Processing file ${index + 1}: ${state.file.name}');
 
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(
@@ -628,6 +643,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
       final response = await apiClient.dio.post(
         ApiConstants.labUpload,
         data: formData,
+        cancelToken: state.cancelToken,
         options: Options(
           contentType: 'multipart/form-data',
           sendTimeout: const Duration(seconds: 300),
@@ -639,7 +655,6 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
             if (mounted) {
               setState(() {
                 state.uploaded = _TickState.done;
-                // ── Tick 2: Analysing ────────────────────────────────────
                 state.analysed = _TickState.active;
               });
             }
@@ -655,27 +670,46 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         });
       }
 
-      final data = response.data as Map<String, dynamic>;
+      final rawData = response.data;
+      if (rawData == null || rawData is! Map<String, dynamic>) {
+        debugPrint(
+            '[LabUpload] File ${index + 1} unexpected response: $rawData');
+        setState(() {
+          state.analysed = _TickState.error;
+          state.errorMessage = 'Unexpected server response';
+          state.processing = false;
+        });
+        return;
+      }
+      final data = rawData;
       final status = data['status'] as String? ?? '';
 
       if (status == 'completed') {
-        debugPrint('[LabUpload] File ${index + 1} analysed: ${data['saved_count']} biomarkers');
+        debugPrint(
+            '[LabUpload] File ${index + 1} analysed: ${data['saved_count']} biomarkers${data['duplicate'] == true ? ' (duplicate)' : ''}');
         setState(() {
           state.analysed = _TickState.done;
           state.savedCount = data['saved_count'] as int? ?? 0;
           state.labProvider = data['lab_provider'] as String?;
-          // Tick 3 (Ready) set after all files processed + provider invalidation
-          state.ready = _TickState.active;
+          state.ready = _TickState.done;
+          state.processing = false;
         });
       } else {
-        debugPrint('[LabUpload] File ${index + 1} failed: ${data['detail']}');
+        debugPrint(
+            '[LabUpload] File ${index + 1} failed: ${data['detail']}');
         setState(() {
           state.analysed = _TickState.error;
           state.errorMessage =
               data['detail'] as String? ?? 'Analysis failed';
+          state.processing = false;
         });
       }
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        debugPrint('[LabUpload] File ${index + 1} cancelled');
+        // Already handled in _cancelFile
+        return;
+      }
       final detail = e.response?.data is Map
           ? (e.response!.data as Map)['detail']?.toString()
           : e.message;
@@ -689,6 +723,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           state.analysed = _TickState.error;
         }
         state.errorMessage = detail ?? 'Connection error';
+        state.processing = false;
       });
     } catch (e) {
       debugPrint('[LabUpload] File ${index + 1} error: $e');
@@ -699,23 +734,30 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
           state.analysed = _TickState.error;
         }
         state.errorMessage = e.toString();
+        state.processing = false;
       });
     }
   }
 }
 
-// ── File Card with 3 Ticks ───────────────────────────────────────────────────
+// ── File Card with 3 Ticks + Per-File Controls ──────────────────────────────
 
 class _FileTickCard extends StatelessWidget {
   final _FileProcessState state;
-  final bool showTicks;
   final VoidCallback? onRemove;
+  final VoidCallback? onStart;
+  final VoidCallback? onSkip;
+  final VoidCallback? onCancel;
+  final VoidCallback? onRetry;
 
   const _FileTickCard({
     super.key,
     required this.state,
-    required this.showTicks,
     this.onRemove,
+    this.onStart,
+    this.onSkip,
+    this.onCancel,
+    this.onRetry,
   });
 
   @override
@@ -727,23 +769,26 @@ class _FileTickCard extends StatelessWidget {
     final sizeStr = sizeKb >= 1024
         ? '${(sizeKb / 1024).toStringAsFixed(1)} MB'
         : '${sizeKb.toStringAsFixed(0)} KB';
-    final hasError = state.uploaded == _TickState.error ||
-        state.analysed == _TickState.error;
+    final hasError = state.isFailed;
+    final isSkipped = state.isSkipped;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: cs.surfaceContainerLow,
+        color: isSkipped
+            ? cs.surfaceContainerLow.withValues(alpha: 0.5)
+            : cs.surfaceContainerLow,
         border: Border.all(
           color: hasError
               ? cs.error.withValues(alpha: 0.3)
-              : (state.uploaded == _TickState.active ||
-                      state.analysed == _TickState.active)
+              : state.processing
                   ? cs.primary.withValues(alpha: 0.25)
-                  : state.ready == _TickState.done
+                  : state.isDone
                       ? const Color(0xFF16A34A).withValues(alpha: 0.2)
-                      : cs.outlineVariant.withValues(alpha: 0.2),
+                      : isSkipped
+                          ? cs.outlineVariant.withValues(alpha: 0.1)
+                          : cs.outlineVariant.withValues(alpha: 0.2),
         ),
       ),
       child: Padding(
@@ -751,7 +796,7 @@ class _FileTickCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Top row: icon + name + remove/status ─────────────────────
+            // ── Top row: icon + name + actions ──────────────────────────
             Row(
               children: [
                 // File type badge
@@ -766,15 +811,15 @@ class _FileTickCard extends StatelessWidget {
                       colors: isPdf
                           ? [
                               const Color(0xFFEF4444)
-                                  .withValues(alpha: 0.12),
+                                  .withValues(alpha: isSkipped ? 0.06 : 0.12),
                               const Color(0xFFDC2626)
-                                  .withValues(alpha: 0.08),
+                                  .withValues(alpha: isSkipped ? 0.04 : 0.08),
                             ]
                           : [
                               const Color(0xFF8B5CF6)
-                                  .withValues(alpha: 0.12),
+                                  .withValues(alpha: isSkipped ? 0.06 : 0.12),
                               const Color(0xFF7C3AED)
-                                  .withValues(alpha: 0.08),
+                                  .withValues(alpha: isSkipped ? 0.04 : 0.08),
                             ],
                     ),
                   ),
@@ -785,9 +830,10 @@ class _FileTickCard extends StatelessWidget {
                         isPdf
                             ? Icons.picture_as_pdf_rounded
                             : Icons.image_rounded,
-                        color: isPdf
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF8B5CF6),
+                        color: (isPdf
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF8B5CF6))
+                            .withValues(alpha: isSkipped ? 0.4 : 1.0),
                         size: 18,
                       ),
                       Text(
@@ -795,9 +841,10 @@ class _FileTickCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 7,
                           fontWeight: FontWeight.w800,
-                          color: isPdf
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF8B5CF6),
+                          color: (isPdf
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFF8B5CF6))
+                              .withValues(alpha: isSkipped ? 0.4 : 1.0),
                         ),
                       ),
                     ],
@@ -814,8 +861,12 @@ class _FileTickCard extends StatelessWidget {
                         state.file.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: tt.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                        style: tt.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isSkipped
+                              ? cs.onSurfaceVariant.withValues(alpha: 0.4)
+                              : null,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       if (hasError)
@@ -825,6 +876,15 @@ class _FileTickCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style:
                               tt.bodySmall?.copyWith(color: cs.error),
+                        )
+                      else if (isSkipped)
+                        Text(
+                          'Skipped',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                            fontStyle: FontStyle.italic,
+                          ),
                         )
                       else if (state.analysed == _TickState.done)
                         Text(
@@ -846,23 +906,13 @@ class _FileTickCard extends StatelessWidget {
                   ),
                 ),
 
-                // Remove button (only before processing)
-                if (onRemove != null)
-                  IconButton(
-                    onPressed: onRemove,
-                    icon: Icon(Icons.remove_circle_rounded,
-                        color: cs.error.withValues(alpha: 0.6),
-                        size: 22),
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
-                  ),
+                // ── Per-file action buttons ────────────────────────────
+                _buildActionButtons(cs),
               ],
             ),
 
             // ── 3-tick progress row ──────────────────────────────────────
-            if (showTicks) ...[
+            if (!state.isIdle || state.processing || state.isTerminal) ...[
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -892,12 +942,103 @@ class _FileTickCard extends StatelessWidget {
     );
   }
 
+  Widget _buildActionButtons(ColorScheme cs) {
+    // Processing: show cancel button
+    if (state.processing) {
+      return IconButton(
+        onPressed: onCancel,
+        icon: Icon(Icons.cancel_rounded,
+            color: cs.error.withValues(alpha: 0.7), size: 24),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        tooltip: 'Cancel',
+      );
+    }
+
+    // Failed: show retry + remove
+    if (state.isFailed) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: onRetry,
+            icon: Icon(Icons.refresh_rounded,
+                color: cs.primary, size: 22),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Retry',
+          ),
+          IconButton(
+            onPressed: onRemove,
+            icon: Icon(Icons.remove_circle_rounded,
+                color: cs.error.withValues(alpha: 0.5), size: 20),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
+            tooltip: 'Remove',
+          ),
+        ],
+      );
+    }
+
+    // Done or skipped: just remove
+    if (state.isDone || state.isSkipped) {
+      return IconButton(
+        onPressed: onRemove,
+        icon: Icon(Icons.remove_circle_rounded,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.3), size: 20),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        tooltip: 'Remove',
+      );
+    }
+
+    // Idle: show start + skip + remove
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          onPressed: onStart,
+          icon: Icon(Icons.play_circle_rounded,
+              color: cs.primary, size: 28),
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          tooltip: 'Analyse',
+        ),
+        IconButton(
+          onPressed: onSkip,
+          icon: Icon(Icons.skip_next_rounded,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 22),
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
+          tooltip: 'Skip',
+        ),
+        IconButton(
+          onPressed: onRemove,
+          icon: Icon(Icons.remove_circle_rounded,
+              color: cs.error.withValues(alpha: 0.5), size: 20),
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 36),
+          tooltip: 'Remove',
+        ),
+      ],
+    );
+  }
+
   Widget _buildTickConnector(_TickState tickState) {
     final Color color;
     if (tickState == _TickState.done) {
       color = const Color(0xFF16A34A).withValues(alpha: 0.4);
     } else if (tickState == _TickState.error) {
       color = const Color(0xFFEF4444).withValues(alpha: 0.3);
+    } else if (tickState == _TickState.skipped) {
+      color = const Color(0xFFD1D5DB).withValues(alpha: 0.3);
     } else {
       color = const Color(0xFFD1D5DB);
     }
@@ -949,7 +1090,9 @@ class _TickIndicator extends StatelessWidget {
                     ? cs.error
                     : state == _TickState.active
                         ? cs.primary
-                        : cs.onSurfaceVariant.withValues(alpha: 0.4),
+                        : state == _TickState.skipped
+                            ? cs.onSurfaceVariant.withValues(alpha: 0.25)
+                            : cs.onSurfaceVariant.withValues(alpha: 0.4),
           ),
         ),
       ],
@@ -1005,6 +1148,20 @@ class _TickIndicator extends StatelessWidget {
             Icons.close_rounded,
             size: 16,
             color: Colors.white,
+          ),
+        );
+      case _TickState.skipped:
+        return Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.15),
+          ),
+          child: Icon(
+            Icons.remove_rounded,
+            size: 16,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
           ),
         );
     }

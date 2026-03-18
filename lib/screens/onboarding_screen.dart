@@ -21,21 +21,21 @@ Future<void> setOnboardingComplete() async {
   await prefs.setBool(_kOnboardingCompleteKey, true);
 }
 
-// ── Brand palette ────────────────────────────────────────────────────────────
-const _teal     = Color(0xFF1A6B5C);
-const _tealDark = Color(0xFF0F4A3F);
-const _amber    = Color(0xFFD97706);
-const _indigo   = Color(0xFF4F46E5);
+// ── Brand palette (app icon: pink → orange → purple gradient) ────────────────
+const _pink       = Color(0xFFE91E63);
+const _pinkDark   = Color(0xFF880E4F);
+const _orange     = Color(0xFFFF6D00);
+const _purple     = Color(0xFF7B1FA2);
 
 // Page-specific accent gradients
 const _pageGradients = <List<Color>>[
-  [Color(0xFF0F4A3F), Color(0xFF1A6B5C), Color(0xFF2D9F8A)], // Welcome
-  [Color(0xFF1A6B5C), Color(0xFF1E7D6B), Color(0xFF3BB09A)], // Problem areas
-  [Color(0xFF8B5E0A), Color(0xFFD97706), Color(0xFFE8A317)], // Triggers
-  [Color(0xFF2D3A8C), Color(0xFF4F46E5), Color(0xFF7C6FF7)], // Location
-  [Color(0xFF0F4A3F), Color(0xFF1A6B5C), Color(0xFF2D9F8A)], // Reminders
-  [Color(0xFF6B21A8), Color(0xFF9333EA), Color(0xFFAB5CF0)], // Voice locale
-  [Color(0xFF1A6B5C), Color(0xFF2D9F8A), Color(0xFF50C9B0)], // Ready
+  [Color(0xFF880E4F), Color(0xFFE91E63), Color(0xFFFF6090)], // Welcome
+  [Color(0xFF4A148C), Color(0xFF7B1FA2), Color(0xFFAB47BC)], // Problem areas
+  [Color(0xFFBF360C), Color(0xFFFF6D00), Color(0xFFFF9E40)], // Triggers
+  [Color(0xFF880E4F), Color(0xFFD81B60), Color(0xFFFF6090)], // Location
+  [Color(0xFF4A148C), Color(0xFF7B1FA2), Color(0xFFCE93D8)], // Reminders
+  [Color(0xFFBF360C), Color(0xFFFF6D00), Color(0xFFFFAB40)], // Voice locale
+  [Color(0xFF880E4F), Color(0xFFE91E63), Color(0xFFFF6090)], // Ready
 ];
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -448,7 +448,7 @@ class _GlassButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: outlined ? Colors.white : _tealDark,
+            color: outlined ? Colors.white : _pinkDark,
             letterSpacing: 0.3,
           ),
         ),
@@ -556,19 +556,17 @@ class _WelcomePage extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const RadialGradient(
-                  colors: [Color(0xFF50C9B0), Color(0xFF1A6B5C)],
-                  radius: 0.8,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 boxShadow: [
-                  BoxShadow(color: _teal.withOpacity(0.4), blurRadius: 40, spreadRadius: 8),
+                  BoxShadow(color: _pink.withOpacity(0.4), blurRadius: 40, spreadRadius: 8),
                 ],
               ),
               child: const Center(
-                child: Text('V', style: TextStyle(
-                  fontSize: 56, fontWeight: FontWeight.w200, color: Colors.white, height: 1,
-                  letterSpacing: -2,
-                )),
+                child: Icon(Icons.favorite_rounded, size: 54, color: Colors.white),
               ),
             ),
           ),
@@ -1150,11 +1148,11 @@ class _ReadyPage extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF50C9B0), Color(0xFF1A6B5C)],
+                  colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
                 boxShadow: [
-                  BoxShadow(color: const Color(0xFF50C9B0).withOpacity(0.4),
+                  BoxShadow(color: _pink.withOpacity(0.4),
                       blurRadius: 30, spreadRadius: 5),
                 ],
               ),

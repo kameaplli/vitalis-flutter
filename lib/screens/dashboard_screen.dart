@@ -1037,11 +1037,11 @@ class _WelcomeScreen extends ConsumerStatefulWidget {
   ConsumerState<_WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-// ── Brand palette (matching onboarding) ─────────────────────────────────────
-const _wTeal     = Color(0xFF1A6B5C);
-const _wTealDark = Color(0xFF0F4A3F);
-const _wTealMint = Color(0xFF2D9F8A);
-const _wMintLight = Color(0xFF50C9B0);
+// ── Brand palette (app icon: pink → orange → purple) ────────────────────────
+const _wPink     = Color(0xFFE91E63);
+const _wPinkDark = Color(0xFF880E4F);
+const _wOrange   = Color(0xFFFF6D00);
+const _wPurple   = Color(0xFF7B1FA2);
 
 class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     with TickerProviderStateMixin {
@@ -1127,32 +1127,32 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
   // ── Mood-aware gradient tinting over brand teal ──────────────────────────
 
   List<Color> _gradient(String? insightType) {
-    // Base: brand teal (matches onboarding)
-    const base = [_wTealDark, _wTeal, _wTealMint];
+    // Base: brand pink/orange (matches app icon)
+    const base = [_wPinkDark, _wPink, _wOrange];
     if (insightType == 'positive') {
-      // Energetic teal-green
-      return const [Color(0xFF0F4A3F), Color(0xFF00897B), Color(0xFF4DB6AC)];
+      // Energetic orange-pink
+      return const [Color(0xFFBF360C), Color(0xFFFF6D00), Color(0xFFFF9E40)];
     } else if (insightType == 'care') {
-      // Warm amber tint (like onboarding triggers page)
-      return const [Color(0xFF8B5E0A), Color(0xFFD97706), Color(0xFFE8A317)];
+      // Warm purple tint
+      return const [Color(0xFF4A148C), Color(0xFF7B1FA2), Color(0xFFAB47BC)];
     } else if (insightType == 'neutral') {
-      // Indigo tint (like onboarding location page)
-      return const [Color(0xFF2D3A8C), Color(0xFF4F46E5), Color(0xFF7C6FF7)];
+      // Pink-purple blend
+      return const [Color(0xFF880E4F), Color(0xFFD81B60), Color(0xFFFF6090)];
     }
     // Time-based subtle tint
     final h = DateTime.now().hour;
     if (h < 6 || h >= 20) {
-      return const [Color(0xFF0A2E27), Color(0xFF0F4A3F), Color(0xFF1A6B5C)]; // Deep teal night
+      return const [Color(0xFF4A0E2E), Color(0xFF880E4F), Color(0xFFAD1457)]; // Deep pink night
     }
     return base;
   }
 
   Color _accent(String? insightType) {
     switch (insightType) {
-      case 'positive': return _wMintLight;
-      case 'care': return const Color(0xFFFFAB91);
-      case 'neutral': return const Color(0xFF80DEEA);
-      default: return _wMintLight;
+      case 'positive': return const Color(0xFFFFAB40); // warm orange
+      case 'care': return const Color(0xFFCE93D8);     // soft purple
+      case 'neutral': return const Color(0xFFFF80AB);   // light pink
+      default: return const Color(0xFFFF80AB);
     }
   }
 

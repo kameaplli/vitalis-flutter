@@ -3,10 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/theme_provider.dart';
 
 class AppTheme {
-  // ── Brand colours ────────────────────────────────────────────────────────────
-  static const Color primarySeed  = Color(0xFF1A6B5C); // Qorhealth Teal
-  static const Color secondarySeed = Color(0xFFD97706); // Amber
-  static const Color tertiarySeed  = Color(0xFF4F46E5); // Indigo
+  // ── Brand colours (app icon: pink → orange → purple) ─────────────────────────
+  static const Color primarySeed  = Color(0xFFE91E63); // Qorhealth Pink
+  static const Color secondarySeed = Color(0xFFFF6D00); // Orange
+  static const Color tertiarySeed  = Color(0xFF7B1FA2); // Purple
 
   // ── Sunset skin colours ──────────────────────────────────────────────────────
   static const Color _sunsetPrimary   = Color(0xFFB5451B); // Burnt orange

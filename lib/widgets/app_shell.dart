@@ -49,6 +49,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   bool _locked = false;
   bool _checkingBio = false;
   bool _wentToBackground = false;
+  DateTime? _backgroundAt;
 
   @override
   void initState() {
@@ -71,10 +72,18 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       _wentToBackground = true;
+      _backgroundAt = DateTime.now();
     }
     if (state == AppLifecycleState.resumed && _wentToBackground) {
       _wentToBackground = false;
-      _checkBiometricLock();
+      final away = _backgroundAt != null
+          ? DateTime.now().difference(_backgroundAt!)
+          : Duration.zero;
+      _backgroundAt = null;
+      // Only lock if away for more than 10 seconds (skip for file pickers, share sheets, etc.)
+      if (away.inSeconds > 10) {
+        _checkBiometricLock();
+      }
       // Re-schedule notifications (Android may kill them on force-stop)
       NotificationService.scheduleAll().catchError((_) {});
       // Check for new social notifications on resume

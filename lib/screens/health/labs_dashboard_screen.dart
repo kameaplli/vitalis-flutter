@@ -1150,18 +1150,20 @@ class _OptimalTrendChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final diff = current - previous;
-    if (diff.abs() < 0.001) return const SizedBox.shrink();
+    if (previous.abs() < 0.0001) return const SizedBox.shrink(); // avoid division by zero
+    final pctChange = ((current - previous) / previous) * 100;
+    if (pctChange.abs() < 0.5) return const SizedBox.shrink(); // <0.5% is noise
 
-    final isUp = diff > 0;
+    final isUp = pctChange > 0;
     final color = isUp ? _kOptimalColor : _kCriticalColor;
     final icon = isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+    final displayPct = pctChange.abs().round().clamp(0, 999); // cap display at 999%
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, color: color, size: 14),
-        Text('${(diff.abs() * 100).round()}% vs previous',
+        Text('$displayPct% vs previous',
             style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );

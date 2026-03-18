@@ -7,11 +7,11 @@ import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 
-// ── Brand colors (shared with onboarding) ────────────────────────────────────
-const _kTeal = Color(0xFF1A6B5C);
-const _kTealDark = Color(0xFF0F4A3F);
-const _kTealLight = Color(0xFF2D9B8A);
-const _kMint = Color(0xFFB2F5EA);
+// ── Brand colors (app icon: pink → orange → purple gradient) ─────────────────
+const _kPink = Color(0xFFE91E63);
+const _kPinkDark = Color(0xFF880E4F);
+const _kOrange = Color(0xFFFF6D00);
+const _kPurple = Color(0xFF7B1FA2);
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -244,7 +244,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [_kTealDark, _kTeal, _kTealLight],
+                colors: [_kPinkDark, _kPink, _kOrange],
               ),
             ),
           ),
@@ -516,19 +516,17 @@ class _AnimatedLogo extends StatelessWidget {
         height: 90,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              Colors.white.withValues(alpha: 0.25),
-              Colors.white.withValues(alpha: 0.05),
-            ],
+          gradient: const LinearGradient(
+            colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
           boxShadow: [
-            BoxShadow(color: _kMint.withValues(alpha: 0.3), blurRadius: 30, spreadRadius: 5),
+            BoxShadow(color: _kPink.withValues(alpha: 0.4), blurRadius: 30, spreadRadius: 5),
           ],
         ),
         child: const Center(
-          child: Text('V',
-              style: TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 2)),
+          child: Icon(Icons.favorite_rounded, size: 42, color: Colors.white),
         ),
       ),
     );
@@ -622,7 +620,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [_kTealDark, _kTeal, _kTealLight],
+                colors: [_kPinkDark, _kPink, _kOrange],
               ),
             ),
           ),
@@ -671,7 +669,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                                 color: Colors.white.withValues(alpha: 0.15),
                                 border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
                                 boxShadow: [
-                                  BoxShadow(color: _kMint.withValues(alpha: 0.3), blurRadius: 30, spreadRadius: 5),
+                                  BoxShadow(color: _kPink.withValues(alpha: 0.3), blurRadius: 30, spreadRadius: 5),
                                 ],
                               ),
                               child: const Icon(Icons.fingerprint, size: 56, color: Colors.white),
