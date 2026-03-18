@@ -256,6 +256,16 @@ class NotificationService {
       ),
     );
 
+    // Lab reports channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'vitalis_labs',
+        'Lab Reports',
+        description: 'Lab report upload and analysis updates',
+        importance: Importance.high,
+      ),
+    );
+
     // Check exact alarm capability — on Android 14+ this requires explicit permission
     try {
       _canUseExactAlarms = await androidPlugin?.canScheduleExactNotifications() ?? false;
