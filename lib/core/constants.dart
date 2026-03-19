@@ -259,6 +259,14 @@ class ApiConstants {
   static const String healthClinicalReport   = '/api/health-intelligence/clinical-report';
   static const String healthClinicalReportPdf = '/api/health-intelligence/clinical-report/pdf';
 
+  // Wearable Sync (Phase 1)
+  static const String syncIngest       = '/api/sync/ingest';
+  static const String syncStatus       = '/api/sync/status';
+  static const String syncAccounts     = '/api/sync/accounts';
+  static const String syncDailySummary = '/api/sync/daily-summary';
+  static const String syncDevices      = '/api/sync/devices';
+  static const String syncDataTypes    = '/api/sync/data-types';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';

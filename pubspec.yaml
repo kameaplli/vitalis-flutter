@@ -88,6 +88,10 @@ dependencies:
 
   path_provider: any
   quick_actions: ^1.1.0
+
+  # Wearable / Health platform sync
+  health: ^12.0.0
+  workmanager: ^0.5.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

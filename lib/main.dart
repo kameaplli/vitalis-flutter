@@ -8,12 +8,29 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'package:workmanager/workmanager.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'providers/interests_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/fcm_service.dart';
+import 'services/health_sync_service.dart';
 import 'services/notification_service.dart';
+
+/// Top-level callback for WorkManager background tasks.
+@pragma('vm:entry-point')
+void healthSyncCallbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    if (task == 'healthSync') {
+      try {
+        await HealthSyncService.syncFromPlatform();
+      } catch (_) {
+        // Silently ignore — background sync is best-effort
+      }
+    }
+    return true;
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +39,9 @@ void main() async {
   await Firebase.initializeApp();
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Initialize WorkManager for periodic background health sync
+  await Workmanager().initialize(healthSyncCallbackDispatcher, isInDebugMode: false);
 
   // Parallelize all remaining startup work for faster launch
   late final SharedPreferences prefs;

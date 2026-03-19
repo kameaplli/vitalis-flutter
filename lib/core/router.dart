@@ -26,6 +26,7 @@ import '../screens/social/social_profile_screen.dart';
 import '../screens/social/challenge_detail_screen.dart';
 import '../screens/social/social_notifications_screen.dart';
 import '../screens/health_intelligence_screen.dart';
+import '../screens/connected_devices_screen.dart';
 import '../screens/more_screen.dart';
 import '../screens/health/labs_dashboard_screen.dart';
 import '../screens/health/lab_upload_screen.dart';
@@ -149,6 +150,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // ── Health Intelligence ──────────────────────────────────────────
           GoRoute(path: '/health-intelligence', builder: (_, __) => const HealthIntelligenceScreen()),
+
+          // ── Connected Devices / Wearable Sync ─────────────────────────────
+          GoRoute(path: '/connected-devices', builder: (_, __) => const ConnectedDevicesScreen()),
 
           // ── Short-URL redirects for deep linking ──────────────────────────
           GoRoute(path: '/labs', redirect: (_, __) => '/health/labs'),
