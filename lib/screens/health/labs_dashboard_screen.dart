@@ -165,6 +165,28 @@ class _DashboardBody extends ConsumerStatefulWidget {
 
 class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   final Map<String, GlobalKey> _pillarKeys = {};
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+
+  /// Flattened list of all biomarkers for search
+  List<LabResult> get _allBiomarkers {
+    final results = <LabResult>[];
+    for (final ps in widget.dash.pillars.values) {
+      results.addAll(ps.results);
+    }
+    return results;
+  }
+
+  List<LabResult> get _searchResults {
+    if (_searchQuery.isEmpty) return [];
+    final q = _searchQuery.toLowerCase();
+    return _allBiomarkers.where((r) {
+      final name = (r.biomarkerName ?? '').toLowerCase();
+      final code = (r.biomarkerCode ?? '').toLowerCase();
+      final pillar = (r.healthPillar ?? '').toLowerCase();
+      return name.contains(q) || code.contains(q) || pillar.contains(q);
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -172,6 +194,12 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
     for (final pillar in widget.dash.pillars.keys) {
       _pillarKeys[pillar] = GlobalKey();
     }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   void _scrollToPillar(String pillar) {
@@ -192,21 +220,78 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
     final reportsAsync = ref.watch(labReportsProvider(person));
     final insightsAsync = ref.watch(labInsightsProvider(person));
     final recsAsync = ref.watch(labRecommendationsProvider(person));
+    final cs = Theme.of(context).colorScheme;
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
         _buildSliverAppBar(context),
 
+        // ── Full-width biomarker search ─────────────────────────────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search biomarkers...',
+                prefixIcon: const Icon(Icons.search, size: 22),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Search results (shown when query is non-empty) ──────────────
+        if (_searchQuery.isNotEmpty) ...[
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, i) {
+                final results = _searchResults;
+                if (results.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text('No biomarkers found',
+                          style: TextStyle(color: cs.onSurfaceVariant)),
+                    ),
+                  );
+                }
+                return _BiomarkerCard(
+                  result: results[i],
+                  isLast: i == results.length - 1,
+                );
+              },
+              childCount: _searchResults.isEmpty ? 1 : _searchResults.length,
+            ),
+          ),
+        ],
+
+        // ── Normal dashboard content (hidden during search) ─────────────
+        if (_searchQuery.isEmpty) ...[
+
         // Panic alerts (emergency / see_doctor)
         if (widget.dash.panicValues.isNotEmpty)
           SliverToBoxAdapter(child: _PanicBanner(alerts: widget.dash.panicValues)),
 
         // Health score + summary
-        SliverToBoxAdapter(child: _ScoreSection(
-          dash: widget.dash,
-          onSpokeTap: (spoke) => _scrollToPillar(spoke.key),
-        )),
+        SliverToBoxAdapter(child: _ScoreSection(dash: widget.dash)),
 
         // Tier breakdown bar
         SliverToBoxAdapter(child: _TierBreakdownBar(dash: widget.dash)),
@@ -327,6 +412,8 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 40)),
+
+        ], // end if (_searchQuery.isEmpty)
       ],
     );
   }
@@ -1079,8 +1166,7 @@ class _ReportTile extends StatelessWidget {
 
 class _ScoreSection extends StatelessWidget {
   final LabDashboard dash;
-  final void Function(SpokeData spoke)? onSpokeTap;
-  const _ScoreSection({required this.dash, this.onSpokeTap});
+  const _ScoreSection({required this.dash});
 
   @override
   Widget build(BuildContext context) {
@@ -1125,7 +1211,6 @@ class _ScoreSection extends StatelessWidget {
               centerTitle: centerTitle,
               centerSubtitle: centerSub,
               centerColor: hasScore ? _scoreColor(dash.healthScore!) : _kOptimalColor,
-              onSpokeTap: onSpokeTap,
             ),
           )
         else

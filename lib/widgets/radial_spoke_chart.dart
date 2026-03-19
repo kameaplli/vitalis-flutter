@@ -174,29 +174,47 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
                     duration: const Duration(milliseconds: 250),
                     child: Padding(
                       key: ValueKey('$centerTitle$centerSubtitle'),
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(_selectedIndex != null ? 6 : 8),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             centerTitle,
                             style: TextStyle(
-                              fontSize: centerR * 0.28,
+                              fontSize: _selectedIndex != null
+                                  ? centerR * 0.20
+                                  : centerR * 0.28,
                               fontWeight: FontWeight.w800,
                               color: centerAccent ?? cs.onSurface,
+                              height: 1.1,
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if (_selectedIndex != null && widget.spokes[_selectedIndex!].subtitle != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.spokes[_selectedIndex!].subtitle!,
+                              style: TextStyle(
+                                fontSize: centerR * 0.18,
+                                color: centerAccent ?? cs.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                           if (centerSubtitle != null && centerSubtitle.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
                               centerSubtitle,
                               style: TextStyle(
-                                fontSize: centerR * 0.16,
+                                fontSize: _selectedIndex != null
+                                    ? centerR * 0.13
+                                    : centerR * 0.16,
                                 color: cs.onSurfaceVariant,
                                 fontWeight: FontWeight.w500,
+                                height: 1.2,
                               ),
                               textAlign: TextAlign.center,
                               maxLines: 2,
@@ -239,14 +257,9 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
     for (int i = 0; i < n; i++) {
       cumulative += segAngle;
       if (adjusted < cumulative) {
-        final wasSame = _selectedIndex == i;
         setState(() {
-          _selectedIndex = wasSame ? null : i;
+          _selectedIndex = _selectedIndex == i ? null : i;
         });
-        // Navigate on tap (not deselect)
-        if (!wasSame && widget.onSpokeTap != null) {
-          widget.onSpokeTap!(widget.spokes[i]);
-        }
         return;
       }
       cumulative += gapAngle;

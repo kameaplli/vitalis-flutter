@@ -56,22 +56,35 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final isEditMode = nutrition.editEntryId != null;
 
+    final hasSelectedFoods = nutrition.selectedFoods.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: isEditMode ? const Text('Edit Entry') : null,
-        actions: [
-          TextButton(
-            onPressed: nutrition.selectedFoods.isEmpty || nutrition.isLoading
-                ? null
-                : () => _logMeal(context),
-            child: nutrition.isLoading
-                ? const SizedBox(
-                    width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(isEditMode ? 'Update Meal' : 'Log Meal'),
-          ),
-        ],
       ),
+      bottomNavigationBar: hasSelectedFoods
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: nutrition.isLoading ? null : () => _logMeal(context),
+                  icon: nutrition.isLoading
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Icon(isEditMode ? Icons.check : Icons.restaurant),
+                  label: Text(
+                    isEditMode ? 'Update Meal' : 'Log Meal (${nutrition.selectedFoods.length})',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

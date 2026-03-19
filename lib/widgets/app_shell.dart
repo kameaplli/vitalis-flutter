@@ -14,7 +14,6 @@ import '../services/background_service.dart';
 import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
-import '../providers/social_provider.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -154,7 +153,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  static const _navRoutes = ['/dashboard', '/nutrition', '/health'];
+  static const _navRoutes = ['/dashboard', '/nutrition', '/health', '/more'];
 
   int _indexForLocation(String location) {
     for (int i = 0; i < _navRoutes.length; i++) {
@@ -163,8 +162,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     return 0;
   }
 
-  void _openFullScreenMenu(BuildContext context) {
-    _scaffoldKey.currentState?.openEndDrawer();
+  void _openMorePage(BuildContext context) {
+    context.go('/more');
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -197,11 +196,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       );
     }
 
-    final badgeCount = ref.watch(notificationBadgeProvider).valueOrNull ?? 0;
-
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: _AppDrawer(user: user, badgeCount: badgeCount),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -235,7 +231,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
             ),
           );
         },
-        onMoreTap: () => _openFullScreenMenu(context),
+        onMoreTap: () => _openMorePage(context),
       ),
     );
   }
@@ -256,6 +252,8 @@ class _BottomNavWithGenie extends StatelessWidget {
     required this.onMoreTap,
   });
 
+  static const _iconSize = 26.0;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -268,8 +266,8 @@ class _BottomNavWithGenie extends StatelessWidget {
       alignment: Alignment.topCenter,
       children: [
         NavigationBar(
-          height: 64,
-          selectedIndex: navBarIndex.clamp(0, 3),
+          height: 68,
+          selectedIndex: navBarIndex.clamp(0, 4),
           onDestinationSelected: (i) {
             if (i == 2) return; // Genie placeholder — handled by overlay
             if (i == 4) { onMoreTap(); return; }
@@ -278,13 +276,13 @@ class _BottomNavWithGenie extends StatelessWidget {
           },
           destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: cs.onSurfaceVariant),
-              selectedIcon: Icon(Icons.home, color: cs.primary),
+              icon: Icon(Icons.home_outlined, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.home, color: cs.primary, size: _iconSize),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.restaurant_outlined, color: cs.onSurfaceVariant),
-              selectedIcon: Icon(Icons.restaurant, color: cs.primary),
+              icon: Icon(Icons.restaurant_outlined, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.restaurant, color: cs.primary, size: _iconSize),
               label: 'Nutrition',
             ),
             // Placeholder for center Genie button
@@ -293,12 +291,13 @@ class _BottomNavWithGenie extends StatelessWidget {
               label: '',
             ),
             NavigationDestination(
-              icon: Icon(Icons.favorite_outline, color: cs.onSurfaceVariant),
-              selectedIcon: Icon(Icons.favorite, color: cs.primary),
+              icon: Icon(Icons.favorite_outline, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.favorite, color: cs.primary, size: _iconSize),
               label: 'Health',
             ),
             NavigationDestination(
-              icon: Icon(Icons.grid_view_rounded, color: cs.onSurfaceVariant),
+              icon: Icon(Icons.grid_view_rounded, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.grid_view_rounded, color: cs.primary, size: _iconSize),
               label: 'More',
             ),
           ],
@@ -454,234 +453,7 @@ class _GenieBowlPainter extends CustomPainter {
       oldDelegate.iconColor != iconColor;
 }
 
-// ── Full-screen menu ──────────────────────────────────────────────────────────
-
-class _AppDrawer extends StatelessWidget {
-  final dynamic user;
-  final int badgeCount;
-
-  const _AppDrawer({required this.user, required this.badgeCount});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final avatarUrl = user?.avatarUrl != null
-        ? ApiConstants.resolveUrl(user!.avatarUrl)
-        : null;
-
-    return Drawer(
-      child: SafeArea(
-        child: Column(
-          children: [
-            // ── Drawer header with user profile ───────────────────────────
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: cs.primaryContainer.withValues(alpha: 0.3),
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                  context.push('/profile');
-                },
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: cs.primaryContainer,
-                      backgroundImage: avatarUrl != null
-                          ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
-                          : null,
-                      child: avatarUrl == null
-                          ? Text(
-                              (user?.name ?? 'Q').substring(0, 1).toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 22, fontWeight: FontWeight.w800,
-                                color: cs.onPrimaryContainer,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('QoreHealth', style: tt.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                            color: cs.primary,
-                          )),
-                          const SizedBox(height: 4),
-                          Text(
-                            user?.name ?? 'User',
-                            style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'View profile',
-                            style: tt.bodySmall?.copyWith(color: cs.primary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Navigation items ──────────────────────────────────────────
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _DrawerItem(
-                    icon: Icons.people_outline,
-                    label: 'Community',
-                    badgeCount: badgeCount,
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/social');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.insights,
-                    label: 'Insights',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/insights');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.shopping_cart_outlined,
-                    label: 'Grocery',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/grocery');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.notifications_outlined,
-                    label: 'Alerts',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/notifications');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.qr_code_scanner,
-                    label: 'Scanner',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/scanner');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.monitor_weight_outlined,
-                    label: 'Weight',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/health/weight');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.healing_outlined,
-                    label: 'Eczema',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/eczema');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.water_drop_outlined,
-                    label: 'Hydration',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/hydration');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.history,
-                    label: 'History',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/entries');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.account_balance_outlined,
-                    label: 'Finance',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/finance');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.science_outlined,
-                    label: 'Lab Results',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/labs');
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.camera_alt_outlined,
-                    label: 'Skin Photos',
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/skin-photos');
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Version footer ────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Text(
-                'QoreHealth v5.0',
-                style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final int badgeCount;
-  final VoidCallback onTap;
-
-  const _DrawerItem({
-    required this.icon,
-    required this.label,
-    this.badgeCount = 0,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return ListTile(
-      leading: Badge(
-        isLabelVisible: badgeCount > 0,
-        label: Text('$badgeCount'),
-        child: Icon(icon, color: cs.onSurfaceVariant),
-      ),
-      title: Text(label),
-      onTap: onTap,
-    );
-  }
-}
+// _AppDrawer removed — replaced by MoreScreen (full-page route)
 
 // ── Biometric lock screen ─────────────────────────────────────────────────────
 
