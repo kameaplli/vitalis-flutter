@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
@@ -108,7 +109,18 @@ class BackgroundService {
       final lastAlert = prefs.getString('last_eczema_alert_date');
       if (lastAlert == today) return;
 
-      final res = await apiClient.dio.get(ApiConstants.environmentFlareRisk);
+      // Get device location for weather-based flare risk
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+      final pos = await Geolocator.getLastKnownPosition() ??
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.low,
+          );
+      final res = await apiClient.dio.get(
+        ApiConstants.environmentFlareRisk,
+        queryParameters: {'lat': pos.latitude, 'lon': pos.longitude},
+      );
       if (res.statusCode == 200) {
         final data = res.data as Map<String, dynamic>;
         final risk = (data['overall_risk'] as num?)?.toDouble() ?? 0.0;
