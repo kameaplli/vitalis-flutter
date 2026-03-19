@@ -271,7 +271,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
-    if (ok && mounted) {
+    if (ok && context.mounted) {
       // Always refresh entries list, dashboard, and analytics after any successful log/edit
       ref.invalidate(nutritionEntriesProvider);
       ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
@@ -326,10 +326,10 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         ),
       ),
     );
-    if (source == null || !mounted) return;
+    if (source == null || !context.mounted) return;
 
     final image = await picker.pickImage(source: source, maxWidth: 1200, imageQuality: 85);
-    if (image == null || !mounted) return;
+    if (image == null || !context.mounted) return;
 
     HapticFeedback.mediumImpact();
 
@@ -357,7 +357,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         ApiConstants.foodPhotoRecognize,
         data: formData,
       );
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context); // dismiss loading
 
       final foods = res.data['foods'] as List<dynamic>? ?? [];
@@ -370,10 +370,10 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       }
 
       // Show recognized foods for confirmation
-      if (!mounted) return;
+      if (!context.mounted) return;
       _showRecognizedFoods(foods, desc);
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       Navigator.pop(context); // dismiss loading
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Photo recognition failed: $e')),

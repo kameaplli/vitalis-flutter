@@ -22,7 +22,7 @@ class _BulkItem {
   String status; // 'ready' | 'uploading' | 'done' | 'failed'
   String? error;
 
-  _BulkItem({required this.path, this.status = 'ready', this.error});
+  _BulkItem({required this.path}) : status = 'ready';
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
@@ -58,6 +58,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   // ── Image pick ─────────────────────────────────────────────────────────────
 
   Future<void> _pickImage(ImageSource source) async {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     final xFile = await _picker.pickImage(
       source:    source,
       imageQuality: 85,
@@ -65,6 +67,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       maxHeight: 3200,
     );
     if (xFile == null) return;
+    if (!context.mounted) return;
 
     // Try to launch cropper for camera captures so user can trim to receipt
     // boundaries. If cropper fails (some devices), fall back to original image.
@@ -76,7 +79,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
           uiSettings: [
             AndroidUiSettings(
               toolbarTitle: 'Align Receipt',
-              toolbarColor: Theme.of(context).colorScheme.primary,
+              toolbarColor: primaryColor,
               toolbarWidgetColor: Colors.white,
               lockAspectRatio: false,
               hideBottomControls: false,
@@ -477,7 +480,7 @@ class _DoneView extends StatelessWidget {
       children: [
         // Header summary
         Container(
-          color: cs.primaryContainer.withOpacity(0.3),
+          color: cs.primaryContainer.withValues(alpha: 0.3),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [

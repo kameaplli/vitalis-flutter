@@ -194,13 +194,13 @@ class _InterestCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: active
-              ? cs.primaryContainer.withOpacity(0.5)
-              : cs.surfaceContainerHighest.withOpacity(0.4),
+              ? cs.primaryContainer.withValues(alpha: 0.5)
+              : cs.surfaceContainerHighest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: active
-                ? cs.primary.withOpacity(0.5)
-                : cs.outlineVariant.withOpacity(0.3),
+                ? cs.primary.withValues(alpha: 0.5)
+                : cs.outlineVariant.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -211,7 +211,7 @@ class _InterestCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: active
-                    ? cs.primary.withOpacity(0.12)
+                    ? cs.primary.withValues(alpha: 0.12)
                     : cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -242,7 +242,7 @@ class _InterestCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: cs.primary.withOpacity(0.1),
+                            color: cs.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -262,7 +262,7 @@ class _InterestCard extends StatelessWidget {
                     interest.description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: cs.onSurfaceVariant.withOpacity(0.7),
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                     ),
                   ),
                 ],

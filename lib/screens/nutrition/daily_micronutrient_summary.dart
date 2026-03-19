@@ -38,7 +38,7 @@ class _DailyMicronutrientSummaryState
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
           ),
           child: Column(
             children: [
@@ -127,7 +127,7 @@ class _StatusChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -174,9 +174,9 @@ class _MicronutrientDetail extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.06),
+                color: Colors.red.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withOpacity(0.2)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +215,7 @@ class _MicronutrientDetail extends StatelessWidget {
 
           // Vitamins
           if (vitamins.isNotEmpty) ...[
-            _NutrientSectionHeader(
+            const _NutrientSectionHeader(
                 title: 'Vitamins', icon: Icons.wb_sunny_outlined, color: Colors.orange),
             const SizedBox(height: 4),
             ...vitamins.map((n) => _NutrientProgressRow(item: n)),
@@ -224,7 +224,7 @@ class _MicronutrientDetail extends StatelessWidget {
 
           // Minerals
           if (minerals.isNotEmpty) ...[
-            _NutrientSectionHeader(
+            const _NutrientSectionHeader(
                 title: 'Minerals', icon: Icons.diamond_outlined, color: Colors.teal),
             const SizedBox(height: 4),
             ...minerals.map((n) => _NutrientProgressRow(item: n)),
@@ -233,7 +233,7 @@ class _MicronutrientDetail extends StatelessWidget {
 
           // Others
           if (others.isNotEmpty) ...[
-            _NutrientSectionHeader(
+            const _NutrientSectionHeader(
                 title: 'Other', icon: Icons.more_horiz, color: Colors.blueGrey),
             const SizedBox(height: 4),
             ...others.map((n) => _NutrientProgressRow(item: n)),
@@ -332,7 +332,7 @@ class _NutrientProgressRow extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: barPct.clamp(0.0, 1.0),
                 minHeight: 6,
-                backgroundColor: statusColor.withOpacity(0.12),
+                backgroundColor: statusColor.withValues(alpha: 0.12),
                 color: statusColor,
               ),
             ),

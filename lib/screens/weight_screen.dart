@@ -339,7 +339,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   final p = ref.read(selectedPersonProvider);
                   ref.invalidate(dashboardProvider((p, DateTime.now().toIso8601String().substring(0, 10))));
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(friendlyErrorMessage(e, context: 'weight'))));
                   }
@@ -573,7 +573,7 @@ class _WeightInputCardState extends State<_WeightInputCard> {
                           final selected = g == _grams;
                           // Display as fractional: 0→.0, 50→.05, 100→.1, ..., 950→.95
                           final label = g < 100
-                              ? '${(g ~/ 10).toString().padLeft(2, '0')}'
+                              ? (g ~/ 10).toString().padLeft(2, '0')
                               : '${(g ~/ 10)}';
                           return Center(
                             child: Text(

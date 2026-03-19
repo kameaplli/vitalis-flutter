@@ -24,9 +24,6 @@ Future<void> setOnboardingComplete() async {
 // ── Brand palette (app icon: pink → orange → purple gradient) ────────────────
 const _pink       = Color(0xFFE91E63);
 const _pinkDark   = Color(0xFF880E4F);
-const _orange     = Color(0xFFFF6D00);
-const _purple     = Color(0xFF7B1FA2);
-
 // Page-specific accent gradients
 const _pageGradients = <List<Color>>[
   [Color(0xFF880E4F), Color(0xFFE91E63), Color(0xFFFF6090)], // Welcome
@@ -265,11 +262,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                     child: Column(
                                       children: [
                                         Icon(Icons.keyboard_arrow_up,
-                                            color: Colors.white.withOpacity(0.6), size: 20),
+                                            color: Colors.white.withValues(alpha: 0.6), size: 20),
                                         Text('Swipe up to skip',
                                             style: TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.white.withOpacity(0.4),
+                                                color: Colors.white.withValues(alpha: 0.4),
                                                 letterSpacing: 0.5)),
                                       ],
                                     ),
@@ -380,7 +377,7 @@ class _ProgressBar extends StatelessWidget {
               height: 3,
               margin: const EdgeInsets.symmetric(horizontal: 2.5),
               decoration: BoxDecoration(
-                color: active ? Colors.white : Colors.white.withOpacity(0.2),
+                color: active ? Colors.white : Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -436,12 +433,12 @@ class _GlassButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
         decoration: BoxDecoration(
-          color: outlined ? Colors.white.withOpacity(0.1) : Colors.white,
+          color: outlined ? Colors.white.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: outlined ? Border.all(color: Colors.white.withOpacity(0.3), width: 1) : null,
+          border: outlined ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1) : null,
           boxShadow: outlined
               ? null
-              : [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 12, offset: const Offset(0, 4))],
+              : [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Text(
           label,
@@ -483,11 +480,11 @@ class _OrbsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final orbs = [
-      _Orb(0.12, 0.18, 65, Colors.white.withOpacity(0.05), 1.0),
-      _Orb(0.85, 0.25, 90, Colors.white.withOpacity(0.04), 0.7),
-      _Orb(0.5, 0.75, 110, Colors.white.withOpacity(0.03), 1.3),
-      _Orb(0.2, 0.6, 50, Colors.white.withOpacity(0.06), 0.9),
-      _Orb(0.75, 0.85, 70, Colors.white.withOpacity(0.04), 1.1),
+      _Orb(0.12, 0.18, 65, Colors.white.withValues(alpha: 0.05), 1.0),
+      _Orb(0.85, 0.25, 90, Colors.white.withValues(alpha: 0.04), 0.7),
+      _Orb(0.5, 0.75, 110, Colors.white.withValues(alpha: 0.03), 1.3),
+      _Orb(0.2, 0.6, 50, Colors.white.withValues(alpha: 0.06), 0.9),
+      _Orb(0.75, 0.85, 70, Colors.white.withValues(alpha: 0.04), 1.1),
     ];
     for (final orb in orbs) {
       final dx = math.sin(t * 2 * math.pi * orb.speed) * 20;
@@ -495,7 +492,7 @@ class _OrbsPainter extends CustomPainter {
       final center = Offset(orb.x * size.width + dx, orb.y * size.height + dy);
       final paint = Paint()
         ..shader = RadialGradient(
-          colors: [orb.color, orb.color.withOpacity(0)],
+          colors: [orb.color, orb.color.withValues(alpha: 0)],
         ).createShader(Rect.fromCircle(center: center, radius: orb.radius));
       canvas.drawCircle(center, orb.radius, paint);
     }
@@ -523,9 +520,9 @@ class _GlassCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
       ),
       child: child,
     );
@@ -562,7 +559,7 @@ class _WelcomePage extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
-                  BoxShadow(color: _pink.withOpacity(0.4), blurRadius: 40, spreadRadius: 8),
+                  BoxShadow(color: _pink.withValues(alpha: 0.4), blurRadius: 40, spreadRadius: 8),
                 ],
               ),
               child: const Center(
@@ -572,7 +569,7 @@ class _WelcomePage extends StatelessWidget {
           ),
           const SizedBox(height: 40),
           const Text(
-            'Qorhealth',
+            'QoreHealth',
             style: TextStyle(
               fontSize: 38, fontWeight: FontWeight.w700, color: Colors.white,
               letterSpacing: -1,
@@ -582,19 +579,19 @@ class _WelcomePage extends StatelessWidget {
           Text(
             'Your personal health intelligence',
             style: TextStyle(
-              fontSize: 16, color: Colors.white.withOpacity(0.7),
+              fontSize: 16, color: Colors.white.withValues(alpha: 0.7),
               fontWeight: FontWeight.w300, letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 48),
-          _GlassCard(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          const _GlassCard(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             child: Column(
               children: [
                 _FeatureRow(icon: Icons.track_changes, text: 'Track triggers with precision'),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 _FeatureRow(icon: Icons.insights, text: 'AI-powered health insights'),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 _FeatureRow(icon: Icons.family_restroom, text: 'Family health dashboard'),
               ],
             ),
@@ -617,15 +614,15 @@ class _FeatureRow extends StatelessWidget {
         Container(
           width: 36, height: 36,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: Colors.white.withOpacity(0.9), size: 18),
+          child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 18),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Text(text, style: TextStyle(
-            fontSize: 14, color: Colors.white.withOpacity(0.85), fontWeight: FontWeight.w500,
+            fontSize: 14, color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w500,
           )),
         ),
       ],
@@ -647,7 +644,7 @@ class _PageHeader extends StatelessWidget {
         Container(
           width: 64, height: 64,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(icon, color: Colors.white, size: 30),
@@ -660,7 +657,7 @@ class _PageHeader extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(subtitle, style: TextStyle(
-            fontSize: 14, color: Colors.white.withOpacity(0.65),
+            fontSize: 14, color: Colors.white.withValues(alpha: 0.65),
             fontWeight: FontWeight.w400, height: 1.4,
           ), textAlign: TextAlign.center),
         ),
@@ -707,10 +704,10 @@ class _ProblemAreasPage extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: active ? Colors.white.withOpacity(0.25) : Colors.white.withOpacity(0.08),
+                    color: active ? Colors.white.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: active ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.12),
+                      color: active ? Colors.white.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.12),
                       width: 1.5,
                     ),
                   ),
@@ -718,10 +715,10 @@ class _ProblemAreasPage extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(_areaIcons[a] ?? Icons.circle, size: 18,
-                          color: active ? Colors.white : Colors.white.withOpacity(0.5)),
+                          color: active ? Colors.white : Colors.white.withValues(alpha: 0.5)),
                       const SizedBox(width: 8),
                       Text(a, style: TextStyle(
-                        color: active ? Colors.white : Colors.white.withOpacity(0.6),
+                        color: active ? Colors.white : Colors.white.withValues(alpha: 0.6),
                         fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                         fontSize: 14,
                       )),
@@ -774,10 +771,10 @@ class _TriggersPage extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: active ? Colors.white.withOpacity(0.25) : Colors.white.withOpacity(0.08),
+                    color: active ? Colors.white.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: active ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.12),
+                      color: active ? Colors.white.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.12),
                       width: 1.5,
                     ),
                   ),
@@ -787,7 +784,7 @@ class _TriggersPage extends StatelessWidget {
                       Text(_triggerEmojis[t] ?? '?', style: const TextStyle(fontSize: 18)),
                       const SizedBox(width: 8),
                       Text(t, style: TextStyle(
-                        color: active ? Colors.white : Colors.white.withOpacity(0.6),
+                        color: active ? Colors.white : Colors.white.withValues(alpha: 0.6),
                         fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                         fontSize: 14,
                       )),
@@ -829,13 +826,13 @@ class _LocationPage extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.location_on, color: Colors.white.withOpacity(0.8), size: 22),
+                    Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.8), size: 22),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         enabled ? 'Weather tracking enabled' : 'Enable weather tracking',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9), fontSize: 15,
+                          color: Colors.white.withValues(alpha: 0.9), fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -844,20 +841,20 @@ class _LocationPage extends StatelessWidget {
                       value: enabled,
                       onChanged: onChanged,
                       activeColor: Colors.white,
-                      activeTrackColor: Colors.white.withOpacity(0.35),
-                      inactiveThumbColor: Colors.white.withOpacity(0.5),
-                      inactiveTrackColor: Colors.white.withOpacity(0.1),
+                      activeTrackColor: Colors.white.withValues(alpha: 0.35),
+                      inactiveThumbColor: Colors.white.withValues(alpha: 0.5),
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
                     ),
                   ],
                 ),
                 if (enabled) ...[
                   const SizedBox(height: 16),
-                  Row(
+                  const Row(
                     children: [
                       _WeatherChip(icon: Icons.thermostat, label: 'Temperature'),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       _WeatherChip(icon: Icons.water_drop, label: 'Humidity'),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       _WeatherChip(icon: Icons.air, label: 'AQI'),
                     ],
                   ),
@@ -868,7 +865,7 @@ class _LocationPage extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'No extra work from you — it happens automatically',
-            style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.45)),
+            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.45)),
           ),
         ],
       ),
@@ -887,14 +884,14 @@ class _WeatherChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           children: [
-            Icon(icon, color: Colors.white.withOpacity(0.7), size: 18),
+            Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 18),
             const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
+            Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
           ],
         ),
       ),
@@ -991,16 +988,16 @@ class _GlassToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.7), size: 22),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 22),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.white.withOpacity(0.9),
+              Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 14, fontWeight: FontWeight.w500)),
               if (subtitle != null)
-                Text(subtitle!, style: TextStyle(color: Colors.white.withOpacity(0.45),
+                Text(subtitle!, style: TextStyle(color: Colors.white.withValues(alpha: 0.45),
                     fontSize: 12)),
             ],
           ),
@@ -1008,9 +1005,9 @@ class _GlassToggle extends StatelessWidget {
         Switch.adaptive(
           value: value, onChanged: onChanged,
           activeColor: Colors.white,
-          activeTrackColor: Colors.white.withOpacity(0.35),
-          inactiveThumbColor: Colors.white.withOpacity(0.5),
-          inactiveTrackColor: Colors.white.withOpacity(0.1),
+          activeTrackColor: Colors.white.withValues(alpha: 0.35),
+          inactiveThumbColor: Colors.white.withValues(alpha: 0.5),
+          inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
         ),
       ],
     );
@@ -1035,14 +1032,14 @@ class _MealTimeRow extends StatelessWidget {
           Text(emoji, style: const TextStyle(fontSize: 18)),
           const SizedBox(width: 10),
           Expanded(child: Text(label, style: TextStyle(
-            color: Colors.white.withOpacity(0.7), fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.7), fontSize: 14,
           ))),
           GestureDetector(
             onTap: onTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
+                color: Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text('$h:$m', style: const TextStyle(
@@ -1152,7 +1149,7 @@ class _ReadyPage extends StatelessWidget {
                   begin: Alignment.topLeft, end: Alignment.bottomRight,
                 ),
                 boxShadow: [
-                  BoxShadow(color: _pink.withOpacity(0.4),
+                  BoxShadow(color: _pink.withValues(alpha: 0.4),
                       blurRadius: 30, spreadRadius: 5),
                 ],
               ),
@@ -1169,9 +1166,9 @@ class _ReadyPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Start logging to unlock personalized health insights.\nThe more data you provide, the smarter Qorhealth gets.',
+            'Start logging to unlock personalized health insights.\nThe more data you provide, the smarter QoreHealth gets.',
             style: TextStyle(
-              fontSize: 15, color: Colors.white.withOpacity(0.65),
+              fontSize: 15, color: Colors.white.withValues(alpha: 0.65),
               fontWeight: FontWeight.w400, height: 1.5,
             ),
             textAlign: TextAlign.center,
@@ -1187,7 +1184,7 @@ class _ReadyPage extends StatelessWidget {
                   child: Text(
                     'Tip: Log meals, symptoms, and sleep daily for the best insights',
                     style: TextStyle(
-                      fontSize: 13, color: Colors.white.withOpacity(0.75),
+                      fontSize: 13, color: Colors.white.withValues(alpha: 0.75),
                       fontWeight: FontWeight.w400, height: 1.3,
                     ),
                   ),
@@ -1203,7 +1200,7 @@ class _ReadyPage extends StatelessWidget {
               'Always consult a qualified healthcare provider before making dietary or health changes.',
               style: TextStyle(
                 fontSize: 11,
-                color: Colors.white.withOpacity(0.45),
+                color: Colors.white.withValues(alpha: 0.45),
               ),
               textAlign: TextAlign.center,
             ),

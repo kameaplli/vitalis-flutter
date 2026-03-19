@@ -37,7 +37,7 @@ class _NutrientCardState extends ConsumerState<NutrientCard> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: cs.outlineVariant.withOpacity(0.5)),
+        side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
@@ -108,7 +108,7 @@ class _CompletenessBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: value.clamp(0, 1),
               minHeight: 4,
-              backgroundColor: color.withOpacity(0.15),
+              backgroundColor: color.withValues(alpha: 0.15),
               color: color,
             ),
           ),
@@ -169,7 +169,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Vitamins
               if (data.vitamins.isNotEmpty) ...[
-                _SectionHeader(title: 'Vitamins', icon: Icons.wb_sunny_outlined, color: Colors.orange),
+                const _SectionHeader(title: 'Vitamins', icon: Icons.wb_sunny_outlined, color: Colors.orange),
                 const SizedBox(height: 4),
                 _NutrientGrid(nutrients: data.vitamins),
                 const SizedBox(height: 10),
@@ -177,7 +177,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Minerals
               if (data.minerals.isNotEmpty) ...[
-                _SectionHeader(title: 'Minerals', icon: Icons.diamond_outlined, color: Colors.teal),
+                const _SectionHeader(title: 'Minerals', icon: Icons.diamond_outlined, color: Colors.teal),
                 const SizedBox(height: 4),
                 _NutrientGrid(nutrients: data.minerals),
                 const SizedBox(height: 10),
@@ -185,7 +185,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Other
               if (data.otherNutrients.isNotEmpty) ...[
-                _SectionHeader(title: 'Other', icon: Icons.more_horiz, color: Colors.blueGrey),
+                const _SectionHeader(title: 'Other', icon: Icons.more_horiz, color: Colors.blueGrey),
                 const SizedBox(height: 4),
                 _NutrientGrid(nutrients: data.otherNutrients),
                 const SizedBox(height: 10),
@@ -199,7 +199,7 @@ class _NutrientDetail extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest.withOpacity(0.3),
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -292,7 +292,7 @@ class _MacroChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
@@ -302,7 +302,7 @@ class _MacroChip extends StatelessWidget {
               style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.bold, color: color),
             ),
-            Text('$label',
+            Text(label,
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
           ],
         ),
@@ -361,8 +361,8 @@ class _NutrientChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: hasData
-            ? cs.primaryContainer.withOpacity(0.4)
-            : cs.surfaceContainerHighest.withOpacity(0.3),
+            ? cs.primaryContainer.withValues(alpha: 0.4)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -384,8 +384,8 @@ class _NutrientChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               color: hasData
-                  ? cs.onPrimaryContainer.withOpacity(0.8)
-                  : cs.onSurfaceVariant.withOpacity(0.5),
+                  ? cs.onPrimaryContainer.withValues(alpha: 0.8)
+                  : cs.onSurfaceVariant.withValues(alpha: 0.5),
             ),
           ),
         ],

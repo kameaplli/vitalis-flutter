@@ -148,7 +148,7 @@ class _MetricChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -189,7 +189,7 @@ class _PollenBar extends StatelessWidget {
           height: 8,
           margin: const EdgeInsets.only(right: 2),
           decoration: BoxDecoration(
-            color: i < level ? color : Colors.grey.withOpacity(0.2),
+            color: i < level ? color : Colors.grey.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(2),
           ),
         )),
@@ -239,7 +239,7 @@ class FlareRiskGauge extends StatelessWidget {
                     child: CircularProgressIndicator(
                       value: risk.score / 100,
                       strokeWidth: 10,
-                      backgroundColor: Colors.grey.withOpacity(0.15),
+                      backgroundColor: Colors.grey.withValues(alpha: 0.15),
                       valueColor: AlwaysStoppedAnimation(color),
                       strokeCap: StrokeCap.round,
                     ),
@@ -318,9 +318,9 @@ class EnvironmentCorrelationCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.08),
+                  color: Colors.red.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [

@@ -38,8 +38,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
   // Parsed result
   List<Map<String, dynamic>> _meals = [];
-  String? _forPerson;
-
   // Conversation context for corrections
   final List<Map<String, dynamic>> _context = [];
 
@@ -153,9 +151,11 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       listenFor: const Duration(seconds: 60),
       pauseFor: const Duration(seconds: 5),
       localeId: effectiveLocale,
-      cancelOnError: false,
-      partialResults: true,
-      listenMode: stt.ListenMode.dictation,
+      listenOptions: stt.SpeechListenOptions(
+        cancelOnError: false,
+        partialResults: true,
+        listenMode: stt.ListenMode.dictation,
+      ),
     );
   }
 
@@ -213,7 +213,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
         setState(() {
           _meals = meals;
-          _forPerson = data['for_person'] as String?;
           _state = _VoiceState.confirmed;
         });
       } else {

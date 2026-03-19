@@ -1,4 +1,5 @@
 /// Phase 5: AI Insights data models
+library;
 
 class WeeklyInsight {
   final List<InsightItem> insights;

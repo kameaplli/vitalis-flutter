@@ -58,7 +58,7 @@ class EczemaLogSummary {
   ///   current: {"zones": [...], "patches": [...]}
   static List _unwrapZones(dynamic raw) {
     if (raw == null) return [];
-    final decoded = raw is String ? jsonDecode(raw as String) : raw;
+    final decoded = raw is String ? jsonDecode(raw) : raw;
     if (decoded is Map) return (decoded['zones'] as List? ?? []);
     if (decoded is List) return decoded;
     return [];
@@ -66,7 +66,7 @@ class EczemaLogSummary {
 
   static List _unwrapPatches(dynamic raw) {
     if (raw == null) return [];
-    final decoded = raw is String ? jsonDecode(raw as String) : raw;
+    final decoded = raw is String ? jsonDecode(raw) : raw;
     if (decoded is Map) return (decoded['patches'] as List? ?? []);
     return [];
   }

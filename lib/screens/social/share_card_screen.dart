@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,11 +49,11 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
     }
     try {
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/vitalis_card_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File('${tempDir.path}/qorehealth_card_${DateTime.now().millisecondsSinceEpoch}.png');
       await file.writeAsBytes(imageBytes);
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'Check out my Qorhealth health report!',
+        text: 'Check out my QoreHealth health report!',
       );
     } catch (e) {
       _showSnackBar('Failed to share: $e');
@@ -69,14 +68,14 @@ class _ShareCardScreenState extends ConsumerState<ShareCardScreen> {
       return;
     }
     try {
-      await Gal.putImageBytes(imageBytes, album: 'Qorhealth');
+      await Gal.putImageBytes(imageBytes, album: 'QoreHealth');
       HapticFeedback.heavyImpact();
       _showSnackBar('Card saved to gallery');
     } on GalException catch (e) {
       if (e.type == GalExceptionType.accessDenied) {
         final granted = await Gal.requestAccess();
         if (granted) {
-          await Gal.putImageBytes(imageBytes, album: 'Qorhealth');
+          await Gal.putImageBytes(imageBytes, album: 'QoreHealth');
           _showSnackBar('Card saved to gallery');
         } else {
           _showSnackBar('Gallery permission denied');

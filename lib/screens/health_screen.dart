@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -15,7 +14,6 @@ import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/days_slider.dart';
-import '../widgets/qorhealth_icon.dart';
 import 'skin_photos_screen.dart' show skinPhotosProvider;
 
 // ─── Shared swipeable list ────────────────────────────────────────────────────
@@ -209,23 +207,23 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(symptomsProvider(key))),
       _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
           ref.watch(medicationsProvider('${person}_7'))),
-      _CardDef('labs',        'Decode', Icons.biotech_rounded,          const Color(0xFFD32F2F),
-          const AsyncValue.data([])),
+      const _CardDef('labs',        'Decode', Icons.biotech_rounded,          Color(0xFFD32F2F),
+          AsyncValue.data([])),
       _CardDef('supplements', 'Supplements', Icons.science_rounded,         const Color(0xFFF9A825),
           ref.watch(supplementsProvider('${person}_7'))),
       _CardDef('mood',        'Mood',        Icons.self_improvement_rounded, const Color(0xFF43A047),
           ref.watch(moodProvider(key))),
-      _CardDef('weight',      'Weight',      Icons.fitness_center_rounded,   const Color(0xFF8E24AA),
-          const AsyncValue.data([])),
-      _CardDef('eczema',      'Eczema',      Icons.dry_rounded,             const Color(0xFF00897B),
-          const AsyncValue.data([])),
+      const _CardDef('weight',      'Weight',      Icons.fitness_center_rounded,   Color(0xFF8E24AA),
+          AsyncValue.data([])),
+      const _CardDef('eczema',      'Eczema',      Icons.dry_rounded,             Color(0xFF00897B),
+          AsyncValue.data([])),
       _CardDef('skin-photos', 'Skin Photos', Icons.photo_camera_rounded,    const Color(0xFF6D4C41),
           ref.watch(skinPhotosProvider(person)).whenData((photos) =>
               photos.map((p) => <String, dynamic>{'id': p.id}).toList())),
-      _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   const Color(0xFF3949AB),
-          const AsyncValue.data([])),
-      _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     const Color(0xFF5E35B1),
-          const AsyncValue.data([])),
+      const _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   Color(0xFF3949AB),
+          AsyncValue.data([])),
+      const _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     Color(0xFF5E35B1),
+          AsyncValue.data([])),
     ];
 
     // Filter cards based on user interests
@@ -786,7 +784,7 @@ class _SymptomsTab extends ConsumerWidget {
                 margin: const EdgeInsets.only(top: 2),
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: sevColor.withOpacity(0.12),
+                  color: sevColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.sick_outlined, color: sevColor, size: 22),
@@ -815,7 +813,7 @@ class _SymptomsTab extends ConsumerWidget {
                             shape: BoxShape.circle,
                             color: i < severity
                                 ? sevColor
-                                : Colors.grey.withOpacity(0.2),
+                                : Colors.grey.withValues(alpha: 0.2),
                           ),
                         )),
                         const SizedBox(width: 6),
@@ -1920,7 +1918,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
     for (final variant in variants) {
       try {
         final dio = Dio();
-        dio.options.headers['User-Agent'] = 'Qorhealth/3.0 (qorhealth-app)';
+        dio.options.headers['User-Agent'] = 'QoreHealth/3.0 (qorehealth-app)';
         final res = await dio.get(
           'https://world.openfoodfacts.org/api/v2/product/$variant',
         );
@@ -2327,8 +2325,8 @@ class _MoodTab extends ConsumerWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      scoreColor.withOpacity(0.2),
-                      scoreColor.withOpacity(0.05),
+                      scoreColor.withValues(alpha: 0.2),
+                      scoreColor.withValues(alpha: 0.05),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -2532,16 +2530,6 @@ class HealthSubScreen extends ConsumerStatefulWidget {
 
 class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
   int _days = 30;
-
-  String get _title {
-    switch (widget.category) {
-      case 'symptoms':    return 'Symptoms';
-      case 'medications': return 'Medications';
-      case 'supplements': return 'Supplements';
-      case 'mood':        return 'Mood';
-      default:            return widget.category;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

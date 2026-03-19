@@ -184,7 +184,7 @@ class _HistoryCardState extends State<HistoryCard> {
                 InfoBadge('Itch ${log.itchSeverity}/10', Colors.purple),
               if (log.sleepDisrupted == true) ...[
                 const SizedBox(width: 6),
-                InfoBadge('Sleep ↓', Colors.indigo),
+                const InfoBadge('Sleep ↓', Colors.indigo),
               ],
               if (areas.isNotEmpty) ...[
                 const SizedBox(width: 6),

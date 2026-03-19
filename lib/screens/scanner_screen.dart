@@ -38,7 +38,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   // ── Label scan state ───────────────────────────────────────────────────────
   bool _labelScanning = false;
-  String? _labelImagePath;
   String? _labelError;
 
   // ── Shared food-entry form ─────────────────────────────────────────────────
@@ -89,7 +88,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       _scanned = false;
       _detectedBarcode = null;
       _barcodeCtrl.clear();
-      _labelImagePath = null;
       _labelError = null;
       _formPrefilled = false;
     });
@@ -303,7 +301,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     setState(() {
       _labelScanning = true;
       _labelError = null;
-      _labelImagePath = file.path;
     });
 
     try {
@@ -692,9 +689,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             const SnackBar(content: Text('Food saved to your database!')));
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'food scanner'))));
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

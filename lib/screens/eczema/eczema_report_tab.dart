@@ -380,7 +380,7 @@ class ReportContent extends StatelessWidget {
           if (envCorrelation != null)
             EnvironmentCorrelationCard(correlation: envCorrelation!)
           else
-            EmptyAnalysisCard(
+            const EmptyAnalysisCard(
               icon: Icons.cloud,
               title: 'Environmental Triggers',
               message: 'Save eczema logs to auto-capture weather data. '
@@ -393,7 +393,7 @@ class ReportContent extends StatelessWidget {
           if (smartCorrelation != null)
             SmartCorrelationCard(result: smartCorrelation!)
           else
-            EmptyAnalysisCard(
+            const EmptyAnalysisCard(
               icon: Icons.psychology,
               title: 'Smart Food Analysis',
               message: 'Log both eczema and nutrition data to unlock '
@@ -489,7 +489,7 @@ class ReportContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.timeline, size: 18, color: Colors.deepPurple),
+                      const Icon(Icons.timeline, size: 18, color: Colors.deepPurple),
                       const SizedBox(width: 6),
                       Text('Recent Causation Chain',
                           style: Theme.of(context).textTheme.titleSmall),
@@ -515,7 +515,7 @@ class ReportContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.science, size: 18, color: Colors.indigo),
+                      const Icon(Icons.science, size: 18, color: Colors.indigo),
                       const SizedBox(width: 6),
                       Text('What-If Simulator',
                           style: Theme.of(context).textTheme.titleSmall),
@@ -595,8 +595,6 @@ class ReportContent extends StatelessWidget {
   static List<CausationEvent> _buildCausationEvents(
       List<EczemaLogSummary> logs, FoodCorrelationData foodData) {
     final events = <CausationEvent>[];
-    final badFoodNames = foodData.badFoods.take(3).map((f) => f.foodName).toSet();
-
     // Take last 5 logs and create a simplified chain
     final recent = logs.take(5).toList();
     for (final log in recent.reversed) {

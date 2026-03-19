@@ -332,7 +332,7 @@ final dailyNutrientProvider =
       ApiConstants.nutrientsDaily,
       queryParameters: {
         'person': person,
-        if (date != null) 'date': date,
+        'date': date,
       },
     );
     return DailyNutrientAssessment.fromJson(res.data as Map<String, dynamic>);

@@ -137,7 +137,7 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -175,7 +175,7 @@ class _BadgeItem extends StatelessWidget {
                 width: earned ? 2.5 : 1,
               ),
               boxShadow: earned
-                  ? [BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 8)]
+                  ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.3), blurRadius: 8)]
                   : null,
             ),
             child: Icon(

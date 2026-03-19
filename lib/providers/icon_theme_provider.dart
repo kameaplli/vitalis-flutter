@@ -6,7 +6,7 @@ const _kIconThemeKey = 'icon_theme';
 
 /// Provider for the currently selected icon theme.
 /// Persisted in SharedPreferences so it survives app restarts.
-final iconThemeProvider = StateNotifierProvider<IconThemeNotifier, QorhealthIcons>((ref) {
+final iconThemeProvider = StateNotifierProvider<IconThemeNotifier, QoreHealthIcons>((ref) {
   final notifier = IconThemeNotifier();
   notifier._load(); // load saved theme on creation
   return notifier;
@@ -44,10 +44,10 @@ class IconThemeChoiceNotifier extends StateNotifier<IconThemeChoice> {
   }
 }
 
-class IconThemeNotifier extends StateNotifier<QorhealthIcons> {
+class IconThemeNotifier extends StateNotifier<QoreHealthIcons> {
   IconThemeNotifier() : super(materialIcons);
 
-  void set(QorhealthIcons icons) => state = icons;
+  void set(QoreHealthIcons icons) => state = icons;
 
   /// Load saved theme from SharedPreferences on startup.
   Future<void> _load() async {

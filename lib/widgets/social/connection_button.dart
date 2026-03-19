@@ -83,7 +83,7 @@ class ConnectionButton extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                side: BorderSide(color: cs.error.withOpacity(0.5)),
+                side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
               ),
               child: Text(
                 'Decline',
@@ -106,7 +106,7 @@ class ConnectionButton extends StatelessWidget {
           ),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            side: BorderSide(color: cs.primary.withOpacity(0.5)),
+            side: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
           ),
         );
     }

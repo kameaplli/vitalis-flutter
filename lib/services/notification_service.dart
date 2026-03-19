@@ -137,7 +137,7 @@ class NotificationPrefs {
 // ─── Notification Channels ───────────────────────────────────────────────────
 
 const _hydrationChannel = AndroidNotificationDetails(
-  'vitalis_hydration',
+  'qorehealth_hydration',
   'Hydration Reminders',
   channelDescription: 'Reminders to drink water throughout the day',
   importance: Importance.defaultImportance,
@@ -151,7 +151,7 @@ const _hydrationChannel = AndroidNotificationDetails(
 );
 
 const _mealChannel = AndroidNotificationDetails(
-  'vitalis_meals',
+  'qorehealth_meals',
   'Meal Reminders',
   channelDescription: 'Reminders to log meals at your chosen times',
   importance: Importance.defaultImportance,
@@ -160,7 +160,7 @@ const _mealChannel = AndroidNotificationDetails(
 );
 
 const _eczemaChannel = AndroidNotificationDetails(
-  'vitalis_eczema',
+  'qorehealth_eczema',
   'Eczema & Weather Alerts',
   channelDescription: 'Alerts when weather conditions may trigger flare-ups',
   importance: Importance.high,
@@ -169,7 +169,7 @@ const _eczemaChannel = AndroidNotificationDetails(
 );
 
 const _smartChannel = AndroidNotificationDetails(
-  'vitalis_smart',
+  'qorehealth_smart',
   'Smart Suggestions',
   channelDescription: 'Personalized logging suggestions based on your patterns',
   importance: Importance.low,
@@ -178,7 +178,7 @@ const _smartChannel = AndroidNotificationDetails(
 );
 
 const _supplementChannel = AndroidNotificationDetails(
-  'vitalis_supplements',
+  'qorehealth_supplements',
   'Supplement Reminders',
   channelDescription: 'Daily reminders to take your supplements',
   importance: Importance.defaultImportance,
@@ -187,7 +187,7 @@ const _supplementChannel = AndroidNotificationDetails(
 );
 
 const _socialChannel = AndroidNotificationDetails(
-  'vitalis_social',
+  'qorehealth_social',
   'Social Notifications',
   channelDescription: 'Reactions, comments, and buddy requests',
   importance: Importance.high,
@@ -236,10 +236,10 @@ class NotificationService {
     await androidPlugin?.requestNotificationsPermission();
 
     // Delete and recreate hydration channel to pick up updated action buttons
-    await androidPlugin?.deleteNotificationChannel('vitalis_hydration');
+    await androidPlugin?.deleteNotificationChannel('qorehealth_hydration');
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
-        'vitalis_hydration',
+        'qorehealth_hydration',
         'Hydration Reminders',
         description: 'Reminders to drink water throughout the day',
         importance: Importance.defaultImportance,
@@ -249,7 +249,7 @@ class NotificationService {
     // Social notifications channel
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
-        'vitalis_social',
+        'qorehealth_social',
         'Social Notifications',
         description: 'Reactions, comments, and buddy requests',
         importance: Importance.high,
@@ -259,7 +259,7 @@ class NotificationService {
     // Lab reports channel
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
-        'vitalis_labs',
+        'qorehealth_labs',
         'Lab Reports',
         description: 'Lab report upload and analysis updates',
         importance: Importance.high,
@@ -672,7 +672,7 @@ class NotificationService {
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'vitalis_labs',
+          'qorehealth_labs',
           'Lab Reports',
           channelDescription: 'Lab report upload and analysis updates',
           importance: Importance.high,
@@ -695,7 +695,7 @@ class NotificationService {
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'vitalis_labs',
+          'qorehealth_labs',
           'Lab Reports',
           channelDescription: 'Lab report upload and analysis updates',
           importance: Importance.high,

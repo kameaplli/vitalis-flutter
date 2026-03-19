@@ -34,7 +34,7 @@ const kDangerLight = PdfColor(1, 0.92, 0.93);     // red 50
 const kSuccess = PdfColor(0.19, 0.55, 0.24);      // green 800
 const kSuccessLight = PdfColor(0.91, 0.96, 0.91); // green 50
 
-// ─── PDF Logo (vector-drawn Qorhealth "V" leaf mark) ──────────────────────────
+// ─── PDF Logo (vector-drawn QoreHealth "V" leaf mark) ──────────────────────────
 
 class PdfLogo extends pw.StatelessWidget {
   final double size;
@@ -201,7 +201,7 @@ class PdfBodyMap extends pw.StatelessWidget {
 
 pw.Widget pdfPageHeader(String title, int days) => pw.Container(
   padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-  decoration: pw.BoxDecoration(
+  decoration: const pw.BoxDecoration(
     color: PdfColors.grey100,
     border: pw.Border(bottom: pw.BorderSide(color: kAccent, width: 2)),
   ),
@@ -211,7 +211,7 @@ pw.Widget pdfPageHeader(String title, int days) => pw.Container(
     pw.Text(title,
         style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
     pw.Spacer(),
-    pw.Text('Last  days  |  Qorhealth',
+    pw.Text('Last  days  |  QoreHealth',
         style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
   ]),
 );
@@ -232,7 +232,6 @@ Future<void> exportEczemaPdf({
   final maxItch = itchValues.isEmpty ? 0 : itchValues.reduce((a, b) => a > b ? a : b);
   final easiScores = logs.map((l) => l.easiScore).toList();
   final avgEasi = easiScores.isEmpty ? 0.0 : easiScores.reduce((a, b) => a + b) / easiScores.length;
-  final maxEasi = easiScores.isEmpty ? 0.0 : easiScores.reduce((a, b) => a > b ? a : b);
   final sleepDisrupted = logs.where((l) => l.sleepDisrupted == true).length;
   final flareDays = logs.where((l) => (l.itchSeverity ?? 0) >= 6).length;
 
@@ -345,9 +344,9 @@ Future<void> exportEczemaPdf({
         // ── Branded header with logo ──
         pw.Container(
           padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          decoration: pw.BoxDecoration(
+          decoration: const pw.BoxDecoration(
             color: kAccent,
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+            borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
           ),
           child: pw.Row(children: [
             PdfLogo(size: 36),
@@ -356,7 +355,7 @@ Future<void> exportEczemaPdf({
               pw.Text('Eczema Assessment Report',
                   style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
               pw.SizedBox(height: 2),
-              pw.Text('Qorhealth Health Tracker',
+              pw.Text('QoreHealth Tracker',
                   style: const pw.TextStyle(fontSize: 10, color: PdfColor(1, 1, 1, 0.75))),
             ]),
             pw.Spacer(),
@@ -479,9 +478,9 @@ Future<void> exportEczemaPdf({
             pw.Container(
               width: pageW,
               padding: const pw.EdgeInsets.all(20),
-              decoration: pw.BoxDecoration(
+              decoration: const pw.BoxDecoration(
                 color: PdfColors.grey100,
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Column(children: [
                 pw.Text('No Food Correlation Data',
@@ -535,7 +534,7 @@ Future<void> exportEczemaPdf({
                     style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
                 pw.SizedBox(height: 10),
                 // Each food as a visual card
-                ...foodCorrelation!.badFoods.map((f) => pw.Padding(
+                ...foodCorrelation.badFoods.map((f) => pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 8),
                   child: pw.Container(
                     padding: const pw.EdgeInsets.all(8),
@@ -609,7 +608,7 @@ Future<void> exportEczemaPdf({
                 pw.Text('These foods are associated with lower itch scores when consumed before assessments.',
                     style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
                 pw.SizedBox(height: 10),
-                ...foodCorrelation!.goodFoods.map((f) => pw.Padding(
+                ...foodCorrelation.goodFoods.map((f) => pw.Padding(
                   padding: const pw.EdgeInsets.only(bottom: 8),
                   child: pw.Container(
                     padding: const pw.EdgeInsets.all(8),
@@ -690,7 +689,7 @@ Future<void> exportEczemaPdf({
       ],
     ),
     footer: (ctx) => pw.Row(children: [
-      pw.Text('Qorhealth Eczema Report',
+      pw.Text('QoreHealth Eczema Report',
           style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey500)),
       pw.Spacer(),
       pw.Text('Page ${ctx.pageNumber}',

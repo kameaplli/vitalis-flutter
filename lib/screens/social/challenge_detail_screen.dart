@@ -70,13 +70,13 @@ class _ChallengeContent extends ConsumerWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: const BorderRadius.vertical(
+              borderRadius: BorderRadius.vertical(
                 bottom: Radius.circular(24),
               ),
             ),
@@ -91,7 +91,7 @@ class _ChallengeContent extends ConsumerWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -116,7 +116,7 @@ class _ChallengeContent extends ConsumerWidget {
                             Text(
                               '${challenge.participantCount} participants',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 13,
                               ),
                             ),
@@ -130,7 +130,7 @@ class _ChallengeContent extends ConsumerWidget {
                     Text(
                       challenge.description!,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                       ),
                     ),
@@ -140,12 +140,12 @@ class _ChallengeContent extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(Icons.calendar_today,
-                          size: 14, color: Colors.white.withOpacity(0.7)),
+                          size: 14, color: Colors.white.withValues(alpha: 0.7)),
                       const SizedBox(width: 6),
                       Text(
                         '${_formatDate(challenge.startDate)} - ${_formatDate(challenge.endDate)}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -154,7 +154,7 @@ class _ChallengeContent extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -281,7 +281,7 @@ class _ChallengeContent extends ConsumerWidget {
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: cs.error.withOpacity(0.5)),
+                        side: BorderSide(color: cs.error.withValues(alpha: 0.5)),
                       ),
                       child: Text(
                         'Leave Challenge',
@@ -394,7 +394,7 @@ class _ProgressRing extends StatelessWidget {
                 value: v,
                 strokeWidth: 10,
                 color: color,
-                backgroundColor: color.withOpacity(0.15),
+                backgroundColor: color.withValues(alpha: 0.15),
                 strokeCap: StrokeCap.round,
               ),
             ),
@@ -436,7 +436,7 @@ class _CompletionBoardItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         color: cs.surface,
         border: Border.all(
-          color: cs.outlineVariant.withOpacity(0.2),
+          color: cs.outlineVariant.withValues(alpha: 0.2),
           width: 1,
         ),
       ),

@@ -69,7 +69,7 @@ class _EasiBreakdownCardState extends State<EasiBreakdownCard> {
                 valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
+            const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('0  Clear', style: TextStyle(fontSize: 11, color: Colors.grey)),
               Text('7  Mild', style: TextStyle(fontSize: 11, color: Colors.grey)),
               Text('21  Mod.', style: TextStyle(fontSize: 11, color: Colors.grey)),

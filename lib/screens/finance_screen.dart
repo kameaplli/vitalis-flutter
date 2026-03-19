@@ -324,15 +324,15 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
   }
 
   Future<void> _pickAndUpload() async {
+    final cs = Theme.of(context).colorScheme;
+    final scaffold = ScaffoldMessenger.of(context);
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'csv'],
       allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
-
-    final cs = Theme.of(context).colorScheme;
-    final scaffold = ScaffoldMessenger.of(context);
 
     int success = 0;
     int failed = 0;
@@ -800,7 +800,7 @@ class _StatusBadge extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.12),
+            color: Colors.green.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -820,7 +820,7 @@ class _StatusBadge extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
+            color: Colors.red.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -840,7 +840,7 @@ class _StatusBadge extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.blue.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -864,7 +864,7 @@ class _StatusBadge extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -897,12 +897,12 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: color.withOpacity(0.8)),
+          Icon(icon, size: 12, color: color.withValues(alpha: 0.8)),
           const SizedBox(width: 3),
           Text(label,
               style: TextStyle(
                   fontSize: 11,
-                  color: color.withOpacity(0.8),
+                  color: color.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500)),
         ],
       );
@@ -1109,7 +1109,7 @@ class _StatementDetailContentState
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 8),
                     decoration: BoxDecoration(
-                      color: _catColor(cat).withOpacity(0.08),
+                      color: _catColor(cat).withValues(alpha: 0.08),
                     ),
                     child: Row(
                       children: [
@@ -1117,7 +1117,7 @@ class _StatementDetailContentState
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: _catColor(cat).withOpacity(0.18),
+                            color: _catColor(cat).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(_catIcon(cat),
@@ -1222,7 +1222,7 @@ class _TransactionRow extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: _catColor(tx.category).withOpacity(0.12),
+                color: _catColor(tx.category).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -1362,8 +1362,8 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
             const SizedBox(height: 16),
 
             // Header
-            Text('Edit Transaction',
-                style: const TextStyle(
+            const Text('Edit Transaction',
+                style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 16)),
             if (widget.tx.rawText != null)
               Padding(
@@ -1540,7 +1540,7 @@ class _SummaryTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1588,7 +1588,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
       final pdfBytes = await _buildModernPdf(data);
       await Printing.layoutPdf(
         onLayout: (_) => pdfBytes,
-        name: 'vitalis_finance_report',
+        name: 'qorehealth_finance_report',
       );
     } catch (e) {
       if (mounted) {
@@ -1932,7 +1932,7 @@ class _CategoryListItem extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(_catIcon(cat.category), size: 18, color: color),
@@ -2229,9 +2229,9 @@ class _RecommendationBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -2271,7 +2271,7 @@ class _IncomeNeededCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.indigo.withOpacity(0.15),
+                color: Colors.indigo.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.calculate_outlined,
@@ -2369,7 +2369,7 @@ class _BudgetItemCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child:
@@ -2506,7 +2506,7 @@ class _CategoryDrillDownSheetState
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(_catIcon(widget.category), color: color, size: 20),
@@ -2601,7 +2601,6 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
   final categories = (sections['categories'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   final monthlyTrends = (sections['monthly_trends'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   final topMerchants = (sections['top_merchants'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-  final freqMerchants = (sections['frequent_merchants'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   final dayOfWeek = (sections['day_of_week'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   final biggestTxns = (sections['biggest_transactions'] as List?)?.cast<Map<String, dynamic>>() ?? [];
   final impulse = (sections['impulse_spending'] as List?)?.cast<Map<String, dynamic>>() ?? [];
@@ -2629,8 +2628,8 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
   final titleStyle = pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: _pdfWhite);
   final h1 = pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: _pdfPrimary);
   final h2 = pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _pdfDark);
-  final body = pw.TextStyle(fontSize: 9, color: _pdfDark);
-  final bodyMuted = pw.TextStyle(fontSize: 8, color: _pdfMuted);
+  const body = pw.TextStyle(fontSize: 9, color: _pdfDark);
+  const bodyMuted = pw.TextStyle(fontSize: 8, color: _pdfMuted);
   final bodyBold = pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfDark);
   final numStyle = pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _pdfDark, font: pw.Font.courierBold());
 
@@ -2650,7 +2649,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
     decoration: pw.BoxDecoration(
       color: _pdfBg,
       borderRadius: pw.BorderRadius.circular(6),
-      border: pw.Border.all(color: PdfColor.fromInt(0xFFE5E7EB)),
+      border: pw.Border.all(color: const PdfColor.fromInt(0xFFE5E7EB)),
     ),
     child: pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -2696,8 +2695,8 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text('Qorhealth Finance Report', style: pw.TextStyle(fontSize: 8, color: _pdfMuted)),
-          pw.Text(periodLabel, style: pw.TextStyle(fontSize: 8, color: _pdfMuted)),
+          pw.Text('QoreHealth Finance Report', style: const pw.TextStyle(fontSize: 8, color: _pdfMuted)),
+          pw.Text(periodLabel, style: const pw.TextStyle(fontSize: 8, color: _pdfMuted)),
         ],
       ),
     ),
@@ -2710,8 +2709,8 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text('Generated by Qorhealth', style: pw.TextStyle(fontSize: 7, color: _pdfMuted)),
-          pw.Text('Page ${ctx.pageNumber} of ${ctx.pagesCount}', style: pw.TextStyle(fontSize: 7, color: _pdfMuted)),
+          pw.Text('Generated by QoreHealth', style: const pw.TextStyle(fontSize: 7, color: _pdfMuted)),
+          pw.Text('Page ${ctx.pageNumber} of ${ctx.pagesCount}', style: const pw.TextStyle(fontSize: 7, color: _pdfMuted)),
         ],
       ),
     ),
@@ -2727,18 +2726,18 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('VITALIS', style: pw.TextStyle(fontSize: 10, color: PdfColor.fromInt(0xFF86EFAC), fontWeight: pw.FontWeight.bold, letterSpacing: 3)),
+            pw.Text('VITALIS', style: pw.TextStyle(fontSize: 10, color: const PdfColor.fromInt(0xFF86EFAC), fontWeight: pw.FontWeight.bold, letterSpacing: 3)),
             pw.SizedBox(height: 4),
             pw.Text('Finance Intelligence Report', style: titleStyle),
             pw.SizedBox(height: 6),
             pw.Row(children: [
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: pw.BoxDecoration(color: PdfColor.fromInt(0x33FFFFFF), borderRadius: pw.BorderRadius.circular(4)),
-                child: pw.Text(periodLabel, style: pw.TextStyle(fontSize: 9, color: _pdfWhite)),
+                decoration: pw.BoxDecoration(color: const PdfColor.fromInt(0x33FFFFFF), borderRadius: pw.BorderRadius.circular(4)),
+                child: pw.Text(periodLabel, style: const pw.TextStyle(fontSize: 9, color: _pdfWhite)),
               ),
               pw.SizedBox(width: 12),
-              pw.Text(DateFormat('d MMM yyyy').format(DateTime.now()), style: pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xCCFFFFFF))),
+              pw.Text(DateFormat('d MMM yyyy').format(DateTime.now()), style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xCCFFFFFF))),
             ]),
           ],
         ),
@@ -2786,7 +2785,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
               pw.Text('Financial Health Score: $healthScore / 100', style: h2),
               pw.SizedBox(height: 4),
               pw.Stack(children: [
-                pw.Container(height: 8, width: 400, decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFE5E7EB), borderRadius: pw.BorderRadius.circular(4))),
+                pw.Container(height: 8, width: 400, decoration: pw.BoxDecoration(color: const PdfColor.fromInt(0xFFE5E7EB), borderRadius: pw.BorderRadius.circular(4))),
                 pw.Container(height: 8, width: 400 * (healthScore / 100.0), decoration: pw.BoxDecoration(
                   color: healthScore >= 80 ? _pdfPrimary : healthScore >= 60 ? _pdfAmber : _pdfRed,
                   borderRadius: pw.BorderRadius.circular(4),
@@ -2839,7 +2838,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
               pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: pw.BoxDecoration(
-                  color: isUp ? PdfColor.fromInt(0x1AEF4444) : PdfColor.fromInt(0x1A10B981),
+                  color: isUp ? const PdfColor.fromInt(0x1AEF4444) : const PdfColor.fromInt(0x1A10B981),
                   borderRadius: pw.BorderRadius.circular(3),
                 ),
                 child: pw.Text('${pct > 0 ? '+' : ''}${pct.toStringAsFixed(0)}%',
@@ -2864,7 +2863,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
             padding: const pw.EdgeInsets.all(10),
             decoration: pw.BoxDecoration(
               borderRadius: pw.BorderRadius.circular(6),
-              border: pw.Border.all(color: PdfColor.fromInt(0xFFE5E7EB)),
+              border: pw.Border.all(color: const PdfColor.fromInt(0xFFE5E7EB)),
             ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -2906,10 +2905,10 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
                             child: pw.Row(children: [
                               pw.SizedBox(width: 75, child: pw.Text(
                                 (c['name'] as String? ?? '').replaceAll('_', ' '),
-                                style: pw.TextStyle(fontSize: 7, color: _pdfDark),
+                                style: const pw.TextStyle(fontSize: 7, color: _pdfDark),
                               )),
                               pw.Expanded(child: pw.Stack(children: [
-                                pw.Container(height: 6, decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFE5E7EB), borderRadius: pw.BorderRadius.circular(3))),
+                                pw.Container(height: 6, decoration: pw.BoxDecoration(color: const PdfColor.fromInt(0xFFE5E7EB), borderRadius: pw.BorderRadius.circular(3))),
                                 pw.Container(height: 6, width: 100 * (pct / 100).clamp(0.01, 1.0),
                                   decoration: pw.BoxDecoration(color: _pdfAccent, borderRadius: pw.BorderRadius.circular(3))),
                               ])),
@@ -2929,7 +2928,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
                         pw.SizedBox(height: 2),
                         if (topMerch != null) ...[
                           pw.Text(topMerch['name'] as String? ?? '', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfDark)),
-                          pw.Text(nf.format((topMerch['amount'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 8, color: _pdfRed)),
+                          pw.Text(nf.format((topMerch['amount'] as num?)?.toDouble() ?? 0), style: const pw.TextStyle(fontSize: 8, color: _pdfRed)),
                         ] else
                           pw.Text('-', style: bodyMuted),
                       ],
@@ -2945,7 +2944,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
                           ...recur.map((r) => pw.Padding(
                             padding: const pw.EdgeInsets.only(bottom: 1),
                             child: pw.Row(children: [
-                              pw.Expanded(child: pw.Text(r['name'] as String? ?? '', style: pw.TextStyle(fontSize: 7, color: _pdfDark), maxLines: 1)),
+                              pw.Expanded(child: pw.Text(r['name'] as String? ?? '', style: const pw.TextStyle(fontSize: 7, color: _pdfDark), maxLines: 1)),
                               pw.Text(nfShort.format((r['amount'] as num?)?.toDouble() ?? 0), style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: _pdfAmber)),
                             ]),
                           ))
@@ -3001,13 +3000,13 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
         pw.Row(children: [
           pw.Container(
             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFFEF3C7), borderRadius: pw.BorderRadius.circular(4)),
+            decoration: pw.BoxDecoration(color: const PdfColor.fromInt(0xFFFEF3C7), borderRadius: pw.BorderRadius.circular(4)),
             child: pw.Text('Weekend: ${nf.format((weekendWeekday['weekend'] as num?)?.toDouble() ?? 0)}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfAmber)),
           ),
           pw.SizedBox(width: 8),
           pw.Container(
             padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFD1FAE5), borderRadius: pw.BorderRadius.circular(4)),
+            decoration: pw.BoxDecoration(color: const PdfColor.fromInt(0xFFD1FAE5), borderRadius: pw.BorderRadius.circular(4)),
             child: pw.Text('Weekday: ${nf.format((weekendWeekday['weekday'] as num?)?.toDouble() ?? 0)}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfPrimary)),
           ),
         ]),
@@ -3047,9 +3046,9 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
         pw.Container(
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
-            color: PdfColor.fromInt(0xFFFEF2F2),
+            color: const PdfColor.fromInt(0xFFFEF2F2),
             borderRadius: pw.BorderRadius.circular(6),
-            border: pw.Border.all(color: PdfColor.fromInt(0xFFFECACA)),
+            border: pw.Border.all(color: const PdfColor.fromInt(0xFFFECACA)),
           ),
           child: pw.Row(children: [
             pw.Text('Total impulse spending: ', style: body),
@@ -3098,9 +3097,9 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
           margin: const pw.EdgeInsets.only(bottom: 4),
           padding: const pw.EdgeInsets.all(8),
           decoration: pw.BoxDecoration(
-            color: PdfColor.fromInt(0xFFFFFBEB),
+            color: const PdfColor.fromInt(0xFFFFFBEB),
             borderRadius: pw.BorderRadius.circular(4),
-            border: pw.Border.all(color: PdfColor.fromInt(0xFFFDE68A)),
+            border: pw.Border.all(color: const PdfColor.fromInt(0xFFFDE68A)),
           ),
           child: pw.Row(children: [
             pw.SizedBox(width: 55, child: pw.Text(a['date'] as String? ?? '', style: bodyMuted)),
@@ -3119,16 +3118,16 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
           margin: const pw.EdgeInsets.only(bottom: 6),
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
-            color: e.key == 0 ? PdfColor.fromInt(0xFFECFDF5) : _pdfBg,
+            color: e.key == 0 ? const PdfColor.fromInt(0xFFECFDF5) : _pdfBg,
             borderRadius: pw.BorderRadius.circular(6),
-            border: pw.Border.all(color: e.key == 0 ? PdfColor.fromInt(0xFFA7F3D0) : PdfColor.fromInt(0xFFE5E7EB)),
+            border: pw.Border.all(color: e.key == 0 ? const PdfColor.fromInt(0xFFA7F3D0) : const PdfColor.fromInt(0xFFE5E7EB)),
           ),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Container(
                 width: 18, height: 18,
-                decoration: pw.BoxDecoration(
+                decoration: const pw.BoxDecoration(
                   shape: pw.BoxShape.circle,
                   color: _pdfPrimary,
                 ),
@@ -3147,9 +3146,9 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
         pw.Container(
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
-            color: PdfColor.fromInt(0xFFF0F9FF),
+            color: const PdfColor.fromInt(0xFFF0F9FF),
             borderRadius: pw.BorderRadius.circular(6),
-            border: pw.Border.all(color: PdfColor.fromInt(0xFFBAE6FD)),
+            border: pw.Border.all(color: const PdfColor.fromInt(0xFFBAE6FD)),
           ),
           child: pw.Row(children: [
             pw.Expanded(child: pw.Column(
@@ -3157,7 +3156,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
               children: [
                 pw.Text('Successful Payments', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _pdfPrimary)),
                 pw.Text('${autoPayments['paid'] ?? 0} payments  •  ${nf.format((autoPayments['paid_amount'] as num?)?.toDouble() ?? 0)}',
-                  style: pw.TextStyle(fontSize: 9, color: _pdfDark)),
+                  style: const pw.TextStyle(fontSize: 9, color: _pdfDark)),
               ],
             )),
             pw.SizedBox(width: 16),
@@ -3167,7 +3166,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
                 pw.Text('Dishonoured / Bounced', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
                   color: ((autoPayments['dishonoured'] as num?)?.toInt() ?? 0) > 0 ? _pdfRed : _pdfPrimary)),
                 pw.Text('${autoPayments['dishonoured'] ?? 0} payments  •  ${nf.format((autoPayments['dishonoured_amount'] as num?)?.toDouble() ?? 0)}',
-                  style: pw.TextStyle(fontSize: 9, color: _pdfDark)),
+                  style: const pw.TextStyle(fontSize: 9, color: _pdfDark)),
               ],
             )),
           ]),
@@ -3177,7 +3176,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
           tRow(['Date', 'Merchant', 'Amount', 'Status'], header: true, flex: [2, 4, 2, 2]),
           ...(autoPayments['items'] as List).cast<Map<String, dynamic>>().take(10).map((a) => pw.Container(
             decoration: pw.BoxDecoration(
-              color: (a['status'] as String?) == 'dishonoured' ? PdfColor.fromInt(0x0DEF4444) : _pdfWhite,
+              color: (a['status'] as String?) == 'dishonoured' ? const PdfColor.fromInt(0x0DEF4444) : _pdfWhite,
               border: const pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF3F4F6))),
             ),
             padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 6),
@@ -3188,7 +3187,7 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
               pw.Expanded(flex: 2, child: pw.Container(
                 padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: pw.BoxDecoration(
-                  color: (a['status'] as String?) == 'dishonoured' ? PdfColor.fromInt(0x1AEF4444) : PdfColor.fromInt(0x1A10B981),
+                  color: (a['status'] as String?) == 'dishonoured' ? const PdfColor.fromInt(0x1AEF4444) : const PdfColor.fromInt(0x1A10B981),
                   borderRadius: pw.BorderRadius.circular(3),
                 ),
                 child: pw.Text(
@@ -3212,8 +3211,8 @@ Future<Uint8List> _buildModernPdf(Map<String, dynamic> data) async {
           borderRadius: pw.BorderRadius.circular(8),
         ),
         child: pw.Center(child: pw.Text(
-          'Qorhealth Finance Intelligence  •  Your money, your insights',
-          style: pw.TextStyle(fontSize: 9, color: _pdfWhite),
+          'QoreHealth Finance Intelligence  •  Your money, your insights',
+          style: const pw.TextStyle(fontSize: 9, color: _pdfWhite),
         )),
       ),
     ],

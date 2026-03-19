@@ -50,7 +50,7 @@ class ShareCardPreview extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: gradient.first.withOpacity(0.3),
+            color: gradient.first.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -66,7 +66,7 @@ class ShareCardPreview extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: Colors.white, size: 24),
@@ -92,7 +92,7 @@ class ShareCardPreview extends StatelessWidget {
                         child: Text(
                           subtitle!,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 13,
                           ),
                           maxLines: 1,
@@ -109,20 +109,20 @@ class ShareCardPreview extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.person_outline,
-                    size: 14, color: Colors.white.withOpacity(0.7)),
+                    size: 14, color: Colors.white.withValues(alpha: 0.7)),
                 const SizedBox(width: 4),
                 Text(
                   userName!,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  'Qorhealth',
+                  'QoreHealth',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,

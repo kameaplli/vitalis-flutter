@@ -15,7 +15,7 @@ import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
 import '../providers/social_provider.dart';
-import 'qorhealth_icon.dart';
+import 'qorehealth_icon.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
       setState(() => _locked = true);
       final ok = await BiometricService.authenticate(
-        reason: 'Unlock Qorhealth',
+        reason: 'Unlock QoreHealth',
       );
       if (mounted) setState(() => _locked = !ok);
     } finally {
@@ -212,9 +212,6 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       );
     }
 
-    final unreadBadge = ref.watch(notificationBadgeProvider);
-    final badgeCount = unreadBadge.valueOrNull ?? 0;
-
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -279,7 +276,7 @@ class _BottomNavWithGenie extends StatelessWidget {
         color: cs.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -313,12 +310,12 @@ class _BottomNavWithGenie extends StatelessWidget {
                             shape: BoxShape.circle,
                             color: cs.surface,
                             border: Border.all(
-                              color: cs.outlineVariant.withOpacity(0.5),
+                              color: cs.outlineVariant.withValues(alpha: 0.5),
                               width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -421,10 +418,10 @@ class _GenieBowlPainter extends CustomPainter {
 
     // ── Bowl ────────────────────────────────────────
     final bowlPaint = Paint()
-      ..color = iconColor.withOpacity(0.15)
+      ..color = iconColor.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
     final bowlStroke = Paint()
-      ..color = iconColor.withOpacity(0.7)
+      ..color = iconColor.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
@@ -449,7 +446,7 @@ class _GenieBowlPainter extends CustomPainter {
 
     // ── Genie figure (rising from bowl) ─────────────
     final geniePaint = Paint()
-      ..color = iconColor.withOpacity(0.6)
+      ..color = iconColor.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round;
@@ -462,16 +459,16 @@ class _GenieBowlPainter extends CustomPainter {
 
     // Genie head
     canvas.drawCircle(Offset(cx + 2, cy - 20), 4, Paint()
-      ..color = iconColor.withOpacity(0.5)
+      ..color = iconColor.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill);
     canvas.drawCircle(Offset(cx + 2, cy - 20), 4, Paint()
-      ..color = iconColor.withOpacity(0.7)
+      ..color = iconColor.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5);
 
     // Genie arms (small curved lines)
     final armPaint = Paint()
-      ..color = iconColor.withOpacity(0.5)
+      ..color = iconColor.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
@@ -481,9 +478,9 @@ class _GenieBowlPainter extends CustomPainter {
     canvas.drawLine(Offset(cx + 5, cy - 12), Offset(cx + 11, cy - 15), armPaint);
 
     // Sparkle stars
-    _drawStar(canvas, Offset(cx - 10, cy - 8), 2.0, iconColor.withOpacity(0.4));
-    _drawStar(canvas, Offset(cx + 12, cy - 18), 1.8, iconColor.withOpacity(0.35));
-    _drawStar(canvas, Offset(cx - 6, cy - 22), 1.5, iconColor.withOpacity(0.3));
+    _drawStar(canvas, Offset(cx - 10, cy - 8), 2.0, iconColor.withValues(alpha: 0.4));
+    _drawStar(canvas, Offset(cx + 12, cy - 18), 1.8, iconColor.withValues(alpha: 0.35));
+    _drawStar(canvas, Offset(cx - 6, cy - 22), 1.5, iconColor.withValues(alpha: 0.3));
   }
 
   void _drawStar(Canvas canvas, Offset center, double radius, Color color) {
@@ -534,7 +531,7 @@ class _FullScreenMenu extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
               child: Row(
                 children: [
-                  Text('Qorhealth', style: tt.titleLarge?.copyWith(
+                  Text('QoreHealth', style: tt.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
                     color: cs.primary,
@@ -561,7 +558,7 @@ class _FullScreenMenu extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: cs.primaryContainer.withOpacity(0.3),
+                    color: cs.primaryContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -710,9 +707,9 @@ class _FullScreenMenu extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Text(
-                'Qorhealth v5.0',
+                'QoreHealth v5.0',
                 style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withOpacity(0.4),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),
             ),
@@ -742,7 +739,7 @@ class _MenuTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Material(
-      color: cs.surfaceContainerHighest.withOpacity(0.4),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -753,7 +750,7 @@ class _MenuTile extends StatelessWidget {
             Badge(
               isLabelVisible: badgeCount > 0,
               label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
-              child: QorhealthIcon(icon: icon, color: color),
+              child: QoreHealthIcon(icon: icon, color: color),
             ),
             const SizedBox(height: 10),
             Text(label, style: TextStyle(
@@ -783,7 +780,7 @@ class _BiometricLockScreen extends StatelessWidget {
           children: [
             Icon(Icons.lock_outline, size: 64, color: cs.primary),
             const SizedBox(height: 16),
-            Text('Qorhealth is locked',
+            Text('QoreHealth is locked',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: cs.onSurface)),
             const SizedBox(height: 8),
             Text('Verify your identity to continue',
@@ -854,7 +851,7 @@ class _SoloTopBar extends ConsumerWidget {
       child: Row(
         children: [
           Text(
-            'Qorhealth',
+            'QoreHealth',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
@@ -1139,7 +1136,7 @@ class _PersonCard extends StatelessWidget {
                       '${data.todayCalories.round()}', 'kcal',
                       calPct, _kCalColor),
                   _RingStat(Icons.water_drop,
-                      '${(data.todayWater / 1000).toStringAsFixed(1)}', 'L',
+                      (data.todayWater / 1000).toStringAsFixed(1), 'L',
                       waterPct, _kWaterColor),
                   _RingStat(Icons.mood,
                       '${(data.healthScore.mood / 2).round()}', '/10',

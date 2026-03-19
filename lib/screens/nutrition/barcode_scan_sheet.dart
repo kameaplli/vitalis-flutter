@@ -41,7 +41,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
     _scanCtrl?.stop();
 
     final dio = Dio();
-    dio.options.headers['User-Agent'] = 'Qorhealth/3.0 (qorhealth-app)';
+    dio.options.headers['User-Agent'] = 'QoreHealth/3.0 (qorehealth-app)';
 
     final variants = <String>[barcode];
     if (barcode.length == 12) variants.add('0$barcode');

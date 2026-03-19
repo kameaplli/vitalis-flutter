@@ -4,27 +4,27 @@ import 'package:flutter/material.dart';
 ///
 /// Matches the modern app icon style: fully opaque colored circle with a
 /// contrasting white (or custom) icon inside. Supports two sizes:
-/// - [QorhealthIconSize.medium] — 40px circle, 20px icon (for list tiles, cards)
-/// - [QorhealthIconSize.large] — 52px circle, 26px icon (for action tiles, grids)
+/// - [QoreHealthIconSize.medium] — 40px circle, 20px icon (for list tiles, cards)
+/// - [QoreHealthIconSize.large] — 52px circle, 26px icon (for action tiles, grids)
 ///
 /// Usage:
 /// ```dart
-/// QorhealthIcon(icon: Icons.restaurant, color: Colors.blue)
-/// QorhealthIcon(icon: Icons.water_drop, color: Colors.cyan, size: QorhealthIconSize.large)
+/// QoreHealthIcon(icon: Icons.restaurant, color: Colors.blue)
+/// QoreHealthIcon(icon: Icons.water_drop, color: Colors.cyan, size: QoreHealthIconSize.large)
 /// ```
-enum QorhealthIconSize { small, medium, large }
+enum QoreHealthIconSize { small, medium, large }
 
-class QorhealthIcon extends StatelessWidget {
+class QoreHealthIcon extends StatelessWidget {
   final IconData icon;
   final Color color;
-  final QorhealthIconSize size;
+  final QoreHealthIconSize size;
   final Color? iconColor;
 
-  const QorhealthIcon({
+  const QoreHealthIcon({
     super.key,
     required this.icon,
     required this.color,
-    this.size = QorhealthIconSize.medium,
+    this.size = QoreHealthIconSize.medium,
     this.iconColor,
   });
 
@@ -34,13 +34,13 @@ class QorhealthIcon extends StatelessWidget {
     final double iconSize;
 
     switch (size) {
-      case QorhealthIconSize.small:
+      case QoreHealthIconSize.small:
         circleSize = 32;
         iconSize = 16;
-      case QorhealthIconSize.medium:
+      case QoreHealthIconSize.medium:
         circleSize = 40;
         iconSize = 20;
-      case QorhealthIconSize.large:
+      case QoreHealthIconSize.large:
         circleSize = 52;
         iconSize = 26;
     }
@@ -53,7 +53,7 @@ class QorhealthIcon extends StatelessWidget {
         color: color,
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

@@ -11,8 +11,6 @@ import '../services/biometric_service.dart';
 const _kPink = Color(0xFFE91E63);
 const _kPinkDark = Color(0xFF880E4F);
 const _kOrange = Color(0xFFFF6D00);
-const _kPurple = Color(0xFF7B1FA2);
-
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -99,7 +97,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
     if (_bioLoading) return;
     setState(() => _bioLoading = true);
     try {
-      final ok = await BiometricService.authenticate(reason: 'Sign in to Qorhealth');
+      final ok = await BiometricService.authenticate(reason: 'Sign in to QoreHealth');
       if (!ok) {
         if (mounted) {
           setState(() => _bioLoading = false);
@@ -202,11 +200,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
                     try {
                       await apiClient.dio.post(ApiConstants.forgotPassword, data: {'email': emailCtrl.text.trim()});
                     } catch (_) {}
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('If that email exists, a reset link has been sent.')),
-                      );
-                    }
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('If that email exists, a reset link has been sent.')),
+                    );
                   },
                   child: const Text('Send Reset Link'),
                 ),
@@ -269,7 +266,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
                     // Logo
                     _AnimatedLogo(orbCtrl: _orbCtrl),
                     const SizedBox(height: 12),
-                    const Text('Qorhealth',
+                    const Text('QoreHealth',
                         style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1)),
                     const SizedBox(height: 4),
                     Text('Health & Nutrition Tracker',
@@ -293,7 +290,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
                               // Tab bar
                               Theme(
                                 data: Theme.of(context).copyWith(
-                                  tabBarTheme: TabBarThemeData(
+                                  tabBarTheme: const TabBarThemeData(
                                     labelColor: Colors.white,
                                     unselectedLabelColor: Colors.white54,
                                     indicatorColor: Colors.white,
@@ -542,11 +539,11 @@ class _OrbsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final orbs = [
-      _Orb(0.15, 0.20, 80, 0.7, 0.04),
-      _Orb(0.80, 0.15, 60, 1.1, 0.03),
-      _Orb(0.50, 0.75, 100, 0.9, 0.05),
-      _Orb(0.85, 0.65, 70, 1.3, 0.035),
-      _Orb(0.25, 0.55, 90, 0.8, 0.045),
+      const _Orb(0.15, 0.20, 80, 0.7, 0.04),
+      const _Orb(0.80, 0.15, 60, 1.1, 0.03),
+      const _Orb(0.50, 0.75, 100, 0.9, 0.05),
+      const _Orb(0.85, 0.65, 70, 1.3, 0.035),
+      const _Orb(0.25, 0.55, 90, 0.8, 0.045),
     ];
     for (final o in orbs) {
       final dx = size.width * o.cx + sin(t * 2 * pi * o.speed) * 30;
@@ -641,7 +638,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                   children: [
                     _AnimatedLogo(orbCtrl: widget.orbCtrl),
                     const SizedBox(height: 12),
-                    const Text('Qorhealth',
+                    const Text('QoreHealth',
                         style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white)),
                     const SizedBox(height: 36),
                     Text('Welcome back, $name',

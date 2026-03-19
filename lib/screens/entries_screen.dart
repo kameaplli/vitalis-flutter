@@ -191,7 +191,7 @@ class _NutritionHistoryContentState
 
   Future<void> _openNutritionEdit(BuildContext context, NutritionEntry entry) async {
     // Parse time
-    final timeParts = (entry.time ?? '12:00').split(':');
+    final timeParts = entry.time.split(':');
     final time = TimeOfDay(
       hour: int.tryParse(timeParts[0]) ?? 12,
       minute: int.tryParse(timeParts.length > 1 ? timeParts[1] : '0') ?? 0,
@@ -228,7 +228,8 @@ class _NutritionHistoryContentState
       // Navigate anyway with empty foods — user can add items
     }
 
-    if (mounted) context.push('/nutrition');
+    if (!context.mounted) return;
+    context.push('/nutrition');
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────

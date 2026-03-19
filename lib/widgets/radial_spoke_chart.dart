@@ -231,7 +231,7 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
 
     final gapAngle = _gapAngleFor(n);
     final segAngle = (2 * math.pi - n * gapAngle) / n;
-    final startAngle = -math.pi / 2;
+    const startAngle = -math.pi / 2;
 
     // Find which segment was tapped
     final adjusted = (angle - startAngle + math.pi * 2) % (math.pi * 2);
@@ -288,7 +288,7 @@ class _WedgePainter extends CustomPainter {
     final maxLen = maxRadius - innerR;
     final gapAngle = _RadialSpokeChartState._gapAngleFor(n);
     final segAngle = (2 * math.pi - n * gapAngle) / n;
-    final startAngle = -math.pi / 2;
+    const startAngle = -math.pi / 2;
 
     double currentAngle = startAngle;
 
