@@ -1,4 +1,4 @@
-"""Generate Vitalis app icon PNGs at all required sizes.
+"""Generate QoreHealth app icon PNGs at all required sizes.
 Run: python generate_icon.py
 Requires: pip install Pillow
 """
@@ -7,7 +7,7 @@ import math
 import os
 
 def create_icon(size=1024):
-    """Create a high-quality Vitalis app icon."""
+    """Create a high-quality QoreHealth app icon."""
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
@@ -116,7 +116,7 @@ def _rounded_rect(draw, x1, y1, x2, y2, radius, color):
 
 
 def main():
-    print("Generating Vitalis app icon...")
+    print("Generating QoreHealth app icon...")
     icon = create_icon(1024)
 
     # Save the master 1024px icon

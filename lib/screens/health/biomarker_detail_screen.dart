@@ -179,7 +179,7 @@ class _DetailBody extends StatelessWidget {
           // ── Population Comparison ──────────────────────────
           if (latestValue != null && history.populationAverage != null) ...[
             const SizedBox(height: 24),
-            _SectionTitle('YOUR VALUE vs POPULATION AVERAGE'),
+            const _SectionTitle('YOUR VALUE vs POPULATION AVERAGE'),
             const SizedBox(height: 12),
             _PopulationComparison(
               yourValue: latestValue,
@@ -193,7 +193,7 @@ class _DetailBody extends StatelessWidget {
           // ── Insights ───────────────────────────────────────
           if (history.insights != null) ...[
             const SizedBox(height: 24),
-            _SectionTitle('INSIGHTS'),
+            const _SectionTitle('INSIGHTS'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(14),
@@ -263,7 +263,7 @@ class _DetailBody extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.lightbulb_outline_rounded,
+                          const Icon(Icons.lightbulb_outline_rounded,
                               color: _kSuboptimalColor, size: 18),
                           const SizedBox(width: 8),
                           Text('Action Points',
@@ -311,7 +311,7 @@ class _DetailBody extends StatelessWidget {
 
           // ── Range Visualization ──────────────────────────
           if (history.ranges != null) ...[
-            _SectionTitle('REFERENCE RANGES'),
+            const _SectionTitle('REFERENCE RANGES'),
             const SizedBox(height: 12),
             _LargeRangeBar(
               ranges: history.ranges!,
@@ -348,7 +348,7 @@ class _DetailBody extends StatelessWidget {
             ] else if (history.ranges!.source != null) ...[
               const SizedBox(height: 8),
               Text('Source: ${history.ranges!.source}',
-                  style: TextStyle(
+                  style: const TextStyle(
                       color: _kOptimalColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
@@ -359,7 +359,7 @@ class _DetailBody extends StatelessWidget {
 
           // ── Nutrient Connections ──────────────────────────
           if (history.nutrientConnections.isNotEmpty) ...[
-            _SectionTitle('NUTRIENT CONNECTIONS'),
+            const _SectionTitle('NUTRIENT CONNECTIONS'),
             const SizedBox(height: 12),
             _NutrientConnectionsCard(connections: history.nutrientConnections),
             const SizedBox(height: 24),
@@ -367,7 +367,7 @@ class _DetailBody extends StatelessWidget {
 
           // ── Related Biomarkers ─────────────────────────────
           if (history.relatedBiomarkers.isNotEmpty) ...[
-            _SectionTitle('RELATED BIOMARKERS'),
+            const _SectionTitle('RELATED BIOMARKERS'),
             const SizedBox(height: 12),
             _RelatedBiomarkersCard(related: history.relatedBiomarkers),
             const SizedBox(height: 24),
@@ -375,7 +375,7 @@ class _DetailBody extends StatelessWidget {
 
           // ── Recommendations ─────────────────────────────────
           if (recommendations.isNotEmpty) ...[
-            _SectionTitle('RECOMMENDATIONS'),
+            const _SectionTitle('RECOMMENDATIONS'),
             const SizedBox(height: 12),
             for (final rec in recommendations)
               _RecommendationCard(rec: rec),
@@ -384,7 +384,7 @@ class _DetailBody extends StatelessWidget {
 
           // ── History Chart ────────────────────────────────
           if (history.dataPoints.length >= 2) ...[
-            _SectionTitle('TREND'),
+            const _SectionTitle('TREND'),
             const SizedBox(height: 16),
             Card(
               margin: EdgeInsets.zero,
@@ -402,7 +402,7 @@ class _DetailBody extends StatelessWidget {
               ),
             ),
           ] else if (history.dataPoints.length == 1) ...[
-            _SectionTitle('TREND'),
+            const _SectionTitle('TREND'),
             const SizedBox(height: 8),
             Text('Upload more reports to see trends over time.',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13)),
@@ -412,7 +412,7 @@ class _DetailBody extends StatelessWidget {
 
           // ── All Results ──────────────────────────────────
           if (history.dataPoints.isNotEmpty) ...[
-            _SectionTitle('ALL RESULTS'),
+            const _SectionTitle('ALL RESULTS'),
             const SizedBox(height: 12),
             for (final dp in history.dataPoints.reversed)
               Card(
@@ -677,7 +677,7 @@ class _NutrientConnectionsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.eco_rounded, color: _kOptimalColor, size: 18),
+                const Icon(Icons.eco_rounded, color: _kOptimalColor, size: 18),
                 const SizedBox(width: 8),
                 Text('Nutrients that affect this biomarker',
                     style: TextStyle(

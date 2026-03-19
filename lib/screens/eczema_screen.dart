@@ -208,7 +208,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) return;
+          perm == LocationPermission.deniedForever) {
+        return;
+      }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.low,
@@ -233,7 +235,9 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) return;
+          perm == LocationPermission.deniedForever) {
+        return;
+      }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.low,
@@ -992,7 +996,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
               Row(children: [
                 Expanded(child: _visitPicker('Visit A', logs, logA.id, (id) => setState(() {
                   _compareIdA = id;
-                  if (_compareIdB == null) _compareIdB = logs.firstWhereOrNull((l) => l.id != id)?.id;
+                  _compareIdB ??= logs.firstWhereOrNull((l) => l.id != id)?.id;
                 }))),
                 const SizedBox(width: 8),
                 Expanded(child: _visitPicker('Visit B', logs, logB.id, (id) => setState(() => _compareIdB = id))),

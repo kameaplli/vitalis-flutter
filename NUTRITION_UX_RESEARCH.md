@@ -69,7 +69,7 @@ Most people eat from a rotating set of ~20-30 foods. Top apps exploit this aggre
 - **Yazio**: Built-in recipe collections with macro breakdowns
 - **MacroFactor**: Timeline 2.0 with enhanced Move/Copy/Paste — plan a whole week by multi-pasting meals
 
-### Recommendation for Vitalis:
+### Recommendation for QoreHealth:
 Your current `_RecentMealsSection` (horizontal carousel) and `_FrequentFoodsSection` (wrap chips) are already aligned with industry patterns. Enhancements:
 - Add a "Favorites" section (user-starred foods) between Recent Meals and Quick Add
 - Add "Copy Yesterday's [meal type]" as a single-tap action
@@ -294,7 +294,7 @@ ALL RESULTS
 
 ---
 
-## 9. Actionable Recommendations for Vitalis Nutrition Screen Redesign
+## 9. Actionable Recommendations for QoreHealth Nutrition Screen Redesign
 
 ### Priority 1: Entry Method Hub (4 Clear Methods)
 
@@ -384,7 +384,7 @@ Implement the photo scanning flow:
 
 ---
 
-## 11. Current Vitalis State vs. Recommendations
+## 11. Current QoreHealth State vs. Recommendations
 
 ### What You Already Have (Good):
 - Recent meals carousel (`_RecentMealsSection`) — aligned with industry
