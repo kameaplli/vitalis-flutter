@@ -246,6 +246,26 @@ class NotificationService {
       ),
     );
 
+    // Meal reminders channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_meals',
+        'Meal Reminders',
+        description: 'Reminders to log meals at your chosen times',
+        importance: Importance.defaultImportance,
+      ),
+    );
+
+    // Supplement reminders channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_supplements',
+        'Supplement Reminders',
+        description: 'Daily reminders to take your supplements',
+        importance: Importance.defaultImportance,
+      ),
+    );
+
     // Social notifications channel
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
@@ -422,7 +442,10 @@ class NotificationService {
       final msg = _hydrationMessages[msgIdx % _hydrationMessages.length];
       msgIdx++;
 
-      final scheduled = _nextInstanceOfTime(hour, minute);
+      // Always schedule for TOMORROW to prevent Android from delivering
+      // past-due "catch-up" notifications all at once when the app opens.
+      // matchDateTimeComponents: DateTimeComponents.time ensures daily repeat.
+      final scheduled = _tomorrowAt(hour, minute);
       debugPrint('[Notifications] hydration #$id at ${hour.toString().padLeft(2,'0')}:${minute.toString().padLeft(2,'0')} → $scheduled');
       await _plugin.zonedSchedule(
         id++,
@@ -434,7 +457,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
-        payload: 'hydration',
+        payload: '/hydration',
       );
     }
   }
@@ -471,7 +494,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
-        payload: 'meal',
+        payload: '/nutrition',
       );
 
       // Gentle reminder 30 minutes later
@@ -490,7 +513,7 @@ class NotificationService {
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.wallClockTime,
           matchDateTimeComponents: DateTimeComponents.time,
-          payload: 'meal_reminder',
+          payload: '/nutrition',
         );
       }
     }
@@ -524,7 +547,7 @@ class NotificationService {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
-        payload: 'supplement',
+        payload: '/health/supplements',
       );
     }
   }
@@ -548,7 +571,7 @@ class NotificationService {
           ? riskFactors
           : 'Current weather conditions may trigger a flare-up. Consider logging your skin status.',
       const NotificationDetails(android: _eczemaChannel),
-      payload: 'eczema_alert',
+      payload: '/health/eczema',
     );
   }
 
@@ -567,7 +590,7 @@ class NotificationService {
       title,
       body,
       const NotificationDetails(android: _smartChannel),
-      payload: 'smart_suggestion',
+      payload: '/dashboard',
     );
   }
 
@@ -580,7 +603,7 @@ class NotificationService {
       'Test: Time to hydrate!',
       'This is a test hydration notification. Quick-log buttons should appear below.',
       const NotificationDetails(android: _hydrationChannel),
-      payload: 'hydration',
+      payload: '/hydration',
     );
   }
 
@@ -591,7 +614,7 @@ class NotificationService {
       'Test: Breakfast time!',
       'This is a test meal reminder notification.',
       const NotificationDetails(android: _mealChannel),
-      payload: 'meal',
+      payload: '/nutrition',
     );
   }
 
@@ -602,7 +625,7 @@ class NotificationService {
       'Test: Time to take Vitamin D',
       'This is a test supplement reminder notification.',
       const NotificationDetails(android: _supplementChannel),
-      payload: 'supplement',
+      payload: '/health/supplements',
     );
   }
 
@@ -613,7 +636,7 @@ class NotificationService {
       'Test: Eczema Flare Risk: Moderate',
       'This is a test eczema alert. Current conditions may trigger a flare-up.',
       const NotificationDetails(android: _eczemaChannel),
-      payload: 'eczema_alert',
+      payload: '/health/eczema',
     );
   }
 
@@ -624,7 +647,7 @@ class NotificationService {
       'Test: Same as yesterday?',
       'This is a test smart suggestion notification.',
       const NotificationDetails(android: _smartChannel),
-      payload: 'smart_suggestion',
+      payload: '/dashboard',
     );
   }
 
@@ -644,7 +667,7 @@ class NotificationService {
       title,
       body ?? '',
       const NotificationDetails(android: _socialChannel),
-      payload: payload ?? 'social',
+      payload: payload ?? '/social',
     );
   }
 
@@ -657,6 +680,15 @@ class NotificationService {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     return scheduled;
+  }
+
+  /// Always returns TOMORROW at the given time.
+  /// Used for repeating notifications to prevent Android from delivering
+  /// past-due "catch-up" notifications immediately on schedule.
+  static tz.TZDateTime _tomorrowAt(int hour, int minute) {
+    final now = tz.TZDateTime.now(tz.local);
+    final tomorrow = now.add(const Duration(days: 1));
+    return tz.TZDateTime(tz.local, tomorrow.year, tomorrow.month, tomorrow.day, hour, minute);
   }
 
   // ── Lab Report Notifications ──────────────────────────────────────────────

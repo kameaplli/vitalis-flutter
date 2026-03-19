@@ -330,7 +330,7 @@ class _BottomNavWithGenie extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.auto_awesome,
-                    size: 28,
+                    size: _iconSize,
                     color: cs.onSurfaceVariant,
                   ),
                 ),

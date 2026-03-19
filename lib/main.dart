@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:quick_actions/quick_actions.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'providers/interests_provider.dart';
@@ -45,11 +46,58 @@ void main() async {
   ));
 }
 
-class QoreHealthApp extends ConsumerWidget {
+class QoreHealthApp extends ConsumerStatefulWidget {
   const QoreHealthApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QoreHealthApp> createState() => _QoreHealthAppState();
+}
+
+class _QoreHealthAppState extends ConsumerState<QoreHealthApp> {
+  final QuickActions _quickActions = const QuickActions();
+
+  @override
+  void initState() {
+    super.initState();
+    _setupQuickActions();
+  }
+
+  void _setupQuickActions() {
+    _quickActions.setShortcutItems([
+      const ShortcutItem(
+        type: 'log_meal',
+        localizedTitle: 'Log Meal',
+        icon: 'ic_shortcut_meal',
+      ),
+      const ShortcutItem(
+        type: 'add_hydration',
+        localizedTitle: 'Add Hydration',
+        icon: 'ic_shortcut_hydration',
+      ),
+      const ShortcutItem(
+        type: 'add_workout',
+        localizedTitle: 'Add Workout',
+        icon: 'ic_shortcut_workout',
+      ),
+    ]);
+    _quickActions.initialize((type) {
+      final router = ref.read(routerProvider);
+      switch (type) {
+        case 'log_meal':
+          router.go('/nutrition');
+          break;
+        case 'add_hydration':
+          router.go('/hydration');
+          break;
+        case 'add_workout':
+          router.go('/health/exercise');
+          break;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final skin = ref.watch(themeProvider);
     final isDark = ref.watch(darkModeProvider);

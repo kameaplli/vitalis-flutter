@@ -213,6 +213,10 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(supplementsProvider('${person}_7'))),
       _CardDef('mood',        'Mood',        Icons.self_improvement_rounded, const Color(0xFF43A047),
           ref.watch(moodProvider(key))),
+      _CardDef('sleep',       'Sleep',       Icons.bedtime_rounded,         const Color(0xFF5C6BC0),
+          ref.watch(sleepProvider(key))),
+      _CardDef('exercise',    'Exercise',    Icons.directions_run_rounded,  const Color(0xFFFF7043),
+          ref.watch(exerciseProvider(key))),
       const _CardDef('weight',      'Weight',      Icons.fitness_center_rounded,   Color(0xFF8E24AA),
           AsyncValue.data([])),
       const _CardDef('eczema',      'Eczema',      Icons.dry_rounded,             Color(0xFF00897B),
@@ -221,8 +225,6 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
           ref.watch(skinPhotosProvider(person)).whenData((photos) =>
               photos.map((p) => <String, dynamic>{'id': p.id}).toList())),
       const _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   Color(0xFF3949AB),
-          AsyncValue.data([])),
-      const _CardDef('insights',    'Insights',    Icons.auto_awesome_rounded,     Color(0xFF5E35B1),
           AsyncValue.data([])),
     ];
 
@@ -249,6 +251,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
             ref.invalidate(medicationsProvider);
             ref.invalidate(supplementsProvider);
             ref.invalidate(moodProvider);
+            ref.invalidate(sleepProvider);
+            ref.invalidate(exerciseProvider);
           },
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
@@ -269,7 +273,6 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
                       : cat == 'eczema' ? '/health/eczema'
                       : cat == 'skin-photos' ? '/skin-photos'
                       : cat == 'products' ? '/products'
-                      : cat == 'insights' ? '/insights'
                       : '/health/$cat';
                   context.push(route);
                 },
@@ -2517,6 +2520,1209 @@ class _MoodTab extends ConsumerWidget {
   }
 }
 
+// ─── Sleep ────────────────────────────────────────────────────────────────────
+
+class _SleepTab extends ConsumerWidget {
+  final String personKey;
+  const _SleepTab({super.key, required this.personKey});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _HealthList(
+      logsAsync: ref.watch(sleepProvider(personKey)),
+      itemBuilder: (item) => _SleepTile(item: item),
+      onAdd: (ctx, ref) => _showSleepForm(ctx, ref),
+      onEdit: (ctx, ref, item) => _showSleepForm(ctx, ref, item: item),
+      onDelete: (ref, id) async {
+        await apiClient.dio.delete('${ApiConstants.sleep}/$id');
+        ref.invalidate(sleepProvider);
+      },
+    );
+  }
+
+  void _showSleepForm(BuildContext context, WidgetRef ref, {Map<String, dynamic>? item}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => _SleepFormSheet(
+        item: item,
+        onSaved: () => ref.invalidate(sleepProvider),
+        initialFamId: item != null
+            ? item['family_member_id']
+            : (ref.read(selectedPersonProvider) == 'self' ? null : ref.read(selectedPersonProvider)),
+      ),
+    );
+  }
+}
+
+class _SleepTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  const _SleepTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final quality = item['quality'] as int? ?? 0;
+    final duration = item['duration_hours'] as num?;
+    final bedtime = item['bedtime'] as String?;
+    final wakeTime = item['wake_time'] as String?;
+    final morningEnergy = item['morning_energy'] as int?;
+    final interruptions = item['interruptions'] as int?;
+    final caffeine = item['had_caffeine_late'] as bool?;
+    final screen = item['screen_before_bed'] as bool?;
+    final notes = item['notes'] as String? ?? '';
+    final date = item['sleep_date'] as String? ?? '';
+
+    final qualityColor = quality >= 7
+        ? const Color(0xFF10B981)
+        : quality >= 4
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFFF43F5E);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: duration + quality badge + date
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5C6BC0).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.bedtime_rounded, size: 16, color: Color(0xFF5C6BC0)),
+                        const SizedBox(width: 4),
+                        Text(
+                          duration != null ? '${duration.toStringAsFixed(1)}h' : '--',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF5C6BC0)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Quality badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: qualityColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('Q$quality/10',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: qualityColor)),
+                  ),
+                  if (morningEnergy != null) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('\u26A1', style: TextStyle(fontSize: 10)),
+                          const SizedBox(width: 2),
+                          Text('$morningEnergy/5',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Colors.deepOrange)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Text(date.length >= 10 ? date.substring(5) : date,
+                    style: TextStyle(fontSize: 12, color: cs.outline)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Time row
+              Row(
+                children: [
+                  if (bedtime != null) ...[
+                    Icon(Icons.nights_stay_rounded, size: 13, color: cs.outline),
+                    const SizedBox(width: 3),
+                    Text(bedtime, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  ],
+                  if (bedtime != null && wakeTime != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(Icons.arrow_forward, size: 12, color: cs.outline),
+                    ),
+                  if (wakeTime != null) ...[
+                    Icon(Icons.wb_sunny_rounded, size: 13, color: cs.outline),
+                    const SizedBox(width: 3),
+                    Text(wakeTime, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  ],
+                ],
+              ),
+              // Factors row
+              if (interruptions != null || caffeine == true || screen == true) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (interruptions != null && interruptions > 0)
+                      _factorChip('Woke ${interruptions}x', Icons.notification_important_rounded, Colors.red.shade300),
+                    if (caffeine == true)
+                      _factorChip('Late caffeine', Icons.coffee_rounded, Colors.brown.shade300),
+                    if (screen == true)
+                      _factorChip('Screen', Icons.phone_android_rounded, Colors.blue.shade300),
+                  ],
+                ),
+              ],
+              if (notes.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(notes, style: TextStyle(fontSize: 12, color: cs.outline), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _factorChip(String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SleepFormSheet extends StatefulWidget {
+  final Map<String, dynamic>? item;
+  final VoidCallback onSaved;
+  final String? initialFamId;
+  const _SleepFormSheet({this.item, required this.onSaved, this.initialFamId});
+
+  @override
+  State<_SleepFormSheet> createState() => _SleepFormSheetState();
+}
+
+class _SleepFormSheetState extends State<_SleepFormSheet> {
+  late bool isEdit;
+  late String? famId;
+  late String bedtime;
+  late String wakeTime;
+  late double duration;
+  late int quality;
+  late int morningEnergy;
+  late int interruptions;
+  late bool hadCaffeineLate;
+  late bool screenBeforeBed;
+  late TextEditingController notesCtrl;
+  bool _showFactors = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    isEdit = item != null;
+    famId = widget.initialFamId;
+    bedtime = item?['bedtime'] as String? ?? '22:00';
+    wakeTime = item?['wake_time'] as String? ?? '06:00';
+    duration = (item?['duration_hours'] as num?)?.toDouble() ?? _calcDuration('22:00', '06:00');
+    quality = item?['quality'] as int? ?? 7;
+    morningEnergy = item?['morning_energy'] as int? ?? 3;
+    interruptions = item?['interruptions'] as int? ?? 0;
+    hadCaffeineLate = item?['had_caffeine_late'] as bool? ?? false;
+    screenBeforeBed = item?['screen_before_bed'] as bool? ?? false;
+    notesCtrl = TextEditingController(text: item?['notes'] ?? '');
+    // Show factors section if any factor was previously set
+    if (isEdit && (interruptions > 0 || hadCaffeineLate || screenBeforeBed)) {
+      _showFactors = true;
+    }
+  }
+
+  double _calcDuration(String bed, String wake) {
+    final bp = bed.split(':');
+    final wp = wake.split(':');
+    final bedMin = (int.tryParse(bp[0]) ?? 22) * 60 + (int.tryParse(bp.length > 1 ? bp[1] : '0') ?? 0);
+    final wakeMin = (int.tryParse(wp[0]) ?? 6) * 60 + (int.tryParse(wp.length > 1 ? wp[1] : '0') ?? 0);
+    var diff = wakeMin - bedMin;
+    if (diff <= 0) diff += 24 * 60;
+    return diff / 60.0;
+  }
+
+  void _updateDurationFromTimes() {
+    setState(() => duration = _calcDuration(bedtime, wakeTime));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5C6BC0).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.bedtime_rounded, color: Color(0xFF5C6BC0), size: 22),
+              ),
+              const SizedBox(width: 10),
+              Text(isEdit ? 'Edit Sleep' : 'Log Sleep',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (!isEdit) ...[
+            PersonSelector(selectedId: famId, onChanged: (v) => setState(() => famId = v)),
+            const SizedBox(height: 12),
+          ],
+
+          // Section 1: Time & Duration
+          _sectionLabel('Sleep Schedule', Icons.schedule_rounded),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _TimePickerField(
+                label: 'Bedtime',
+                value: bedtime,
+                icon: Icons.nights_stay_rounded,
+                onChanged: (v) { setState(() => bedtime = v); _updateDurationFromTimes(); },
+              )),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  children: [
+                    Text('${duration.toStringAsFixed(1)}h',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: cs.primary)),
+                    Text('duration', style: TextStyle(fontSize: 10, color: cs.outline)),
+                  ],
+                ),
+              ),
+              Expanded(child: _TimePickerField(
+                label: 'Wake up',
+                value: wakeTime,
+                icon: Icons.wb_sunny_rounded,
+                onChanged: (v) { setState(() => wakeTime = v); _updateDurationFromTimes(); },
+              )),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Section 2: Quality & Energy
+          _sectionLabel('How was your sleep?', Icons.star_rounded),
+          const SizedBox(height: 8),
+
+          // Quality — emoji scale
+          Text('Sleep quality', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          _EmojiScale(
+            value: quality,
+            min: 1,
+            max: 10,
+            labels: const {1: 'Terrible', 3: 'Poor', 5: 'OK', 7: 'Good', 9: 'Great', 10: 'Perfect'},
+            emojis: const {1: '\u{1F634}', 3: '\u{1F971}', 5: '\u{1F610}', 7: '\u{1F60A}', 9: '\u{1F929}', 10: '\u{1F31F}'},
+            activeColor: const Color(0xFF5C6BC0),
+            onChanged: (v) => setState(() => quality = v),
+          ),
+          const SizedBox(height: 14),
+
+          // Morning energy — 1-5
+          Text('Morning energy', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+          const SizedBox(height: 6),
+          _EmojiScale(
+            value: morningEnergy,
+            min: 1,
+            max: 5,
+            labels: const {1: 'Drained', 2: 'Low', 3: 'OK', 4: 'Good', 5: 'Energised'},
+            emojis: const {1: '\u{1F62B}', 2: '\u{1F971}', 3: '\u{1F610}', 4: '\u{1F4AA}', 5: '\u{26A1}'},
+            activeColor: Colors.deepOrange,
+            onChanged: (v) => setState(() => morningEnergy = v),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Section 3: Sleep factors (expandable)
+          InkWell(
+            onTap: () => setState(() => _showFactors = !_showFactors),
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                Icon(Icons.tune_rounded, size: 16, color: cs.primary),
+                const SizedBox(width: 6),
+                Text('Sleep factors', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.primary)),
+                const Spacer(),
+                Icon(_showFactors ? Icons.expand_less : Icons.expand_more, size: 20, color: cs.outline),
+              ],
+            ),
+          ),
+          if (_showFactors) ...[
+            const SizedBox(height: 10),
+            // Interruptions
+            Row(
+              children: [
+                Icon(Icons.notification_important_rounded, size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text('Night wake-ups', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                const Spacer(),
+                _StepperButton(
+                  value: interruptions,
+                  min: 0,
+                  max: 10,
+                  onChanged: (v) => setState(() => interruptions = v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Toggle factors
+            _ToggleRow(
+              icon: Icons.coffee_rounded,
+              label: 'Caffeine after 2 PM',
+              value: hadCaffeineLate,
+              onChanged: (v) => setState(() => hadCaffeineLate = v),
+            ),
+            const SizedBox(height: 6),
+            _ToggleRow(
+              icon: Icons.phone_android_rounded,
+              label: 'Screen time before bed',
+              value: screenBeforeBed,
+              onChanged: (v) => setState(() => screenBeforeBed = v),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          TextField(
+            controller: notesCtrl,
+            decoration: InputDecoration(
+              labelText: 'Notes (optional)',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              isDense: true,
+              prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+            ),
+            maxLines: 2,
+            minLines: 1,
+          ),
+
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _save,
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Save'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    backgroundColor: const Color(0xFF5C6BC0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text, IconData icon) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: cs.primary),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    Navigator.pop(context);
+    final data = {
+      'sleep_date': isEdit ? (widget.item!['sleep_date'] ?? _todayStr()) : _todayStr(),
+      'bedtime': bedtime,
+      'wake_time': wakeTime,
+      'duration_hours': duration,
+      'quality': quality,
+      'morning_energy': morningEnergy,
+      'interruptions': interruptions,
+      'had_caffeine_late': hadCaffeineLate,
+      'screen_before_bed': screenBeforeBed,
+      'notes': notesCtrl.text,
+      'family_member_id': famId,
+    };
+    if (isEdit) {
+      await apiClient.dio.put('${ApiConstants.sleep}/${widget.item!['id']}', data: data);
+    } else {
+      await apiClient.dio.post(ApiConstants.sleep, data: data);
+    }
+    widget.onSaved();
+  }
+}
+
+class _TimePickerField extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData? icon;
+  final ValueChanged<String> onChanged;
+  const _TimePickerField({required this.label, required this.value, this.icon, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        final parts = value.split(':');
+        final init = TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 22,
+            minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0);
+        final picked = await showTimePicker(context: context, initialTime: init);
+        if (picked != null) {
+          onChanged(_timeStr(picked));
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          isDense: true,
+          prefixIcon: icon != null ? Icon(icon, size: 16) : null,
+        ),
+        child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+/// Emoji scale picker — shows tappable circles with emoji+label for scales
+class _EmojiScale extends StatelessWidget {
+  final int value;
+  final int min;
+  final int max;
+  final Map<int, String> labels;
+  final Map<int, String> emojis;
+  final Color activeColor;
+  final ValueChanged<int> onChanged;
+
+  const _EmojiScale({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.labels,
+    required this.emojis,
+    required this.activeColor,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Show only the labeled values as tappable buttons
+    final keys = labels.keys.toList()..sort();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: keys.map((k) {
+        final isActive = value == k || (k == keys.last && value >= k) ||
+            (keys.indexOf(k) < keys.length - 1 && value >= k && value < keys[keys.indexOf(k) + 1]);
+        return GestureDetector(
+          onTap: () => onChanged(k),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: isActive ? activeColor.withValues(alpha: 0.15) : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: isActive ? Border.all(color: activeColor.withValues(alpha: 0.4), width: 1.5) : null,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(emojis[k] ?? '', style: const TextStyle(fontSize: 20)),
+                const SizedBox(height: 2),
+                Text(labels[k] ?? '', style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: isActive ? activeColor : Theme.of(context).colorScheme.outline,
+                )),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// Compact +/- stepper
+class _StepperButton extends StatelessWidget {
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+  const _StepperButton({required this.value, required this.min, required this.max, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _circleBtn(Icons.remove, value > min, () => onChanged(value - 1), cs),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text('$value', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: cs.onSurface)),
+        ),
+        _circleBtn(Icons.add, value < max, () => onChanged(value + 1), cs),
+      ],
+    );
+  }
+
+  Widget _circleBtn(IconData icon, bool enabled, VoidCallback onTap, ColorScheme cs) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 30, height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: enabled ? cs.primaryContainer : cs.surfaceContainerHighest,
+        ),
+        child: Icon(icon, size: 16, color: enabled ? cs.onPrimaryContainer : cs.outline),
+      ),
+    );
+  }
+}
+
+/// Toggle row with icon, label, and switch
+class _ToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _ToggleRow({required this.icon, required this.label, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: cs.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
+        Switch.adaptive(value: value, onChanged: onChanged),
+      ],
+    );
+  }
+}
+
+// ─── Exercise ─────────────────────────────────────────────────────────────────
+
+class _ExerciseTab extends ConsumerWidget {
+  final String personKey;
+  const _ExerciseTab({super.key, required this.personKey});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _HealthList(
+      logsAsync: ref.watch(exerciseProvider(personKey)),
+      itemBuilder: (item) => _ExerciseTile(item: item),
+      onAdd: (ctx, ref) => _showExerciseForm(ctx, ref),
+      onEdit: (ctx, ref, item) => _showExerciseForm(ctx, ref, item: item),
+      onDelete: (ref, id) async {
+        await apiClient.dio.delete('${ApiConstants.exercise}/$id');
+        ref.invalidate(exerciseProvider);
+      },
+    );
+  }
+
+  void _showExerciseForm(BuildContext context, WidgetRef ref, {Map<String, dynamic>? item}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => _ExerciseFormSheet(
+        item: item,
+        onSaved: () => ref.invalidate(exerciseProvider),
+        initialFamId: item != null
+            ? item['family_member_id']
+            : (ref.read(selectedPersonProvider) == 'self' ? null : ref.read(selectedPersonProvider)),
+      ),
+    );
+  }
+}
+
+class _ExerciseTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  const _ExerciseTile({required this.item});
+
+  static const _typeIcons = <String, IconData>{
+    'Walking': Icons.directions_walk_rounded,
+    'Running': Icons.directions_run_rounded,
+    'Cycling': Icons.directions_bike_rounded,
+    'Swimming': Icons.pool_rounded,
+    'Yoga': Icons.self_improvement_rounded,
+    'Weight Training': Icons.fitness_center_rounded,
+    'HIIT': Icons.local_fire_department_rounded,
+    'Pilates': Icons.accessibility_new_rounded,
+    'Dance': Icons.music_note_rounded,
+    'Stretching': Icons.sports_gymnastics_rounded,
+    'Sports': Icons.sports_soccer_rounded,
+    'Hiking': Icons.terrain_rounded,
+    'Climbing': Icons.landscape_rounded,
+    'Martial Arts': Icons.sports_martial_arts_rounded,
+    'Rowing': Icons.rowing_rounded,
+    'Jump Rope': Icons.sports_rounded,
+  };
+
+  static const _intensityColors = <String, Color>{
+    'Light': Color(0xFF10B981),
+    'Moderate': Color(0xFFF59E0B),
+    'Vigorous': Color(0xFFF43F5E),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final type = item['exercise_type'] as String? ?? 'Exercise';
+    final duration = item['duration_minutes'] as int?;
+    final intensity = item['intensity'] as String? ?? '';
+    final calories = item['calories_burned'] as int?;
+    final avgHr = item['avg_heart_rate'] as int?;
+    final distance = item['distance_km'] as num?;
+    final rpe = item['perceived_exertion'] as int?;
+    final muscles = item['muscle_groups'] as List?;
+    final notes = item['notes'] as String? ?? '';
+    final date = item['date'] as String? ?? '';
+
+    final typeIcon = _typeIcons[type] ?? Icons.directions_run_rounded;
+    final intColor = _intensityColors[intensity] ?? const Color(0xFFFF7043);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top row: type icon + name + intensity + date
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: intColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(typeIcon, size: 20, color: intColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(type, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        if (intensity.isNotEmpty)
+                          Text(intensity, style: TextStyle(fontSize: 12, color: intColor, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  Text(date.length >= 10 ? date.substring(5) : date,
+                    style: TextStyle(fontSize: 12, color: cs.outline)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Metrics row
+              Wrap(
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  if (duration != null) _metricChip('\u{23F1}', '${duration}min'),
+                  if (calories != null) _metricChip('\u{1F525}', '${calories}kcal'),
+                  if (distance != null) _metricChip('\u{1F4CF}', '${distance.toStringAsFixed(1)}km'),
+                  if (avgHr != null) _metricChip('\u{2764}', '${avgHr}bpm'),
+                  if (rpe != null) _metricChip('\u{1F4AA}', 'RPE $rpe/10'),
+                ],
+              ),
+              if (muscles != null && muscles.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: muscles.map((m) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(m.toString(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: cs.onPrimaryContainer)),
+                  )).toList(),
+                ),
+              ],
+              if (notes.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(notes, style: TextStyle(fontSize: 12, color: cs.outline), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _metricChip(String emoji, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 12)),
+        const SizedBox(width: 2),
+        Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+class _ExerciseFormSheet extends StatefulWidget {
+  final Map<String, dynamic>? item;
+  final VoidCallback onSaved;
+  final String? initialFamId;
+  const _ExerciseFormSheet({this.item, required this.onSaved, this.initialFamId});
+
+  @override
+  State<_ExerciseFormSheet> createState() => _ExerciseFormSheetState();
+}
+
+class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
+  static const _types = <String, IconData>{
+    'Walking': Icons.directions_walk_rounded,
+    'Running': Icons.directions_run_rounded,
+    'Cycling': Icons.directions_bike_rounded,
+    'Swimming': Icons.pool_rounded,
+    'Yoga': Icons.self_improvement_rounded,
+    'Weight Training': Icons.fitness_center_rounded,
+    'HIIT': Icons.local_fire_department_rounded,
+    'Pilates': Icons.accessibility_new_rounded,
+    'Dance': Icons.music_note_rounded,
+    'Stretching': Icons.sports_gymnastics_rounded,
+    'Sports': Icons.sports_soccer_rounded,
+    'Hiking': Icons.terrain_rounded,
+    'Climbing': Icons.landscape_rounded,
+    'Martial Arts': Icons.sports_martial_arts_rounded,
+    'Rowing': Icons.rowing_rounded,
+    'Jump Rope': Icons.sports_rounded,
+    'Other': Icons.more_horiz_rounded,
+  };
+
+  static const _cardioTypes = {'Walking', 'Running', 'Cycling', 'Swimming', 'Hiking', 'Rowing', 'Jump Rope'};
+  static const _strengthTypes = {'Weight Training'};
+  static const _intensities = ['Light', 'Moderate', 'Vigorous'];
+  static const _muscleGroups = [
+    'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Core',
+    'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Full Body',
+  ];
+
+  late bool isEdit;
+  late String? famId;
+  late String exerciseType;
+  late int durationMin;
+  late String intensity;
+  late TextEditingController calCtrl;
+  late TextEditingController avgHrCtrl;
+  late TextEditingController maxHrCtrl;
+  late TextEditingController distCtrl;
+  late int perceivedExertion;
+  late Set<String> selectedMuscles;
+  late TextEditingController notesCtrl;
+  bool _showAdvanced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    isEdit = item != null;
+    famId = widget.initialFamId;
+    exerciseType = item?['exercise_type'] as String? ?? 'Walking';
+    durationMin = item?['duration_minutes'] as int? ?? 30;
+    intensity = item?['intensity'] as String? ?? 'Moderate';
+    calCtrl = TextEditingController(text: item?['calories_burned'] != null ? '${item!['calories_burned']}' : '');
+    avgHrCtrl = TextEditingController(text: item?['avg_heart_rate'] != null ? '${item!['avg_heart_rate']}' : '');
+    maxHrCtrl = TextEditingController(text: item?['max_heart_rate'] != null ? '${item!['max_heart_rate']}' : '');
+    distCtrl = TextEditingController(text: item?['distance_km'] != null ? '${item!['distance_km']}' : '');
+    perceivedExertion = item?['perceived_exertion'] as int? ?? 5;
+    final mg = item?['muscle_groups'] as List?;
+    selectedMuscles = mg != null ? mg.map((e) => e.toString()).toSet() : {};
+    notesCtrl = TextEditingController(text: item?['notes'] ?? '');
+    // Show advanced if any advanced field was previously set
+    if (isEdit && (item?['avg_heart_rate'] != null || item?['distance_km'] != null || item?['perceived_exertion'] != null)) {
+      _showAdvanced = true;
+    }
+  }
+
+  bool get _isCardio => _cardioTypes.contains(exerciseType);
+  bool get _isStrength => _strengthTypes.contains(exerciseType);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF7043).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.directions_run_rounded, color: Color(0xFFFF7043), size: 22),
+              ),
+              const SizedBox(width: 10),
+              Text(isEdit ? 'Edit Workout' : 'Log Workout',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (!isEdit) ...[
+            PersonSelector(selectedId: famId, onChanged: (v) => setState(() => famId = v)),
+            const SizedBox(height: 12),
+          ],
+
+          // Section 1: Exercise type — visual grid
+          _sectionLabel('Activity', Icons.category_rounded),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 80,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: _types.entries.map((e) {
+                final isActive = exerciseType == e.key;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() => exerciseType = e.key),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 72,
+                      decoration: BoxDecoration(
+                        color: isActive ? const Color(0xFFFF7043).withValues(alpha: 0.15) : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(14),
+                        border: isActive ? Border.all(color: const Color(0xFFFF7043), width: 2) : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(e.value, size: 24, color: isActive ? const Color(0xFFFF7043) : cs.onSurfaceVariant),
+                          const SizedBox(height: 4),
+                          Text(e.key, style: TextStyle(
+                            fontSize: 10, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                            color: isActive ? const Color(0xFFFF7043) : cs.onSurfaceVariant,
+                          ), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Section 2: Duration & Intensity
+          _sectionLabel('Duration & Intensity', Icons.timer_rounded),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text('$durationMin', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 28, color: cs.primary)),
+              const SizedBox(width: 4),
+              Text('min', style: TextStyle(fontSize: 14, color: cs.outline)),
+            ],
+          ),
+          SliderTheme(
+            data: const SliderThemeData(
+              trackHeight: 6,
+              thumbShape: RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayShape: RoundSliderOverlayShape(overlayRadius: 16),
+              activeTrackColor: Color(0xFFFF7043),
+              thumbColor: Color(0xFFFF7043),
+            ),
+            child: Slider(
+              value: durationMin.toDouble(),
+              min: 5,
+              max: 180,
+              divisions: 35,
+              onChanged: (v) => setState(() => durationMin = v.round()),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: _intensities.map((i) {
+              final isActive = intensity == i;
+              final color = i == 'Light' ? const Color(0xFF10B981)
+                  : i == 'Moderate' ? const Color(0xFFF59E0B)
+                  : const Color(0xFFF43F5E);
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: i != 'Vigorous' ? 8 : 0),
+                  child: GestureDetector(
+                    onTap: () => setState(() => intensity = i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isActive ? color.withValues(alpha: 0.15) : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                        border: isActive ? Border.all(color: color, width: 2) : null,
+                      ),
+                      child: Center(
+                        child: Text(i, style: TextStyle(
+                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 13,
+                          color: isActive ? color : cs.onSurfaceVariant,
+                        )),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          // Muscle groups for strength training
+          if (_isStrength) ...[
+            const SizedBox(height: 16),
+            _sectionLabel('Muscle Groups', Icons.fitness_center_rounded),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _muscleGroups.map((mg) {
+                final isActive = selectedMuscles.contains(mg);
+                return FilterChip(
+                  label: Text(mg, style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500)),
+                  selected: isActive,
+                  onSelected: (v) => setState(() => v ? selectedMuscles.add(mg) : selectedMuscles.remove(mg)),
+                  selectedColor: const Color(0xFFFF7043).withValues(alpha: 0.2),
+                  checkmarkColor: const Color(0xFFFF7043),
+                );
+              }).toList(),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+
+          // Perceived exertion (RPE) — always shown
+          _sectionLabel('How hard did it feel?', Icons.speed_rounded),
+          const SizedBox(height: 6),
+          _EmojiScale(
+            value: perceivedExertion,
+            min: 1,
+            max: 10,
+            labels: const {1: 'Easy', 3: 'Light', 5: 'Moderate', 7: 'Hard', 9: 'Max', 10: 'Limit'},
+            emojis: const {1: '\u{1F60E}', 3: '\u{1F60A}', 5: '\u{1F4AA}', 7: '\u{1F975}', 9: '\u{1F525}', 10: '\u{1F480}'},
+            activeColor: const Color(0xFFFF7043),
+            onChanged: (v) => setState(() => perceivedExertion = v),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Advanced metrics (expandable)
+          InkWell(
+            onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                Icon(Icons.tune_rounded, size: 16, color: cs.primary),
+                const SizedBox(width: 6),
+                Text('Advanced metrics', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.primary)),
+                const Spacer(),
+                Icon(_showAdvanced ? Icons.expand_less : Icons.expand_more, size: 20, color: cs.outline),
+              ],
+            ),
+          ),
+          if (_showAdvanced) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (_isCardio) ...[
+                  Expanded(child: TextField(
+                    controller: distCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Distance (km)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.straighten_rounded, size: 18),
+                    ),
+                  )),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(child: TextField(
+                  controller: calCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Calories',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.local_fire_department_rounded, size: 18),
+                  ),
+                )),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: TextField(
+                  controller: avgHrCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Avg HR (bpm)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.monitor_heart_rounded, size: 18),
+                  ),
+                )),
+                const SizedBox(width: 10),
+                Expanded(child: TextField(
+                  controller: maxHrCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Max HR (bpm)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    isDense: true,
+                    prefixIcon: const Icon(Icons.favorite_rounded, size: 18),
+                  ),
+                )),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          TextField(
+            controller: notesCtrl,
+            decoration: InputDecoration(
+              labelText: 'Notes (optional)',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              isDense: true,
+              prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+            ),
+            maxLines: 2,
+            minLines: 1,
+          ),
+
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _save,
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Save'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    backgroundColor: const Color(0xFFFF7043),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text, IconData icon) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: cs.primary),
+        const SizedBox(width: 6),
+        Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    Navigator.pop(context);
+    final cal = int.tryParse(calCtrl.text);
+    final avgHr = int.tryParse(avgHrCtrl.text);
+    final maxHr = int.tryParse(maxHrCtrl.text);
+    final dist = double.tryParse(distCtrl.text);
+    final data = {
+      'exercise_type': exerciseType,
+      'duration_minutes': durationMin,
+      'intensity': intensity,
+      if (cal != null) 'calories_burned': cal,
+      if (avgHr != null) 'avg_heart_rate': avgHr,
+      if (maxHr != null) 'max_heart_rate': maxHr,
+      if (dist != null) 'distance_km': dist,
+      'perceived_exertion': perceivedExertion,
+      if (selectedMuscles.isNotEmpty) 'muscle_groups': selectedMuscles.toList(),
+      'date': isEdit ? (widget.item!['date'] ?? _todayStr()) : _todayStr(),
+      'time': _timeStr(_nowTime()),
+      'notes': notesCtrl.text,
+      'family_member_id': famId,
+    };
+    if (isEdit) {
+      await apiClient.dio.put('${ApiConstants.exercise}/${widget.item!['id']}', data: data);
+    } else {
+      await apiClient.dio.post(ApiConstants.exercise, data: data);
+    }
+    widget.onSaved();
+  }
+}
+
 // ── Health sub-screen — wraps individual category tab in a full Scaffold ───────
 // Used by /health/* routes pushed from the Health card grid (Sprint 4).
 
@@ -2542,6 +3748,8 @@ class _HealthSubScreenState extends ConsumerState<HealthSubScreen> {
       case 'medications': body = _MedicationsTab(key: ValueKey(key), personKey: key); break;
       case 'supplements': body = _SupplementsTab(key: ValueKey(key), personKey: key); break;
       case 'mood':        body = _MoodTab(key: ValueKey(key), personKey: key); break;
+      case 'sleep':       body = _SleepTab(key: ValueKey(key), personKey: key); break;
+      case 'exercise':    body = _ExerciseTab(key: ValueKey(key), personKey: key); break;
       default:            body = Center(child: Text('Unknown: ${widget.category}')); break;
     }
 

@@ -167,6 +167,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
   final Map<String, GlobalKey> _pillarKeys = {};
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  String _pendingQuery = '';
 
   /// Flattened list of all biomarkers for search
   List<LabResult> get _allBiomarkers {
@@ -227,13 +228,42 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
       slivers: [
         _buildSliverAppBar(context),
 
+        // ── Normal dashboard content (hidden during search) ─────────────
+        if (_searchQuery.isEmpty) ...[
+
+        // Panic alerts (emergency / see_doctor)
+        if (widget.dash.panicValues.isNotEmpty)
+          SliverToBoxAdapter(child: _PanicBanner(alerts: widget.dash.panicValues)),
+
+        // Health score + summary
+        SliverToBoxAdapter(child: _ScoreSection(dash: widget.dash)),
+
+        // Tier breakdown bar
+        SliverToBoxAdapter(child: _TierBreakdownBar(dash: widget.dash)),
+
+        ], // end if (_searchQuery.isEmpty) for score section
+
         // ── Full-width biomarker search ─────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: TextField(
               controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              onChanged: (v) {
+                final trimmed = v.trim();
+                _pendingQuery = trimmed;
+                if (trimmed.isEmpty) {
+                  // Clear immediately for instant feedback
+                  setState(() => _searchQuery = '');
+                } else {
+                  // Debounce: wait 300ms before updating results
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    if (mounted && _pendingQuery == trimmed) {
+                      setState(() => _searchQuery = trimmed);
+                    }
+                  });
+                }
+              },
               decoration: InputDecoration(
                 hintText: 'Search biomarkers...',
                 prefixIcon: const Icon(Icons.search, size: 22),
@@ -283,18 +313,8 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           ),
         ],
 
-        // ── Normal dashboard content (hidden during search) ─────────────
+        // ── Normal dashboard content continued (hidden during search) ───
         if (_searchQuery.isEmpty) ...[
-
-        // Panic alerts (emergency / see_doctor)
-        if (widget.dash.panicValues.isNotEmpty)
-          SliverToBoxAdapter(child: _PanicBanner(alerts: widget.dash.panicValues)),
-
-        // Health score + summary
-        SliverToBoxAdapter(child: _ScoreSection(dash: widget.dash)),
-
-        // Tier breakdown bar
-        SliverToBoxAdapter(child: _TierBreakdownBar(dash: widget.dash)),
 
         // Attention Needed section
         if (widget.dash.attentionNeeded.isNotEmpty) ...[

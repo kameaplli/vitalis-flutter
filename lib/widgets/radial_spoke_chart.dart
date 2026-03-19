@@ -146,19 +146,34 @@ class _RadialSpokeChartState extends State<RadialSpokeChart>
                 ),
               ),
               // Center circle with content
-              Container(
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
                 width: centerR * 2,
                 height: centerR * 2,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isDark
-                      ? cs.surfaceContainerHigh
-                      : Colors.white,
+                  color: _selectedIndex != null
+                      ? Color.lerp(
+                          isDark ? cs.surfaceContainerHigh : Colors.white,
+                          centerAccent ?? cs.primary,
+                          0.08,
+                        )
+                      : isDark
+                          ? cs.surfaceContainerHigh
+                          : Colors.white,
+                  border: _selectedIndex != null
+                      ? Border.all(
+                          color: (centerAccent ?? cs.primary).withValues(alpha: 0.5),
+                          width: 2.5,
+                        )
+                      : null,
                   boxShadow: [
                     BoxShadow(
-                      color: (centerAccent ?? cs.primary).withValues(alpha: 0.10),
-                      blurRadius: 16,
-                      spreadRadius: 2,
+                      color: (centerAccent ?? cs.primary).withValues(
+                          alpha: _selectedIndex != null ? 0.35 : 0.10),
+                      blurRadius: _selectedIndex != null ? 24 : 16,
+                      spreadRadius: _selectedIndex != null ? 4 : 2,
                     ),
                   ],
                 ),

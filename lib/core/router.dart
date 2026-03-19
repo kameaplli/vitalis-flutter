@@ -120,6 +120,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/health/medications', builder: (_, __) => const HealthSubScreen(category: 'medications')),
           GoRoute(path: '/health/supplements', builder: (_, __) => const HealthSubScreen(category: 'supplements')),
           GoRoute(path: '/health/mood',        builder: (_, __) => const HealthSubScreen(category: 'mood')),
+          GoRoute(path: '/health/sleep',       builder: (_, __) => const HealthSubScreen(category: 'sleep')),
+          GoRoute(path: '/health/exercise',    builder: (_, __) => const HealthSubScreen(category: 'exercise')),
           GoRoute(path: '/health/weight',      builder: (_, __) => const WeightScreen()),
           GoRoute(path: '/health/eczema',      builder: (_, __) => const EczemaScreen()),
 
