@@ -394,12 +394,12 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         // ── Today's summary grid (2×2) ────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _sectionTitle(context, "$_dayLabel Summary"),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Row(children: [
                   Expanded(child: _StatCard(
                     label: 'Calories', icon: Icons.local_fire_department,
@@ -425,7 +425,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
                     showTrend: data.weightChange != null,
                   )),
                 ]),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Row(children: [
                   Expanded(child: _StatCard(
                     label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
@@ -511,7 +511,8 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         ],
 
         const SliverToBoxAdapter(child: MedicalDisclaimer()),
-        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        // Extra bottom padding to keep content above the bottom nav bar
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
       ],
     );
   }
@@ -532,7 +533,7 @@ class _QuickActionsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
           _action(context, Icons.restaurant, 'Log Meal', cs.primary, () {
@@ -569,12 +570,12 @@ class _QuickActionsBar extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(child: QoreHealthIcon(icon: icon, color: color)),
-                  const SizedBox(height: 8),
+                  ExcludeSemantics(child: QoreHealthIcon(icon: icon, color: color, size: QoreHealthIconSize.small)),
+                  const SizedBox(height: 6),
                   ExcludeSemantics(child: Text(label, style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w600,
                       color: cs.onSurface))),
@@ -715,9 +716,9 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
     );
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -725,7 +726,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
               children: [
                 Icon(Icons.water_drop, size: 16, color: Colors.blue.shade600),
                 const SizedBox(width: 6),
-                Text('Quick Hydration Log',
+                Text('Quick Hydration',
                     style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 Text(todayL,
@@ -734,7 +735,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
                         fontWeight: FontWeight.w600)),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             SizedBox(
               height: 36,
               child: ListView(
@@ -1677,7 +1678,7 @@ class _StatCard extends StatelessWidget {
       child: ExcludeSemantics(
         child: Card(
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1693,12 +1694,12 @@ class _StatCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                   ),
                 ]),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Row(crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic, children: [
                   Text(todayValue,
                       style: TextStyle(
-                          fontSize: 28, fontWeight: FontWeight.w800,
+                          fontSize: 26, fontWeight: FontWeight.w800,
                           letterSpacing: -0.5, color: color)),
                   if (todayUnit.isNotEmpty) ...[
                     const SizedBox(width: 4),
