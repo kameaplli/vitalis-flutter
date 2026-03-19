@@ -353,7 +353,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                 letterSpacing: 0.3,
               )),
         ],
@@ -725,7 +725,7 @@ class _FoodInfoCard extends ConsumerWidget {
                         children: [
                           const Text('Calories', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
                           const Spacer(),
-                          Text('${(detail.cal ?? 0).toStringAsFixed(0)}',
+                          Text((detail.cal ?? 0).toStringAsFixed(0),
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                         ],
                       ),
@@ -1165,7 +1165,7 @@ class _FoodSearchTileState extends State<_FoodSearchTile>
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               fontStyle: FontStyle.italic,
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.7))),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7))),
                     ),
                   Text(
                     '${food.caloriesPerServing.toStringAsFixed(0)} kcal'

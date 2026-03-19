@@ -620,8 +620,8 @@ class _AlertsSection extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded,
-                      color: const Color(0xFF10B981), size: 32),
+                  const Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF10B981), size: 32),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
@@ -1198,9 +1198,8 @@ class _ClinicalReportButton extends ConsumerWidget {
 
 class _StyledCard extends StatelessWidget {
   final Widget child;
-  final EdgeInsetsGeometry? padding;
 
-  const _StyledCard({required this.child, this.padding});
+  const _StyledCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1218,7 +1217,7 @@ class _StyledCard extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: padding != null ? Padding(padding: padding!, child: child) : child,
+      child: child,
     );
   }
 }

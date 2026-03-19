@@ -15,7 +15,6 @@ import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
 import '../providers/social_provider.dart';
-import 'qorhealth_icon.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -104,7 +103,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
       setState(() => _locked = true);
       final ok = await BiometricService.authenticate(
-        reason: 'Unlock Qorhealth',
+        reason: 'Unlock QoreHealth',
       );
       if (mounted) setState(() => _locked = !ok);
     } finally {
@@ -164,22 +163,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   }
 
   void _openFullScreenMenu(BuildContext context) {
-    final user = ref.read(authProvider).user;
-    final badgeCount = ref.read(notificationBadgeProvider).valueOrNull ?? 0;
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: true,
-        pageBuilder: (_, __, ___) => _FullScreenMenu(user: user, badgeCount: badgeCount),
-        transitionsBuilder: (_, anim, __, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 250),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-      ),
-    );
+    Scaffold.of(context).openEndDrawer();
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -212,10 +196,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       );
     }
 
-    final unreadBadge = ref.watch(notificationBadgeProvider);
-    final badgeCount = unreadBadge.valueOrNull ?? 0;
+    final badgeCount = ref.watch(notificationBadgeProvider).valueOrNull ?? 0;
 
     return Scaffold(
+      endDrawer: _AppDrawer(user: user, badgeCount: badgeCount),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -274,137 +258,97 @@ class _BottomNavWithGenie extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
+    // Map selectedIndex to NavigationBar index (0=Home, 1=Nutrition, skip Genie, 2=Health, 3=More)
+    final navBarIndex = selectedIndex > 1 ? selectedIndex + 1 : selectedIndex;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        NavigationBar(
           height: 64,
-          child: Row(
-            children: [
-              // Left nav items: Home, Nutrition
-              _NavItem(Icons.home_outlined, Icons.home, 'Home', 0,
-                  selectedIndex, onDestinationSelected),
-              _NavItem(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition', 1,
-                  selectedIndex, onDestinationSelected),
-
-              // Center genie button
-              Expanded(
-                child: GestureDetector(
-                  onTap: onGenieTap,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Transform.translate(
-                        offset: const Offset(0, -20),
-                        child: Container(
-                          width: 58,
-                          height: 58,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: cs.surface,
-                            border: Border.all(
-                              color: cs.outlineVariant.withOpacity(0.5),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: CustomPaint(
-                            painter: _GenieBowlPainter(
-                              iconColor: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Transform.translate(
-                        offset: const Offset(0, -16),
-                        child: Text('Zenie',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Right nav items: Health, More
-              _NavItem(Icons.favorite_outline, Icons.favorite, 'Health', 2,
-                  selectedIndex, onDestinationSelected),
-              // More button (opens full-screen menu)
-              Expanded(
-                child: InkResponse(
-                  onTap: onMoreTap,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.grid_view_rounded, size: 22, color: cs.onSurfaceVariant),
-                      const SizedBox(height: 2),
-                      Text('More',
-                          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, letterSpacing: 0.2,
-                              fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final int index;
-  final int selectedIndex;
-  final ValueChanged<int> onTap;
-
-  const _NavItem(this.icon, this.activeIcon, this.label, this.index,
-      this.selectedIndex, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = index == selectedIndex;
-    final cs = Theme.of(context).colorScheme;
-    final color = isSelected ? cs.primary : cs.onSurfaceVariant;
-
-    return Expanded(
-      child: InkResponse(
-        onTap: () => onTap(index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(isSelected ? activeIcon : icon, size: 22, color: color),
-            const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(fontSize: 12, color: color, letterSpacing: 0.2,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+          selectedIndex: navBarIndex.clamp(0, 3),
+          onDestinationSelected: (i) {
+            if (i == 2) return; // Genie placeholder — handled by overlay
+            if (i == 4) { onMoreTap(); return; }
+            final mapped = i > 2 ? i - 1 : i;
+            onDestinationSelected(mapped);
+          },
+          destinations: [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined, color: cs.onSurfaceVariant),
+              selectedIcon: Icon(Icons.home, color: cs.primary),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.restaurant_outlined, color: cs.onSurfaceVariant),
+              selectedIcon: Icon(Icons.restaurant, color: cs.primary),
+              label: 'Nutrition',
+            ),
+            // Placeholder for center Genie button
+            const NavigationDestination(
+              icon: SizedBox(width: 24, height: 24),
+              label: '',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_outline, color: cs.onSurfaceVariant),
+              selectedIcon: Icon(Icons.favorite, color: cs.primary),
+              label: 'Health',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.grid_view_rounded, color: cs.onSurfaceVariant),
+              label: 'More',
+            ),
           ],
         ),
-      ),
+        // Center genie button overlay
+        Positioned(
+          top: -20,
+          child: GestureDetector(
+            onTap: onGenieTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surface,
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CustomPaint(
+                    painter: _GenieBowlPainter(
+                      iconColor: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -4),
+                  child: Text('Zenie',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -421,10 +365,10 @@ class _GenieBowlPainter extends CustomPainter {
 
     // ── Bowl ────────────────────────────────────────
     final bowlPaint = Paint()
-      ..color = iconColor.withOpacity(0.15)
+      ..color = iconColor.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
     final bowlStroke = Paint()
-      ..color = iconColor.withOpacity(0.7)
+      ..color = iconColor.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
@@ -449,7 +393,7 @@ class _GenieBowlPainter extends CustomPainter {
 
     // ── Genie figure (rising from bowl) ─────────────
     final geniePaint = Paint()
-      ..color = iconColor.withOpacity(0.6)
+      ..color = iconColor.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round;
@@ -462,16 +406,16 @@ class _GenieBowlPainter extends CustomPainter {
 
     // Genie head
     canvas.drawCircle(Offset(cx + 2, cy - 20), 4, Paint()
-      ..color = iconColor.withOpacity(0.5)
+      ..color = iconColor.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill);
     canvas.drawCircle(Offset(cx + 2, cy - 20), 4, Paint()
-      ..color = iconColor.withOpacity(0.7)
+      ..color = iconColor.withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5);
 
     // Genie arms (small curved lines)
     final armPaint = Paint()
-      ..color = iconColor.withOpacity(0.5)
+      ..color = iconColor.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
@@ -481,9 +425,9 @@ class _GenieBowlPainter extends CustomPainter {
     canvas.drawLine(Offset(cx + 5, cy - 12), Offset(cx + 11, cy - 15), armPaint);
 
     // Sparkle stars
-    _drawStar(canvas, Offset(cx - 10, cy - 8), 2.0, iconColor.withOpacity(0.4));
-    _drawStar(canvas, Offset(cx + 12, cy - 18), 1.8, iconColor.withOpacity(0.35));
-    _drawStar(canvas, Offset(cx - 6, cy - 22), 1.5, iconColor.withOpacity(0.3));
+    _drawStar(canvas, Offset(cx - 10, cy - 8), 2.0, iconColor.withValues(alpha: 0.4));
+    _drawStar(canvas, Offset(cx + 12, cy - 18), 1.8, iconColor.withValues(alpha: 0.35));
+    _drawStar(canvas, Offset(cx - 6, cy - 22), 1.5, iconColor.withValues(alpha: 0.3));
   }
 
   void _drawStar(Canvas canvas, Offset center, double radius, Color color) {
@@ -510,11 +454,11 @@ class _GenieBowlPainter extends CustomPainter {
 
 // ── Full-screen menu ──────────────────────────────────────────────────────────
 
-class _FullScreenMenu extends StatelessWidget {
+class _AppDrawer extends StatelessWidget {
   final dynamic user;
   final int badgeCount;
 
-  const _FullScreenMenu({required this.user, required this.badgeCount});
+  const _AppDrawer({required this.user, required this.badgeCount});
 
   @override
   Widget build(BuildContext context) {
@@ -524,185 +468,171 @@ class _FullScreenMenu extends StatelessWidget {
         ? ApiConstants.resolveUrl(user!.avatarUrl)
         : null;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
+    return Drawer(
+      child: SafeArea(
         child: Column(
           children: [
-            // ── Top bar with close ────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-              child: Row(
-                children: [
-                  Text('Qorhealth', style: tt.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: cs.primary,
-                  )),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, size: 26, color: cs.onSurfaceVariant),
-                  ),
-                ],
+            // ── Drawer header with user profile ───────────────────────────
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.3),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ── User profile card ─────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GestureDetector(
                 onTap: () {
                   Navigator.pop(context);
                   context.push('/profile');
                 },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: cs.primaryContainer,
-                        backgroundImage: avatarUrl != null
-                            ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
-                            : null,
-                        child: avatarUrl == null
-                            ? Text(
-                                (user?.name ?? 'V').substring(0, 1).toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.w800,
-                                  color: cs.onPrimaryContainer,
-                                ),
-                              )
-                            : null,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: cs.primaryContainer,
+                      backgroundImage: avatarUrl != null
+                          ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+                          : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              (user?.name ?? 'Q').substring(0, 1).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w800,
+                                color: cs.onPrimaryContainer,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('QoreHealth', style: tt.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: cs.primary,
+                          )),
+                          const SizedBox(height: 4),
+                          Text(
+                            user?.name ?? 'User',
+                            style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'View profile',
+                            style: tt.bodySmall?.copyWith(color: cs.primary),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.name ?? 'User',
-                              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'View profile',
-                              style: tt.bodySmall?.copyWith(color: cs.primary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-                    ],
-                  ),
+                    ),
+                    Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                  ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
-
-            // ── Menu grid ─────────────────────────────────────────────────
+            // ── Navigation items ──────────────────────────────────────────
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.count(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.0,
-                  children: [
-                    _MenuTile(
-                      icon: Icons.people_outline,
-                      label: 'Community',
-                      color: const Color(0xFF0D7377),
-                      badgeCount: badgeCount,
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/social');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.insights,
-                      label: 'Insights',
-                      color: const Color(0xFFF59E0B),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/insights');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.shopping_cart_outlined,
-                      label: 'Grocery',
-                      color: const Color(0xFF059669),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/grocery');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.notifications_outlined,
-                      label: 'Alerts',
-                      color: const Color(0xFFEF4444),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/notifications');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.qr_code_scanner,
-                      label: 'Scanner',
-                      color: const Color(0xFF7C3AED),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/scanner');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.monitor_weight_outlined,
-                      label: 'Weight',
-                      color: const Color(0xFF2563EB),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/health/weight');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.healing_outlined,
-                      label: 'Eczema',
-                      color: const Color(0xFFDB2777),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/eczema');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.water_drop_outlined,
-                      label: 'Hydration',
-                      color: const Color(0xFF0EA5E9),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/hydration');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.history,
-                      label: 'History',
-                      color: const Color(0xFF6B7280),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/entries');
-                      },
-                    ),
-                  ],
-                ),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _DrawerItem(
+                    icon: Icons.people_outline,
+                    label: 'Community',
+                    badgeCount: badgeCount,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/social');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.insights,
+                    label: 'Insights',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/insights');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.shopping_cart_outlined,
+                    label: 'Grocery',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/grocery');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Alerts',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/notifications');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.qr_code_scanner,
+                    label: 'Scanner',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/scanner');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.monitor_weight_outlined,
+                    label: 'Weight',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/health/weight');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.healing_outlined,
+                    label: 'Eczema',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/eczema');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.water_drop_outlined,
+                    label: 'Hydration',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/hydration');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.history,
+                    label: 'History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/entries');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.account_balance_outlined,
+                    label: 'Finance',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/finance');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.science_outlined,
+                    label: 'Lab Results',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/labs');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.camera_alt_outlined,
+                    label: 'Skin Photos',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/skin-photos');
+                    },
+                  ),
+                ],
               ),
             ),
 
@@ -710,9 +640,9 @@ class _FullScreenMenu extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Text(
-                'Qorhealth v5.0',
+                'QoreHealth v5.0',
                 style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withOpacity(0.4),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),
             ),
@@ -723,17 +653,15 @@ class _FullScreenMenu extends StatelessWidget {
   }
 }
 
-class _MenuTile extends StatelessWidget {
+class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color color;
   final int badgeCount;
   final VoidCallback onTap;
 
-  const _MenuTile({
+  const _DrawerItem({
     required this.icon,
     required this.label,
-    required this.color,
     this.badgeCount = 0,
     required this.onTap,
   });
@@ -741,28 +669,14 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHighest.withOpacity(0.4),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Badge(
-              isLabelVisible: badgeCount > 0,
-              label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
-              child: QorhealthIcon(icon: icon, color: color),
-            ),
-            const SizedBox(height: 10),
-            Text(label, style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-            )),
-          ],
-        ),
+    return ListTile(
+      leading: Badge(
+        isLabelVisible: badgeCount > 0,
+        label: Text('$badgeCount'),
+        child: Icon(icon, color: cs.onSurfaceVariant),
       ),
+      title: Text(label),
+      onTap: onTap,
     );
   }
 }
@@ -783,7 +697,7 @@ class _BiometricLockScreen extends StatelessWidget {
           children: [
             Icon(Icons.lock_outline, size: 64, color: cs.primary),
             const SizedBox(height: 16),
-            Text('Qorhealth is locked',
+            Text('QoreHealth is locked',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: cs.onSurface)),
             const SizedBox(height: 8),
             Text('Verify your identity to continue',
@@ -854,7 +768,7 @@ class _SoloTopBar extends ConsumerWidget {
       child: Row(
         children: [
           Text(
-            'Qorhealth',
+            'QoreHealth',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
@@ -1139,7 +1053,7 @@ class _PersonCard extends StatelessWidget {
                       '${data.todayCalories.round()}', 'kcal',
                       calPct, _kCalColor),
                   _RingStat(Icons.water_drop,
-                      '${(data.todayWater / 1000).toStringAsFixed(1)}', 'L',
+                      (data.todayWater / 1000).toStringAsFixed(1), 'L',
                       waterPct, _kWaterColor),
                   _RingStat(Icons.mood,
                       '${(data.healthScore.mood / 2).round()}', '/10',

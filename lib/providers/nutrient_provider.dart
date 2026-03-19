@@ -313,6 +313,7 @@ class PeriodNutrientSummary {
 /// Fetch nutrient profile for a specific food item.
 final foodNutrientProvider =
     FutureProvider.family<FoodNutrientData?, String>((ref, foodId) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.foodNutrients(foodId));
     return FoodNutrientData.fromJson(res.data as Map<String, dynamic>);
@@ -325,6 +326,7 @@ final foodNutrientProvider =
 /// Key format: "personId_YYYY-MM-DD"
 final dailyNutrientProvider =
     FutureProvider.family<DailyNutrientAssessment?, String>((ref, key) async {
+  ref.keepAlive();
   try {
     final (person, _, dateStr) = PK.personDaysDate(key, 1);
     final date = dateStr;
@@ -332,7 +334,7 @@ final dailyNutrientProvider =
       ApiConstants.nutrientsDaily,
       queryParameters: {
         'person': person,
-        if (date != null) 'date': date,
+        'date': date,
       },
     );
     return DailyNutrientAssessment.fromJson(res.data as Map<String, dynamic>);
@@ -345,6 +347,7 @@ final dailyNutrientProvider =
 /// Key format: "personId_days" (e.g. "self_7", "self_30")
 final periodNutrientProvider =
     FutureProvider.family<PeriodNutrientData?, String>((ref, key) async {
+  ref.keepAlive();
   try {
     final (person, days) = PK.personDays(key, 1);
     final res = await apiClient.dio.get(

@@ -154,7 +154,7 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
                 hintText: 'Add a note (optional)',
                 hintStyle: TextStyle(color: cs.onSurfaceVariant),
                 filled: true,
-                fillColor: cs.surfaceContainerHighest.withOpacity(0.5),
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -222,9 +222,9 @@ class _ShareSheetState extends ConsumerState<ShareSheet> {
               child: Text(
                 'Also share externally',
                 style: tt.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withOpacity(0.4),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                   decoration: TextDecoration.underline,
-                  decorationColor: cs.onSurfaceVariant.withOpacity(0.4),
+                  decorationColor: cs.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ),
             ),

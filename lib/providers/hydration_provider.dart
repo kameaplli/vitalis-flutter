@@ -25,6 +25,7 @@ final hydrationHistoryProvider =
 /// Today's total for a specific person ('self' or family_member_id).
 final todayHydrationProvider =
     FutureProvider.family<double, String>((ref, person) async {
+  ref.keepAlive();
   final today = DateTime.now().toIso8601String().substring(0, 10);
   final logs = await ref.watch(hydrationHistoryProvider('${person}_1_$today').future);
   double total = 0.0;
@@ -37,6 +38,7 @@ final todayHydrationProvider =
 /// Personalized daily hydration goal in ml, keyed by personId.
 final hydrationGoalProvider =
     FutureProvider.family<double, String>((ref, person) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(
       ApiConstants.hydrationGoal,

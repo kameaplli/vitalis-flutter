@@ -33,7 +33,7 @@ class TriggerRadarChart extends StatelessWidget {
         painter: _RadarPainter(
           values: values,
           labels: labels,
-          fillColor: cs.primary.withOpacity(0.15),
+          fillColor: cs.primary.withValues(alpha: 0.15),
           strokeColor: cs.primary,
           gridColor: Colors.grey.shade300,
           labelColor: cs.onSurface,

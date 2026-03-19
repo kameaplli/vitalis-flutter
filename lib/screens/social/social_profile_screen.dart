@@ -213,7 +213,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: cs.primaryContainer.withOpacity(0.5),
+              color: cs.primaryContainer.withValues(alpha: 0.5),
             ),
             child: Text(
               'Level ${profile.level}',
@@ -361,7 +361,7 @@ class _StatsSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         color: cs.surface,
         border: Border.all(
-          color: cs.outlineVariant.withOpacity(0.3),
+          color: cs.outlineVariant.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -478,8 +478,8 @@ class _BadgeGrid extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: color.withOpacity(0.15),
-                  border: Border.all(color: color.withOpacity(0.4), width: 2),
+                  color: color.withValues(alpha: 0.15),
+                  border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
                 ),
                 child: Icon(icon, color: color, size: 24),
               ),

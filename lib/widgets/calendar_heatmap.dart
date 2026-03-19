@@ -60,8 +60,8 @@ class CalendarHeatmap extends StatelessWidget {
     }
 
     final dayLabels = ['M', '', 'W', '', 'F', '', 'S'];
-    final cellSize = 14.0;
-    final gap = 2.0;
+    const cellSize = 14.0;
+    const gap = 2.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,14 +71,14 @@ class CalendarHeatmap extends StatelessWidget {
           height: 16,
           child: Row(
             children: [
-              SizedBox(width: 18), // space for day labels
+              const SizedBox(width: 18), // space for day labels
               ...weeks.map((week) {
                 final firstDay = week.firstWhere((d) => d != null, orElse: () => null);
                 final showLabel = firstDay != null && firstDay.day <= 7;
                 return SizedBox(
                   width: cellSize + gap,
                   child: showLabel
-                      ? Text(DateFormat('MMM').format(firstDay!),
+                      ? Text(DateFormat('MMM').format(firstDay),
                           style: TextStyle(fontSize: 11, color: Colors.grey.shade600))
                       : null,
                 );
@@ -111,7 +111,7 @@ class CalendarHeatmap extends StatelessWidget {
                     return Column(
                       children: week.map((date) {
                         if (date == null) {
-                          return SizedBox(width: cellSize + gap, height: cellSize + gap);
+                          return const SizedBox(width: cellSize + gap, height: cellSize + gap);
                         }
                         final key = DateFormat('yyyy-MM-dd').format(date);
                         final severity = data[key];
@@ -123,7 +123,7 @@ class CalendarHeatmap extends StatelessWidget {
                           child: Container(
                             width: cellSize,
                             height: cellSize,
-                            margin: EdgeInsets.all(gap / 2),
+                            margin: const EdgeInsets.all(gap / 2),
                             decoration: BoxDecoration(
                               color: color,
                               borderRadius: BorderRadius.circular(2),

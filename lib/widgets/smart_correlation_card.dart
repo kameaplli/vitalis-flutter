@@ -8,7 +8,6 @@ class SmartCorrelationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         // Data quality banner
@@ -72,9 +71,9 @@ class _DataQualityBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -153,7 +152,7 @@ class _BayesianRow extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: prob.clamp(0, 1),
                     minHeight: 8,
-                    backgroundColor: Colors.grey.withOpacity(0.15),
+                    backgroundColor: Colors.grey.withValues(alpha: 0.15),
                     valueColor: AlwaysStoppedAnimation(color),
                   ),
                 ),
@@ -243,16 +242,16 @@ class _CategoryRow extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Text('${correlation.avgItchWith.toStringAsFixed(1)}', style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
+                Text(correlation.avgItchWith.toStringAsFixed(1), style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold)),
                 Text(' vs ', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                Text('${correlation.avgItchWithout.toStringAsFixed(1)}', style: const TextStyle(fontSize: 12)),
+                Text(correlation.avgItchWithout.toStringAsFixed(1), style: const TextStyle(fontSize: 12)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -284,7 +283,7 @@ class _CombinationTriggersCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.merge_type, color: Colors.deepOrange, size: 20),
+                const Icon(Icons.merge_type, color: Colors.deepOrange, size: 20),
                 const SizedBox(width: 8),
                 Text('Combination Triggers', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -297,7 +296,7 @@ class _CombinationTriggersCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.deepOrange.withOpacity(0.06),
+                  color: Colors.deepOrange.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
@@ -406,7 +405,7 @@ class _CumulativeEffectsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.stacked_line_chart, color: Colors.purple, size: 20),
+                const Icon(Icons.stacked_line_chart, color: Colors.purple, size: 20),
                 const SizedBox(width: 8),
                 Text('Cumulative Exposure', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -428,7 +427,7 @@ class _CumulativeEffectsCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.1),
+                      color: Colors.purple.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -524,7 +523,7 @@ class _FoodRow extends StatelessWidget {
               margin: const EdgeInsets.only(left: 2),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.15),
+                color: Colors.orange.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(c, style: const TextStyle(fontSize: 11, color: Colors.orange)),

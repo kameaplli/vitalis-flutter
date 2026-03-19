@@ -78,7 +78,7 @@ class _GaugePainter extends CustomPainter {
     ];
     for (final (c, start, end) in zones) {
       final zonePaint = Paint()
-        ..color = c.withOpacity(0.3)
+        ..color = c.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 14
         ..strokeCap = StrokeCap.butt;

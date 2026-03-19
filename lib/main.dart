@@ -41,12 +41,12 @@ void main() async {
       if (savedInterests != null)
         userInterestsProvider.overrideWith((ref) => savedInterests!),
     ],
-    child: const QorhealthApp(),
+    child: const QoreHealthApp(),
   ));
 }
 
-class QorhealthApp extends ConsumerWidget {
-  const QorhealthApp({super.key});
+class QoreHealthApp extends ConsumerWidget {
+  const QoreHealthApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -61,7 +61,7 @@ class QorhealthApp extends ConsumerWidget {
     _processPendingNavigations(router);
 
     return MaterialApp.router(
-      title: 'Qorhealth',
+      title: 'QoreHealth',
       theme: AppTheme.forSkin(skin, darkMode: isDark),
       routerConfig: router,
       debugShowCheckedModeBanner: false,

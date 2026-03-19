@@ -33,13 +33,6 @@ class ShareCardGenerator extends StatelessWidget {
     'achievement': [Color(0xFFF59E0B), Color(0xFFB45309)],
   };
 
-  static const _icons = <String, IconData>{
-    'daily_nutrition': Icons.restaurant_menu,
-    'streak': Icons.local_fire_department,
-    'weekly_report': Icons.bar_chart_rounded,
-    'achievement': Icons.emoji_events,
-  };
-
   static const _titles = <String, String>{
     'daily_nutrition': "TODAY'S NUTRITION",
     'streak': 'LOGGING STREAK',
@@ -128,7 +121,7 @@ class ShareCardGenerator extends StatelessWidget {
   // ── User Header ──────────────────────────────────────────────────────────
 
   Widget _buildUserHeader() {
-    final userName = data['user_display_name'] ?? 'Qorhealth User';
+    final userName = data['user_display_name'] ?? 'QoreHealth User';
     final dateStr = data['date'] ?? '';
 
     return Row(
@@ -138,8 +131,8 @@ class ShareCardGenerator extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.2),
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+            color: Colors.white.withValues(alpha: 0.2),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
           ),
           child: const Icon(Icons.person, color: Colors.white, size: 24),
         ),
@@ -155,7 +148,7 @@ class ShareCardGenerator extends StatelessWidget {
             Text(
               _formatDate(dateStr),
               style: _textStyle(12, FontWeight.w400,
-                  color: Colors.white.withOpacity(0.7)),
+                  color: Colors.white.withValues(alpha: 0.7)),
             ),
           ],
         ),
@@ -203,7 +196,7 @@ class ShareCardGenerator extends StatelessWidget {
         Text(
           '$mealsCount meals logged',
           style: _textStyle(11, FontWeight.w400,
-              color: Colors.white.withOpacity(0.6)),
+              color: Colors.white.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         // Macro cards
@@ -272,7 +265,7 @@ class ShareCardGenerator extends StatelessWidget {
         Text(
           '$daysLogged of 7 days logged',
           style: _textStyle(12, FontWeight.w400,
-              color: Colors.white.withOpacity(0.7)),
+              color: Colors.white.withValues(alpha: 0.7)),
         ),
         const SizedBox(height: 12),
         _buildProgressBar(
@@ -309,7 +302,7 @@ class ShareCardGenerator extends StatelessWidget {
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
             ),
             child: const Icon(Icons.emoji_events,
                 color: Colors.white, size: 44),
@@ -328,7 +321,7 @@ class ShareCardGenerator extends StatelessWidget {
           child: Text(
             badgeDesc,
             style: _textStyle(13, FontWeight.w400,
-                color: Colors.white.withOpacity(0.8)),
+                color: Colors.white.withValues(alpha: 0.8)),
             textAlign: TextAlign.center,
           ),
         ),
@@ -337,7 +330,7 @@ class ShareCardGenerator extends StatelessWidget {
           child: Text(
             'Earned ${_formatDate(dateEarned)}',
             style: _textStyle(11, FontWeight.w400,
-                color: Colors.white.withOpacity(0.6)),
+                color: Colors.white.withValues(alpha: 0.6)),
           ),
         ),
       ],
@@ -397,7 +390,7 @@ class ShareCardGenerator extends StatelessWidget {
             child: LinearProgressIndicator(
               value: clampedPct,
               minHeight: 8,
-              backgroundColor: Colors.white.withOpacity(0.15),
+              backgroundColor: Colors.white.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(
                 percentDri >= 100
                     ? const Color(0xFF34D399)
@@ -424,18 +417,18 @@ class ShareCardGenerator extends StatelessWidget {
   // ── Footer ──────────────────────────────────────────────────────────────
 
   Widget _buildFooter() {
-    final deepLink = data['deep_link'] ?? 'vitalis.app';
+    final deepLink = data['deep_link'] ?? 'qorehealth.app';
 
     return _buildGlassSection(
       child: Row(
         children: [
-          // Qorhealth branding
+          // QoreHealth branding
           Container(
             width: 36,
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
             ),
             child: const Icon(Icons.favorite, color: Colors.white, size: 18),
           ),
@@ -445,14 +438,14 @@ class ShareCardGenerator extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Qorhealth',
+                  'QoreHealth',
                   style: _textStyle(14, FontWeight.w700),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   deepLink,
                   style: _textStyle(10, FontWeight.w400,
-                      color: Colors.white.withOpacity(0.6)),
+                      color: Colors.white.withValues(alpha: 0.6)),
                 ),
               ],
             ),
@@ -463,7 +456,7 @@ class ShareCardGenerator extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
             ),
             child:
                 const Icon(Icons.qr_code_2, color: Colors.white, size: 28),
@@ -480,9 +473,9 @@ class ShareCardGenerator extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: child,
     );
@@ -493,9 +486,9 @@ class ShareCardGenerator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent.withOpacity(0.3)),
+          border: Border.all(color: accent.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -518,7 +511,7 @@ class ShareCardGenerator extends StatelessWidget {
           child: LinearProgressIndicator(
             value: progress.clamp(0, 1),
             minHeight: 10,
-            backgroundColor: Colors.white.withOpacity(0.15),
+            backgroundColor: Colors.white.withValues(alpha: 0.15),
             valueColor:
                 const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
           ),
@@ -527,7 +520,7 @@ class ShareCardGenerator extends StatelessWidget {
         Text(
           label,
           style: _textStyle(11, FontWeight.w500,
-              color: Colors.white.withOpacity(0.7)),
+              color: Colors.white.withValues(alpha: 0.7)),
         ),
       ],
     );
@@ -536,13 +529,13 @@ class ShareCardGenerator extends StatelessWidget {
   Widget _buildStatColumn(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.7), size: 20),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 20),
         const SizedBox(height: 6),
         Text(value, style: _textStyle(18, FontWeight.w700)),
         const SizedBox(height: 2),
         Text(label,
             style: _textStyle(11, FontWeight.w400,
-                color: Colors.white.withOpacity(0.6))),
+                color: Colors.white.withValues(alpha: 0.6))),
       ],
     );
   }
@@ -562,7 +555,7 @@ class ShareCardGenerator extends StatelessWidget {
     return GoogleFonts.plusJakartaSans(
       fontSize: size,
       fontWeight: weight,
-      color: Colors.white.withOpacity(0.7),
+      color: Colors.white.withValues(alpha: 0.7),
       letterSpacing: letterSpacing,
     );
   }

@@ -186,7 +186,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Insights
               if (insights.isNotEmpty) ...[
-                _SectionHeader(icon: Icons.lightbulb, title: 'Insights', color: Colors.amber),
+                const _SectionHeader(icon: Icons.lightbulb, title: 'Insights', color: Colors.amber),
                 ...insights.map((i) => _ReportCard(
                   title: (i as Map<String, dynamic>)['title'] ?? '',
                   body: i['body'] ?? '',
@@ -198,7 +198,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Correlations
               if (correlations.isNotEmpty) ...[
-                _SectionHeader(icon: Icons.compare_arrows, title: 'Correlations', color: Colors.deepPurple),
+                const _SectionHeader(icon: Icons.compare_arrows, title: 'Correlations', color: Colors.deepPurple),
                 ...correlations.map((c) {
                   final m = c as Map<String, dynamic>;
                   final confidence = (m['confidence'] as num?)?.toInt() ?? 0;
@@ -224,7 +224,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Predictions
               if (predictions.isNotEmpty) ...[
-                _SectionHeader(icon: Icons.auto_graph, title: 'Predictions', color: Colors.indigo),
+                const _SectionHeader(icon: Icons.auto_graph, title: 'Predictions', color: Colors.indigo),
                 ...predictions.map((p) {
                   final m = p as Map<String, dynamic>;
                   return _ReportCard(
@@ -241,7 +241,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Recommendations
               if (recommendations.isNotEmpty) ...[
-                _SectionHeader(icon: Icons.tips_and_updates, title: 'Recommendations', color: Colors.teal),
+                const _SectionHeader(icon: Icons.tips_and_updates, title: 'Recommendations', color: Colors.teal),
                 ...recommendations.map((r) {
                   final m = r as Map<String, dynamic>;
                   final priority = m['priority'] ?? 'medium';

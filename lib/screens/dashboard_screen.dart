@@ -12,7 +12,6 @@ import '../models/dashboard_data.dart';
 import '../models/grocery_models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
-import '../providers/finance_provider.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../widgets/friendly_error.dart';
@@ -21,7 +20,7 @@ import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
-import '../widgets/qorhealth_icon.dart';
+import '../widgets/qorehealth_icon.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -564,7 +563,7 @@ class _QuickActionsBar extends StatelessWidget {
         button: true,
         label: label,
         child: Material(
-          color: cs.surfaceContainerHighest.withOpacity(0.5),
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onTap,
@@ -574,7 +573,7 @@ class _QuickActionsBar extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(child: QorhealthIcon(icon: icon, color: color)),
+                  ExcludeSemantics(child: QoreHealthIcon(icon: icon, color: color)),
                   const SizedBox(height: 8),
                   ExcludeSemantics(child: Text(label, style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w600,
@@ -907,127 +906,6 @@ class _GrocerySnapshot extends StatelessWidget {
   }
 }
 
-// ── Finance snapshot ─────────────────────────────────────────────────────────
-
-class _FinanceSnapshot extends ConsumerWidget {
-  const _FinanceSnapshot();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final spendingAsync = ref.watch(financeSpendingProvider('month'));
-    return spendingAsync.when(
-      skipLoadingOnReload: true,
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (spending) {
-        if (spending.totalSpend <= 0) return const SizedBox.shrink();
-        final top3 = spending.byCategory.take(3).toList();
-        final cs = Theme.of(context).colorScheme;
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.account_balance_wallet_outlined, size: 16),
-                    const SizedBox(width: 6),
-                    Text('Finance This Month',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    const Spacer(),
-                    Text('\$${spending.totalSpend.toStringAsFixed(0)}',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, color: cs.primary)),
-                  ],
-                ),
-                if (spending.essentialSpend > 0 || spending.discretionarySpend > 0) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _SpendChip(
-                          label: 'Essential',
-                          amount: spending.essentialSpend,
-                          color: cs.primary),
-                      const SizedBox(width: 12),
-                      _SpendChip(
-                          label: 'Discretionary',
-                          amount: spending.discretionarySpend,
-                          color: cs.tertiary),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 10),
-                ...top3.map((cat) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          cat.category.replaceAll('_', ' '),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      Text(
-                        '${cat.percentage.toStringAsFixed(0)}% · \$${cat.amount.toStringAsFixed(0)}',
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                )),
-                const SizedBox(height: 8),
-                Semantics(
-                  button: true,
-                  label: 'View full finance breakdown',
-                  child: InkWell(
-                    onTap: () => context.go('/finance'),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('View full breakdown',
-                            style: TextStyle(
-                                fontSize: 12, color: cs.primary,
-                                fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 4),
-                        ExcludeSemantics(child: Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SpendChip extends StatelessWidget {
-  final String label;
-  final double amount;
-  final Color color;
-  const _SpendChip({required this.label, required this.amount, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8, height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text('$label \$${amount.toStringAsFixed(0)}',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-      ],
-    );
-  }
-}
-
 // ── Rich Welcome Screen — swipe up to dismiss, mood-driven animations ───────
 
 class _WelcomeScreen extends ConsumerStatefulWidget {
@@ -1041,8 +919,6 @@ class _WelcomeScreen extends ConsumerStatefulWidget {
 const _wPink     = Color(0xFFE91E63);
 const _wPinkDark = Color(0xFF880E4F);
 const _wOrange   = Color(0xFFFF6D00);
-const _wPurple   = Color(0xFF7B1FA2);
-
 class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     with TickerProviderStateMixin {
   late final AnimationController _masterCtrl;
@@ -1543,13 +1419,13 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
             position: _cardSlide,
             child: FadeTransition(
               opacity: _cardFade,
-              child: _WelcomeGlassCard(
+              child: const _WelcomeGlassCard(
                 child: Column(
                   children: [
                     _WelcomeFeatureRow(icon: Icons.restaurant_menu_rounded, text: 'Log meals & track nutrition'),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _WelcomeFeatureRow(icon: Icons.insights_rounded, text: 'AI-powered health insights'),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _WelcomeFeatureRow(icon: Icons.family_restroom_rounded, text: 'Family health dashboard'),
                   ],
                 ),
@@ -1806,7 +1682,7 @@ class _StatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  QorhealthIcon(icon: icon, color: color, size: QorhealthIconSize.small),
+                  QoreHealthIcon(icon: icon, color: color, size: QoreHealthIconSize.small),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(label.toUpperCase(),

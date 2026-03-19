@@ -214,7 +214,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         // Attention Needed section
         if (widget.dash.attentionNeeded.isNotEmpty) ...[
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          SliverToBoxAdapter(child: _SectionHeader('ATTENTION NEEDED')),
+          const SliverToBoxAdapter(child: _SectionHeader('ATTENTION NEEDED')),
           SliverToBoxAdapter(
             child: _HorizontalResultCards(
               results: widget.dash.attentionNeeded,
@@ -227,7 +227,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         // Improvements section
         if (widget.dash.improvements.isNotEmpty) ...[
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _SectionHeader('IMPROVING')),
+          const SliverToBoxAdapter(child: _SectionHeader('IMPROVING')),
           SliverToBoxAdapter(
             child: _HorizontalResultCards(
               results: widget.dash.improvements,
@@ -253,7 +253,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         ),
 
         // Health pillar cards
-        SliverToBoxAdapter(child: _SectionHeader('HEALTH PILLARS')),
+        const SliverToBoxAdapter(child: _SectionHeader('HEALTH PILLARS')),
         SliverToBoxAdapter(
           child: SizedBox(
             height: 130,
@@ -310,7 +310,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
         ),
 
         // Recent reports
-        SliverToBoxAdapter(child: _SectionHeader('RECENT REPORTS')),
+        const SliverToBoxAdapter(child: _SectionHeader('RECENT REPORTS')),
         SliverToBoxAdapter(
           child: reportsAsync.when(
             loading: () => const Padding(
@@ -652,7 +652,7 @@ class _InsightsSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader('INSIGHTS'),
+          const _SectionHeader('INSIGHTS'),
           for (final insight in insights)
             _InsightCard(insight: insight, ref: ref),
         ],
@@ -791,7 +791,7 @@ class _RecommendationsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader('RECOMMENDATIONS'),
+          const _SectionHeader('RECOMMENDATIONS'),
           for (final rec in recommendations.take(6))
             Container(
               margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -954,7 +954,7 @@ class _ReportTile extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Delete',
+            child: const Text('Delete',
                 style: TextStyle(color: _kCriticalColor, fontWeight: FontWeight.w700)),
           ),
         ],
@@ -1002,7 +1002,7 @@ class _ReportTile extends StatelessWidget {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Delete',
@@ -1010,7 +1010,7 @@ class _ReportTile extends StatelessWidget {
                     color: _kCriticalColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 14)),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Icon(Icons.delete_rounded, color: _kCriticalColor, size: 22),
           ],
         ),

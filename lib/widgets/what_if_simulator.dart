@@ -44,14 +44,14 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withOpacity(0.5),
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             children: [
               const Icon(Icons.show_chart, size: 20),
               const SizedBox(width: 8),
-              Text('Current avg itch: ', style: const TextStyle(fontSize: 13)),
+              const Text('Current avg itch: ', style: TextStyle(fontSize: 13)),
               Text(widget.currentAvgItch.toStringAsFixed(1),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               Text('/10', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),

@@ -123,13 +123,13 @@ class _FoodItemTileState extends State<FoodItemTile> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 fontStyle: FontStyle.italic,
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.8)),
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
                     Text.rich(
                       TextSpan(children: [
-                        TextSpan(text: '${sf.calories.toStringAsFixed(0)}',
+                        TextSpan(text: sf.calories.toStringAsFixed(0),
                             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                         TextSpan(text: ' kcal  ·  ',
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
@@ -184,7 +184,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text('${_servings}×',
+                    child: Text('$_servings×',
                         style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,

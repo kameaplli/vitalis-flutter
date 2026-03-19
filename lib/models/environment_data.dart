@@ -1,4 +1,5 @@
 /// Phase 1: Environmental Intelligence — data models
+library;
 
 class EnvironmentData {
   final double? temperatureC;

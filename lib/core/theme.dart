@@ -4,7 +4,7 @@ import '../providers/theme_provider.dart';
 
 class AppTheme {
   // ── Brand colours (app icon: pink → orange → purple) ─────────────────────────
-  static const Color primarySeed  = Color(0xFFE91E63); // Qorhealth Pink
+  static const Color primarySeed  = Color(0xFFE91E63); // QoreHealth Pink
   static const Color secondarySeed = Color(0xFFFF6D00); // Orange
   static const Color tertiarySeed  = Color(0xFF7B1FA2); // Purple
 
@@ -113,7 +113,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: cs.outlineVariant.withOpacity(0.2),
+            color: cs.outlineVariant.withValues(alpha: 0.2),
           ),
         ),
         color: cs.surfaceContainerLow,

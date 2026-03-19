@@ -1,4 +1,4 @@
-package com.vitalis.app
+package com.qorehealth.app
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

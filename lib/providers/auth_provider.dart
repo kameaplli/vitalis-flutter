@@ -186,5 +186,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  ref.keepAlive();
   return AuthNotifier();
 });

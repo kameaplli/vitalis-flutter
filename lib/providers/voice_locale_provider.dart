@@ -47,5 +47,6 @@ class VoiceLocaleNotifier extends StateNotifier<String> {
 
 final voiceLocaleProvider =
     StateNotifierProvider<VoiceLocaleNotifier, String>((ref) {
+  ref.keepAlive();
   return VoiceLocaleNotifier();
 });

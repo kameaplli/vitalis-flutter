@@ -30,7 +30,7 @@ class CommunityPulseSection extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
             color: cs.surface,
             border: Border.all(
-              color: cs.outlineVariant.withOpacity(0.3),
+              color: cs.outlineVariant.withValues(alpha: 0.3),
               width: 1,
             ),
           ),

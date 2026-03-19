@@ -216,7 +216,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
         padding: const EdgeInsets.all(16),
         children: [
           // ── Hydration ──────────────────────────────────────────────────────
-          _SectionHeader(icon: Icons.water_drop, title: 'Hydration Reminders', color: Colors.blue),
+          const _SectionHeader(icon: Icons.water_drop, title: 'Hydration Reminders', color: Colors.blue),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable hydration reminders'),
@@ -276,7 +276,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Meals ──────────────────────────────────────────────────────────
-          _SectionHeader(icon: Icons.restaurant, title: 'Meal Reminders', color: Colors.orange),
+          const _SectionHeader(icon: Icons.restaurant, title: 'Meal Reminders', color: Colors.orange),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable meal reminders'),
@@ -391,7 +391,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Eczema Alerts ──────────────────────────────────────────────────
-          _SectionHeader(icon: Icons.warning_amber, title: 'Eczema & Weather Alerts', color: Colors.red),
+          const _SectionHeader(icon: Icons.warning_amber, title: 'Eczema & Weather Alerts', color: Colors.red),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable flare-risk alerts'),
@@ -457,7 +457,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Health Reports ──────────────────────────────────────────────
-          _SectionHeader(icon: Icons.picture_as_pdf, title: 'Health Reports', color: Colors.deepPurple),
+          const _SectionHeader(icon: Icons.picture_as_pdf, title: 'Health Reports', color: Colors.deepPurple),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -519,7 +519,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Diagnostics ──────────────────────────────────────────────
-          _SectionHeader(icon: Icons.bug_report, title: 'Diagnostics', color: Colors.grey),
+          const _SectionHeader(icon: Icons.bug_report, title: 'Diagnostics', color: Colors.grey),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -527,7 +527,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
               onPressed: () async {
                 final plugin = FlutterLocalNotificationsPlugin();
                 final pending = await plugin.pendingNotificationRequests();
-                if (!mounted) return;
+                if (!context.mounted) return;
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(
@@ -636,7 +636,7 @@ class _TestNotificationButtonState extends State<_TestNotificationButton> {
             : () async {
                 await widget.onPressed();
                 setState(() => _sent = true);
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${widget.label} sent!'),

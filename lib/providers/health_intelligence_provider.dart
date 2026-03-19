@@ -8,6 +8,7 @@ import '../models/health_intelligence.dart';
 /// Pass `'self'` for the primary user or a family member UUID.
 final dailyHealthScoreProvider =
     FutureProvider.family<HealthScore, String>((ref, personId) async {
+  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final res = await apiClient.dio.get(
@@ -20,6 +21,7 @@ final dailyHealthScoreProvider =
 /// Weekly health score for a person.
 final weeklyHealthScoreProvider =
     FutureProvider.family<HealthScore, String>((ref, personId) async {
+  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final res = await apiClient.dio.get(
@@ -33,6 +35,7 @@ final weeklyHealthScoreProvider =
 final scoreHistoryProvider =
     FutureProvider.family<List<ScoreHistoryEntry>, String>(
         (ref, personId) async {
+  ref.keepAlive();
   final params = <String, dynamic>{'days': 30};
   if (personId != 'self') params['family_member_id'] = personId;
   final res = await apiClient.dio.get(
@@ -49,6 +52,7 @@ final scoreHistoryProvider =
 /// Active health alerts for a person.
 final healthAlertsProvider =
     FutureProvider.family<List<HealthAlert>, String>((ref, personId) async {
+  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final res = await apiClient.dio.get(
@@ -65,6 +69,7 @@ final healthAlertsProvider =
 /// Risk profile for a person.
 final riskProfileProvider =
     FutureProvider.family<RiskProfile, String>((ref, personId) async {
+  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final res = await apiClient.dio.get(
@@ -77,6 +82,7 @@ final riskProfileProvider =
 /// Clinical report for a person (default 30-day period).
 final clinicalReportProvider =
     FutureProvider.family<ClinicalReport, String>((ref, personId) async {
+  ref.keepAlive();
   final params = <String, dynamic>{'period_days': 30};
   if (personId != 'self') params['family_member_id'] = personId;
   final res = await apiClient.dio.get(

@@ -185,7 +185,9 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
 
   int get _totalReactions {
     int t = 0;
-    for (final r in event.reactions) t += r.count;
+    for (final r in event.reactions) {
+      t += r.count;
+    }
     return t;
   }
 

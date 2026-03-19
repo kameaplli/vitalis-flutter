@@ -293,7 +293,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Sign out?'),
-                    content: const Text('You will need to sign in again to use Qorhealth.'),
+                    content: const Text('You will need to sign in again to use QoreHealth.'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                       FilledButton(
@@ -304,9 +304,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                 );
-                if (confirm == true && mounted) {
+                if (confirm == true && context.mounted) {
                   await ref.read(authProvider.notifier).logout();
-                  if (mounted) context.go('/auth');
+                  if (context.mounted) context.go('/auth');
                 }
               },
             ),
@@ -408,14 +408,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
-    if (confirm != true || !mounted) return;
+    if (confirm != true || !context.mounted) return;
     try {
       await apiClient.dio.delete(ApiConstants.deleteAccount);
-      if (!mounted) return;
+      if (!context.mounted) return;
       await ref.read(authProvider.notifier).logout();
-      if (mounted) context.go('/auth');
+      if (context.mounted) context.go('/auth');
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to delete account: $e')),
         );
@@ -661,7 +661,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 try {
                   await notifier.uploadChildAvatar(child.id, imgPath);
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     final msg = e is DioException
                         ? (e.response?.data?['detail'] ?? e.message ?? e.toString())
                         : e.toString();
@@ -680,11 +680,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   height: heightVal,
                   email: emailVal.isEmpty ? null : emailVal,
                 );
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated!')));
                 }
               } catch (_) {
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Failed to update profile')));
                 }

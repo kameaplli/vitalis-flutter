@@ -1,4 +1,5 @@
 /// Phase 2: Smart Food Analysis — correlation data models
+library;
 
 class SmartCorrelationResult {
   final List<CategoryCorrelation> categoryCorrelations;

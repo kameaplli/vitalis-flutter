@@ -290,7 +290,7 @@ class _FeedTab extends ConsumerWidget {
   void _sharePost(BuildContext context, FeedEvent event) {
     final snap = event.contentSnapshot;
     final ct = event.contentType;
-    String shareText = '${event.actorName} on Qorhealth:\n';
+    String shareText = '${event.actorName} on QoreHealth:\n';
 
     if (ct == 'note') {
       shareText += snap['note']?.toString() ?? snap['text']?.toString() ?? '';
@@ -303,7 +303,7 @@ class _FeedTab extends ConsumerWidget {
     } else {
       shareText += snap['description']?.toString() ?? 'Check out this update!';
     }
-    shareText += '\n\nTracked with Qorhealth';
+    shareText += '\n\nTracked with QoreHealth';
 
     Share.share(shareText);
   }
@@ -431,10 +431,10 @@ class _EmptyFeedState extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Center(
+            child: const Center(
               child: Text(
                 '\uD83C\uDF1F',
-                style: const TextStyle(fontSize: 48),
+                style: TextStyle(fontSize: 48),
               ),
             ),
           ),
@@ -895,7 +895,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   final _textCtrl = TextEditingController();
   String _postType = 'note'; // note, share_nutrition, share_streak
   String _audience = 'buddies';
-  bool _posting = false;
+  final bool _posting = false;
 
   final apiClient = ApiClient();
 

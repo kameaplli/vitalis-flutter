@@ -1,4 +1,5 @@
 /// Phase 4: Product Scanner data models
+library;
 
 class ProductEntry {
   final String id;

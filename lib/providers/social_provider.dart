@@ -234,11 +234,13 @@ class FeedNotifier extends StateNotifier<FeedState> {
 
 final socialFeedNotifierProvider =
     StateNotifierProvider<FeedNotifier, FeedState>((ref) {
+  ref.keepAlive();
   return FeedNotifier(ApiConstants.socialFeed);
 });
 
 final recipeFeedNotifierProvider =
     StateNotifierProvider<FeedNotifier, FeedState>((ref) {
+  ref.keepAlive();
   return FeedNotifier(ApiConstants.socialFeedRecipes,
       contentTypeFilter: 'recipe');
 });
@@ -246,6 +248,7 @@ final recipeFeedNotifierProvider =
 /// Legacy compatibility — keep for providers that just need the list.
 final socialFeedProvider =
     Provider.family<AsyncValue<List<FeedEvent>>, String?>((ref, cursor) {
+  ref.keepAlive();
   final feedState = ref.watch(socialFeedNotifierProvider);
   if (feedState.isLoading) return const AsyncLoading();
   if (feedState.error != null && feedState.events.isEmpty) {
@@ -256,6 +259,7 @@ final socialFeedProvider =
 
 final recipeFeedProvider =
     Provider.family<AsyncValue<List<FeedEvent>>, String?>((ref, cursor) {
+  ref.keepAlive();
   final feedState = ref.watch(recipeFeedNotifierProvider);
   if (feedState.isLoading) return const AsyncLoading();
   if (feedState.error != null && feedState.events.isEmpty) {
@@ -294,6 +298,7 @@ void optimisticReaction({
 // ── Social Profile ──────────────────────────────────────────────────────────
 
 final socialProfileProvider = FutureProvider<SocialProfile>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.socialProfile);
     return SocialProfile.fromJson(res.data as Map<String, dynamic>);
@@ -304,6 +309,7 @@ final socialProfileProvider = FutureProvider<SocialProfile>((ref) async {
 
 final publicProfileProvider =
     FutureProvider.family<SocialProfile, String>((ref, userId) async {
+  ref.keepAlive();
   try {
     final res =
         await apiClient.dio.get(ApiConstants.socialProfileUser(userId));
@@ -316,6 +322,7 @@ final publicProfileProvider =
 // ── Connections ─────────────────────────────────────────────────────────────
 
 final connectionsProvider = FutureProvider<List<Connection>>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.socialConnections);
     return _extractList(res.data, 'connections')
@@ -327,6 +334,7 @@ final connectionsProvider = FutureProvider<List<Connection>>((ref) async {
 });
 
 final pendingRequestsProvider = FutureProvider<List<Connection>>((ref) async {
+  ref.keepAlive();
   try {
     final res =
         await apiClient.dio.get(ApiConstants.socialConnectionsPending);
@@ -342,6 +350,7 @@ final pendingRequestsProvider = FutureProvider<List<Connection>>((ref) async {
 // ── Unread Count ────────────────────────────────────────────────────────────
 
 final unreadCountProvider = FutureProvider<int>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.socialFeedUnreadCount);
     return (res.data['unread_count'] as num?)?.toInt() ?? 0;
@@ -353,6 +362,7 @@ final unreadCountProvider = FutureProvider<int>((ref) async {
 // ── Challenges ──────────────────────────────────────────────────────────────
 
 final challengesProvider = FutureProvider<List<Challenge>>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.challenges);
     return _extractList(res.data, 'challenges')
@@ -364,6 +374,7 @@ final challengesProvider = FutureProvider<List<Challenge>>((ref) async {
 });
 
 final myChallengesProvider = FutureProvider<List<Challenge>>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.challengesMine);
     return _extractList(res.data, 'challenges')
@@ -376,12 +387,14 @@ final myChallengesProvider = FutureProvider<List<Challenge>>((ref) async {
 
 final challengeDetailProvider =
     FutureProvider.family<Challenge, String>((ref, id) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
   return Challenge.fromJson(res.data as Map<String, dynamic>);
 });
 
 final challengeLeaderboardProvider =
     FutureProvider.family<List<ChallengeMember>, String>((ref, id) async {
+  ref.keepAlive();
   try {
     final res =
         await apiClient.dio.get(ApiConstants.challengeLeaderboard(id));
@@ -397,6 +410,7 @@ final challengeLeaderboardProvider =
 
 final socialNotificationsProvider =
     FutureProvider<List<SocialNotification>>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.socialNotifications);
     return _extractList(res.data, 'notifications')
@@ -409,6 +423,7 @@ final socialNotificationsProvider =
 });
 
 final notificationBadgeProvider = FutureProvider<int>((ref) async {
+  ref.keepAlive();
   try {
     final res =
         await apiClient.dio.get(ApiConstants.socialNotificationsUnread);
@@ -429,6 +444,7 @@ final notificationBadgeProvider = FutureProvider<int>((ref) async {
 // ── Dashboard Widget ────────────────────────────────────────────────────────
 
 final communityPulseProvider = FutureProvider<CommunityPulse>((ref) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(ApiConstants.socialCommunityPulse);
     return CommunityPulse.fromJson(res.data as Map<String, dynamic>);
@@ -441,6 +457,7 @@ final communityPulseProvider = FutureProvider<CommunityPulse>((ref) async {
 
 final userSearchProvider =
     FutureProvider.family<List<UserSearchResult>, String>((ref, query) async {
+  ref.keepAlive();
   if (query.trim().isEmpty) return [];
   try {
     final res = await apiClient.dio.get(
@@ -459,6 +476,7 @@ final userSearchProvider =
 
 final commentsProvider =
     FutureProvider.family<List<Comment>, String>((ref, feedEventId) async {
+  ref.keepAlive();
   try {
     final res = await apiClient.dio.get(
       ApiConstants.socialCommentsForEvent(feedEventId),
@@ -475,6 +493,7 @@ final commentsProvider =
 
 final shareCardDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, cardType) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.socialShareCard,
     queryParameters: {'card_type': cardType},

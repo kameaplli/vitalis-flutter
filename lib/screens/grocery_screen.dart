@@ -450,7 +450,7 @@ class _StatusBadge extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.12),
+            color: Colors.green.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -467,7 +467,7 @@ class _StatusBadge extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.red.withOpacity(0.1),
+            color: Colors.red.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -499,9 +499,9 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 12, color: color.withOpacity(0.8)),
+      Icon(icon, size: 12, color: color.withValues(alpha: 0.8)),
       const SizedBox(width: 3),
-      Text(label, style: TextStyle(fontSize: 11, color: color.withOpacity(0.8),
+      Text(label, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8),
           fontWeight: FontWeight.w500)),
     ],
   );
@@ -727,14 +727,14 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 8),
                     decoration: BoxDecoration(
-                      color: _catColor(cat).withOpacity(0.08),
+                      color: _catColor(cat).withValues(alpha: 0.08),
                     ),
                     child: Row(
                       children: [
                         Container(
                           width: 28, height: 28,
                           decoration: BoxDecoration(
-                            color: _catColor(cat).withOpacity(0.18),
+                            color: _catColor(cat).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(_catIcon(cat),
@@ -790,7 +790,7 @@ class _SummaryTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -870,7 +870,7 @@ class _ItemRow extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _catColor(c).withOpacity(0.12),
+                          color: _catColor(c).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -1600,9 +1600,9 @@ class _CaloriesBarChart extends StatelessWidget {
           },
         ),
         titlesData: FlTitlesData(
-          leftTitles:   AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:    AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:  AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -1621,7 +1621,7 @@ class _CaloriesBarChart extends StatelessWidget {
             ),
           ),
         ),
-        gridData:   FlGridData(show: false),
+        gridData:   const FlGridData(show: false),
         borderData: FlBorderData(show: false),
         barGroups: List.generate(cats.length, (i) {
           final cat = cats[i];

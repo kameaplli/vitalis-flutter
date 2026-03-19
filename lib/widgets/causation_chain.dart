@@ -108,7 +108,7 @@ class _CausationNode extends StatelessWidget {
                     color: nodeColor,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [BoxShadow(color: nodeColor.withOpacity(0.3), blurRadius: 4)],
+                    boxShadow: [BoxShadow(color: nodeColor.withValues(alpha: 0.3), blurRadius: 4)],
                   ),
                 ),
                 // Connecting line
@@ -161,7 +161,7 @@ class _CausationNode extends StatelessWidget {
                           children: event.tags.map((tag) => Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: nodeColor.withOpacity(0.1),
+                              color: nodeColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(tag, style: TextStyle(fontSize: 11, color: nodeColor, fontWeight: FontWeight.w600)),

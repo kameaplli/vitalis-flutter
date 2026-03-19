@@ -137,7 +137,9 @@ class EasiScore {
 
   double get total {
     double s = 0;
-    for (final sc in scores) s += sc.easiContribution(groupForRegion(sc.regionId));
+    for (final sc in scores) {
+      s += sc.easiContribution(groupForRegion(sc.regionId));
+    }
     return s;
   }
 

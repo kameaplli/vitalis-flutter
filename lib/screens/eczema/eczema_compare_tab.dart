@@ -34,7 +34,7 @@ class CompareMetricsTable extends StatelessWidget {
       Text('Metric Comparison', style: Theme.of(context).textTheme.titleSmall),
       const SizedBox(height: 6),
       // Header
-      Row(children: const [
+      const Row(children: [
         SizedBox(width: 120),
         Expanded(child: Center(child: Text('Visit A', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)))),
         Expanded(child: Center(child: Text('Visit B', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)))),

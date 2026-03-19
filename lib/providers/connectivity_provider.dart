@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Uses debounced failure detection: requires 2 consecutive failures before
 /// reporting offline, preventing false positives on app wake-up.
 final connectivityProvider = StateNotifierProvider<ConnectivityNotifier, bool>((ref) {
+  ref.keepAlive();
   return ConnectivityNotifier();
 });
 

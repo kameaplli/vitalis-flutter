@@ -4,7 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/nutrition_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import 'daily_intake.dart';
-import '../../widgets/qorhealth_icon.dart';
+import '../../widgets/qorehealth_icon.dart';
 
 // ─── Daily progress header ───────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ class DailyProgressHeader extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cs.primaryContainer.withOpacity(0.5), cs.surface],
+          colors: [cs.primaryContainer.withValues(alpha: 0.5), cs.surface],
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
@@ -58,7 +58,7 @@ class DailyProgressHeader extends ConsumerWidget {
                 child: CircularProgressIndicator(
                   value: calPct.clamp(0.0, 1.0),
                   strokeWidth: 6,
-                  backgroundColor: cs.outlineVariant.withOpacity(0.3),
+                  backgroundColor: cs.outlineVariant.withValues(alpha: 0.3),
                   color: calPct > 1.0 ? Colors.red : cs.primary,
                 ),
               ),
@@ -111,7 +111,7 @@ class MiniMacroBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct.clamp(0.0, 1.0),
               minHeight: 8,
-              backgroundColor: cs.outlineVariant.withOpacity(0.2),
+              backgroundColor: cs.outlineVariant.withValues(alpha: 0.2),
               color: pct > 1.0 ? Colors.red : color,
             ),
           ),
@@ -147,7 +147,7 @@ class EntryMethodCard extends StatelessWidget {
     return SizedBox(
       width: 72,
       child: Material(
-        color: cs.surfaceContainerHighest.withOpacity(0.5),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
@@ -157,7 +157,7 @@ class EntryMethodCard extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                QorhealthIcon(icon: icon, color: color),
+                QoreHealthIcon(icon: icon, color: color),
                 const SizedBox(height: 8),
                 Text(label, style: TextStyle(
                   fontSize: 11, fontWeight: FontWeight.w600,

@@ -65,9 +65,9 @@ class DarkModeNotifier extends StateNotifier<bool> {
 }
 
 final themeProvider = StateNotifierProvider<ThemeNotifier, AppSkin>(
-  (ref) => ThemeNotifier(),
+  (ref) { ref.keepAlive(); return ThemeNotifier(); },
 );
 
 final darkModeProvider = StateNotifierProvider<DarkModeNotifier, bool>(
-  (ref) => DarkModeNotifier(),
+  (ref) { ref.keepAlive(); return DarkModeNotifier(); },
 );
