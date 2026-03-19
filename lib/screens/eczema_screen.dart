@@ -18,7 +18,6 @@ import '../widgets/environment_card.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/days_slider.dart';
 import '../widgets/eczema_body_map.dart';
-import '../widgets/quick_log_sheet.dart';
 import '../widgets/help_tooltip.dart';
 
 // ── Extracted widgets ────────────────────────────────────────────────────────
@@ -26,7 +25,6 @@ import 'eczema/eczema_helpers.dart';
 import 'eczema/easi_panel.dart';
 import 'eczema/easi_breakdown_card.dart';
 import 'eczema/eczema_form_widgets.dart';
-import 'eczema/eczema_history_sheet.dart';
 import 'eczema/eczema_compare_tab.dart';
 import 'eczema/eczema_heatmap_tab.dart';
 import 'eczema/eczema_report_tab.dart';
@@ -46,7 +44,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
   late final TabController _tabs;
 
   // ── Period filters ───────────────────────────────────────────────────────
-  int _historyDays = 30;
+  final int _historyDays = 30;
   int _heatmapDays = 30;
   int _reportDays = 90;
 
@@ -258,149 +256,6 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     }
   }
 
-  void _editLog(EczemaLogSummary log) {
-    setState(() {
-      _editingId = log.id;
-      _date = DateTime.tryParse(log.logDate) ?? DateTime.now();
-      final parts = log.logTime.split(':');
-      _time = TimeOfDay(
-        hour: int.tryParse(parts[0]) ?? 0,
-        minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
-      );
-      _itchVas = log.itchSeverity ?? 0;
-      _sleepDisrupted = log.sleepDisrupted ?? false;
-      _notesCtrl.text = log.notes ?? '';
-      _regionScores..clear()..addAll(logToScores(log));
-      _drawnPatches..clear()..addAll(log.parsedPatches);
-      _activeZoneId = null;
-      _drawMode = false;
-    });
-    _tabs.animateTo(0); // Switch to Log tab
-  }
-
-  void _showQuickLog() {
-    // Gather frequent zones from recent logs
-    final person = ref.read(selectedPersonProvider);
-    final logsAsync = ref.read(eczemaProvider('${person}_$_historyDays'));
-    final logs = logsAsync.valueOrNull ?? [];
-    final zoneCounts = <String, int>{};
-    for (final log in logs) {
-      for (final zone in log.parsedAreas.keys) {
-        zoneCounts[zone] = (zoneCounts[zone] ?? 0) + 1;
-      }
-    }
-    final frequentZones = (zoneCounts.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-        .take(6)
-        .map((e) => e.key)
-        .toList();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => QuickLogSheet(
-        frequentZones: frequentZones,
-        recentFoods: const ['Dairy', 'Eggs', 'Nuts', 'Wheat', 'Soy', 'Citrus'],
-        onExpandToFull: () {
-          _tabs.animateTo(0);
-          _showFullFormSheet();
-        },
-        onSubmit: ({required severity, bodyZones, foodAssociations, notes}) async {
-          final p = ref.read(selectedPersonProvider);
-          final now = DateTime.now();
-          final data = {
-            'log_date': DateFormat('yyyy-MM-dd').format(now),
-            'log_time': DateFormat('HH:mm').format(now),
-            'itch_severity': severity.itchValue,
-            'dairy_consumed': foodAssociations?.contains('Dairy') ?? false,
-            'eggs_consumed': foodAssociations?.contains('Eggs') ?? false,
-            'nuts_consumed': foodAssociations?.contains('Nuts') ?? false,
-            'wheat_consumed': foodAssociations?.contains('Wheat') ?? false,
-            'soy_consumed': foodAssociations?.contains('Soy') ?? false,
-            'citrus_consumed': foodAssociations?.contains('Citrus') ?? false,
-            'family_member_id': p == 'self' ? null : p,
-          };
-          if (bodyZones != null && bodyZones.isNotEmpty) {
-            final zones = bodyZones.map((z) => {'area': z, 'level': severity.itchValue}).toList();
-            data['affected_areas'] = jsonEncode({'zones': zones, 'patches': []});
-          }
-          try {
-            await apiClient.dio.post(ApiConstants.eczema, data: data);
-            if (!mounted) return;
-            ref.invalidate(eczemaProvider('${p}_$_historyDays'));
-            ref.invalidate(eczemaHeatmapProvider('${p}_$_heatmapDays'));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Quick log saved!')),
-            );
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(friendlyErrorMessage(e, context: 'eczema'))),
-              );
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  void _showHistorySheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (_, scrollController) => HistorySheet(
-          scrollController: scrollController,
-          historyDays: _historyDays,
-          onDaysChanged: (d) => setState(() => _historyDays = d),
-          onEdit: (log) { Navigator.pop(ctx); _editLog(log); },
-          onDelete: (id) => _deleteLog(id),
-          onConfirmDelete: (c) => _confirmDelete(c),
-          onExportPdf: (logs) => _exportPdf(logs),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _deleteLog(String id) async {
-    try {
-      await apiClient.dio.delete('${ApiConstants.eczema}/$id');
-      final p = ref.read(selectedPersonProvider);
-      ref.invalidate(eczemaProvider('${p}_$_historyDays'));
-      ref.invalidate(eczemaHeatmapProvider('${p}_$_heatmapDays'));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entry deleted')),
-        );
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'eczema'))));
-    }
-  }
-
-  Future<bool> _confirmDelete(BuildContext ctx) async =>
-      await showDialog<bool>(
-        context: ctx,
-        builder: (c) => AlertDialog(
-          title: const Text('Delete entry?'),
-          content: const Text('This cannot be undone.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Delete')),
-          ],
-        ),
-      ) ??
-      false;
-
   void _onZoneTap(BodyRegion region) {
     setState(() => _activeZoneId = region.id);
     Future.delayed(const Duration(milliseconds: 350), () {
@@ -508,16 +363,6 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                 ),
               ),
             ),
-          IconButton(
-            icon: const Icon(Icons.bolt),
-            tooltip: 'Quick Log',
-            onPressed: _showQuickLog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'History',
-            onPressed: _showHistorySheet,
-          ),
         ],
         bottom: TabBar(
           controller: _tabs,

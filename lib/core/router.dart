@@ -26,6 +26,7 @@ import '../screens/social/social_profile_screen.dart';
 import '../screens/social/challenge_detail_screen.dart';
 import '../screens/social/social_notifications_screen.dart';
 import '../screens/health_intelligence_screen.dart';
+import '../screens/more_screen.dart';
 import '../screens/health/labs_dashboard_screen.dart';
 import '../screens/health/lab_upload_screen.dart';
 import '../screens/health/biomarker_detail_screen.dart';
@@ -112,6 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/nutrition',  builder: (_, __) => const NutritionScreen()),
           GoRoute(path: '/health',     builder: (_, __) => const HealthScreen()),
           GoRoute(path: '/grocery',    builder: (_, __) => const GroceryScreen()),
+          GoRoute(path: '/more',       builder: (_, __) => const MoreScreen()),
 
           // ── Health sub-screens (pushed from Health card grid) ───────────
           GoRoute(path: '/health/symptoms',    builder: (_, __) => const HealthSubScreen(category: 'symptoms')),
