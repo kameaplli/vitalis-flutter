@@ -92,7 +92,7 @@ dependencies:
 
   # Wearable / Health platform sync
   health: ^12.0.0
-  workmanager: ^0.5.2
+  workmanager: ^0.9.0
 
   # XML streaming parser (Apple Health export)
   xml: ^6.5.0
