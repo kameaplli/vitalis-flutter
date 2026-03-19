@@ -15,7 +15,6 @@ import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
 import '../providers/social_provider.dart';
-import 'qorehealth_icon.dart';
 import 'voice_meal_sheet.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
@@ -164,22 +163,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   }
 
   void _openFullScreenMenu(BuildContext context) {
-    final user = ref.read(authProvider).user;
-    final badgeCount = ref.read(notificationBadgeProvider).valueOrNull ?? 0;
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: true,
-        pageBuilder: (_, __, ___) => _FullScreenMenu(user: user, badgeCount: badgeCount),
-        transitionsBuilder: (_, anim, __, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 250),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-      ),
-    );
+    Scaffold.of(context).openEndDrawer();
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -212,7 +196,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       );
     }
 
+    final badgeCount = ref.watch(notificationBadgeProvider).valueOrNull ?? 0;
+
     return Scaffold(
+      endDrawer: _AppDrawer(user: user, badgeCount: badgeCount),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -507,11 +494,11 @@ class _GenieBowlPainter extends CustomPainter {
 
 // ── Full-screen menu ──────────────────────────────────────────────────────────
 
-class _FullScreenMenu extends StatelessWidget {
+class _AppDrawer extends StatelessWidget {
   final dynamic user;
   final int badgeCount;
 
-  const _FullScreenMenu({required this.user, required this.badgeCount});
+  const _AppDrawer({required this.user, required this.badgeCount});
 
   @override
   Widget build(BuildContext context) {
@@ -521,185 +508,171 @@ class _FullScreenMenu extends StatelessWidget {
         ? ApiConstants.resolveUrl(user!.avatarUrl)
         : null;
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
+    return Drawer(
+      child: SafeArea(
         child: Column(
           children: [
-            // ── Top bar with close ────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-              child: Row(
-                children: [
-                  Text('QoreHealth', style: tt.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: cs.primary,
-                  )),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, size: 26, color: cs.onSurfaceVariant),
-                  ),
-                ],
+            // ── Drawer header with user profile ───────────────────────────
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.3),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ── User profile card ─────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GestureDetector(
                 onTap: () {
                   Navigator.pop(context);
                   context.push('/profile');
                 },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: cs.primaryContainer,
-                        backgroundImage: avatarUrl != null
-                            ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
-                            : null,
-                        child: avatarUrl == null
-                            ? Text(
-                                (user?.name ?? 'V').substring(0, 1).toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.w800,
-                                  color: cs.onPrimaryContainer,
-                                ),
-                              )
-                            : null,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: cs.primaryContainer,
+                      backgroundImage: avatarUrl != null
+                          ? CachedNetworkImageProvider(avatarUrl) as ImageProvider
+                          : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              (user?.name ?? 'Q').substring(0, 1).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.w800,
+                                color: cs.onPrimaryContainer,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('QoreHealth', style: tt.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: cs.primary,
+                          )),
+                          const SizedBox(height: 4),
+                          Text(
+                            user?.name ?? 'User',
+                            style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'View profile',
+                            style: tt.bodySmall?.copyWith(color: cs.primary),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user?.name ?? 'User',
-                              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'View profile',
-                              style: tt.bodySmall?.copyWith(color: cs.primary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-                    ],
-                  ),
+                    ),
+                    Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                  ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
-
-            // ── Menu grid ─────────────────────────────────────────────────
+            // ── Navigation items ──────────────────────────────────────────
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.count(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.0,
-                  children: [
-                    _MenuTile(
-                      icon: Icons.people_outline,
-                      label: 'Community',
-                      color: const Color(0xFF0D7377),
-                      badgeCount: badgeCount,
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/social');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.insights,
-                      label: 'Insights',
-                      color: const Color(0xFFF59E0B),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/insights');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.shopping_cart_outlined,
-                      label: 'Grocery',
-                      color: const Color(0xFF059669),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/grocery');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.notifications_outlined,
-                      label: 'Alerts',
-                      color: const Color(0xFFEF4444),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/notifications');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.qr_code_scanner,
-                      label: 'Scanner',
-                      color: const Color(0xFF7C3AED),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/scanner');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.monitor_weight_outlined,
-                      label: 'Weight',
-                      color: const Color(0xFF2563EB),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/health/weight');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.healing_outlined,
-                      label: 'Eczema',
-                      color: const Color(0xFFDB2777),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/eczema');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.water_drop_outlined,
-                      label: 'Hydration',
-                      color: const Color(0xFF0EA5E9),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/hydration');
-                      },
-                    ),
-                    _MenuTile(
-                      icon: Icons.history,
-                      label: 'History',
-                      color: const Color(0xFF6B7280),
-                      onTap: () {
-                        Navigator.pop(context);
-                        context.push('/entries');
-                      },
-                    ),
-                  ],
-                ),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _DrawerItem(
+                    icon: Icons.people_outline,
+                    label: 'Community',
+                    badgeCount: badgeCount,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/social');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.insights,
+                    label: 'Insights',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/insights');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.shopping_cart_outlined,
+                    label: 'Grocery',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/grocery');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.notifications_outlined,
+                    label: 'Alerts',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/notifications');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.qr_code_scanner,
+                    label: 'Scanner',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/scanner');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.monitor_weight_outlined,
+                    label: 'Weight',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/health/weight');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.healing_outlined,
+                    label: 'Eczema',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/eczema');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.water_drop_outlined,
+                    label: 'Hydration',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/hydration');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.history,
+                    label: 'History',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/entries');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.account_balance_outlined,
+                    label: 'Finance',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/finance');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.science_outlined,
+                    label: 'Lab Results',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/labs');
+                    },
+                  ),
+                  _DrawerItem(
+                    icon: Icons.camera_alt_outlined,
+                    label: 'Skin Photos',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/skin-photos');
+                    },
+                  ),
+                ],
               ),
             ),
 
@@ -720,17 +693,15 @@ class _FullScreenMenu extends StatelessWidget {
   }
 }
 
-class _MenuTile extends StatelessWidget {
+class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color color;
   final int badgeCount;
   final VoidCallback onTap;
 
-  const _MenuTile({
+  const _DrawerItem({
     required this.icon,
     required this.label,
-    required this.color,
     this.badgeCount = 0,
     required this.onTap,
   });
@@ -738,28 +709,14 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Badge(
-              isLabelVisible: badgeCount > 0,
-              label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
-              child: QoreHealthIcon(icon: icon, color: color),
-            ),
-            const SizedBox(height: 10),
-            Text(label, style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-            )),
-          ],
-        ),
+    return ListTile(
+      leading: Badge(
+        isLabelVisible: badgeCount > 0,
+        label: Text('$badgeCount'),
+        child: Icon(icon, color: cs.onSurfaceVariant),
       ),
+      title: Text(label),
+      onTap: onTap,
     );
   }
 }
