@@ -259,6 +259,32 @@ class ApiConstants {
   static const String healthClinicalReport   = '/api/health-intelligence/clinical-report';
   static const String healthClinicalReportPdf = '/api/health-intelligence/clinical-report/pdf';
 
+  // Wearable Sync (Phase 1)
+  static const String syncIngest       = '/api/sync/ingest';
+  static const String syncStatus       = '/api/sync/status';
+  static const String syncAccounts     = '/api/sync/accounts';
+  static const String syncDailySummary = '/api/sync/daily-summary';
+  static const String syncDevices      = '/api/sync/devices';
+  static const String syncDataTypes    = '/api/sync/data-types';
+
+  // Data Import (Phase 2)
+  static const String importUpload     = '/api/sync/import/upload';
+  static const String importBatch      = '/api/sync/import/batch';
+  static const String importJobs       = '/api/sync/imports';
+  static String importJob(String id)   => '/api/sync/import/$id';
+  static String importComplete(String id) => '/api/sync/import/$id/complete';
+  static String importCancel(String id) => '/api/sync/import/$id/cancel';
+  static String importRollback(String id) => '/api/sync/import/$id/rollback';
+
+  // Health Timeline (Phase 4)
+  static const String syncTimeline = '/api/sync/timeline';
+
+  // Cloud Sync OAuth2 (Phase 3)
+  static const String syncConnect    = '/api/sync/accounts/connect';
+  static const String syncCallback   = '/api/sync/accounts/callback';
+  static String syncDisconnect(String id) => '/api/sync/accounts/$id';
+  static String syncResync(String id) => '/api/sync/accounts/$id/resync';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';
