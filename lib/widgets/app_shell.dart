@@ -258,137 +258,97 @@ class _BottomNavWithGenie extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
+    // Map selectedIndex to NavigationBar index (0=Home, 1=Nutrition, skip Genie, 2=Health, 3=More)
+    final navBarIndex = selectedIndex > 1 ? selectedIndex + 1 : selectedIndex;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        NavigationBar(
           height: 64,
-          child: Row(
-            children: [
-              // Left nav items: Home, Nutrition
-              _NavItem(Icons.home_outlined, Icons.home, 'Home', 0,
-                  selectedIndex, onDestinationSelected),
-              _NavItem(Icons.restaurant_outlined, Icons.restaurant, 'Nutrition', 1,
-                  selectedIndex, onDestinationSelected),
-
-              // Center genie button
-              Expanded(
-                child: GestureDetector(
-                  onTap: onGenieTap,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Transform.translate(
-                        offset: const Offset(0, -20),
-                        child: Container(
-                          width: 58,
-                          height: 58,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: cs.surface,
-                            border: Border.all(
-                              color: cs.outlineVariant.withValues(alpha: 0.5),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: CustomPaint(
-                            painter: _GenieBowlPainter(
-                              iconColor: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Transform.translate(
-                        offset: const Offset(0, -16),
-                        child: Text('Zenie',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Right nav items: Health, More
-              _NavItem(Icons.favorite_outline, Icons.favorite, 'Health', 2,
-                  selectedIndex, onDestinationSelected),
-              // More button (opens full-screen menu)
-              Expanded(
-                child: InkResponse(
-                  onTap: onMoreTap,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.grid_view_rounded, size: 22, color: cs.onSurfaceVariant),
-                      const SizedBox(height: 2),
-                      Text('More',
-                          style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant, letterSpacing: 0.2,
-                              fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final int index;
-  final int selectedIndex;
-  final ValueChanged<int> onTap;
-
-  const _NavItem(this.icon, this.activeIcon, this.label, this.index,
-      this.selectedIndex, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = index == selectedIndex;
-    final cs = Theme.of(context).colorScheme;
-    final color = isSelected ? cs.primary : cs.onSurfaceVariant;
-
-    return Expanded(
-      child: InkResponse(
-        onTap: () => onTap(index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(isSelected ? activeIcon : icon, size: 22, color: color),
-            const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(fontSize: 12, color: color, letterSpacing: 0.2,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+          selectedIndex: navBarIndex.clamp(0, 3),
+          onDestinationSelected: (i) {
+            if (i == 2) return; // Genie placeholder — handled by overlay
+            if (i == 4) { onMoreTap(); return; }
+            final mapped = i > 2 ? i - 1 : i;
+            onDestinationSelected(mapped);
+          },
+          destinations: [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined, color: cs.onSurfaceVariant),
+              selectedIcon: Icon(Icons.home, color: cs.primary),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.restaurant_outlined, color: cs.onSurfaceVariant),
+              selectedIcon: Icon(Icons.restaurant, color: cs.primary),
+              label: 'Nutrition',
+            ),
+            // Placeholder for center Genie button
+            const NavigationDestination(
+              icon: SizedBox(width: 24, height: 24),
+              label: '',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_outline, color: cs.onSurfaceVariant),
+              selectedIcon: Icon(Icons.favorite, color: cs.primary),
+              label: 'Health',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.grid_view_rounded, color: cs.onSurfaceVariant),
+              label: 'More',
+            ),
           ],
         ),
-      ),
+        // Center genie button overlay
+        Positioned(
+          top: -20,
+          child: GestureDetector(
+            onTap: onGenieTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.surface,
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CustomPaint(
+                    painter: _GenieBowlPainter(
+                      iconColor: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -4),
+                  child: Text('Zenie',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
