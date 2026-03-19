@@ -28,7 +28,7 @@ class SleepScreen extends ConsumerWidget {
         data: (entries) {
           if (entries.isEmpty) {
             return const Center(
-              child: Text('No sleep entries yet.\nTap + to log your sleep.'),
+              child: Text('Your sleep log is empty.\nTap + to get started tracking sleep.'),
             );
           }
           return ListView.builder(

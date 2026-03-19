@@ -28,7 +28,7 @@ class ExerciseScreen extends ConsumerWidget {
         data: (entries) {
           if (entries.isEmpty) {
             return const Center(
-              child: Text('No exercise entries yet.\nTap + to log your first workout.'),
+              child: Text('Your exercise log is empty.\nTap + to get started tracking workouts.'),
             );
           }
           return ListView.builder(

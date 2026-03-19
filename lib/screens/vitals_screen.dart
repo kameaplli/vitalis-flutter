@@ -28,7 +28,7 @@ class VitalsScreen extends ConsumerWidget {
         data: (entries) {
           if (entries.isEmpty) {
             return const Center(
-              child: Text('No vitals recorded yet.\nTap + to log blood pressure, heart rate, etc.'),
+              child: Text('Your vitals log is empty.\nTap + to get started recording vitals.'),
             );
           }
           return ListView.builder(
