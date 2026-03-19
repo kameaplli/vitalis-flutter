@@ -49,6 +49,7 @@ final hydrationGoalProvider =
 });
 
 final beveragePresetsProvider = FutureProvider<List<BeveragePreset>>((ref) async {
+  ref.keepAlive(); // static presets — keep in memory
   final res = await apiClient.dio.get(ApiConstants.beveragePresets);
   return (res.data['presets'] as List<dynamic>)
       .map((p) => BeveragePreset.fromJson(p))

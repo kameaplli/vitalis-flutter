@@ -52,7 +52,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(weightHistoryProvider);
+        ref.invalidate(weightHistoryProvider('${person}_$_days'));
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

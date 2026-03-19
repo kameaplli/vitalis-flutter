@@ -6,6 +6,7 @@ import '../models/weight_log.dart';
 
 // key = "person_days" e.g. "self_30" or "child_123_30"
 final weightHistoryProvider = FutureProvider.family<WeightHistory, String>((ref, key) async {
+  ref.keepAlive();
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(
     ApiConstants.weightHistory,
