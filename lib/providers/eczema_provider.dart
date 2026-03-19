@@ -7,6 +7,7 @@ import '../models/eczema_log.dart';
 /// Key format: "person_days"  e.g. "self_30"
 final eczemaProvider =
     FutureProvider.family<List<EczemaLogSummary>, String>((ref, key) async {
+  ref.keepAlive(); // keep cached between tab switches
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.eczemaHistory,
       queryParameters: {'person': person, 'days': days});
@@ -18,6 +19,7 @@ final eczemaProvider =
 /// Key format: "person_days"  e.g. "self_30"
 final eczemaHeatmapProvider =
     FutureProvider.family<EczemaHeatmapData, String>((ref, key) async {
+  ref.keepAlive();
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.eczemaHeatmap,
       queryParameters: {'person': person, 'days': days});
@@ -27,6 +29,7 @@ final eczemaHeatmapProvider =
 /// Key format: "person_days"
 final eczemaFoodCorrelationProvider =
     FutureProvider.family<FoodCorrelationData, String>((ref, key) async {
+  ref.keepAlive();
   final (person, days) = PK.personDays(key, 90);
   final res = await apiClient.dio.get(ApiConstants.eczemaFoodCorrelation,
       queryParameters: {'person': person, 'days': days});

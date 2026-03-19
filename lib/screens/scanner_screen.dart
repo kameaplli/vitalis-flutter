@@ -297,7 +297,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   Future<void> _pickLabelImage(ImageSource source) async {
     final picker = ImagePicker();
     final XFile? file = await picker.pickImage(
-        source: source, imageQuality: 90, maxWidth: 1600);
+        source: source, imageQuality: 70, maxWidth: 1200);
     if (file == null) return;
 
     setState(() {

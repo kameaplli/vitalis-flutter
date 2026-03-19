@@ -8,6 +8,7 @@ import '../models/food_item.dart';
 // ── Favorite Foods ──────────────────────────────────────────────────────────
 
 final favoriteFoodsProvider = FutureProvider<List<FoodItem>>((ref) async {
+  ref.keepAlive(); // keep favorites in memory
   final res = await apiClient.dio.get(ApiConstants.foodFavorites);
   return (res.data['favorites'] as List<dynamic>? ?? [])
       .map((f) => FoodItem.fromJson(f))
@@ -32,6 +33,7 @@ class RecentFrequentFoods {
 
 final recentFrequentProvider =
     FutureProvider.family<RecentFrequentFoods, String>((ref, person) async {
+  ref.keepAlive(); // keep recent/frequent foods cached
   final res = await apiClient.dio.get(
     ApiConstants.recentFrequent,
     queryParameters: {'person': person, 'limit': 10},
@@ -73,6 +75,7 @@ final yesterdayMealsProvider =
 });
 
 final foodDatabaseProvider = FutureProvider<List<FoodCategory>>((ref) async {
+  ref.keepAlive(); // food DB is large — keep in memory after first load
   // 1. Fresh cache (24h TTL)
   final cached = await AppCache.loadFoodDb();
   if (cached != null) {
@@ -95,6 +98,7 @@ final foodDatabaseProvider = FutureProvider<List<FoodCategory>>((ref) async {
 
 /// Recent meal combinations for quick re-logging.
 final recentMealsProvider = FutureProvider<List<RecentMeal>>((ref) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get(ApiConstants.frequentFoods);
   return (res.data['meals'] as List<dynamic>? ?? [])
       .map((m) => RecentMeal.fromJson(m))
@@ -129,6 +133,7 @@ final foodDetailProvider =
 /// Returns {meal_type: [RecentMeal]} for smart suggestions.
 final mealSuggestionsProvider =
     FutureProvider<Map<String, List<RecentMeal>>>((ref) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get(ApiConstants.frequentFoods);
   final suggestions = res.data['suggestions'] as Map<String, dynamic>? ?? {};
   final result = <String, List<RecentMeal>>{};
