@@ -139,5 +139,6 @@ class ProfileNotifier extends StateNotifier<AsyncValue<AppUser?>> {
 }
 
 final profileProvider = StateNotifierProvider<ProfileNotifier, AsyncValue<AppUser?>>((ref) {
+  ref.keepAlive();
   return ProfileNotifier(ref);
 });

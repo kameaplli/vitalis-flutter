@@ -267,6 +267,7 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
 
 final nutritionProvider =
     StateNotifierProvider<NutritionNotifier, NutritionState>((ref) {
+  ref.keepAlive();
   return NutritionNotifier();
 });
 

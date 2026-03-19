@@ -50,11 +50,17 @@ const _kPrefsKey = 'user_interests';
 
 /// Whether the user has completed the interests selection step.
 /// Initialized via provider override in main.dart.
-final interestsCompleteProvider = StateProvider<bool>((ref) => false);
+final interestsCompleteProvider = StateProvider<bool>((ref) {
+  ref.keepAlive();
+  return false;
+});
 
 /// The set of selected interest IDs.
 /// Initialized via provider override in main.dart.
-final userInterestsProvider = StateProvider<Set<String>>((ref) => {'nutrition'});
+final userInterestsProvider = StateProvider<Set<String>>((ref) {
+  ref.keepAlive();
+  return {'nutrition'};
+});
 
 /// Read interests from SharedPreferences. Returns null if not yet set.
 Future<Set<String>?> loadUserInterests() async {

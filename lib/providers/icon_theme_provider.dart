@@ -7,6 +7,7 @@ const _kIconThemeKey = 'icon_theme';
 /// Provider for the currently selected icon theme.
 /// Persisted in SharedPreferences so it survives app restarts.
 final iconThemeProvider = StateNotifierProvider<IconThemeNotifier, QoreHealthIcons>((ref) {
+  ref.keepAlive();
   final notifier = IconThemeNotifier();
   notifier._load(); // load saved theme on creation
   return notifier;
@@ -14,6 +15,7 @@ final iconThemeProvider = StateNotifierProvider<IconThemeNotifier, QoreHealthIco
 
 /// Provider for the current theme choice enum (for settings UI).
 final iconThemeChoiceProvider = StateNotifierProvider<IconThemeChoiceNotifier, IconThemeChoice>((ref) {
+  ref.keepAlive();
   return IconThemeChoiceNotifier(ref);
 });
 
