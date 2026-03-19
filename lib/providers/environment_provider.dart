@@ -6,6 +6,7 @@ import '../models/environment_data.dart';
 /// Fetch current environment conditions for a lat/lon (and store server-side).
 final currentEnvironmentProvider = FutureProvider.family<EnvironmentData?, ({double lat, double lon})>(
   (ref, params) async {
+    ref.keepAlive();
     try {
       final res = await apiClient.dio.get(
         ApiConstants.environmentCurrent,
@@ -21,6 +22,7 @@ final currentEnvironmentProvider = FutureProvider.family<EnvironmentData?, ({dou
 /// Environment-eczema correlation analysis.
 final environmentCorrelationProvider = FutureProvider.family<EnvironmentCorrelation?, ({int days, String person})>(
   (ref, params) async {
+    ref.keepAlive();
     try {
       final qp = <String, dynamic>{'days': params.days};
       if (params.person != 'self') {
@@ -40,6 +42,7 @@ final environmentCorrelationProvider = FutureProvider.family<EnvironmentCorrelat
 /// Today's flare risk score.
 final flareRiskProvider = FutureProvider.family<FlareRisk?, ({double lat, double lon})>(
   (ref, params) async {
+    ref.keepAlive();
     try {
       final res = await apiClient.dio.get(
         ApiConstants.environmentFlareRisk,
@@ -55,6 +58,7 @@ final flareRiskProvider = FutureProvider.family<FlareRisk?, ({double lat, double
 /// Environment history for the past N days.
 final environmentHistoryProvider = FutureProvider.family<List<EnvironmentData>, int>(
   (ref, days) async {
+    ref.keepAlive();
     try {
       final res = await apiClient.dio.get(
         ApiConstants.environmentHistory,

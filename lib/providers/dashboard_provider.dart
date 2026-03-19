@@ -130,6 +130,7 @@ class WelcomeData {
 /// Fetches welcome / mood insight data (no caching — always fresh).
 final welcomeProvider =
     FutureProvider.family<WelcomeData, String>((ref, person) async {
+  ref.keepAlive();
   try {
     final utcOffset = DateTime.now().timeZoneOffset.inMinutes;
     final res = await apiClient.dio.get(

@@ -59,6 +59,7 @@ class YesterdayMeal {
 
 final yesterdayMealsProvider =
     FutureProvider.family<List<YesterdayMeal>, String>((ref, person) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.yesterdayMeals,
     queryParameters: {'person': person},
@@ -109,6 +110,7 @@ final recentMealsProvider = FutureProvider<List<RecentMeal>>((ref) async {
 
 final foodDetailProvider =
     FutureProvider.family<FoodDetail, String>((ref, foodId) async {
+  ref.keepAlive();
   // 1. Fresh local cache (7-day TTL) — instant display
   final cached = await AppCache.loadFoodDetail(foodId);
   if (cached != null) {

@@ -11,6 +11,7 @@ class AchievementsData {
 }
 
 final achievementsProvider = FutureProvider<AchievementsData>((ref) async {
+  ref.keepAlive();
   final resp = await apiClient.dio.get(ApiConstants.achievements);
   final data = resp.data as Map<String, dynamic>;
   final badges = (data['badges'] as List)
