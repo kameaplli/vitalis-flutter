@@ -146,8 +146,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           // ── Health Intelligence ──────────────────────────────────────────
           GoRoute(path: '/health-intelligence', builder: (_, __) => const HealthIntelligenceScreen()),
 
-          // Disabled for v1 — finance module reserved for separate app
-          // GoRoute(path: '/finance',       builder: (_, __) => const FinanceScreen()),
+          // ── Short-URL redirects for deep linking ──────────────────────────
+          GoRoute(path: '/labs', redirect: (_, __) => '/health/labs'),
+          GoRoute(path: '/eczema', redirect: (_, __) => '/health/eczema'),
+          GoRoute(path: '/weight', redirect: (_, __) => '/health/weight'),
         ],
       ),
     ],
