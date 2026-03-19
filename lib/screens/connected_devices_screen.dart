@@ -7,6 +7,7 @@ import '../models/sync_models.dart';
 import '../providers/selected_person_provider.dart';
 import '../providers/sync_provider.dart';
 import '../services/health_sync_service.dart';
+import '../services/oauth_service.dart';
 
 class ConnectedDevicesScreen extends ConsumerStatefulWidget {
   const ConnectedDevicesScreen({super.key});
@@ -171,6 +172,7 @@ class _ConnectedDevicesScreenState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final accountsAsync = ref.watch(connectedAccountsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -196,39 +198,10 @@ class _ConnectedDevicesScreenState
           // ── CLOUD SERVICES section ──────────────────────────────────
           const _SectionHeader(label: 'CLOUD SERVICES'),
           const SizedBox(height: 8),
-          const _ComingSoonCard(
-            icon: Icons.watch_rounded,
-            name: 'Fitbit',
-            description: 'Sync activity, sleep & heart rate',
-            color: Color(0xFF00B0B9),
-          ),
-          const SizedBox(height: 8),
-          const _ComingSoonCard(
-            icon: Icons.watch_rounded,
-            name: 'Garmin',
-            description: 'Sync workouts, body battery & stress',
-            color: Color(0xFF007CC3),
-          ),
-          const SizedBox(height: 8),
-          const _ComingSoonCard(
-            icon: Icons.scale_rounded,
-            name: 'Withings',
-            description: 'Sync weight, blood pressure & sleep',
-            color: Color(0xFF00C9B7),
-          ),
-          const SizedBox(height: 8),
-          const _ComingSoonCard(
-            icon: Icons.ring_volume_rounded,
-            name: 'Oura',
-            description: 'Sync readiness, sleep & activity',
-            color: Color(0xFFD4AF37),
-          ),
-          const SizedBox(height: 8),
-          const _ComingSoonCard(
-            icon: Icons.fitness_center_rounded,
-            name: 'WHOOP',
-            description: 'Sync strain, recovery & sleep',
-            color: Color(0xFF1A1A1A),
+          ...accountsAsync.when(
+            data: (accounts) => _buildCloudServiceCards(accounts),
+            loading: () => _buildCloudServiceCards([]),
+            error: (_, __) => _buildCloudServiceCards([]),
           ),
           const SizedBox(height: 24),
 
@@ -323,6 +296,226 @@ class _ConnectedDevicesScreenState
         ],
       ),
     );
+  }
+
+  /// Build cloud service cards, matching connected accounts to platform definitions.
+  List<Widget> _buildCloudServiceCards(List<ConnectedAccount> accounts) {
+    final platforms = [
+      _CloudPlatform(
+        sourceId: 'fitbit',
+        name: 'Fitbit',
+        description: 'Sync activity, sleep & heart rate',
+        icon: Icons.watch_rounded,
+        color: const Color(0xFF00B0B9),
+      ),
+      _CloudPlatform(
+        sourceId: 'garmin',
+        name: 'Garmin',
+        description: 'Sync workouts, body battery & stress',
+        icon: Icons.watch_rounded,
+        color: const Color(0xFF007CC3),
+      ),
+      _CloudPlatform(
+        sourceId: 'withings',
+        name: 'Withings',
+        description: 'Sync weight, blood pressure & sleep',
+        icon: Icons.scale_rounded,
+        color: const Color(0xFF00C9B7),
+      ),
+      _CloudPlatform(
+        sourceId: 'oura',
+        name: 'Oura',
+        description: 'Sync readiness, sleep & activity',
+        icon: Icons.ring_volume_rounded,
+        color: const Color(0xFFD4AF37),
+      ),
+      _CloudPlatform(
+        sourceId: 'whoop',
+        name: 'WHOOP',
+        description: 'Sync strain, recovery & sleep',
+        icon: Icons.fitness_center_rounded,
+        color: const Color(0xFF1A1A1A),
+      ),
+    ];
+
+    final widgets = <Widget>[];
+    for (final platform in platforms) {
+      final account = accounts
+          .where((a) => a.sourceId == platform.sourceId)
+          .firstOrNull;
+
+      widgets.add(_CloudServiceCard(
+        platform: platform,
+        account: account,
+        onConnect: () => _connectCloudService(platform.sourceId),
+        onDisconnect: account != null
+            ? () => _disconnectCloudService(account.id, platform.name)
+            : null,
+        onResync: account != null && account.status == 'active'
+            ? () => _resyncCloudService(account.id, platform.name)
+            : null,
+      ));
+      widgets.add(const SizedBox(height: 8));
+    }
+    return widgets;
+  }
+
+  Future<void> _connectCloudService(String sourceId) async {
+    // Show loading
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Connecting to $sourceId...')),
+    );
+
+    final result = await OAuthService.startConnect(sourceId);
+    if (result == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to connect to $sourceId. '
+            'The service may not be configured yet.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final authUrl = result['auth_url'] as String?;
+    if (authUrl == null || authUrl.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No authorization URL received')),
+      );
+      return;
+    }
+
+    // Launch browser for OAuth
+    final launched = await OAuthService.launchAuthUrl(authUrl);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open authorization page')),
+      );
+      return;
+    }
+
+    // Show dialog for manual code entry (fallback for when deep link doesn't work)
+    if (!mounted) return;
+    final code = await showDialog<String>(
+      context: context,
+      builder: (_) => _OAuthCodeDialog(sourceId: sourceId),
+    );
+
+    if (code != null && code.isNotEmpty) {
+      final state = result['state'] as String? ?? '';
+      // Extract code_verifier from state if present (Fitbit PKCE)
+      String? codeVerifier;
+      String actualState = state;
+      if (state.contains('|')) {
+        final parts = state.split('|');
+        actualState = parts[0];
+        codeVerifier = parts.length > 1 ? parts[1] : null;
+      }
+
+      final callbackResult = await OAuthService.completeCallback(
+        sourceId: sourceId,
+        code: code,
+        state: actualState,
+        codeVerifier: codeVerifier,
+      );
+
+      if (!mounted) return;
+      if (callbackResult != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully connected to $sourceId!')),
+        );
+        ref.invalidate(connectedAccountsProvider);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to complete $sourceId connection')),
+        );
+      }
+    }
+  }
+
+  Future<void> _disconnectCloudService(String accountId, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Disconnect $name?'),
+        content: Text(
+          'This will stop syncing data from $name. '
+          'Previously synced data will be preserved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Disconnect'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await OAuthService.disconnectPlatform(accountId);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$name disconnected')),
+      );
+      ref.invalidate(connectedAccountsProvider);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to disconnect $name')),
+      );
+    }
+  }
+
+  Future<void> _resyncCloudService(String accountId, String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Resync $name?'),
+        content: Text(
+          'This will re-download all data from $name for the last 30 days. '
+          'This may take a few minutes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Resync'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await OAuthService.forceResync(accountId);
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$name resync initiated')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to resync $name')),
+      );
+    }
   }
 }
 
@@ -550,7 +743,233 @@ class _DataTypeBadge extends StatelessWidget {
   }
 }
 
-// ── Coming soon card ────────────────────────────────────────────────────────
+// ── Cloud platform definition ───────────────────────────────────────────────
+
+class _CloudPlatform {
+  final String sourceId;
+  final String name;
+  final String description;
+  final IconData icon;
+  final Color color;
+
+  const _CloudPlatform({
+    required this.sourceId,
+    required this.name,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
+}
+
+// ── Cloud service card (replaces Coming Soon) ───────────────────────────────
+
+class _CloudServiceCard extends StatelessWidget {
+  final _CloudPlatform platform;
+  final ConnectedAccount? account;
+  final VoidCallback onConnect;
+  final VoidCallback? onDisconnect;
+  final VoidCallback? onResync;
+
+  const _CloudServiceCard({
+    required this.platform,
+    this.account,
+    required this.onConnect,
+    this.onDisconnect,
+    this.onResync,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isConnected = account != null && account!.status == 'active';
+    final isError = account != null && (account!.status == 'error' || account!.status == 'expired');
+    final isPending = account != null && account!.status == 'pending';
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: cs.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: platform.color.withValues(alpha: isConnected ? 0.12 : 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    platform.icon,
+                    color: platform.color.withValues(alpha: isConnected ? 1.0 : 0.5),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        platform.name,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        platform.description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isConnected)
+                  _StatusBadge(
+                    label: 'Connected',
+                    color: const Color(0xFF22C55E),
+                  )
+                else if (isError)
+                  _StatusBadge(
+                    label: account!.status == 'expired' ? 'Expired' : 'Error',
+                    color: cs.error,
+                  )
+                else if (isPending)
+                  _StatusBadge(
+                    label: 'Pending',
+                    color: const Color(0xFFF59E0B),
+                  )
+                else
+                  FilledButton.tonal(
+                    onPressed: onConnect,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Connect', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
+            ),
+
+            // Show error message
+            if (isError && account?.errorMessage != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: cs.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, size: 14, color: cs.error),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        account!.errorMessage!,
+                        style: TextStyle(fontSize: 11, color: cs.error),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Action buttons for connected/error accounts
+            if (isConnected || isError) ...[
+              const SizedBox(height: 10),
+              Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.3)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (onResync != null)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onResync,
+                        icon: const Icon(Icons.sync, size: 14),
+                        label: const Text('Resync', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          minimumSize: Size.zero,
+                        ),
+                      ),
+                    ),
+                  if (onResync != null && isError)
+                    const SizedBox(width: 8),
+                  if (isError)
+                    Expanded(
+                      child: FilledButton.tonal(
+                        onPressed: onConnect,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          minimumSize: Size.zero,
+                        ),
+                        child: const Text('Reconnect', style: TextStyle(fontSize: 12)),
+                      ),
+                    ),
+                  if (onResync != null || isError)
+                    const SizedBox(width: 8),
+                  if (onDisconnect != null)
+                    TextButton(
+                      onPressed: onDisconnect,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                        foregroundColor: cs.error,
+                      ),
+                      child: const Text('Disconnect', style: TextStyle(fontSize: 12)),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Status badge ─────────────────────────────────────────────────────────────
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _StatusBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Coming soon card (kept for Import section) ──────────────────────────────
 
 class _ComingSoonCard extends StatelessWidget {
   final IconData icon;
@@ -668,6 +1087,72 @@ class _SyncStatChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── OAuth code entry dialog ─────────────────────────────────────────────────
+
+class _OAuthCodeDialog extends StatefulWidget {
+  final String sourceId;
+  const _OAuthCodeDialog({required this.sourceId});
+
+  @override
+  State<_OAuthCodeDialog> createState() => _OAuthCodeDialogState();
+}
+
+class _OAuthCodeDialogState extends State<_OAuthCodeDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Complete ${widget.sourceId} Connection'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'After authorizing in the browser, paste the authorization code '
+            'from the callback URL here:',
+            style: TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              hintText: 'Authorization code',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            autofocus: true,
+            onSubmitted: (v) {
+              if (v.isNotEmpty) Navigator.pop(context, v);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final code = _controller.text.trim();
+            if (code.isNotEmpty) {
+              Navigator.pop(context, code);
+            }
+          },
+          child: const Text('Submit'),
+        ),
+      ],
     );
   }
 }

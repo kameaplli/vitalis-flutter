@@ -12,6 +12,7 @@ dependencies:
 
   # HTTP & networking
   dio: ^5.4.3
+  url_launcher: ^6.2.5
 
   # Navigation
   go_router: ^13.2.0
@@ -92,6 +93,11 @@ dependencies:
   # Wearable / Health platform sync
   health: ^12.0.0
   workmanager: ^0.5.2
+
+  # XML streaming parser (Apple Health export)
+  xml: ^6.5.0
+  # CSV parser (MFP / Cronometer imports)
+  csv: ^6.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

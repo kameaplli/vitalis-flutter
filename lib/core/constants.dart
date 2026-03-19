@@ -267,6 +267,21 @@ class ApiConstants {
   static const String syncDevices      = '/api/sync/devices';
   static const String syncDataTypes    = '/api/sync/data-types';
 
+  // Data Import (Phase 2)
+  static const String importUpload     = '/api/sync/import/upload';
+  static const String importBatch      = '/api/sync/import/batch';
+  static const String importJobs       = '/api/sync/imports';
+  static String importJob(String id)   => '/api/sync/import/$id';
+  static String importComplete(String id) => '/api/sync/import/$id/complete';
+  static String importCancel(String id) => '/api/sync/import/$id/cancel';
+  static String importRollback(String id) => '/api/sync/import/$id/rollback';
+
+  // Cloud Sync OAuth2 (Phase 3)
+  static const String syncConnect    = '/api/sync/accounts/connect';
+  static const String syncCallback   = '/api/sync/accounts/callback';
+  static String syncDisconnect(String id) => '/api/sync/accounts/$id';
+  static String syncResync(String id) => '/api/sync/accounts/$id/resync';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';

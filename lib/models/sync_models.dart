@@ -176,6 +176,68 @@ class HealthDataTypeInfo {
       );
 }
 
+class ImportProgress {
+  final String jobId;
+  final String source;
+  final String status; // pending, running, completed, failed, cancelled, rolled_back
+  final int totalRecords;
+  final int processedCount;
+  final int insertedCount;
+  final int skippedCount;
+  final int errorCount;
+  final String? lastError;
+  final String? batchId;
+  final String? startedAt;
+  final String? completedAt;
+  final String? createdAt;
+  final List<String>? dataTypes;
+
+  ImportProgress({
+    required this.jobId,
+    required this.source,
+    required this.status,
+    this.totalRecords = 0,
+    this.processedCount = 0,
+    this.insertedCount = 0,
+    this.skippedCount = 0,
+    this.errorCount = 0,
+    this.lastError,
+    this.batchId,
+    this.startedAt,
+    this.completedAt,
+    this.createdAt,
+    this.dataTypes,
+  });
+
+  factory ImportProgress.fromJson(Map<String, dynamic> json) => ImportProgress(
+        jobId: json['id'] as String? ?? '',
+        source: json['source'] as String? ?? '',
+        status: json['status'] as String? ?? 'pending',
+        totalRecords: (json['total_records'] as int?) ?? 0,
+        processedCount: (json['processed_count'] as int?) ?? 0,
+        insertedCount: (json['inserted_count'] as int?) ?? 0,
+        skippedCount: (json['skipped_count'] as int?) ?? 0,
+        errorCount: (json['error_count'] as int?) ?? 0,
+        lastError: json['last_error'] as String?,
+        batchId: json['batch_id'] as String?,
+        startedAt: json['started_at'] as String?,
+        completedAt: json['completed_at'] as String?,
+        createdAt: json['created_at'] as String?,
+        dataTypes: (json['data_types'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList(),
+      );
+
+  double get progressPercent =>
+      totalRecords > 0 ? processedCount / totalRecords : 0;
+
+  bool get isActive => status == 'pending' || status == 'running';
+  bool get isCompleted => status == 'completed';
+  bool get isFailed => status == 'failed';
+  bool get isCancelled => status == 'cancelled';
+  bool get isRolledBack => status == 'rolled_back';
+}
+
 class UserDeviceInfo {
   final String id;
   final String sourceId;

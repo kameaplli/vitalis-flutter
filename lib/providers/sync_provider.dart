@@ -61,3 +61,19 @@ final syncTriggerProvider =
     FutureProvider.family<SyncResult, String>((ref, person) async {
   return await HealthSyncService.syncFromPlatform(person: person);
 });
+
+/// List of import jobs for the current user.
+final importJobsProvider =
+    FutureProvider<List<ImportProgress>>((ref) async {
+  final resp = await apiClient.dio.get(ApiConstants.importJobs);
+  return (resp.data['imports'] as List)
+      .map((j) => ImportProgress.fromJson(j as Map<String, dynamic>))
+      .toList();
+});
+
+/// Single import job status/progress.
+final importJobProvider =
+    FutureProvider.family<ImportProgress, String>((ref, jobId) async {
+  final resp = await apiClient.dio.get(ApiConstants.importJob(jobId));
+  return ImportProgress.fromJson(resp.data as Map<String, dynamic>);
+});
