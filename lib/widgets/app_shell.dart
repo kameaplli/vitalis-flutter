@@ -45,6 +45,7 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _locked = false;
   bool _checkingBio = false;
   bool _wentToBackground = false;
@@ -163,7 +164,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   }
 
   void _openFullScreenMenu(BuildContext context) {
-    Scaffold.of(context).openEndDrawer();
+    _scaffoldKey.currentState?.openEndDrawer();
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -199,6 +200,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final badgeCount = ref.watch(notificationBadgeProvider).valueOrNull ?? 0;
 
     return Scaffold(
+      key: _scaffoldKey,
       endDrawer: _AppDrawer(user: user, badgeCount: badgeCount),
       body: SafeArea(
         bottom: false,
