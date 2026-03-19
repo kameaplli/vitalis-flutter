@@ -276,6 +276,9 @@ class ApiConstants {
   static String importCancel(String id) => '/api/sync/import/$id/cancel';
   static String importRollback(String id) => '/api/sync/import/$id/rollback';
 
+  // Health Timeline (Phase 4)
+  static const String syncTimeline = '/api/sync/timeline';
+
   // Cloud Sync OAuth2 (Phase 3)
   static const String syncConnect    = '/api/sync/accounts/connect';
   static const String syncCallback   = '/api/sync/accounts/callback';

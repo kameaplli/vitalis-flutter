@@ -238,6 +238,84 @@ class ImportProgress {
   bool get isRolledBack => status == 'rolled_back';
 }
 
+class TimelineObservation {
+  final String id;
+  final String dataType;
+  final String displayName;
+  final String? category;
+  final String? effectiveStart;
+  final String? effectiveEnd;
+  final double? valueNumeric;
+  final String? valueText;
+  final String? valueJson;
+  final String? unit;
+  final String? sourceId;
+  final String? sourceName;
+  final String? deviceName;
+  final bool isManual;
+
+  TimelineObservation({
+    required this.id,
+    required this.dataType,
+    required this.displayName,
+    this.category,
+    this.effectiveStart,
+    this.effectiveEnd,
+    this.valueNumeric,
+    this.valueText,
+    this.valueJson,
+    this.unit,
+    this.sourceId,
+    this.sourceName,
+    this.deviceName,
+    this.isManual = false,
+  });
+
+  factory TimelineObservation.fromJson(Map<String, dynamic> json) =>
+      TimelineObservation(
+        id: json['id'] as String? ?? '',
+        dataType: json['data_type'] as String? ?? '',
+        displayName: json['display_name'] as String? ?? '',
+        category: json['category'] as String?,
+        effectiveStart: json['effective_start'] as String?,
+        effectiveEnd: json['effective_end'] as String?,
+        valueNumeric: (json['value_numeric'] as num?)?.toDouble(),
+        valueText: json['value_text'] as String?,
+        valueJson: json['value_json'] as String?,
+        unit: json['unit'] as String?,
+        sourceId: json['source_id'] as String?,
+        sourceName: json['source_name'] as String?,
+        deviceName: json['device_name'] as String?,
+        isManual: json['is_manual'] as bool? ?? false,
+      );
+
+  DateTime? get startTime =>
+      effectiveStart != null ? DateTime.tryParse(effectiveStart!) : null;
+}
+
+class TimelineResponse {
+  final List<TimelineObservation> observations;
+  final int total;
+  final bool hasMore;
+
+  TimelineResponse({
+    required this.observations,
+    required this.total,
+    required this.hasMore,
+  });
+
+  factory TimelineResponse.fromJson(Map<String, dynamic> json) =>
+      TimelineResponse(
+        observations: (json['observations'] as List<dynamic>?)
+                ?.map((o) =>
+                    TimelineObservation.fromJson(o as Map<String, dynamic>))
+                .toList() ??
+            [],
+        total: (json['total'] as int?) ?? 0,
+        hasMore: json['has_more'] as bool? ?? false,
+      );
+}
+
 class UserDeviceInfo {
   final String id;
   final String sourceId;

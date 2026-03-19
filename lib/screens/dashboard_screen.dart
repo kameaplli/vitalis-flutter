@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/nutrition_utils.dart';
+import '../services/health_sync_service.dart';
 import '../models/dashboard_data.dart';
 import '../models/grocery_models.dart';
 import '../providers/auth_provider.dart';
@@ -21,6 +22,7 @@ import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
 import '../widgets/qorehealth_icon.dart';
+import '../widgets/wearable_summary_card.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -54,6 +56,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ref.read(welcomeOverlayProvider.notifier).state = false;
       }
     });
+    // Fire-and-forget: trigger wearable sync on app open if auto-sync is on
+    _maybeAutoSync();
+  }
+
+  /// Non-blocking auto-sync from platform health store on dashboard load.
+  Future<void> _maybeAutoSync() async {
+    try {
+      if (!HealthSyncService.isAvailable) return;
+      final prefs = await SharedPreferences.getInstance();
+      final autoSync = prefs.getBool('health_sync_auto') ?? false;
+      final connected = prefs.getBool('health_sync_connected') ?? false;
+      if (!autoSync || !connected) return;
+      final person = ref.read(selectedPersonProvider);
+      // Fire and forget — don't await
+      HealthSyncService.syncFromPlatform(person: person);
+    } catch (_) {
+      // Silently ignore — auto-sync is best-effort
+    }
   }
 
   @override
@@ -451,6 +471,9 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         SliverToBoxAdapter(
           child: _HydrationQuickLog(person: person, hydrationAsync: hydrationAsync),
         ),
+
+        // ── Wearable health snapshot ──────────────────────────────────────
+        const SliverToBoxAdapter(child: WearableSummaryCard()),
 
         // ── Show more / Show less toggle ──────────────────────────────────
         SliverToBoxAdapter(

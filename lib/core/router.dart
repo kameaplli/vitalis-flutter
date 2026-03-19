@@ -28,6 +28,7 @@ import '../screens/social/social_notifications_screen.dart';
 import '../screens/health_intelligence_screen.dart';
 import '../screens/connected_devices_screen.dart';
 import '../screens/import_screen.dart';
+import '../screens/health_timeline_screen.dart';
 import '../screens/more_screen.dart';
 import '../screens/health/labs_dashboard_screen.dart';
 import '../screens/health/lab_upload_screen.dart';
@@ -157,6 +158,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // ── Data Import ──────────────────────────────────────────────────────
           GoRoute(path: '/import-data', builder: (_, __) => const ImportScreen()),
+
+          // ── Health Timeline (Phase 4) ────────────────────────────────────
+          GoRoute(path: '/health-timeline', builder: (_, __) => const HealthTimelineScreen()),
 
           // ── Short-URL redirects for deep linking ──────────────────────────
           GoRoute(path: '/labs', redirect: (_, __) => '/health/labs'),

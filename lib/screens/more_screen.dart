@@ -196,6 +196,12 @@ class MoreScreen extends ConsumerWidget {
         color: const Color(0xFF0EA5E9),
         onTap: () => context.push('/connected-devices'),
       ),
+      _MoreItem(
+        icon: Icons.timeline_rounded,
+        label: 'Timeline',
+        color: const Color(0xFF7C3AED),
+        onTap: () => context.push('/health-timeline'),
+      ),
     ];
   }
 }

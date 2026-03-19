@@ -71,6 +71,23 @@ final importJobsProvider =
       .toList();
 });
 
+/// Timeline feed of health observations (paginated).
+final timelineProvider = FutureProvider.family<TimelineResponse,
+    ({String person, int days, int offset, int limit, String category})>(
+    (ref, args) async {
+  final resp = await apiClient.dio.get(
+    ApiConstants.syncTimeline,
+    queryParameters: {
+      'person': args.person,
+      'days': args.days,
+      'offset': args.offset,
+      'limit': args.limit,
+      'category': args.category,
+    },
+  );
+  return TimelineResponse.fromJson(resp.data as Map<String, dynamic>);
+});
+
 /// Single import job status/progress.
 final importJobProvider =
     FutureProvider.family<ImportProgress, String>((ref, jobId) async {

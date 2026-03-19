@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/router.dart';
 import '../providers/interests_provider.dart';
 import '../providers/voice_locale_provider.dart';
+import '../services/health_sync_service.dart';
 import '../services/notification_service.dart';
 
 const _kOnboardingCompleteKey = 'onboarding_complete';
@@ -31,6 +32,7 @@ const _pageGradients = <List<Color>>[
   [Color(0xFFBF360C), Color(0xFFFF6D00), Color(0xFFFF9E40)], // Triggers
   [Color(0xFF880E4F), Color(0xFFD81B60), Color(0xFFFF6090)], // Location
   [Color(0xFF4A148C), Color(0xFF7B1FA2), Color(0xFFCE93D8)], // Reminders
+  [Color(0xFF004D40), Color(0xFF00897B), Color(0xFF4DB6AC)], // Connect devices
   [Color(0xFFBF360C), Color(0xFFFF6D00), Color(0xFFFFAB40)], // Voice locale
   [Color(0xFF880E4F), Color(0xFFE91E63), Color(0xFFFF6090)], // Ready
 ];
@@ -48,7 +50,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   // Whether eczema interest is selected — determines which pages to show
   late final bool _showEczema;
-  int get _totalPages => _showEczema ? 7 : 5; // +1 for voice locale page
+  int get _totalPages => _showEczema ? 8 : 6; // +1 for voice locale, +1 for devices page
 
   // Swipe-up dismiss state
   double _dismissDy = 0;
@@ -194,13 +196,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   // ── Gradient sets for dynamic pages ──────────────────────────────────────
   List<List<Color>> get _activeGradients {
     if (_showEczema) return _pageGradients;
-    // Without eczema pages: Welcome, Location, Reminders, Voice, Ready
+    // Without eczema pages: Welcome, Location, Reminders, Devices, Voice, Ready
     return [
       _pageGradients[0], // Welcome
       _pageGradients[3], // Location
       _pageGradients[4], // Reminders
-      _pageGradients[5], // Voice locale
-      _pageGradients[6], // Ready
+      _pageGradients[5], // Connect devices
+      _pageGradients[6], // Voice locale
+      _pageGradients[7], // Ready
     ];
   }
 
@@ -324,6 +327,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                             onHydrationChanged: (v) => setState(() => _hydrationReminders = v),
                                             onMealsChanged: (v) => setState(() => _mealReminders = v),
                                           ),
+                                          const _ConnectDevicesPage(),
                                           const _VoiceLocalePage(),
                                           _ReadyPage(orbCtrl: _orbCtrl),
                                         ],
@@ -1054,6 +1058,270 @@ class _MealTimeRow extends StatelessWidget {
 }
 
 // ── PAGE: Voice Language ──────────────────────────────────────────────────────
+// ── PAGE: Connect Devices ────────────────────────────────────────────────────
+class _ConnectDevicesPage extends StatefulWidget {
+  const _ConnectDevicesPage();
+
+  @override
+  State<_ConnectDevicesPage> createState() => _ConnectDevicesPageState();
+}
+
+class _ConnectDevicesPageState extends State<_ConnectDevicesPage> {
+  bool _connecting = false;
+  bool _connected = false;
+  bool _denied = false;
+
+  Future<void> _connectHealth() async {
+    if (_connecting || _connected) return;
+
+    if (!HealthSyncService.isAvailable) {
+      if (mounted) {
+        setState(() => _denied = true);
+      }
+      return;
+    }
+
+    setState(() {
+      _connecting = true;
+      _denied = false;
+    });
+
+    try {
+      final granted = await HealthSyncService.requestPermissions();
+      if (!mounted) return;
+      if (granted) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('health_sync_connected', true);
+        await prefs.setBool('health_sync_auto', true);
+        if (mounted) {
+          setState(() {
+            _connected = true;
+            _connecting = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _denied = true;
+            _connecting = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() => _connecting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSupported = HealthSyncService.isAvailable;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          const Icon(Icons.watch_rounded, size: 48, color: Colors.white),
+          const SizedBox(height: 16),
+          const Text(
+            'Connect Your Devices',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sync data from your wearables and health apps '
+            'for a complete health picture.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.8),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Connect button or status
+          Center(
+            child: _connected
+                ? _GlassCard(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                          child: const Icon(Icons.check_rounded,
+                              size: 32, color: Colors.white),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Health data connected!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Your data will sync automatically.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      // Illustration
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                        child: Icon(
+                          isSupported
+                              ? Icons.watch_rounded
+                              : Icons.phone_android_rounded,
+                          size: 48,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      if (isSupported) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              onTap: _connecting ? null : _connectHealth,
+                              borderRadius: BorderRadius.circular(14),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: _connecting
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        )
+                                      : Text(
+                                          HealthSyncService.isAvailable
+                                              ? 'Connect Health Data'
+                                              : 'Connect',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF00695C),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_denied) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Permission denied. You can enable it later in Settings.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.6),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ] else ...[
+                        Text(
+                          'Health sync is available on iOS and Android devices.\n'
+                          'You can connect devices later from Settings.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.7),
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+
+                      const SizedBox(height: 20),
+                      // Features list
+                      const _GlassCard(
+                        padding: EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            _DeviceFeatureRow(
+                              icon: Icons.favorite_rounded,
+                              text: 'Heart rate & HRV',
+                            ),
+                            SizedBox(height: 10),
+                            _DeviceFeatureRow(
+                              icon: Icons.directions_walk_rounded,
+                              text: 'Steps & distance',
+                            ),
+                            SizedBox(height: 10),
+                            _DeviceFeatureRow(
+                              icon: Icons.bedtime_rounded,
+                              text: 'Sleep tracking',
+                            ),
+                            SizedBox(height: 10),
+                            _DeviceFeatureRow(
+                              icon: Icons.fitness_center_rounded,
+                              text: 'Workouts & calories',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeviceFeatureRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _DeviceFeatureRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 18),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.8),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _VoiceLocalePage extends ConsumerWidget {
   const _VoiceLocalePage();
 
