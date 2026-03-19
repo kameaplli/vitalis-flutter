@@ -303,36 +303,47 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
 
         // ── Manual entry + Recipe creator ──
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              OutlinedButton.icon(
-                onPressed: _showManualEntry,
-                icon: const Icon(Icons.edit_note, size: 18),
-                label: const Text('Enter manually'),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: _showManualEntry,
+                  icon: const Icon(Icons.edit_note, size: 20),
+                  label: const Text('Enter manually'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final result = await showModalBottomSheet<FoodItem>(
-                    context: context,
-                    isScrollControlled: true,
-                    useSafeArea: true,
-                    builder: (_) => const RecipeCreatorSheet(),
-                  );
-                  if (result != null && mounted) {
-                    widget.onFoodPicked?.call(result);
-                    if (widget.onFoodPicked != null) {
-                      Navigator.pop(context);
-                    } else {
-                      ref.read(nutritionProvider.notifier).addFood(result);
-                      Navigator.pop(context);
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () async {
+                    final result = await showModalBottomSheet<FoodItem>(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      builder: (_) => const RecipeCreatorSheet(),
+                    );
+                    if (result != null && mounted) {
+                      widget.onFoodPicked?.call(result);
+                      if (widget.onFoodPicked != null) {
+                        Navigator.pop(context);
+                      } else {
+                        ref.read(nutritionProvider.notifier).addFood(result);
+                        Navigator.pop(context);
+                      }
                     }
-                  }
-                },
-                icon: const Icon(Icons.restaurant_menu, size: 18),
-                label: const Text('Create recipe'),
+                  },
+                  icon: const Icon(Icons.restaurant_menu, size: 20),
+                  label: const Text('Create recipe'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
             ],
           ),

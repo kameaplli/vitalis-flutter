@@ -87,6 +87,7 @@ dependencies:
   firebase_messaging: ^16.1.2
 
   path_provider: any
+  quick_actions: ^1.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
