@@ -16,6 +16,7 @@ final favoriteFoodsProvider = FutureProvider<List<FoodItem>>((ref) async {
 });
 
 final favoriteIdsProvider = Provider<Set<String>>((ref) {
+  ref.keepAlive();
   final favs = ref.watch(favoriteFoodsProvider);
   return favs.maybeWhen(
     data: (list) => list.map((f) => f.id).toSet(),

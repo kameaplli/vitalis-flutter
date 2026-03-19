@@ -18,6 +18,7 @@ final groceryReceiptsProvider =
 // Single receipt detail — used for polling after upload
 final groceryReceiptDetailProvider =
     FutureProvider.family<GroceryReceipt, String>((ref, id) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get('${ApiConstants.groceryReceipts}/$id');
   return GroceryReceipt.fromJson(res.data as Map<String, dynamic>);
 });
@@ -49,6 +50,7 @@ final groceryNutritionProvider =
 // Category drill-down — keyed by "category_period"
 final groceryCategoryItemsProvider =
     FutureProvider.family<GroceryCategoryItems, String>((ref, key) async {
+  ref.keepAlive();
   final (category, period) = PK.firstSecond(key);
   final res = await apiClient.dio.get(
     ApiConstants.groceryCategoryItems,

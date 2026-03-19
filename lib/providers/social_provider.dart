@@ -234,11 +234,13 @@ class FeedNotifier extends StateNotifier<FeedState> {
 
 final socialFeedNotifierProvider =
     StateNotifierProvider<FeedNotifier, FeedState>((ref) {
+  ref.keepAlive();
   return FeedNotifier(ApiConstants.socialFeed);
 });
 
 final recipeFeedNotifierProvider =
     StateNotifierProvider<FeedNotifier, FeedState>((ref) {
+  ref.keepAlive();
   return FeedNotifier(ApiConstants.socialFeedRecipes,
       contentTypeFilter: 'recipe');
 });
@@ -246,6 +248,7 @@ final recipeFeedNotifierProvider =
 /// Legacy compatibility — keep for providers that just need the list.
 final socialFeedProvider =
     Provider.family<AsyncValue<List<FeedEvent>>, String?>((ref, cursor) {
+  ref.keepAlive();
   final feedState = ref.watch(socialFeedNotifierProvider);
   if (feedState.isLoading) return const AsyncLoading();
   if (feedState.error != null && feedState.events.isEmpty) {
@@ -256,6 +259,7 @@ final socialFeedProvider =
 
 final recipeFeedProvider =
     Provider.family<AsyncValue<List<FeedEvent>>, String?>((ref, cursor) {
+  ref.keepAlive();
   final feedState = ref.watch(recipeFeedNotifierProvider);
   if (feedState.isLoading) return const AsyncLoading();
   if (feedState.error != null && feedState.events.isEmpty) {
@@ -489,6 +493,7 @@ final commentsProvider =
 
 final shareCardDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, cardType) async {
+  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.socialShareCard,
     queryParameters: {'card_type': cardType},
