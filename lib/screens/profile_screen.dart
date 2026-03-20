@@ -13,6 +13,7 @@ import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
 import '../providers/achievements_provider.dart';
 import '../providers/theme_provider.dart';
+import '../widgets/dashboard_customize_sheet.dart';
 import '../providers/icon_theme_provider.dart';
 import '../providers/voice_locale_provider.dart';
 import '../core/icon_theme.dart';
@@ -275,6 +276,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: const Text('Meals, hydration, supplements, eczema alerts'),
               trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
               onTap: () => GoRouter.of(context).push('/notifications'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard_customize_outlined),
+              title: const Text('Customize Dashboard'),
+              subtitle: const Text('Choose which cards to show and their order'),
+              trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+              onTap: () => DashboardCustomizeSheet.show(context),
             ),
             _VoiceLocaleSetting(),
             _DarkModeToggle(),

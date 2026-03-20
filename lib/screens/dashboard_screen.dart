@@ -23,6 +23,8 @@ import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
 import '../widgets/qorehealth_icon.dart';
 import '../widgets/wearable_summary_card.dart';
+import '../widgets/dashboard_customize_sheet.dart';
+import '../providers/dashboard_card_config_provider.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -372,121 +374,31 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
       ? "Today's"
       : "${DateFormat('MMM d').format(widget.selectedDate)} –";
 
-  static const _prefKey = 'dashboard_expanded';
-  bool _showAllCards = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPreference();
-  }
-
-  Future<void> _loadPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getBool(_prefKey) ?? false;
-    if (mounted && saved != _showAllCards) {
-      setState(() => _showAllCards = saved);
-    }
-  }
-
-  Future<void> _toggleShowAll() async {
-    final newValue = !_showAllCards;
-    setState(() => _showAllCards = newValue);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefKey, newValue);
-  }
-
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
     final person = widget.person;
     final groceryAsync = ref.watch(grocerySpendingProvider('${person}_month'));
     final hydrationAsync = ref.watch(todayHydrationProvider(person));
+    final cardConfig = ref.watch(dashboardCardConfigProvider);
+    final visibleCards = cardConfig.visibleCards;
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        // ── PRIMARY CARDS (always visible) ────────────────────────────────
+        // ── Render cards in user-configured order ─────────────────────────
+        for (final cardType in visibleCards)
+          _buildCardSliver(cardType, data, person, groceryAsync, hydrationAsync),
 
-        // ── Quick actions bar ─────────────────────────────────────────────
-        SliverToBoxAdapter(child: _QuickActionsBar(person: person)),
-
-        // ── Today's summary grid (2×2) ────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sectionTitle(context, "$_dayLabel Summary"),
-                const SizedBox(height: 6),
-                Row(children: [
-                  Expanded(child: _StatCard(
-                    label: 'Calories', icon: Icons.local_fire_department,
-                    color: Colors.orange,
-                    todayValue: data.todayCalories.toStringAsFixed(0), todayUnit: 'kcal',
-                    weekAvg: '${data.weekAvgCalories.toStringAsFixed(0)} kcal',
-                    prevAvg: data.prevWeekAvgCalories.toStringAsFixed(0),
-                    up: data.weekAvgCalories >= data.prevWeekAvgCalories,
-                  )),
-                  const SizedBox(width: 10),
-                  Expanded(child: _StatCard(
-                    label: 'Weight', icon: Icons.monitor_weight_outlined,
-                    color: Colors.purple,
-                    todayValue: data.currentWeight != null
-                        ? data.currentWeight!.toStringAsFixed(1) : '—',
-                    todayUnit: data.currentWeight != null ? 'kg' : '',
-                    weekAvg: data.weightChange != null
-                        ? '${data.weightChange! >= 0 ? '+' : ''}${data.weightChange!.toStringAsFixed(1)} kg'
-                        : 'No prev entry',
-                    prevAvg: data.previousWeight != null
-                        ? '${data.previousWeight!.toStringAsFixed(1)} kg' : '—',
-                    up: (data.weightChange ?? 0) <= 0,
-                    showTrend: data.weightChange != null,
-                  )),
-                ]),
-                const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(child: _StatCard(
-                    label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
-                    color: Colors.green,
-                    todayValue: '${data.mealsCount}', todayUnit: 'meals',
-                    weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
-                    prevAvg: '${data.prevWeekAvgMeals.toStringAsFixed(1)}/day',
-                    up: data.weekAvgMeals >= data.prevWeekAvgMeals,
-                  )),
-                  const SizedBox(width: 10),
-                  Expanded(child: _HydrationStatCard(
-                    hydrationAsync: hydrationAsync,
-                    weekAvg: data.weekAvgWater,
-                    prevAvg: data.prevWeekAvgWater,
-                  )),
-                ]),
-              ],
-            ),
-          ),
-        ),
-
-        // ── Hydration quick-log ───────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: _HydrationQuickLog(person: person, hydrationAsync: hydrationAsync),
-        ),
-
-        // ── Wearable health snapshot ──────────────────────────────────────
-        const SliverToBoxAdapter(child: WearableSummaryCard()),
-
-        // ── Show more / Show less toggle ──────────────────────────────────
+        // ── Customize button ─────────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Center(
               child: TextButton.icon(
-                onPressed: _toggleShowAll,
-                icon: Icon(
-                  _showAllCards ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
-                ),
-                label: Text(_showAllCards ? 'Show less' : 'Show more'),
+                onPressed: () => DashboardCustomizeSheet.show(context),
+                icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
+                label: const Text('Customize Dashboard'),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
                   textStyle: const TextStyle(
@@ -499,44 +411,115 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           ),
         ),
 
-        // ── SECONDARY CARDS (collapsible) ─────────────────────────────────
-        if (_showAllCards) ...[
-          // ── Macros card ───────────────────────────────────────────────────
-          SliverToBoxAdapter(child: _MacrosCard(data: data, dayLabel: _dayLabel)),
-
-          // ── Meal distribution ─────────────────────────────────────────────
-          SliverToBoxAdapter(child: _MealDistributionCard(distribution: data.mealDistribution)),
-
-          // ── Health score ──────────────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: GestureDetector(
-              onTap: () => context.push('/health-intelligence'),
-              child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
-            ),
-          ),
-
-          // ── Flare risk snapshot ─────────────────────────────────────────
-          SliverToBoxAdapter(child: _FlareRiskSnapshot()),
-
-          // ── Top calorie foods ─────────────────────────────────────────────
-          if (data.topCalorieFoods.isNotEmpty)
-            SliverToBoxAdapter(child: _TopFoodsCard(foods: data.topCalorieFoods)),
-
-          // ── Personalized insights ─────────────────────────────────────────
-          SliverToBoxAdapter(child: _InsightsCard(insights: data.insights)),
-
-          // ── Grocery snapshot ──────────────────────────────────────────────
-          SliverToBoxAdapter(child: _GrocerySnapshot(groceryAsync: groceryAsync)),
-
-          // ── Finance snapshot ─────────────────────────────────────────────
-          // Disabled for v1 — finance module reserved for separate app
-          // const SliverToBoxAdapter(child: _FinanceSnapshot()),
-        ],
-
         const SliverToBoxAdapter(child: MedicalDisclaimer()),
-        // Extra bottom padding to keep content above the bottom nav bar
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
       ],
+    );
+  }
+
+  /// Build the correct sliver widget for a given card type.
+  SliverToBoxAdapter _buildCardSliver(
+    DashboardCardType type,
+    DashboardData data,
+    String person,
+    AsyncValue<GrocerySpending> groceryAsync,
+    AsyncValue<double> hydrationAsync,
+  ) {
+    return SliverToBoxAdapter(
+      child: _buildCard(type, data, person, groceryAsync, hydrationAsync),
+    );
+  }
+
+  Widget _buildCard(
+    DashboardCardType type,
+    DashboardData data,
+    String person,
+    AsyncValue<GrocerySpending> groceryAsync,
+    AsyncValue<double> hydrationAsync,
+  ) {
+    final child = switch (type) {
+      DashboardCardType.quickActions => _QuickActionsBar(person: person),
+      DashboardCardType.summaryGrid => _buildSummaryGrid(data, hydrationAsync),
+      DashboardCardType.hydrationQuickLog =>
+        _HydrationQuickLog(person: person, hydrationAsync: hydrationAsync),
+      DashboardCardType.wearableSummary => const WearableSummaryCard(),
+      DashboardCardType.macros => _MacrosCard(data: data, dayLabel: _dayLabel),
+      DashboardCardType.mealDistribution =>
+        _MealDistributionCard(distribution: data.mealDistribution),
+      DashboardCardType.healthScore => GestureDetector(
+          onTap: () => GoRouter.of(context).push('/health-intelligence'),
+          child: _HealthScoreCard(score: data.healthScore, prev: data.prevHealthScore),
+        ),
+      DashboardCardType.flareRisk => _FlareRiskSnapshot(),
+      DashboardCardType.topFoods => data.topCalorieFoods.isNotEmpty
+          ? _TopFoodsCard(foods: data.topCalorieFoods)
+          : const SizedBox.shrink(),
+      DashboardCardType.insights => _InsightsCard(insights: data.insights),
+      DashboardCardType.grocerySnapshot => _GrocerySnapshot(groceryAsync: groceryAsync),
+    };
+
+    // Long-press any card to open customize sheet
+    return GestureDetector(
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        DashboardCustomizeSheet.show(context);
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildSummaryGrid(DashboardData data, AsyncValue<double> hydrationAsync) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(context, "$_dayLabel Summary"),
+          const SizedBox(height: 6),
+          Row(children: [
+            Expanded(child: _StatCard(
+              label: 'Calories', icon: Icons.local_fire_department,
+              color: Colors.orange,
+              todayValue: data.todayCalories.toStringAsFixed(0), todayUnit: 'kcal',
+              weekAvg: '${data.weekAvgCalories.toStringAsFixed(0)} kcal',
+              prevAvg: data.prevWeekAvgCalories.toStringAsFixed(0),
+              up: data.weekAvgCalories >= data.prevWeekAvgCalories,
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: _StatCard(
+              label: 'Weight', icon: Icons.monitor_weight_outlined,
+              color: Colors.purple,
+              todayValue: data.currentWeight != null
+                  ? data.currentWeight!.toStringAsFixed(1) : '—',
+              todayUnit: data.currentWeight != null ? 'kg' : '',
+              weekAvg: data.weightChange != null
+                  ? '${data.weightChange! >= 0 ? '+' : ''}${data.weightChange!.toStringAsFixed(1)} kg'
+                  : 'No prev entry',
+              prevAvg: data.previousWeight != null
+                  ? '${data.previousWeight!.toStringAsFixed(1)} kg' : '—',
+              up: (data.weightChange ?? 0) <= 0,
+              showTrend: data.weightChange != null,
+            )),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: _StatCard(
+              label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
+              color: Colors.green,
+              todayValue: '${data.mealsCount}', todayUnit: 'meals',
+              weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
+              prevAvg: '${data.prevWeekAvgMeals.toStringAsFixed(1)}/day',
+              up: data.weekAvgMeals >= data.prevWeekAvgMeals,
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: _HydrationStatCard(
+              hydrationAsync: hydrationAsync,
+              weekAvg: data.weekAvgWater,
+              prevAvg: data.prevWeekAvgWater,
+            )),
+          ]),
+        ],
+      ),
     );
   }
 
