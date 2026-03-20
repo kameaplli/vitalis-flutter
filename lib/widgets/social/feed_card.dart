@@ -176,13 +176,6 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
     return null;
   }
 
-  /// Returns the emoji for the user's current reaction, or null.
-  String? get _userReactionEmoji {
-    final type = _userReactionType;
-    if (type == null) return null;
-    return FeedCard._reactionEmojis[type];
-  }
-
   int get _totalReactions {
     int t = 0;
     for (final r in event.reactions) {
@@ -358,147 +351,56 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                       ),
                     ),
 
-                  // ── Engagement stats (LinkedIn style) ──
-                  if (total > 0 || event.commentCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                      child: Row(
-                        children: [
-                          if (total > 0) ...[
-                            // Stacked emoji pills
-                            SizedBox(
-                              width: _topEmojis.length * 14.0 + 8,
-                              height: 20,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  for (var i = 0; i < _topEmojis.length; i++)
-                                    Positioned(
-                                      left: i * 13.0,
-                                      child: Container(
-                                        key: ValueKey(_topEmojis[i]),
-                                        width: 20, height: 20,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: cs.surface,
-                                          border: Border.all(color: cs.surface, width: 1.5),
-                                        ),
-                                        child: Center(
-                                          child: Text(_topEmojis[i],
-                                              style: const TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$total',
-                              style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500,
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                              ),
-                            ),
-                          ],
-                          const Spacer(),
-                          if (event.commentCount > 0)
-                            GestureDetector(
-                              onTap: widget.onComment,
-                              child: Text(
-                                'View ${event.commentCount} ${event.commentCount == 1 ? 'comment' : 'comments'}',
-                                style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w500,
-                                  color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-
                   // ── Divider ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                     child: Divider(
                       height: 1, thickness: 0.5,
                       color: cs.outlineVariant.withValues(alpha: 0.15),
                     ),
                   ),
 
-                  // ── Action bar ──
+                  // ── Action bar: Reactions + Comment + Share on ONE line ──
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
                     child: Row(
                       children: [
-                        // Like
-                        Expanded(
-                          child: GestureDetector(
-                            onLongPress: _showReactionPicker,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: _handleLikeTap,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                        // Like button (tap = love, long press = picker)
+                        // Shows only an icon — NO emoji here (emojis are in the count section)
+                        GestureDetector(
+                          onLongPress: _showReactionPicker,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: _handleLikeTap,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                              child: SizedBox(
+                                width: 28, height: 28,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  clipBehavior: Clip.none,
                                   children: [
-                                    SizedBox(
-                                      width: 28, height: 28,
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          // Burst particles
-                                          AnimatedBuilder(
-                                            animation: _burstCtrl,
-                                            builder: (_, __) {
-                                              if (_burstCtrl.value <= 0) {
-                                                return const SizedBox.shrink();
-                                              }
-                                              return CustomPaint(
-                                                size: const Size(28, 28),
-                                                painter: _BurstPainter(
-                                                  progress: _burstCtrl.value,
-                                                  color: const Color(0xFFE53935),
-                                                ),
-                                              );
-                                            },
+                                    AnimatedBuilder(
+                                      animation: _burstCtrl,
+                                      builder: (_, __) {
+                                        if (_burstCtrl.value <= 0) return const SizedBox.shrink();
+                                        return CustomPaint(
+                                          size: const Size(28, 28),
+                                          painter: _BurstPainter(
+                                            progress: _burstCtrl.value,
+                                            color: const Color(0xFFE53935),
                                           ),
-                                          // Reaction icon — shows user's emoji if reacted, heart outline if not
-                                          ScaleTransition(
-                                            scale: _likeScale,
-                                            child: liked && _userReactionEmoji != null
-                                                ? Text(
-                                                    _userReactionEmoji!,
-                                                    style: const TextStyle(fontSize: 18),
-                                                  )
-                                                : Icon(
-                                                    liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                                    size: 20,
-                                                    color: liked
-                                                        ? const Color(0xFFE53935)
-                                                        : cs.onSurfaceVariant.withValues(alpha: 0.6),
-                                                  ),
-                                          ),
-                                        ],
-                                      ),
+                                        );
+                                      },
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      liked
-                                          ? (_userReactionType == 'love'
-                                              ? 'Liked'
-                                              : _userReactionType != null
-                                                  ? '${_userReactionType![0].toUpperCase()}${_userReactionType!.substring(1)}'
-                                                  : 'Like')
-                                          : 'Like',
-                                      style: TextStyle(
-                                        fontSize: 13,
+                                    ScaleTransition(
+                                      scale: _likeScale,
+                                      child: Icon(
+                                        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                        size: 20,
                                         color: liked
                                             ? const Color(0xFFE53935)
                                             : cs.onSurfaceVariant.withValues(alpha: 0.6),
-                                        fontWeight: liked ? FontWeight.w600 : FontWeight.w400,
                                       ),
                                     ),
                                   ],
@@ -507,25 +409,74 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-                        // Comment
-                        _ActionButton(
-                          icon: Icons.chat_bubble_outline_rounded,
-                          label: 'Comment',
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+
+                        // Reaction summary: each unique emoji once + total count
+                        // e.g. 10 love, 2 fire, 6 support → ❤️🔥💪 18
+                        if (total > 0)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final emoji in _topEmojis)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 1),
+                                    child: Text(emoji, style: const TextStyle(fontSize: 14)),
+                                  ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$total',
+                                  style: TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600,
+                                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        const Spacer(),
+
+                        // Comment with count
+                        InkWell(
+                          borderRadius: BorderRadius.circular(8),
                           onTap: () {
                             HapticFeedback.lightImpact();
                             widget.onComment?.call();
                           },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.chat_bubble_outline_rounded, size: 18,
+                                    color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                                const SizedBox(width: 5),
+                                Text(
+                                  event.commentCount > 0 ? '${event.commentCount}' : 'Comment',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
+
                         // Share
-                        _ActionButton(
-                          icon: Icons.share_outlined,
-                          label: 'Share',
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(8),
                           onTap: () {
                             HapticFeedback.lightImpact();
                             widget.onShare?.call();
                           },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                            child: Icon(Icons.share_outlined, size: 18,
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                          ),
                         ),
                       ],
                     ),
@@ -748,42 +699,6 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Simple action button (Comment, Share)
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon, required this.label,
-    required this.color, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 6),
-              Text(label, style: TextStyle(
-                fontSize: 13, color: color, fontWeight: FontWeight.w400,
-              )),
-            ],
-          ),
-        ),
       ),
     );
   }

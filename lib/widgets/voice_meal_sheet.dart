@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -67,18 +68,21 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         // continuous listening — just restart the listener.
         if (_state == _VoiceState.listening && !_isRestarting) {
           if (e.errorMsg == 'error_speech_timeout' ||
-              e.errorMsg == 'error_no_match') {
+              e.errorMsg == 'error_no_match' ||
+              e.errorMsg == 'error_busy' ||
+              e.errorMsg == 'error_audio') {
+            // All transient errors — just restart
             _restartListening();
             return;
           }
-          // Real error — process what we have
+          // Real error — but if we have transcript, try to process it
           final fullText = _fullTranscript;
           if (fullText.isNotEmpty) {
             _processTranscript(fullText);
           } else {
             setState(() {
               _state = _VoiceState.error;
-              _errorMsg = 'Speech recognition error: ${e.errorMsg}';
+              _errorMsg = 'Speech recognition error: ${e.errorMsg}\n\nTry the "Type instead" option below.';
             });
           }
         }
@@ -139,7 +143,26 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             // A segment is finalized — add it to accumulated transcript
             final words = result.recognizedWords.trim();
             if (words.isNotEmpty) {
-              _segments.add(words);
+              // Deduplicate: if new segment starts with end of previous segment,
+              // remove the overlap to prevent repeated words across restarts
+              if (_segments.isNotEmpty) {
+                final prev = _segments.last.split(' ');
+                final curr = words.split(' ');
+                // Check for overlap of up to 4 words
+                int overlap = 0;
+                for (int len = 1; len <= 4 && len <= prev.length && len <= curr.length; len++) {
+                  final prevTail = prev.sublist(prev.length - len).join(' ').toLowerCase();
+                  final currHead = curr.sublist(0, len).join(' ').toLowerCase();
+                  if (prevTail == currHead) overlap = len;
+                }
+                if (overlap > 0) {
+                  _segments.add(curr.sublist(overlap).join(' '));
+                } else {
+                  _segments.add(words);
+                }
+              } else {
+                _segments.add(words);
+              }
             }
             _currentPartial = '';
           } else {
@@ -148,8 +171,8 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           }
         });
       },
-      listenFor: const Duration(seconds: 60),
-      pauseFor: const Duration(seconds: 5),
+      listenFor: const Duration(seconds: 120),
+      pauseFor: const Duration(seconds: 15),
       localeId: effectiveLocale,
       listenOptions: stt.SpeechListenOptions(
         cancelOnError: false,
@@ -165,7 +188,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     _isRestarting = true;
 
     // Small delay before restarting to let the engine reset
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted || _state != _VoiceState.listening) {
         _isRestarting = false;
         return;
@@ -201,11 +224,20 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           'current_time': timeStr,
           'context': _context.isNotEmpty ? _context : null,
         },
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
       );
 
       final data = res.data as Map<String, dynamic>;
       if (data['success'] == true) {
         final meals = (data['meals'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+        if (meals.isEmpty || meals.every((m) => ((m['items'] as List?) ?? []).isEmpty)) {
+          setState(() {
+            _state = _VoiceState.error;
+            _errorMsg = 'No food items found in your description. Try again with specific food names.';
+          });
+          return;
+        }
 
         // Add to conversation context for potential corrections
         _context.add({'role': 'user', 'text': transcript});
@@ -224,7 +256,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     } catch (e) {
       setState(() {
         _state = _VoiceState.error;
-        _errorMsg = 'Connection error: $e';
+        _errorMsg = 'Connection error. Please check your internet and try again.';
       });
     }
   }
@@ -501,7 +533,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
   Widget _buildListeningState(ColorScheme cs, TextTheme tt) {
     final transcript = _fullTranscript;
-    final segmentCount = _segments.length;
 
     return Column(children: [
       const SizedBox(height: 20),
@@ -526,18 +557,18 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         ),
       ),
       const SizedBox(height: 16),
-      Text('Listening continuously...', style: tt.titleMedium?.copyWith(
+      Text('Listening...', style: tt.titleMedium?.copyWith(
         fontWeight: FontWeight.bold, color: Colors.red,
       )),
       const SizedBox(height: 4),
       Text(
-        'Keep speaking — list all your foods',
+        'Describe your full meal — tap Done when finished',
         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
       ),
-      if (segmentCount > 0) ...[
+      if (transcript.isNotEmpty) ...[
         const SizedBox(height: 4),
         Text(
-          '$segmentCount segment${segmentCount == 1 ? '' : 's'} captured',
+          '${transcript.split(' ').length} words captured',
           style: tt.bodySmall?.copyWith(
             color: cs.primary, fontWeight: FontWeight.w600,
           ),
@@ -652,34 +683,93 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Transcript
+        // Transcript + match quality summary
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(children: [
-            Icon(Icons.record_voice_over, size: 16, color: cs.onSurfaceVariant),
-            const SizedBox(width: 8),
-            Expanded(child: Text('"$transcript"', style: tt.bodySmall?.copyWith(
-              fontStyle: FontStyle.italic,
-            ))),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.record_voice_over, size: 16, color: cs.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(child: Text('"$transcript"', style: tt.bodySmall?.copyWith(
+                  fontStyle: FontStyle.italic,
+                ))),
+              ]),
+              const SizedBox(height: 6),
+              Builder(builder: (_) {
+                final allItems = _meals.expand((m) => (m['items'] as List?) ?? []).toList();
+                final matched = allItems.where((i) => ((i as Map)['match_confidence'] as num? ?? 0) > 0.4).length;
+                final total = allItems.length;
+                final pct = total > 0 ? (matched / total * 100).round() : 0;
+                return Row(children: [
+                  Icon(
+                    pct >= 80 ? Icons.check_circle : pct >= 50 ? Icons.info : Icons.warning,
+                    size: 14,
+                    color: pct >= 80 ? Colors.green : pct >= 50 ? Colors.orange : Colors.red,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$matched/$total items matched in database ($pct%)',
+                    style: tt.bodySmall?.copyWith(
+                      color: pct >= 80 ? Colors.green : pct >= 50 ? Colors.orange : Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ]);
+              }),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
+        Text('Tap any item to edit quantity or remove',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        const SizedBox(height: 12),
+
+        // Log All button (when multiple meals or for quick confirm)
+        if (_meals.isNotEmpty) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: _logAllMeals,
+              icon: const Icon(Icons.check_circle),
+              label: Text(
+                _meals.length == 1 ? 'Log Meal' : 'Log All ${_meals.length} Meals',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              style: FilledButton.styleFrom(backgroundColor: cs.primary),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // Each meal group
         ..._meals.map((meal) => _buildMealCard(meal, cs, tt)),
 
-        // Add more / correct via voice
+        // Action buttons
         const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => setState(() => _state = _VoiceState.idle),
-          icon: const Icon(Icons.mic),
-          label: const Text('Add more or correct'),
-          style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 44)),
-        ),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _state = _VoiceState.idle),
+              icon: const Icon(Icons.mic, size: 18),
+              label: const Text('Add more'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _showTextInput,
+              icon: const Icon(Icons.keyboard, size: 18),
+              label: const Text('Type to add'),
+            ),
+          ),
+        ]),
       ],
     );
   }
@@ -727,12 +817,18 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           ]),
         ),
 
-        // Items
-        ...items.map((item) {
+        // Items — tappable to edit quantity
+        ...items.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final item = entry.value;
           final matched = (item['match_confidence'] as num?)?.toDouble() ?? 0;
           final isMatched = matched > 0.4;
+          final grams = (item['grams'] as num?)?.toDouble() ?? 0;
+          final unitQty = (item['unit_quantity'] as num?)?.toDouble() ?? 1;
+          final unit = item['unit'] as String? ?? 'serving';
           return ListTile(
             dense: true,
+            onTap: () => _editItemQuantity(meal, idx),
             leading: CircleAvatar(
               radius: 14,
               backgroundColor: isMatched ? cs.primaryContainer : Colors.orange.shade100,
@@ -744,15 +840,20 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             ),
             title: Text(item['food_name'] as String? ?? '', style: tt.bodyMedium),
             subtitle: Text(
-              '${(item['grams'] as num?)?.toInt() ?? 0}g  •  ${(item['calories'] as num?)?.toInt() ?? 0} cal',
+              '${unitQty % 1 == 0 ? unitQty.toInt() : unitQty}× $unit (${grams.toInt()}g)  •  ${(item['calories'] as num?)?.toInt() ?? 0} cal',
               style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
-            trailing: isMatched
-                ? null
-                : Tooltip(
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isMatched)
+                  Tooltip(
                     message: 'AI estimated — will create as custom food',
                     child: Icon(Icons.auto_awesome, size: 16, color: Colors.orange.shade600),
                   ),
+                Icon(Icons.edit_outlined, size: 14, color: cs.onSurfaceVariant),
+              ],
+            ),
           );
         }),
 
@@ -823,6 +924,101 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         label: const Text('Type instead'),
       ),
     ]);
+  }
+
+  Future<void> _logAllMeals() async {
+    final mealsToLog = List<Map<String, dynamic>>.from(_meals);
+    for (final meal in mealsToLog) {
+      await _confirmAndLog(meal);
+      // If error occurred, stop
+      if (_state == _VoiceState.error) break;
+    }
+  }
+
+  void _editItemQuantity(Map<String, dynamic> meal, int itemIndex) {
+    final items = (meal['items'] as List).cast<Map<String, dynamic>>();
+    final item = items[itemIndex];
+    final qtyCtrl = TextEditingController(
+      text: ((item['unit_quantity'] as num?)?.toDouble() ?? 1).toString(),
+    );
+    final gramsCtrl = TextEditingController(
+      text: ((item['grams'] as num?)?.toDouble() ?? 100).toStringAsFixed(0),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Edit: ${item['food_name']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: qtyCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Quantity (${item['unit'] ?? 'serving'}s)',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: gramsCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Total grams',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Delete this item
+              setState(() {
+                items.removeAt(itemIndex);
+                _recalcMealTotals(meal);
+              });
+              Navigator.pop(ctx);
+            },
+            child: Text('Remove', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              final newQty = double.tryParse(qtyCtrl.text) ?? 1;
+              final newGrams = double.tryParse(gramsCtrl.text) ?? 100;
+              setState(() {
+                item['unit_quantity'] = newQty;
+                item['grams'] = newGrams;
+                // Recalculate macros based on new grams
+                final factor = newGrams / 100;
+                final calPer100 = (item['estimated_cal_per_100g'] as num?)?.toDouble() ?? 100;
+                final pPer100 = (item['estimated_protein_per_100g'] as num?)?.toDouble() ?? 5;
+                final cPer100 = (item['estimated_carbs_per_100g'] as num?)?.toDouble() ?? 20;
+                final fPer100 = (item['estimated_fat_per_100g'] as num?)?.toDouble() ?? 3;
+                item['calories'] = (calPer100 * factor).round();
+                item['protein'] = (pPer100 * factor * 10).round() / 10;
+                item['carbs'] = (cPer100 * factor * 10).round() / 10;
+                item['fat'] = (fPer100 * factor * 10).round() / 10;
+                item['quantity'] = newGrams / (item['serving_size'] as num? ?? 100).toDouble();
+                _recalcMealTotals(meal);
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _recalcMealTotals(Map<String, dynamic> meal) {
+    final items = (meal['items'] as List).cast<Map<String, dynamic>>();
+    meal['total_calories'] = items.fold<num>(0, (s, i) => s + ((i['calories'] as num?) ?? 0));
+    meal['total_protein'] = items.fold<num>(0, (s, i) => s + ((i['protein'] as num?) ?? 0));
+    meal['total_carbs'] = items.fold<num>(0, (s, i) => s + ((i['carbs'] as num?) ?? 0));
+    meal['total_fat'] = items.fold<num>(0, (s, i) => s + ((i['fat'] as num?) ?? 0));
   }
 
   void _showTextInput() {

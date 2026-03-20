@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -213,15 +212,13 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Circular dial
-                    _WeightDial(
+                    // Scroll weight picker
+                    _WeightScrollPicker(
                       weight: _weight,
                       minWeight: _minWeight,
                       maxWeight: _maxWeight,
-                      step: _step,
                       primaryColor: cs.primary,
                       onSurfaceColor: cs.onSurface,
-                      surfaceColor: cs.surface,
                       outlineColor: cs.outlineVariant,
                       onChanged: (w) {
                         setState(() => _weight = w);
@@ -269,275 +266,224 @@ class _WeightContentState extends ConsumerState<WeightContent> {
   }
 }
 
-// ─── Circular Dial Weight Picker ──────────────────────────────────────────────
+// ─── Scroll Weight Picker ─────────────────────────────────────────────────────
 
-class _WeightDial extends StatefulWidget {
+class _WeightScrollPicker extends StatefulWidget {
   final double weight;
   final double minWeight;
   final double maxWeight;
-  final double step;
   final Color primaryColor;
   final Color onSurfaceColor;
-  final Color surfaceColor;
   final Color outlineColor;
   final ValueChanged<double> onChanged;
 
-  const _WeightDial({
+  const _WeightScrollPicker({
     required this.weight,
     required this.minWeight,
     required this.maxWeight,
-    required this.step,
     required this.primaryColor,
     required this.onSurfaceColor,
-    required this.surfaceColor,
     required this.outlineColor,
     required this.onChanged,
   });
 
   @override
-  State<_WeightDial> createState() => _WeightDialState();
+  State<_WeightScrollPicker> createState() => _WeightScrollPickerState();
 }
 
-class _WeightDialState extends State<_WeightDial> {
-  // One full rotation = 10 kg (200 ticks of 50g)
-  static const _kgPerRotation = 10.0;
+class _WeightScrollPickerState extends State<_WeightScrollPicker> {
+  late FixedExtentScrollController _kgController;
+  late FixedExtentScrollController _decimalController;
 
-  double? _startAngle;
-  double _startWeight = 0;
+  int get _minKg => widget.minWeight.toInt();
+  int get _maxKg => widget.maxWeight.toInt();
+  int get _kgCount => _maxKg - _minKg + 1;
 
-  double _angleFromPosition(Offset position, Offset center) {
-    return atan2(position.dy - center.dy, position.dx - center.dx);
+  bool _isUpdatingFromParent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final kg = widget.weight.toInt();
+    final decimal = ((widget.weight - kg) * 10).round().clamp(0, 9);
+    _kgController = FixedExtentScrollController(initialItem: kg - _minKg);
+    _decimalController = FixedExtentScrollController(initialItem: decimal);
   }
 
-  void _onPanStart(DragStartDetails details, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    _startAngle = _angleFromPosition(details.localPosition, center);
-    _startWeight = widget.weight;
-  }
-
-  void _onPanUpdate(DragUpdateDetails details, Size size) {
-    if (_startAngle == null) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final currentAngle = _angleFromPosition(details.localPosition, center);
-
-    var delta = currentAngle - _startAngle!;
-    // Normalize to [-pi, pi]
-    if (delta > pi) delta -= 2 * pi;
-    if (delta < -pi) delta += 2 * pi;
-
-    // Convert angle delta to weight change
-    // Clockwise (positive delta) = increase weight
-    final weightDelta = (delta / (2 * pi)) * _kgPerRotation;
-    var newWeight = _startWeight + weightDelta;
-
-    // Snap to step
-    newWeight = (newWeight / widget.step).round() * widget.step;
-    newWeight = newWeight.clamp(widget.minWeight, widget.maxWeight);
-
-    if ((newWeight - widget.weight).abs() >= widget.step * 0.5) {
-      widget.onChanged(newWeight);
+  @override
+  void didUpdateWidget(_WeightScrollPicker old) {
+    super.didUpdateWidget(old);
+    if ((old.weight - widget.weight).abs() > 0.01 && !_isUpdatingFromParent) {
+      _isUpdatingFromParent = true;
+      final kg = widget.weight.toInt();
+      final decimal = ((widget.weight - kg) * 10).round().clamp(0, 9);
+      _kgController.jumpToItem(kg - _minKg);
+      _decimalController.jumpToItem(decimal);
+      _isUpdatingFromParent = false;
     }
+  }
 
-    // Update start for continuous rotation
-    _startAngle = currentAngle;
-    _startWeight = newWeight;
+  @override
+  void dispose() {
+    _kgController.dispose();
+    _decimalController.dispose();
+    super.dispose();
+  }
+
+  void _onScrollChanged() {
+    if (_isUpdatingFromParent) return;
+    final kg = _kgController.selectedItem + _minKg;
+    final decimal = _decimalController.selectedItem;
+    final newWeight = (kg + decimal / 10.0)
+        .clamp(widget.minWeight, widget.maxWeight);
+    widget.onChanged(newWeight);
   }
 
   @override
   Widget build(BuildContext context) {
-    const dialSize = 220.0;
+    const itemHeight = 48.0;
+    const visibleItems = 5;
+    const pickerHeight = itemHeight * visibleItems;
 
-    return SizedBox(
-      width: dialSize,
-      height: dialSize,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final size = Size(constraints.maxWidth, constraints.maxHeight);
-          return GestureDetector(
-            onPanStart: (d) => _onPanStart(d, size),
-            onPanUpdate: (d) => _onPanUpdate(d, size),
-            child: CustomPaint(
-              size: size,
-              painter: _DialPainter(
-                weight: widget.weight,
-                primaryColor: widget.primaryColor,
-                onSurfaceColor: widget.onSurfaceColor,
-                surfaceColor: widget.surfaceColor,
-                outlineColor: widget.outlineColor,
-                kgPerRotation: _kgPerRotation,
-                step: widget.step,
+    return Column(
+      children: [
+        // Current weight display
+        Text(
+          widget.weight.toStringAsFixed(1),
+          style: TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1.5,
+            color: widget.primaryColor,
+          ),
+        ),
+        Text(
+          'kg',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: widget.onSurfaceColor.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Scroll wheels
+        SizedBox(
+          height: pickerHeight,
+          child: Stack(
+            children: [
+              // Selection highlight band
+              Center(
+                child: Container(
+                  height: itemHeight,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: widget.primaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: widget.primaryColor.withValues(alpha: 0.25),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.weight.toStringAsFixed(2),
+
+              // Wheels row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Kg wheel
+                  SizedBox(
+                    width: 90,
+                    height: pickerHeight,
+                    child: ListWheelScrollView.useDelegate(
+                      controller: _kgController,
+                      itemExtent: itemHeight,
+                      physics: const FixedExtentScrollPhysics(),
+                      diameterRatio: 1.6,
+                      perspective: 0.003,
+                      onSelectedItemChanged: (_) => _onScrollChanged(),
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        childCount: _kgCount,
+                        builder: (context, index) {
+                          final kg = index + _minKg;
+                          final isSelected = kg == widget.weight.toInt();
+                          return Center(
+                            child: Text(
+                              '$kg',
+                              style: TextStyle(
+                                fontSize: isSelected ? 28 : 20,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: isSelected
+                                    ? widget.onSurfaceColor
+                                    : widget.onSurfaceColor
+                                        .withValues(alpha: 0.35),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  // Dot separator
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '.',
                       style: TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
                         color: widget.onSurfaceColor,
                       ),
                     ),
-                    Text(
-                      'kg',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: widget.onSurfaceColor.withValues(alpha: 0.5),
+                  ),
+
+                  // Decimal wheel (0-9)
+                  SizedBox(
+                    width: 60,
+                    height: pickerHeight,
+                    child: ListWheelScrollView.useDelegate(
+                      controller: _decimalController,
+                      itemExtent: itemHeight,
+                      physics: const FixedExtentScrollPhysics(),
+                      diameterRatio: 1.6,
+                      perspective: 0.003,
+                      onSelectedItemChanged: (_) => _onScrollChanged(),
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        childCount: 10,
+                        builder: (context, index) {
+                          final isSelected = index ==
+                              ((widget.weight - widget.weight.toInt()) * 10)
+                                  .round()
+                                  .clamp(0, 9);
+                          return Center(
+                            child: Text(
+                              '$index',
+                              style: TextStyle(
+                                fontSize: isSelected ? 28 : 20,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: isSelected
+                                    ? widget.onSurfaceColor
+                                    : widget.onSurfaceColor
+                                        .withValues(alpha: 0.35),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        ),
+      ],
     );
   }
-}
-
-class _DialPainter extends CustomPainter {
-  final double weight;
-  final Color primaryColor;
-  final Color onSurfaceColor;
-  final Color surfaceColor;
-  final Color outlineColor;
-  final double kgPerRotation;
-  final double step;
-
-  _DialPainter({
-    required this.weight,
-    required this.primaryColor,
-    required this.onSurfaceColor,
-    required this.surfaceColor,
-    required this.outlineColor,
-    required this.kgPerRotation,
-    required this.step,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4;
-
-    // Outer ring
-    final ringPaint = Paint()
-      ..color = outlineColor.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(center, radius, ringPaint);
-
-    // Inner background
-    final bgPaint = Paint()
-      ..color = surfaceColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius - 16, bgPaint);
-
-    // Draw tick marks around the dial
-    // Show ticks for the visible range around current weight
-    final ticksPerRotation = (kgPerRotation / step).round(); // 200 ticks
-    final anglePerTick = 2 * pi / ticksPerRotation;
-
-    // The current weight maps to the top (12 o'clock = -pi/2)
-    // Each tick represents one step (0.05 kg)
-    final baseWeight = (weight / step).round() * step;
-
-    for (int i = 0; i < ticksPerRotation; i++) {
-      final angle = -pi / 2 + i * anglePerTick;
-      final tickWeight = baseWeight + (i - ticksPerRotation ~/ 2) * step;
-      final isWholeKg = ((tickWeight * 100).round() % 100).abs() == 0;
-      final isHalfKg = ((tickWeight * 100).round() % 50).abs() == 0;
-      final isCurrent = i == ticksPerRotation ~/ 2;
-
-      double tickInner;
-      double tickOuter;
-      double strokeWidth;
-      Color tickColor;
-
-      if (isCurrent) {
-        tickInner = radius - 28;
-        tickOuter = radius - 2;
-        strokeWidth = 3;
-        tickColor = primaryColor;
-      } else if (isWholeKg) {
-        tickInner = radius - 22;
-        tickOuter = radius - 4;
-        strokeWidth = 2;
-        tickColor = onSurfaceColor.withValues(alpha: 0.6);
-      } else if (isHalfKg) {
-        tickInner = radius - 18;
-        tickOuter = radius - 6;
-        strokeWidth = 1.5;
-        tickColor = onSurfaceColor.withValues(alpha: 0.3);
-      } else {
-        tickInner = radius - 14;
-        tickOuter = radius - 8;
-        strokeWidth = 1;
-        tickColor = onSurfaceColor.withValues(alpha: 0.12);
-      }
-
-      final tickPaint = Paint()
-        ..color = tickColor
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      final innerPoint = Offset(
-        center.dx + tickInner * cos(angle),
-        center.dy + tickInner * sin(angle),
-      );
-      final outerPoint = Offset(
-        center.dx + tickOuter * cos(angle),
-        center.dy + tickOuter * sin(angle),
-      );
-
-      canvas.drawLine(innerPoint, outerPoint, tickPaint);
-
-      // Draw weight labels at whole kg ticks (not too close together)
-      if (isWholeKg && !isCurrent) {
-        final labelRadius = radius - 34;
-        final labelPos = Offset(
-          center.dx + labelRadius * cos(angle),
-          center.dy + labelRadius * sin(angle),
-        );
-        final textPainter = TextPainter(
-          text: TextSpan(
-            text: tickWeight.round().toString(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: onSurfaceColor.withValues(alpha: 0.4),
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        );
-        textPainter.layout();
-        canvas.save();
-        canvas.translate(
-          labelPos.dx - textPainter.width / 2,
-          labelPos.dy - textPainter.height / 2,
-        );
-        textPainter.paint(canvas, Offset.zero);
-        canvas.restore();
-      }
-    }
-
-    // Top indicator triangle
-    final indicatorPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    final indicatorPath = Path()
-      ..moveTo(center.dx, center.dy - radius + 1)
-      ..lineTo(center.dx - 5, center.dy - radius - 7)
-      ..lineTo(center.dx + 5, center.dy - radius - 7)
-      ..close();
-    canvas.drawPath(indicatorPath, indicatorPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DialPainter old) =>
-      old.weight != weight ||
-      old.primaryColor != primaryColor;
 }
