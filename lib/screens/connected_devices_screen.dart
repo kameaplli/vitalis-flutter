@@ -67,7 +67,7 @@ class _ConnectedDevicesScreenState
       if (mounted) {
         final openSettings = await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogCtx) => AlertDialog(
             icon: Icon(
               Icons.health_and_safety_rounded,
               size: 40,
@@ -81,11 +81,11 @@ class _ConnectedDevicesScreenState
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogCtx, false),
                 child: const Text('Not Now'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogCtx, true),
                 child: const Text('Open Settings'),
               ),
             ],
@@ -171,7 +171,7 @@ class _ConnectedDevicesScreenState
   Future<void> _forceFullResync() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Force Full Resync'),
         content: const Text(
           'This will clear sync history and re-download the last 30 days '
@@ -179,11 +179,11 @@ class _ConnectedDevicesScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             child: const Text('Resync'),
           ),
         ],
@@ -487,7 +487,7 @@ class _ConnectedDevicesScreenState
   Future<void> _disconnectCloudService(String accountId, String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: Text('Disconnect $name?'),
         content: Text(
           'This will stop syncing data from $name. '
@@ -495,14 +495,14 @@ class _ConnectedDevicesScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             child: const Text('Disconnect'),
           ),
         ],
@@ -529,7 +529,7 @@ class _ConnectedDevicesScreenState
   Future<void> _resyncCloudService(String accountId, String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: Text('Resync $name?'),
         content: Text(
           'This will re-download all data from $name for the last 30 days. '
@@ -537,11 +537,11 @@ class _ConnectedDevicesScreenState
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             child: const Text('Resync'),
           ),
         ],
