@@ -184,12 +184,13 @@ class MoreScreen extends ConsumerWidget {
         color: const Color(0xFFF59E0B),
         onTap: () => context.push('/notifications'),
       ),
-      _MoreItem(
-        icon: Icons.account_balance_rounded,
-        label: 'Finance',
-        color: const Color(0xFF6366F1),
-        onTap: () => context.push('/finance'),
-      ),
+      // Finance hidden until enough user interest — re-enable later
+      // _MoreItem(
+      //   icon: Icons.account_balance_rounded,
+      //   label: 'Finance',
+      //   color: const Color(0xFF6366F1),
+      //   onTap: () => context.push('/finance'),
+      // ),
       _MoreItem(
         icon: Icons.watch_rounded,
         label: 'Devices',
