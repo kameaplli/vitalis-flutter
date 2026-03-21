@@ -8,21 +8,26 @@ import 'notification_service.dart';
 /// Processes pending notification quick-actions (e.g., "250ml" hydration tap).
 /// Call on app open / resume.
 class BackgroundService {
-  static Future<void> processPendingActions() async {
-    if (NotificationService.pendingActions.isEmpty) return;
+  /// Process pending actions. Returns true if any hydration was logged
+  /// (caller should invalidate hydration/dashboard providers).
+  static Future<bool> processPendingActions() async {
+    if (NotificationService.pendingActions.isEmpty) return false;
 
     final actions = List<String>.from(NotificationService.pendingActions);
     NotificationService.pendingActions.clear();
 
+    bool hydrationLogged = false;
     for (final raw in actions) {
       try {
         final data = jsonDecode(raw) as Map<String, dynamic>;
         if (data['type'] == 'hydrate') {
           final ml = data['ml'] as int;
           await _logHydrationQuick(ml);
+          hydrationLogged = true;
         }
       } catch (_) {}
     }
+    return hydrationLogged;
   }
 
   static Future<void> _logHydrationQuick(int ml) async {
