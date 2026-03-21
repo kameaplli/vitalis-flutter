@@ -122,10 +122,14 @@ class ApiConstants {
   // Smart Food Analysis (Phase 2)
   static const String eczemaSmartCorrelation = '/api/health/eczema/smart-correlation';
 
-  // Skin Photos (Phase 3)
+  // Skin Photos (Phase 3) + Skin Intelligence
   static const String skinPhotoUpload   = '/api/health/eczema/photo';
   static const String skinPhotos        = '/api/health/eczema/photos';
   static const String skinPhotoTimeline = '/api/health/eczema/photo-timeline';
+  static const String skinAnalyze       = '/api/health/eczema/skin/analyze';
+  static const String skinAnalyzeUpload = '/api/health/eczema/skin/analyze-upload';
+  static const String skinAnalyses      = '/api/health/eczema/skin/analyses';
+  static const String skinTrend         = '/api/health/eczema/skin/trend';
 
   // Product Scanner (Phase 4)
   static const String productScan       = '/api/products/scan';
