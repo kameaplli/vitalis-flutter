@@ -20,17 +20,20 @@ class ConnectedDevicesScreen extends ConsumerStatefulWidget {
 }
 
 class _ConnectedDevicesScreenState
-    extends ConsumerState<ConnectedDevicesScreen> {
+    extends ConsumerState<ConnectedDevicesScreen>
+    with WidgetsBindingObserver {
   bool _syncing = false;
   SyncResult? _lastResult;
   bool _autoSyncOnOpen = false;
   bool _backgroundSync = false;
   bool _platformConnected = false;
   String? _lastSyncTime;
+  bool _waitingForSettingsReturn = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPrefs();
   }
 
@@ -92,6 +95,7 @@ class _ConnectedDevicesScreenState
           ),
         );
         if (openSettings == true) {
+          _waitingForSettingsReturn = true;
           await _openHealthSettings();
         }
       }
@@ -105,6 +109,45 @@ class _ConnectedDevicesScreenState
 
     // Trigger initial sync
     _triggerSync();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _waitingForSettingsReturn) {
+      _waitingForSettingsReturn = false;
+      _recheckPermissionsAfterSettings();
+    }
+  }
+
+  Future<void> _recheckPermissionsAfterSettings() async {
+    final granted = await HealthSyncService.hasPermissions();
+    if (!mounted) return;
+
+    if (granted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('health_sync_connected', true);
+      if (!mounted) return;
+      setState(() => _platformConnected = true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Health Connect permissions granted! Syncing now...'),
+        ),
+      );
+      _triggerSync();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Permissions not yet granted. Tap Connect to try again.'),
+        ),
+      );
+    }
   }
 
   Future<void> _openHealthSettings() async {
