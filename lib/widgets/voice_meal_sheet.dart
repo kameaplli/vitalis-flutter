@@ -202,14 +202,40 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       // Clean up audio file
       try { file.deleteSync(); } catch (_) {}
 
-    } catch (e) {
-      String msg = 'Connection error. Please check your internet and try again.';
-      if (e is DioException && e.response?.statusCode == 503) {
-        msg = 'Voice transcription is not available on the server. Use "Type instead" below.';
+    } on DioException catch (e) {
+      // Show real error for debugging
+      final status = e.response?.statusCode;
+      final body = e.response?.data;
+      String detail = '';
+      if (body is Map) {
+        detail = (body['detail'] as String?) ?? '';
+      } else if (body is String) {
+        detail = body.length > 200 ? body.substring(0, 200) : body;
+      }
+
+      String msg;
+      if (status == 503) {
+        msg = 'Voice transcription not available on server.\n\nUse "Type instead" below.';
+      } else if (status == 502 || status == 504) {
+        msg = 'Server timed out processing audio. Try a shorter recording or use "Type instead".';
+      } else if (status != null) {
+        msg = 'Server error ($status)${detail.isNotEmpty ? ': $detail' : ''}.\n\nTry "Type instead" below.';
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+                 e.type == DioExceptionType.sendTimeout) {
+        msg = 'Upload timed out — audio file may be too large. Try a shorter recording.';
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        msg = 'Server took too long to process. Try a shorter recording or "Type instead".';
+      } else {
+        msg = 'Network error: ${e.message ?? e.type.name}.\n\nCheck your connection or use "Type instead".';
       }
       setState(() {
         _state = _VoiceState.error;
         _errorMsg = msg;
+      });
+    } catch (e) {
+      setState(() {
+        _state = _VoiceState.error;
+        _errorMsg = 'Unexpected error: $e\n\nTry "Type instead" below.';
       });
     }
   }
