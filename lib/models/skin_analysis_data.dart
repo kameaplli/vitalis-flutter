@@ -212,24 +212,3 @@ class SkinTrendPoint {
       );
 }
 
-/// Analysis summary embedded in photo list response
-class AnalysisSummary {
-  final double overallSeverity;
-  final String? patternType;
-  final double? confidence;
-  final String? analyzedAt;
-
-  AnalysisSummary({
-    required this.overallSeverity,
-    this.patternType,
-    this.confidence,
-    this.analyzedAt,
-  });
-
-  factory AnalysisSummary.fromJson(Map<String, dynamic> j) => AnalysisSummary(
-        overallSeverity: (j['overall_severity'] ?? 0).toDouble(),
-        patternType: j['pattern_type'],
-        confidence: (j['confidence'] as num?)?.toDouble(),
-        analyzedAt: j['analyzed_at'],
-      );
-}

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
+import '../core/secure_storage.dart';
 import '../models/skin_analysis_data.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/friendly_error.dart';
@@ -20,7 +21,7 @@ class SkinPhoto {
   final String? notes;
   final String? takenAt;
   final bool hasAnalysis;
-  final AnalysisSummary? analysisSummary;
+  final SkinAnalysis? analysis;
 
   SkinPhoto({
     required this.id,
@@ -31,7 +32,7 @@ class SkinPhoto {
     this.notes,
     this.takenAt,
     this.hasAnalysis = false,
-    this.analysisSummary,
+    this.analysis,
   });
 
   factory SkinPhoto.fromJson(Map<String, dynamic> json) => SkinPhoto(
@@ -43,21 +44,41 @@ class SkinPhoto {
         notes: json['notes'] as String?,
         takenAt: json['taken_at'] as String?,
         hasAnalysis: json['has_analysis'] == true,
-        analysisSummary: json['analysis_summary'] != null
-            ? AnalysisSummary.fromJson(json['analysis_summary'] as Map<String, dynamic>)
+        analysis: json['analysis'] != null
+            ? SkinAnalysis.fromJson(json['analysis'] as Map<String, dynamic>)
             : null,
       );
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
+/// Resolves a skin photo URL to a full authenticated URL.
+/// For proxy paths like /api/health/eczema/photo/{id}/image, appends ?token=JWT.
+String _resolvePhotoUrl(String? path, String? token) {
+  if (path == null || path.isEmpty) return '';
+  if (path.startsWith('http')) return path; // already absolute (legacy)
+  final base = ApiConstants.baseUrl;
+  if (token != null && path.contains('/photo/') && path.contains('/image')) {
+    return '$base$path?token=$token';
+  }
+  return '$base$path';
+}
+
 final skinPhotosProvider = FutureProvider.family<List<SkinPhoto>, String>((ref, person) async {
   try {
     final qp = <String, dynamic>{'days': 180};
     if (person != 'self') qp['family_member_id'] = person;
     final res = await apiClient.dio.get(ApiConstants.skinPhotos, queryParameters: qp);
+    final token = await SecureStorage.getToken();
     return (res.data as List<dynamic>)
-        .map((e) => SkinPhoto.fromJson(e as Map<String, dynamic>))
+        .map((e) {
+          final json = e as Map<String, dynamic>;
+          // Resolve photo_url with auth token for the image proxy
+          if (json['photo_url'] is String) {
+            json['photo_url'] = _resolvePhotoUrl(json['photo_url'] as String, token);
+          }
+          return SkinPhoto.fromJson(json);
+        })
         .toList();
   } catch (_) {
     return [];
@@ -333,7 +354,7 @@ class _PhotoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = ApiConstants.resolveUrl(photo.photoUrl);
-    final hasAi = photo.hasAnalysis && photo.analysisSummary != null;
+    final hasAi = photo.hasAnalysis && photo.analysis != null;
 
     return GestureDetector(
       onTap: onTap,
@@ -369,7 +390,7 @@ class _PhotoTile extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
-                          color: _aiColor(photo.analysisSummary!.overallSeverity),
+                          color: _aiColor(photo.analysis!.overallSeverity),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -377,7 +398,7 @@ class _PhotoTile extends StatelessWidget {
                           children: [
                             const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
                             const SizedBox(width: 2),
-                            Text(photo.analysisSummary!.overallSeverity.toStringAsFixed(1),
+                            Text(photo.analysis!.overallSeverity.toStringAsFixed(1),
                                 style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
                           ],
                         ),
@@ -452,27 +473,13 @@ class _PhotoDetailSheetState extends ConsumerState<_PhotoDetailSheet> {
   @override
   void initState() {
     super.initState();
-    if (widget.photo.hasAnalysis) {
-      _loadExistingAnalysis();
+    // Use cached analysis from photo listing (no extra API call)
+    if (widget.photo.analysis != null) {
+      _analysis = widget.photo.analysis;
     }
   }
 
-  Future<void> _loadExistingAnalysis() async {
-    try {
-      final resp = await apiClient.dio.get(
-        ApiConstants.skinAnalyses,
-        queryParameters: {'photo_id': widget.photo.id},
-      );
-      final list = resp.data as List;
-      if (list.isNotEmpty && mounted) {
-        setState(() {
-          _analysis = SkinAnalysis.fromJson(list.first as Map<String, dynamic>);
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _analyzePhoto({String? compareToId}) async {
+  Future<void> _analyzePhoto({String? compareToId, bool force = false}) async {
     setState(() { _analyzing = true; _error = null; });
     try {
       final resp = await apiClient.dio.post(
@@ -480,6 +487,7 @@ class _PhotoDetailSheetState extends ConsumerState<_PhotoDetailSheet> {
         data: {
           'photo_id': widget.photo.id,
           if (compareToId != null) 'compare_to_id': compareToId,
+          if (force) 'force': true,
         },
         options: Options(receiveTimeout: const Duration(seconds: 90)),
       );
@@ -581,9 +589,19 @@ class _PhotoDetailSheetState extends ConsumerState<_PhotoDetailSheet> {
                 ),
               ),
             )
-          else if (_analysis != null)
-            _AnalysisResultCard(analysis: _analysis!)
-          else
+          else if (_analysis != null) ...[
+            _AnalysisResultCard(analysis: _analysis!),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => _analyzePhoto(force: true),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Re-analyze'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 40),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ] else
             // No analysis yet — show analyze button
             FilledButton.icon(
               onPressed: _analyzePhoto,
