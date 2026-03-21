@@ -1,19 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
-import '../providers/voice_locale_provider.dart';
 import 'help_tooltip.dart';
 
 /// Voice meal logging bottom sheet.
 ///
-/// Flow: tap mic → speak naturally (continuous) → tap Done → AI parses → confirm → logged.
-/// Supports Indian English accent, compound meals, cultural foods,
-/// conversational corrections, and family logging.
+/// Flow: tap mic → record audio → tap Done → Whisper transcribes → Gemini parses → confirm → logged.
+/// Uses server-side OpenAI Whisper for accurate transcription (handles Indian accents).
 class VoiceMealSheet extends ConsumerStatefulWidget {
   final String? personId;
   final VoidCallback? onLogged;
@@ -23,27 +23,27 @@ class VoiceMealSheet extends ConsumerStatefulWidget {
   ConsumerState<VoiceMealSheet> createState() => _VoiceMealSheetState();
 }
 
-enum _VoiceState { idle, listening, processing, confirmed, error }
+enum _VoiceState { idle, recording, processing, confirmed, error }
 
 class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     with SingleTickerProviderStateMixin {
-  final _speech = stt.SpeechToText();
+  final _recorder = AudioRecorder();
   var _state = _VoiceState.idle;
   String _errorMsg = '';
-  bool _speechAvailable = false;
+  String _transcript = '';
 
-  // Continuous listening: accumulate transcript segments
-  final List<String> _segments = [];
-  String _currentPartial = '';
-  bool _isRestarting = false;
+  // Recording state
+  bool _recorderReady = false;
+  String? _audioPath;
+  Duration _recordDuration = Duration.zero;
+  Timer? _durationTimer;
+
+  // Amplitude for visual feedback
+  double _currentAmplitude = 0.0;
+  Timer? _amplitudeTimer;
 
   // Parsed result
   List<Map<String, dynamic>> _meals = [];
-  // Conversation context for corrections
-  final List<Map<String, dynamic>> _context = [];
-
-  // Locale for speech recognition — loaded from user preference
-  List<stt.LocaleName> _availableLocales = [];
 
   // Animation
   late AnimationController _pulseCtrl;
@@ -55,193 +55,138 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     _pulseCtrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _pulseAnim = Tween(begin: 0.8, end: 1.2).animate(
+    _pulseAnim = Tween(begin: 0.85, end: 1.15).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
-    _initSpeech();
+    _initRecorder();
   }
 
-  Future<void> _initSpeech() async {
-    _speechAvailable = await _speech.initialize(
-      onError: (e) {
-        // 'error_speech_timeout' and 'error_no_match' are normal during
-        // continuous listening — just restart the listener.
-        if (_state == _VoiceState.listening && !_isRestarting) {
-          if (e.errorMsg == 'error_speech_timeout' ||
-              e.errorMsg == 'error_no_match' ||
-              e.errorMsg == 'error_busy' ||
-              e.errorMsg == 'error_audio') {
-            // All transient errors — just restart
-            _restartListening();
-            return;
-          }
-          // Real error — but if we have transcript, try to process it
-          final fullText = _fullTranscript;
-          if (fullText.isNotEmpty) {
-            _processTranscript(fullText);
-          } else {
-            setState(() {
-              _state = _VoiceState.error;
-              _errorMsg = 'Speech recognition error: ${e.errorMsg}\n\nTry the "Type instead" option below.';
-            });
-          }
-        }
-      },
-      onStatus: (status) {
-        // When the speech engine finishes a segment, auto-restart for continuous listening
-        if (status == 'done' && _state == _VoiceState.listening && !_isRestarting) {
-          _restartListening();
-        }
-      },
-    );
-
-    // Get available locales
-    if (_speechAvailable) {
-      _availableLocales = await _speech.locales();
+  Future<void> _initRecorder() async {
+    final hasPermission = await _recorder.hasPermission();
+    if (mounted) {
+      setState(() => _recorderReady = hasPermission);
     }
-    if (mounted) setState(() {});
   }
 
-  String get _fullTranscript {
-    final parts = [..._segments];
-    if (_currentPartial.isNotEmpty) parts.add(_currentPartial);
-    return parts.join(' ').trim();
-  }
-
-  void _startListening() {
-    if (!_speechAvailable) {
+  Future<void> _startRecording() async {
+    if (!_recorderReady) {
       setState(() {
         _state = _VoiceState.error;
-        _errorMsg = 'Speech recognition not available on this device';
+        _errorMsg = 'Microphone permission denied. Please enable it in Settings.';
       });
       return;
     }
 
-    setState(() {
-      _state = _VoiceState.listening;
-      _segments.clear();
-      _currentPartial = '';
-    });
+    try {
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/voice_meal_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    _beginListenSession();
-  }
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.aacLc,
+          sampleRate: 16000,
+          numChannels: 1,
+          bitRate: 64000,
+        ),
+        path: path,
+      );
 
-  void _beginListenSession() {
-    final localeId = ref.read(voiceLocaleProvider);
-    // Verify locale is available, fallback to en_IN or first available
-    final effectiveLocale = _availableLocales.any((l) => l.localeId == localeId)
-        ? localeId
-        : (_availableLocales.any((l) => l.localeId == 'en_IN')
-            ? 'en_IN'
-            : (_availableLocales.isNotEmpty ? _availableLocales.first.localeId : 'en'));
+      _audioPath = path;
+      _recordDuration = Duration.zero;
 
-    _speech.listen(
-      onResult: (result) {
-        if (!mounted || _state != _VoiceState.listening) return;
-        setState(() {
-          if (result.finalResult) {
-            // A segment is finalized — add it to accumulated transcript
-            final words = result.recognizedWords.trim();
-            if (words.isNotEmpty) {
-              // Deduplicate: if new segment starts with end of previous segment,
-              // remove the overlap to prevent repeated words across restarts
-              if (_segments.isNotEmpty) {
-                final prev = _segments.last.split(' ');
-                final curr = words.split(' ');
-                // Check for overlap of up to 4 words
-                int overlap = 0;
-                for (int len = 1; len <= 4 && len <= prev.length && len <= curr.length; len++) {
-                  final prevTail = prev.sublist(prev.length - len).join(' ').toLowerCase();
-                  final currHead = curr.sublist(0, len).join(' ').toLowerCase();
-                  if (prevTail == currHead) overlap = len;
-                }
-                if (overlap > 0) {
-                  _segments.add(curr.sublist(overlap).join(' '));
-                } else {
-                  _segments.add(words);
-                }
-              } else {
-                _segments.add(words);
-              }
-            }
-            _currentPartial = '';
-          } else {
-            // Partial result — show live feedback
-            _currentPartial = result.recognizedWords;
+      // Duration timer
+      _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && _state == _VoiceState.recording) {
+          setState(() => _recordDuration += const Duration(seconds: 1));
+        }
+      });
+
+      // Amplitude polling for visual feedback
+      _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 150), (_) async {
+        if (_state != _VoiceState.recording) return;
+        try {
+          final amp = await _recorder.getAmplitude();
+          if (mounted) {
+            setState(() {
+              // Normalize: amp.current is typically -160 to 0 dB
+              _currentAmplitude = ((amp.current + 50) / 50).clamp(0.0, 1.0);
+            });
           }
-        });
-      },
-      listenFor: const Duration(seconds: 120),
-      pauseFor: const Duration(seconds: 15),
-      localeId: effectiveLocale,
-      listenOptions: stt.SpeechListenOptions(
-        cancelOnError: false,
-        partialResults: true,
-        listenMode: stt.ListenMode.dictation,
-      ),
-    );
-  }
+        } catch (_) {}
+      });
 
-  /// Restart listening after a natural pause to keep continuous mode going.
-  void _restartListening() {
-    if (_state != _VoiceState.listening || _isRestarting) return;
-    _isRestarting = true;
-
-    // Small delay before restarting to let the engine reset
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted || _state != _VoiceState.listening) {
-        _isRestarting = false;
-        return;
-      }
-      _isRestarting = false;
-      _beginListenSession();
-    });
-  }
-
-  void _stopAndProcess() {
-    _speech.stop();
-    final text = _fullTranscript;
-    if (text.isNotEmpty) {
-      _processTranscript(text);
-    } else {
-      setState(() => _state = _VoiceState.idle);
+      setState(() => _state = _VoiceState.recording);
+    } catch (e) {
+      setState(() {
+        _state = _VoiceState.error;
+        _errorMsg = 'Failed to start recording: $e';
+      });
     }
   }
 
-  Future<void> _processTranscript(String transcript) async {
-    setState(() {
-      _state = _VoiceState.processing;
-    });
+  Future<void> _stopAndProcess() async {
+    _durationTimer?.cancel();
+    _amplitudeTimer?.cancel();
 
     try {
+      final path = await _recorder.stop();
+      if (path == null || path.isEmpty) {
+        setState(() {
+          _state = _VoiceState.error;
+          _errorMsg = 'No audio recorded. Please try again.';
+        });
+        return;
+      }
+
+      final file = File(path);
+      if (!file.existsSync() || file.lengthSync() < 1000) {
+        setState(() {
+          _state = _VoiceState.error;
+          _errorMsg = 'Recording too short. Please speak for at least 2 seconds.';
+        });
+        return;
+      }
+
+      setState(() => _state = _VoiceState.processing);
+
+      // Upload audio to backend for Whisper transcription + Gemini parsing
       final now = DateTime.now();
       final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
+      final formData = FormData.fromMap({
+        'audio': await MultipartFile.fromFile(
+          path,
+          filename: 'voice_meal.m4a',
+          contentType: DioMediaType('audio', 'mp4'),
+        ),
+        'current_time': timeStr,
+      });
+
       final res = await apiClient.dio.post(
-        ApiConstants.nutritionVoice,
-        data: {
-          'transcript': transcript,
-          'current_time': timeStr,
-          'context': _context.isNotEmpty ? _context : null,
-        },
-        options: Options(receiveTimeout: const Duration(seconds: 60)),
+        ApiConstants.nutritionVoiceAudio,
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          receiveTimeout: const Duration(seconds: 90),
+          sendTimeout: const Duration(seconds: 30),
+        ),
       );
 
       final data = res.data as Map<String, dynamic>;
+      _transcript = (data['transcript'] as String?) ?? '';
+
       if (data['success'] == true) {
         final meals = (data['meals'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
         if (meals.isEmpty || meals.every((m) => ((m['items'] as List?) ?? []).isEmpty)) {
           setState(() {
             _state = _VoiceState.error;
-            _errorMsg = 'No food items found in your description. Try again with specific food names.';
+            _errorMsg = _transcript.isNotEmpty
+                ? 'Heard: "$_transcript"\n\nNo food items found. Try again with specific food names.'
+                : 'No food items found in your description. Try again.';
           });
           return;
         }
-
-        // Add to conversation context for potential corrections
-        _context.add({'role': 'user', 'text': transcript});
-        _context.add({'role': 'assistant', 'parsed': meals});
 
         setState(() {
           _meals = meals;
@@ -253,10 +198,18 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           _errorMsg = data['error'] as String? ?? 'Failed to parse meal';
         });
       }
+
+      // Clean up audio file
+      try { file.deleteSync(); } catch (_) {}
+
     } catch (e) {
+      String msg = 'Connection error. Please check your internet and try again.';
+      if (e is DioException && e.response?.statusCode == 503) {
+        msg = 'Voice transcription is not available on the server. Use "Type instead" below.';
+      }
       setState(() {
         _state = _VoiceState.error;
-        _errorMsg = 'Connection error. Please check your internet and try again.';
+        _errorMsg = msg;
       });
     }
   }
@@ -281,7 +234,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
       if (res.data['success'] == true) {
         if (mounted) {
-          // Remove the logged meal from the list
           setState(() {
             _meals.remove(meal);
           });
@@ -297,7 +249,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
           widget.onLogged?.call();
 
-          // If no more meals, close
           if (_meals.isEmpty) {
             if (mounted) Navigator.pop(context);
           } else {
@@ -315,8 +266,14 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
   @override
   void dispose() {
-    _speech.stop();
+    _durationTimer?.cancel();
+    _amplitudeTimer?.cancel();
+    _recorder.dispose();
     _pulseCtrl.dispose();
+    // Clean up any leftover audio file
+    if (_audioPath != null) {
+      try { File(_audioPath!).deleteSync(); } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -354,19 +311,22 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
                 style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               )),
               const HelpTooltip(
-                message: "Describe your entire meal naturally — speak continuously. "
+                message: "Tap the mic and describe your meal. "
                     "Say things like '2 dosa, 1 idli with peanut chutney and coffee'. "
-                    "Tap Done when finished. Supports Indian food names.",
+                    "Tap Done when finished. Works great with Indian accents!",
               ),
               if (_state != _VoiceState.idle)
                 TextButton(
-                  onPressed: () => setState(() {
-                    _state = _VoiceState.idle;
-                    _segments.clear();
-                    _currentPartial = '';
-                    _meals = [];
-                    _speech.stop();
-                  }),
+                  onPressed: () {
+                    _durationTimer?.cancel();
+                    _amplitudeTimer?.cancel();
+                    _recorder.stop();
+                    setState(() {
+                      _state = _VoiceState.idle;
+                      _transcript = '';
+                      _meals = [];
+                    });
+                  },
                   child: const Text('Reset'),
                 ),
             ]),
@@ -391,8 +351,8 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     switch (_state) {
       case _VoiceState.idle:
         return _buildIdleState(cs, tt);
-      case _VoiceState.listening:
-        return _buildListeningState(cs, tt);
+      case _VoiceState.recording:
+        return _buildRecordingState(cs, tt);
       case _VoiceState.processing:
         return _buildProcessingState(cs, tt);
       case _VoiceState.confirmed:
@@ -407,7 +367,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       const SizedBox(height: 20),
       // Mic button
       GestureDetector(
-        onTap: _startListening,
+        onTap: _startRecording,
         child: Container(
           width: 100, height: 100,
           decoration: BoxDecoration(
@@ -422,24 +382,27 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       Text('Tap to speak', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
       const SizedBox(height: 8),
       Text(
-        'Describe your full meal — speak continuously',
+        'Describe your full meal — speak naturally',
         style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
       ),
       const SizedBox(height: 6),
-      // Locale indicator
-      Builder(builder: (context) {
-        final currentLocale = ref.watch(voiceLocaleProvider);
-        final label = voiceLocaleOptions[currentLocale] ?? '🌐 $currentLocale';
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: cs.primaryContainer.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(label,
-            style: tt.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
-        );
-      }),
+      // Whisper badge
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: cs.primaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome, size: 14, color: cs.primary),
+            const SizedBox(width: 4),
+            Text('AI-powered transcription',
+              style: tt.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
       const SizedBox(height: 20),
       // Examples
       Container(
@@ -461,63 +424,14 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         ),
       ),
 
-      // Conversation context indicator
-      if (_context.isNotEmpty) ...[
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cs.tertiaryContainer.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(children: [
-            Icon(Icons.chat_bubble_outline, size: 16, color: cs.tertiary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(
-              'Conversation active — you can make corrections',
-              style: tt.bodySmall?.copyWith(color: cs.tertiary),
-            )),
-          ]),
-        ),
-      ],
-
-      // Locale switcher — quick toggle (full settings in profile)
-      if (_availableLocales.isNotEmpty) ...[
-        const SizedBox(height: 16),
-        Builder(builder: (context) {
-          final currentLocale = ref.watch(voiceLocaleProvider);
-          return Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              Text('Language: ', style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-              for (final entry in voiceLocaleOptions.entries)
-                if (_availableLocales.any((l) => l.localeId == entry.key))
-                  _localePill(entry.key, entry.value.split(' ').take(2).join(' '), cs, currentLocale),
-            ],
-          );
-        }),
-      ],
-    ]);
-  }
-
-  Widget _localePill(String localeId, String label, ColorScheme cs, String currentLocale) {
-    final isSelected = currentLocale == localeId;
-    return GestureDetector(
-      onTap: () => ref.read(voiceLocaleProvider.notifier).setLocale(localeId),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? cs.primary : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(label, style: TextStyle(
-          fontSize: 12, fontWeight: FontWeight.w700,
-          color: isSelected ? cs.onPrimary : cs.onSurface,
-        )),
+      const SizedBox(height: 16),
+      // Type instead option
+      OutlinedButton.icon(
+        onPressed: _showTextInput,
+        icon: const Icon(Icons.keyboard, size: 18),
+        label: const Text('Type instead'),
       ),
-    );
+    ]);
   }
 
   Widget _exampleChip(String text) {
@@ -531,116 +445,97 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     );
   }
 
-  Widget _buildListeningState(ColorScheme cs, TextTheme tt) {
-    final transcript = _fullTranscript;
+  Widget _buildRecordingState(ColorScheme cs, TextTheme tt) {
+    final minutes = _recordDuration.inMinutes.toString().padLeft(2, '0');
+    final seconds = (_recordDuration.inSeconds % 60).toString().padLeft(2, '0');
 
     return Column(children: [
       const SizedBox(height: 20),
-      // Pulsing mic
+      // Pulsing mic with amplitude indicator
       AnimatedBuilder(
         animation: _pulseAnim,
-        builder: (_, __) => Transform.scale(
-          scale: _pulseAnim.value,
-          child: Container(
-            width: 100, height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.red,
-              boxShadow: [BoxShadow(
-                color: Colors.red.withValues(alpha: 0.4),
-                blurRadius: 20 * _pulseAnim.value,
-                spreadRadius: 5 * _pulseAnim.value,
-              )],
+        builder: (_, __) {
+          final ampScale = 1.0 + (_currentAmplitude * 0.3);
+          return Transform.scale(
+            scale: _pulseAnim.value * ampScale * 0.85,
+            child: Container(
+              width: 100, height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.red,
+                boxShadow: [BoxShadow(
+                  color: Colors.red.withValues(alpha: 0.3 + _currentAmplitude * 0.3),
+                  blurRadius: 20 + _currentAmplitude * 20,
+                  spreadRadius: 5 + _currentAmplitude * 10,
+                )],
+              ),
+              child: const Icon(Icons.mic, size: 48, color: Colors.white),
             ),
-            child: const Icon(Icons.mic, size: 48, color: Colors.white),
-          ),
-        ),
+          );
+        },
       ),
       const SizedBox(height: 16),
-      Text('Listening...', style: tt.titleMedium?.copyWith(
+      Text('Recording...', style: tt.titleMedium?.copyWith(
         fontWeight: FontWeight.bold, color: Colors.red,
       )),
+      const SizedBox(height: 4),
+      // Duration display
+      Text(
+        '$minutes:$seconds',
+        style: tt.headlineMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: Colors.red,
+          fontFeatures: [const FontFeature.tabularFigures()],
+        ),
+      ),
       const SizedBox(height: 4),
       Text(
         'Describe your full meal — tap Done when finished',
         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
       ),
-      if (transcript.isNotEmpty) ...[
-        const SizedBox(height: 4),
-        Text(
-          '${transcript.split(' ').length} words captured',
-          style: tt.bodySmall?.copyWith(
-            color: cs.primary, fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-      const SizedBox(height: 20),
 
-      // Live transcript box
-      Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 80),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (transcript.isEmpty)
-              Text(
-                'Say something like "2 dosa, 1 idli with chutney..."',
-                style: tt.bodyLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
-              )
-            else ...[
-              // Show finalized segments
-              if (_segments.isNotEmpty)
-                Text(
-                  _segments.join(' '),
-                  style: tt.bodyLarge?.copyWith(color: cs.onSurface),
-                ),
-              // Show current partial in lighter color
-              if (_currentPartial.isNotEmpty)
-                Text(
-                  _currentPartial,
-                  style: tt.bodyLarge?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-            ],
-          ],
+      // Amplitude visualizer
+      const SizedBox(height: 16),
+      SizedBox(
+        height: 40,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(20, (i) {
+            final barHeight = 8.0 + (_currentAmplitude * 32.0 * ((i % 3 == 0) ? 1.0 : 0.6));
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              width: 4,
+              height: barHeight,
+              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.4 + _currentAmplitude * 0.6),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            );
+          }),
         ),
       ),
-      const SizedBox(height: 20),
 
-      // Done button — user taps when finished speaking
+      const SizedBox(height: 24),
+
+      // Done button
       SizedBox(
         width: double.infinity,
-        height: 48,
+        height: 52,
         child: FilledButton.icon(
           onPressed: _stopAndProcess,
           icon: const Icon(Icons.check),
           label: const Text('Done — Process my meal', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-          style: FilledButton.styleFrom(
-            backgroundColor: cs.primary,
-          ),
+          style: FilledButton.styleFrom(backgroundColor: cs.primary),
         ),
       ),
       const SizedBox(height: 8),
       TextButton(
         onPressed: () {
-          _speech.stop();
-          setState(() {
-            _state = _VoiceState.idle;
-            _segments.clear();
-            _currentPartial = '';
-          });
+          _durationTimer?.cancel();
+          _amplitudeTimer?.cancel();
+          _recorder.stop();
+          setState(() => _state = _VoiceState.idle);
         },
         child: const Text('Cancel'),
       ),
@@ -648,24 +543,17 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   }
 
   Widget _buildProcessingState(ColorScheme cs, TextTheme tt) {
-    final transcript = _fullTranscript;
     return Column(children: [
       const SizedBox(height: 40),
       CircularProgressIndicator(color: cs.primary),
       const SizedBox(height: 24),
-      Text('Understanding your meal...', style: tt.titleMedium),
+      Text('Transcribing & parsing...', style: tt.titleMedium),
       const SizedBox(height: 8),
-      if (transcript.isNotEmpty)
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text('"$transcript"', style: tt.bodyMedium?.copyWith(
-            fontStyle: FontStyle.italic,
-          )),
-        ),
+      Text(
+        'Whisper AI is transcribing your voice,\nthen Gemini will identify the foods',
+        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        textAlign: TextAlign.center,
+      ),
     ]);
   }
 
@@ -677,8 +565,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         Text('All meals logged!', style: tt.titleMedium),
       ]);
     }
-
-    final transcript = _fullTranscript;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,7 +582,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
               Row(children: [
                 Icon(Icons.record_voice_over, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 8),
-                Expanded(child: Text('"$transcript"', style: tt.bodySmall?.copyWith(
+                Expanded(child: Text('"$_transcript"', style: tt.bodySmall?.copyWith(
                   fontStyle: FontStyle.italic,
                 ))),
               ]),
@@ -730,7 +616,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         const SizedBox(height: 12),
 
-        // Log All button (when multiple meals or for quick confirm)
+        // Log All button
         if (_meals.isNotEmpty) ...[
           SizedBox(
             width: double.infinity,
@@ -917,7 +803,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         label: const Text('Try Again'),
       ),
       const SizedBox(height: 8),
-      // Text fallback
       OutlinedButton.icon(
         onPressed: _showTextInput,
         icon: const Icon(Icons.keyboard),
@@ -930,7 +815,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     final mealsToLog = List<Map<String, dynamic>>.from(_meals);
     for (final meal in mealsToLog) {
       await _confirmAndLog(meal);
-      // If error occurred, stop
       if (_state == _VoiceState.error) break;
     }
   }
@@ -974,7 +858,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         actions: [
           TextButton(
             onPressed: () {
-              // Delete this item
               setState(() {
                 items.removeAt(itemIndex);
                 _recalcMealTotals(meal);
@@ -991,7 +874,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
               setState(() {
                 item['unit_quantity'] = newQty;
                 item['grams'] = newGrams;
-                // Recalculate macros based on new grams
                 final factor = newGrams / 100;
                 final calPer100 = (item['estimated_cal_per_100g'] as num?)?.toDouble() ?? 100;
                 final pPer100 = (item['estimated_protein_per_100g'] as num?)?.toDouble() ?? 5;
@@ -1043,7 +925,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             onPressed: () {
               Navigator.pop(ctx);
               if (ctrl.text.trim().isNotEmpty) {
-                _processTranscript(ctrl.text.trim());
+                _processText(ctrl.text.trim());
               }
             },
             child: const Text('Parse'),
@@ -1051,5 +933,53 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         ],
       ),
     );
+  }
+
+  /// Process typed text via the original text-based endpoint
+  Future<void> _processText(String text) async {
+    setState(() => _state = _VoiceState.processing);
+
+    try {
+      final now = DateTime.now();
+      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+      final res = await apiClient.dio.post(
+        ApiConstants.nutritionVoice,
+        data: {
+          'transcript': text,
+          'current_time': timeStr,
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 60)),
+      );
+
+      final data = res.data as Map<String, dynamic>;
+      _transcript = text;
+
+      if (data['success'] == true) {
+        final meals = (data['meals'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+        if (meals.isEmpty || meals.every((m) => ((m['items'] as List?) ?? []).isEmpty)) {
+          setState(() {
+            _state = _VoiceState.error;
+            _errorMsg = 'No food items found. Try specific food names like "2 dosa with chutney".';
+          });
+          return;
+        }
+
+        setState(() {
+          _meals = meals;
+          _state = _VoiceState.confirmed;
+        });
+      } else {
+        setState(() {
+          _state = _VoiceState.error;
+          _errorMsg = data['error'] as String? ?? 'Failed to parse meal';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _state = _VoiceState.error;
+        _errorMsg = 'Connection error. Please check your internet and try again.';
+      });
+    }
   }
 }
