@@ -301,13 +301,22 @@ class _WeightScrollPickerState extends State<_WeightScrollPicker> {
 
   bool _isUpdatingFromParent = false;
 
+  // 50g increments: index 0=.00, 1=.05, 2=.10, ... 19=.95
+  static const _decimalCount = 20;
+
+  int _weightToDecimalIndex(double w) {
+    final frac = w - w.toInt();
+    return (frac * 20).round().clamp(0, 19);
+  }
+
   @override
   void initState() {
     super.initState();
     final kg = widget.weight.toInt();
-    final decimal = ((widget.weight - kg) * 10).round().clamp(0, 9);
     _kgController = FixedExtentScrollController(initialItem: kg - _minKg);
-    _decimalController = FixedExtentScrollController(initialItem: decimal);
+    _decimalController = FixedExtentScrollController(
+      initialItem: _weightToDecimalIndex(widget.weight),
+    );
   }
 
   @override
@@ -316,9 +325,8 @@ class _WeightScrollPickerState extends State<_WeightScrollPicker> {
     if ((old.weight - widget.weight).abs() > 0.01 && !_isUpdatingFromParent) {
       _isUpdatingFromParent = true;
       final kg = widget.weight.toInt();
-      final decimal = ((widget.weight - kg) * 10).round().clamp(0, 9);
       _kgController.jumpToItem(kg - _minKg);
-      _decimalController.jumpToItem(decimal);
+      _decimalController.jumpToItem(_weightToDecimalIndex(widget.weight));
       _isUpdatingFromParent = false;
     }
   }
@@ -333,10 +341,10 @@ class _WeightScrollPickerState extends State<_WeightScrollPicker> {
   void _onScrollChanged() {
     if (_isUpdatingFromParent) return;
     final kg = _kgController.selectedItem + _minKg;
-    final decimal = _decimalController.selectedItem;
-    final newWeight = (kg + decimal / 10.0)
+    final decIdx = _decimalController.selectedItem;
+    final newWeight = (kg + decIdx * 0.05)
         .clamp(widget.minWeight, widget.maxWeight);
-    widget.onChanged(newWeight);
+    widget.onChanged(double.parse(newWeight.toStringAsFixed(2)));
   }
 
   @override
@@ -349,7 +357,7 @@ class _WeightScrollPickerState extends State<_WeightScrollPicker> {
       children: [
         // Current weight display
         Text(
-          widget.weight.toStringAsFixed(1),
+          widget.weight.toStringAsFixed(2),
           style: TextStyle(
             fontSize: 40,
             fontWeight: FontWeight.w800,
@@ -399,9 +407,11 @@ class _WeightScrollPickerState extends State<_WeightScrollPicker> {
                     child: ListWheelScrollView.useDelegate(
                       controller: _kgController,
                       itemExtent: itemHeight,
-                      physics: const FixedExtentScrollPhysics(),
-                      diameterRatio: 1.6,
-                      perspective: 0.003,
+                      physics: const FixedExtentScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      diameterRatio: 2.0,
+                      perspective: 0.002,
                       onSelectedItemChanged: (_) => _onScrollChanged(),
                       childDelegate: ListWheelChildBuilderDelegate(
                         childCount: _kgCount,
@@ -441,27 +451,28 @@ class _WeightScrollPickerState extends State<_WeightScrollPicker> {
                     ),
                   ),
 
-                  // Decimal wheel (0-9)
+                  // Decimal wheel (50g steps: 00, 05, 10, ..., 95)
                   SizedBox(
-                    width: 60,
+                    width: 70,
                     height: pickerHeight,
                     child: ListWheelScrollView.useDelegate(
                       controller: _decimalController,
                       itemExtent: itemHeight,
-                      physics: const FixedExtentScrollPhysics(),
-                      diameterRatio: 1.6,
-                      perspective: 0.003,
+                      physics: const FixedExtentScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      diameterRatio: 2.0,
+                      perspective: 0.002,
                       onSelectedItemChanged: (_) => _onScrollChanged(),
                       childDelegate: ListWheelChildBuilderDelegate(
-                        childCount: 10,
+                        childCount: _decimalCount,
                         builder: (context, index) {
-                          final isSelected = index ==
-                              ((widget.weight - widget.weight.toInt()) * 10)
-                                  .round()
-                                  .clamp(0, 9);
+                          final grams = index * 5; // 0, 5, 10, ..., 95
+                          final isSelected =
+                              index == _weightToDecimalIndex(widget.weight);
                           return Center(
                             child: Text(
-                              '$index',
+                              grams.toString().padLeft(2, '0'),
                               style: TextStyle(
                                 fontSize: isSelected ? 28 : 20,
                                 fontWeight: isSelected
