@@ -9,6 +9,7 @@ import '../models/dashboard_data.dart';
 import '../providers/auth_provider.dart';
 import '../providers/connectivity_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/hydration_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../services/background_service.dart';
 import '../services/biometric_service.dart';
@@ -112,7 +113,14 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   }
 
   Future<void> _runBackgroundChecks() async {
-    await BackgroundService.processPendingActions();
+    final hydrationLogged = await BackgroundService.processPendingActions();
+    if (hydrationLogged) {
+      // Refresh dashboard + hydration data so notification-logged water shows up
+      final person = ref.read(selectedPersonProvider);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      ref.invalidate(todayHydrationProvider(person));
+      ref.invalidate(dashboardProvider((person, today)));
+    }
     BackgroundService.checkFlareRisk();
     BackgroundService.checkSocialNotifications();
     // Prefetch data for screens the user is likely to visit

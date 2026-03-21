@@ -83,36 +83,41 @@ class _QoreHealthAppState extends ConsumerState<QoreHealthApp> {
   }
 
   void _setupQuickActions() {
-    _quickActions.setShortcutItems([
-      const ShortcutItem(
-        type: 'log_meal',
-        localizedTitle: 'Log Meal',
-        icon: 'ic_shortcut_meal',
-      ),
-      const ShortcutItem(
-        type: 'add_hydration',
-        localizedTitle: 'Add Hydration',
-        icon: 'ic_shortcut_hydration',
-      ),
-      const ShortcutItem(
-        type: 'add_workout',
-        localizedTitle: 'Add Workout',
-        icon: 'ic_shortcut_workout',
-      ),
-    ]);
-    _quickActions.initialize((type) {
-      final router = ref.read(routerProvider);
-      switch (type) {
-        case 'log_meal':
-          router.go('/nutrition');
-          break;
-        case 'add_hydration':
-          router.go('/hydration');
-          break;
-        case 'add_workout':
-          router.go('/health/exercise');
-          break;
-      }
+    // initialize() must be called BEFORE setShortcutItems, and after
+    // the widget tree is ready — use addPostFrameCallback to ensure this.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quickActions.initialize((type) {
+        final router = ref.read(routerProvider);
+        switch (type) {
+          case 'log_meal':
+            router.go('/nutrition');
+            break;
+          case 'add_hydration':
+            router.go('/hydration');
+            break;
+          case 'add_workout':
+            router.go('/health/exercise');
+            break;
+        }
+      });
+
+      _quickActions.setShortcutItems([
+        const ShortcutItem(
+          type: 'log_meal',
+          localizedTitle: 'Log Meal',
+          icon: 'ic_shortcut_meal',
+        ),
+        const ShortcutItem(
+          type: 'add_hydration',
+          localizedTitle: 'Add Hydration',
+          icon: 'ic_shortcut_hydration',
+        ),
+        const ShortcutItem(
+          type: 'add_workout',
+          localizedTitle: 'Add Workout',
+          icon: 'ic_shortcut_workout',
+        ),
+      ]);
     });
   }
 
