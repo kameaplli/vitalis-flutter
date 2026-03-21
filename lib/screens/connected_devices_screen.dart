@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:health/health.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/sync_models.dart';
 import '../providers/selected_person_provider.dart';
 import '../providers/sync_provider.dart';
@@ -63,12 +65,35 @@ class _ConnectedDevicesScreenState
     final granted = await HealthSyncService.requestPermissions();
     if (!granted) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Health permissions were denied. '
-                'Please grant access in your device settings.'),
+        final openSettings = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            icon: Icon(
+              Icons.health_and_safety_rounded,
+              size: 40,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('Permission Required'),
+            content: Text(
+              Platform.isIOS
+                  ? 'Health data access was denied. Would you like to open Settings to grant permission to Apple Health?'
+                  : 'Health Connect permission was denied. Would you like to open Health Connect settings to grant access?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Not Now'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Open Settings'),
+              ),
+            ],
           ),
         );
+        if (openSettings == true) {
+          await _openHealthSettings();
+        }
       }
       return;
     }
@@ -80,6 +105,27 @@ class _ConnectedDevicesScreenState
 
     // Trigger initial sync
     _triggerSync();
+  }
+
+  Future<void> _openHealthSettings() async {
+    if (Platform.isAndroid) {
+      // Open Health Connect app — user can manage app permissions there
+      try {
+        await Health().installHealthConnect();
+      } catch (_) {
+        // Fallback: open Health Connect in Play Store
+        await launchUrl(
+          Uri.parse('https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata'),
+          mode: LaunchMode.externalApplication,
+        );
+      }
+    } else if (Platform.isIOS) {
+      // Open iOS app settings where Health permissions are managed
+      await launchUrl(
+        Uri.parse('app-settings:'),
+        mode: LaunchMode.externalApplication,
+      );
+    }
   }
 
   Future<void> _triggerSync() async {
