@@ -2,9 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 
 import '../models/health_intelligence.dart';
+import '../models/health_twin_data.dart';
 import '../providers/health_intelligence_provider.dart';
+import '../providers/health_twin_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
@@ -23,12 +27,14 @@ class HealthIntelligenceScreen extends ConsumerStatefulWidget {
 
 class _HealthIntelligenceScreenState
     extends ConsumerState<HealthIntelligenceScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  late final TabController _tabCtrl;
   late final AnimationController _ringAnimCtrl;
 
   @override
   void initState() {
     super.initState();
+    _tabCtrl = TabController(length: 4, vsync: this);
     _ringAnimCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -37,6 +43,7 @@ class _HealthIntelligenceScreenState
 
   @override
   void dispose() {
+    _tabCtrl.dispose();
     _ringAnimCtrl.dispose();
     super.dispose();
   }
@@ -47,6 +54,11 @@ class _HealthIntelligenceScreenState
     ref.invalidate(healthAlertsProvider(personId));
     ref.invalidate(riskProfileProvider(personId));
     ref.invalidate(scoreHistoryProvider(personId));
+    ref.invalidate(dailyTwinProvider(personId));
+    ref.invalidate(twinTrendProvider(personId));
+    ref.invalidate(userGoalsProvider(personId));
+    ref.invalidate(goalInsightsProvider(personId));
+    ref.invalidate(weeklySummaryProvider(personId));
     _ringAnimCtrl
       ..reset()
       ..forward();
@@ -54,124 +66,414 @@ class _HealthIntelligenceScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Health Intelligence',
+            style: theme.textTheme.titleLarge),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: _refresh,
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabCtrl,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: const [
+            Tab(text: 'Health Score'),
+            Tab(text: 'Digital Twin'),
+            Tab(text: 'Goals'),
+            Tab(text: 'Weekly'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          _HealthScoreTab(ringAnim: _ringAnimCtrl, onRefresh: _refresh),
+          const _DigitalTwinTab(),
+          const _GoalsTab(),
+          const _WeeklySummaryTab(),
+        ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TAB 0 — Health Score (original screen content)
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _HealthScoreTab extends ConsumerWidget {
+  final AnimationController ringAnim;
+  final VoidCallback onRefresh;
+
+  const _HealthScoreTab({required this.ringAnim, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final personId = ref.watch(selectedPersonProvider);
     final scoreAsync = ref.watch(dailyHealthScoreProvider(personId));
     final alertsAsync = ref.watch(healthAlertsProvider(personId));
     final riskAsync = ref.watch(riskProfileProvider(personId));
     final historyAsync = ref.watch(scoreHistoryProvider(personId));
 
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        const SizedBox(height: 8),
+        scoreAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const _ScoreRingSkeleton(),
+          error: (e, _) =>
+              FriendlyError(error: e, context: 'health score', onRetry: onRefresh),
+          data: (score) =>
+              _ScoreRingSection(score: score, animation: ringAnim),
+        ),
+        const SizedBox(height: 24),
+        scoreAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const ShimmerList(itemCount: 8, itemHeight: 48),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (score) => _DimensionBreakdown(dimensions: score.dimensions),
+        ),
+        const SizedBox(height: 24),
+        alertsAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const ShimmerList(itemCount: 3, itemHeight: 80),
+          error: (e, _) =>
+              FriendlyError(error: e, context: 'alerts', onRetry: onRefresh),
+          data: (alerts) =>
+              _AlertsSection(alerts: alerts, personId: personId),
+        ),
+        const SizedBox(height: 24),
+        historyAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const ShimmerList(itemCount: 1, itemHeight: 160),
+          error: (e, _) => FriendlyError(
+              error: e, context: 'score history', onRetry: onRefresh),
+          data: (history) => _ScoreTrendSection(history: history),
+        ),
+        const SizedBox(height: 24),
+        riskAsync.when(
+          skipLoadingOnReload: true,
+          loading: () => const ShimmerList(itemCount: 1, itemHeight: 120),
+          error: (e, _) => FriendlyError(
+              error: e, context: 'risk profile', onRetry: onRefresh),
+          data: (risk) => _RiskProfileCard(risk: risk),
+        ),
+        const SizedBox(height: 24),
+        _ClinicalReportButton(personId: personId),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TAB 1 — Digital Twin
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _DigitalTwinTab extends ConsumerWidget {
+  const _DigitalTwinTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final personId = ref.watch(selectedPersonProvider);
+    final twinAsync = ref.watch(dailyTwinProvider(personId));
+    final trendAsync = ref.watch(twinTrendProvider(personId));
+
+    return twinAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const _TwinLoadingSkeleton(),
+      error: (e, _) => FriendlyError(
+        error: e,
+        context: 'digital twin',
+        onRetry: () => ref.invalidate(dailyTwinProvider(personId)),
+      ),
+      data: (twin) {
+        if (twin == null) {
+          return const EmptyState(
+            message:
+                'No data available for today.\nLog some meals or hydration to see your Digital Twin.',
+            icon: Icons.person_search_rounded,
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            const SizedBox(height: 12),
+            _CompletenessGauge(score: twin.completenessScore),
+            const SizedBox(height: 20),
+            _MacroProgressSection(macros: twin.macros),
+            const SizedBox(height: 20),
+            _MicronutrientSummaryCard(twin: twin),
+            const SizedBox(height: 20),
+            if (twin.topGaps.isNotEmpty) ...[
+              _NutrientGapsList(
+                title: 'Top Nutrient Gaps',
+                gaps: twin.topGaps,
+                isExcess: false,
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (twin.topExcesses.isNotEmpty) ...[
+              _NutrientGapsList(
+                title: 'Excessive Nutrients',
+                gaps: twin.topExcesses,
+                isExcess: true,
+              ),
+              const SizedBox(height: 16),
+            ],
+            _HydrationBar(twin: twin),
+            const SizedBox(height: 20),
+            if (twin.foodRecommendations.isNotEmpty) ...[
+              _FoodRecommendationsCard(recs: twin.foodRecommendations),
+              const SizedBox(height: 20),
+            ],
+            trendAsync.when(
+              skipLoadingOnReload: true,
+              loading: () => const ShimmerCard(height: 120),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (trend) => _TwinSparkline(entries: trend),
+            ),
+            const SizedBox(height: 40),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TwinLoadingSkeleton extends StatelessWidget {
+  const _TwinLoadingSkeleton();
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(children: [
+        ShimmerCard(height: 180),
+        ShimmerCard(height: 100),
+        ShimmerCard(height: 80),
+        ShimmerCard(height: 120),
+      ]),
+    );
+  }
+}
+
+// ── Completeness Gauge ───────────────────────────────────────────────────────
+
+class _CompletenessGauge extends StatelessWidget {
+  final double score;
+  const _CompletenessGauge({required this.score});
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final text = theme.textTheme;
+    final pct = score.clamp(0.0, 100.0);
+    final color = _scoreColor(pct);
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // ── 1. App Bar ──────────────────────────────────────────────
-          SliverAppBar(
-            pinned: true,
-            title: Text('Health Score', style: text.titleLarge),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => Navigator.of(context).pop(),
+    return Center(
+      child: SizedBox(
+        width: 160,
+        height: 160,
+        child: CustomPaint(
+          painter: _ArcGaugePainter(
+            progress: pct / 100,
+            color: color,
+            trackColor:
+                theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  pct.round().toString(),
+                  style: text.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    fontSize: 40,
+                  ),
+                ),
+                Text(
+                  'Completeness',
+                  style: text.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'Recompute score',
-                onPressed: _refresh,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArcGaugePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final Color trackColor;
+
+  _ArcGaugePainter({
+    required this.progress,
+    required this.color,
+    required this.trackColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 10;
+    const strokeWidth = 12.0;
+    const startAngle = -math.pi * 0.75;
+    const sweepAngle = math.pi * 1.5;
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      trackPaint,
+    );
+
+    if (progress > 0) {
+      final arcPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..shader = SweepGradient(
+          startAngle: startAngle,
+          endAngle: startAngle + sweepAngle,
+          colors: [color.withAlpha(180), color],
+        ).createShader(Rect.fromCircle(center: center, radius: radius));
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle * progress.clamp(0.0, 1.0),
+        false,
+        arcPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcGaugePainter old) =>
+      old.progress != progress || old.color != color;
+}
+
+// ── Macro Progress Section ───────────────────────────────────────────────────
+
+class _MacroProgressSection extends StatelessWidget {
+  final Map<String, MacroStatus> macros;
+  const _MacroProgressSection({required this.macros});
+
+  static const _macroMeta = <String, ({IconData icon, Color color, String label})>{
+    'calories': (icon: Icons.local_fire_department_rounded, color: Color(0xFFEF4444), label: 'Calories'),
+    'protein': (icon: Icons.egg_rounded, color: Color(0xFF8B5CF6), label: 'Protein'),
+    'carbs': (icon: Icons.grain_rounded, color: Color(0xFFF59E0B), label: 'Carbs'),
+    'fat': (icon: Icons.water_drop_rounded, color: Color(0xFF3B82F6), label: 'Fat'),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final orderedKeys = ['calories', 'protein', 'carbs', 'fat'];
+
+    return _StyledCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Macronutrients', style: text.titleSmall),
+            const SizedBox(height: 12),
+            for (final key in orderedKeys)
+              if (macros.containsKey(key))
+                _MacroRow(
+                  macroKey: key,
+                  status: macros[key]!,
+                  meta: _macroMeta[key]!,
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MacroRow extends StatelessWidget {
+  final String macroKey;
+  final MacroStatus status;
+  final ({IconData icon, Color color, String label}) meta;
+
+  const _MacroRow({
+    required this.macroKey,
+    required this.status,
+    required this.meta,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final pct = (status.percent / 100).clamp(0.0, 1.0);
+    final unit = macroKey == 'calories' ? 'kcal' : 'g';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(meta.icon, size: 16, color: meta.color),
+              const SizedBox(width: 8),
+              Text(meta.label, style: text.bodyMedium),
+              const Spacer(),
+              Text(
+                '${status.consumed.round()} / ${status.target.round()} $unit',
+                style: text.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${status.percent.round()}%',
+                style: text.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: meta.color,
+                ),
               ),
             ],
           ),
-
-          // ── Body ────────────────────────────────────────────────────
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                const SizedBox(height: 8),
-
-                // ── 2. Score Ring ──────────────────────────────────────
-                scoreAsync.when(
-                  skipLoadingOnReload: true,
-                  loading: () => const _ScoreRingSkeleton(),
-                  error: (e, _) => FriendlyError(
-                    error: e,
-                    context: 'health score',
-                    onRetry: _refresh,
-                  ),
-                  data: (score) => _ScoreRingSection(
-                    score: score,
-                    animation: _ringAnimCtrl,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── 3. Dimension Breakdown ────────────────────────────
-                scoreAsync.when(
-                  skipLoadingOnReload: true,
-                  loading: () =>
-                      const ShimmerList(itemCount: 8, itemHeight: 48),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (score) =>
-                      _DimensionBreakdown(dimensions: score.dimensions),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── 4. Alerts ─────────────────────────────────────────
-                alertsAsync.when(
-                  skipLoadingOnReload: true,
-                  loading: () =>
-                      const ShimmerList(itemCount: 3, itemHeight: 80),
-                  error: (e, _) => FriendlyError(
-                    error: e,
-                    context: 'alerts',
-                    onRetry: _refresh,
-                  ),
-                  data: (alerts) => _AlertsSection(
-                    alerts: alerts,
-                    personId: personId,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── 5. Score Trend ────────────────────────────────────
-                historyAsync.when(
-                  skipLoadingOnReload: true,
-                  loading: () =>
-                      const ShimmerList(itemCount: 1, itemHeight: 160),
-                  error: (e, _) => FriendlyError(
-                    error: e,
-                    context: 'score history',
-                    onRetry: _refresh,
-                  ),
-                  data: (history) => _ScoreTrendSection(history: history),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── 6. Risk Profile ───────────────────────────────────
-                riskAsync.when(
-                  skipLoadingOnReload: true,
-                  loading: () =>
-                      const ShimmerList(itemCount: 1, itemHeight: 120),
-                  error: (e, _) => FriendlyError(
-                    error: e,
-                    context: 'risk profile',
-                    onRetry: _refresh,
-                  ),
-                  data: (risk) => _RiskProfileCard(risk: risk),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── 7. Clinical Report Button ─────────────────────────
-                _ClinicalReportButton(personId: personId),
-
-                const SizedBox(height: 40),
-              ]),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 6,
+              backgroundColor:
+                  theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+              valueColor: AlwaysStoppedAnimation(
+                pct > 1.0 ? const Color(0xFFEF4444) : meta.color,
+              ),
             ),
           ),
         ],
@@ -180,7 +482,1683 @@ class _HealthIntelligenceScreenState
   }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ── Micronutrient Summary Card ───────────────────────────────────────────────
+
+class _MicronutrientSummaryCard extends StatelessWidget {
+  final DailyTwin twin;
+  const _MicronutrientSummaryCard({required this.twin});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return _StyledCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.science_rounded, size: 18),
+                const SizedBox(width: 8),
+                Text('Micronutrient Status', style: text.titleSmall),
+                const Spacer(),
+                Text(
+                  '${twin.microTotalTracked} tracked',
+                  style: text.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _StatusBadge(
+                  label: '${twin.microAdequateCount} Adequate',
+                  color: const Color(0xFF10B981),
+                ),
+                _StatusBadge(
+                  label: '${twin.microApproachingCount} Approaching',
+                  color: const Color(0xFFF59E0B),
+                ),
+                _StatusBadge(
+                  label: '${twin.microLowCount} Low',
+                  color: const Color(0xFFEF4444),
+                ),
+                if (twin.microExcessiveCount > 0)
+                  _StatusBadge(
+                    label: '${twin.microExcessiveCount} Excessive',
+                    color: const Color(0xFFFF6B00),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _StatusBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withAlpha(60)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+}
+
+// ── Nutrient Gaps List ───────────────────────────────────────────────────────
+
+class _NutrientGapsList extends StatelessWidget {
+  final String title;
+  final List<NutrientGap> gaps;
+  final bool isExcess;
+
+  const _NutrientGapsList({
+    required this.title,
+    required this.gaps,
+    required this.isExcess,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              isExcess
+                  ? Icons.warning_amber_rounded
+                  : Icons.trending_down_rounded,
+              size: 18,
+              color: isExcess
+                  ? const Color(0xFFFF6B00)
+                  : const Color(0xFFEF4444),
+            ),
+            const SizedBox(width: 8),
+            Text(title, style: text.titleSmall),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _StyledCard(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                for (var i = 0; i < gaps.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                        height: 1,
+                        color: theme.dividerColor.withAlpha(30)),
+                  _NutrientGapRow(gap: gaps[i], isExcess: isExcess),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NutrientGapRow extends StatelessWidget {
+  final NutrientGap gap;
+  final bool isExcess;
+
+  const _NutrientGapRow({required this.gap, required this.isExcess});
+
+  Color get _barColor {
+    if (isExcess) return const Color(0xFFFF6B00);
+    if (gap.percentDri < 30) return const Color(0xFFEF4444);
+    if (gap.percentDri < 60) return const Color(0xFFF59E0B);
+    if (gap.percentDri < 80) return const Color(0xFFEAB308);
+    return const Color(0xFF10B981);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final pct = isExcess
+        ? (gap.percentDri / 100).clamp(0.0, 2.0) / 2.0
+        : (gap.percentDri / 100).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(gap.displayName, style: text.bodyMedium),
+              ),
+              Text(
+                '${gap.consumed.toStringAsFixed(1)} / ${gap.target.toStringAsFixed(1)} ${gap.unit}',
+                style: text.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 5,
+              backgroundColor:
+                  theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+              valueColor: AlwaysStoppedAnimation(_barColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Hydration Bar ────────────────────────────────────────────────────────────
+
+class _HydrationBar extends StatelessWidget {
+  final DailyTwin twin;
+  const _HydrationBar({required this.twin});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final pct = (twin.hydrationPercent / 100).clamp(0.0, 1.0);
+
+    return _StyledCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.water_drop_rounded,
+                    size: 18, color: Color(0xFF3B82F6)),
+                const SizedBox(width: 8),
+                Text('Hydration', style: text.titleSmall),
+                const Spacer(),
+                Text(
+                  '${twin.hydrationMl.round()} / ${twin.hydrationTargetMl.round()} ml',
+                  style: text.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${twin.hydrationPercent.round()}%',
+                  style: text.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 8,
+                backgroundColor:
+                    theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+                valueColor:
+                    const AlwaysStoppedAnimation(Color(0xFF3B82F6)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Food Recommendations Card ────────────────────────────────────────────────
+
+class _FoodRecommendationsCard extends StatelessWidget {
+  final List<Map<String, dynamic>> recs;
+  const _FoodRecommendationsCard({required this.recs});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return _StyledCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.restaurant_rounded,
+                    size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Suggested Foods', style: text.titleSmall),
+              ],
+            ),
+            const SizedBox(height: 12),
+            for (final rec in recs)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.add_circle_outline_rounded,
+                        size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            rec['food_name']?.toString() ?? rec.toString(),
+                            style: text.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600),
+                          ),
+                          if (rec['reason'] != null)
+                            Text(
+                              rec['reason'].toString(),
+                              style: text.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Twin Sparkline ───────────────────────────────────────────────────────────
+
+class _TwinSparkline extends StatelessWidget {
+  final List<TwinTrendEntry> entries;
+  const _TwinSparkline({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    if (entries.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    final spots = <FlSpot>[];
+    for (var i = 0; i < entries.length; i++) {
+      spots.add(FlSpot(i.toDouble(), entries[i].completenessScore));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('30-Day Completeness Trend', style: text.titleSmall),
+        const SizedBox(height: 8),
+        _StyledCard(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+            child: SizedBox(
+              height: 100,
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(show: false),
+                  titlesData: const FlTitlesData(show: false),
+                  borderData: FlBorderData(show: false),
+                  minY: 0,
+                  maxY: 100,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      curveSmoothness: 0.3,
+                      color: theme.colorScheme.primary,
+                      barWidth: 2.5,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: theme.colorScheme.primary.withAlpha(30),
+                      ),
+                    ),
+                  ],
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipItems: (spots) => spots.map((s) {
+                        final idx = s.x.toInt();
+                        final date = idx < entries.length
+                            ? entries[idx].date
+                            : '';
+                        return LineTooltipItem(
+                          '$date\n${s.y.round()}%',
+                          TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TAB 2 — Goals
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _GoalsTab extends ConsumerWidget {
+  const _GoalsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final personId = ref.watch(selectedPersonProvider);
+    final goalsAsync = ref.watch(userGoalsProvider(personId));
+    final insightsAsync = ref.watch(goalInsightsProvider(personId));
+
+    return goalsAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(itemCount: 3, itemHeight: 100),
+      ),
+      error: (e, _) => FriendlyError(
+        error: e,
+        context: 'goals',
+        onRetry: () => ref.invalidate(userGoalsProvider(personId)),
+      ),
+      data: (goals) {
+        if (goals.isEmpty) {
+          return _GoalsEmptyState(personId: personId);
+        }
+
+        final insightsMap = <String, GoalInsightsResponse>{};
+        final insightsData = insightsAsync.valueOrNull ?? [];
+        for (final gi in insightsData) {
+          insightsMap[gi.goalId] = gi;
+        }
+
+        return Stack(
+          children: [
+            ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+              itemCount: goals.length,
+              itemBuilder: (context, index) => _GoalCard(
+                goal: goals[index],
+                insights: insightsMap[goals[index].id],
+                personId: personId,
+              ),
+            ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: FloatingActionButton.extended(
+                onPressed: () => _showGoalSetup(context, ref, personId),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add Goal'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showGoalSetup(BuildContext context, WidgetRef ref, String personId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _GoalSetupSheet(personId: personId),
+    );
+  }
+}
+
+class _GoalsEmptyState extends StatelessWidget {
+  final String personId;
+  const _GoalsEmptyState({required this.personId});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.flag_rounded,
+                size: 64,
+                color: theme.colorScheme.outline.withAlpha(120)),
+            const SizedBox(height: 20),
+            Text(
+              'Set Your First Goal',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Track weight loss, nutrition targets, hydration goals, and more.',
+              textAlign: TextAlign.center,
+              style: text.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) => _GoalSetupSheet(personId: personId),
+                );
+              },
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Create Goal'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Goal Card ────────────────────────────────────────────────────────────────
+
+class _GoalCard extends StatefulWidget {
+  final UserGoal goal;
+  final GoalInsightsResponse? insights;
+  final String personId;
+
+  const _GoalCard({
+    required this.goal,
+    this.insights,
+    required this.personId,
+  });
+
+  @override
+  State<_GoalCard> createState() => _GoalCardState();
+}
+
+class _GoalCardState extends State<_GoalCard> {
+  bool _expanded = false;
+
+  Color get _trendColor {
+    switch (widget.goal.trend) {
+      case 'on_track':
+        return const Color(0xFF10B981);
+      case 'behind':
+        return const Color(0xFFEF4444);
+      case 'ahead':
+        return const Color(0xFF3B82F6);
+      case 'achieved':
+        return const Color(0xFF8B5CF6);
+      default:
+        return const Color(0xFFF59E0B);
+    }
+  }
+
+  String get _trendLabel {
+    switch (widget.goal.trend) {
+      case 'on_track':
+        return 'On Track';
+      case 'behind':
+        return 'Behind';
+      case 'ahead':
+        return 'Ahead';
+      case 'achieved':
+        return 'Achieved';
+      default:
+        return widget.goal.trend;
+    }
+  }
+
+  IconData get _goalIcon {
+    switch (widget.goal.goalType) {
+      case 'weight_loss':
+      case 'weight_gain':
+        return Icons.monitor_weight_rounded;
+      case 'calories':
+        return Icons.local_fire_department_rounded;
+      case 'protein':
+        return Icons.egg_rounded;
+      case 'hydration':
+        return Icons.water_drop_rounded;
+      case 'exercise':
+        return Icons.fitness_center_rounded;
+      case 'sleep':
+        return Icons.bedtime_rounded;
+      case 'nutrient':
+        return Icons.science_rounded;
+      default:
+        return Icons.flag_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final goal = widget.goal;
+    final pct = (goal.progressPct / 100).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _StyledCard(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(_goalIcon,
+                        size: 22, color: theme.colorScheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        goal.label,
+                        style: text.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _trendColor.withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _trendColor.withAlpha(60)),
+                      ),
+                      child: Text(
+                        _trendLabel,
+                        style: text.labelSmall?.copyWith(
+                          color: _trendColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Progress bar
+                Row(
+                  children: [
+                    if (goal.startValue != null)
+                      Text(
+                        goal.startValue!.toStringAsFixed(0),
+                        style: text.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 8,
+                          backgroundColor: theme
+                              .colorScheme.surfaceContainerHighest
+                              .withAlpha(80),
+                          valueColor: AlwaysStoppedAnimation(_trendColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (goal.targetValue != null)
+                      Text(
+                        '${goal.targetValue!.toStringAsFixed(0)}${goal.targetUnit != null ? " ${goal.targetUnit}" : ""}',
+                        style: text.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${goal.progressPct.round()}% complete',
+                      style: text.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: _trendColor,
+                      ),
+                    ),
+                    if (goal.targetDate != null)
+                      Text(
+                        'Target: ${goal.targetDate}',
+                        style: text.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+                if (_expanded && widget.insights != null) ...[
+                  const SizedBox(height: 12),
+                  Divider(color: theme.dividerColor.withAlpha(40)),
+                  const SizedBox(height: 8),
+                  for (final insight in widget.insights!.insights)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.lightbulb_outline_rounded,
+                              size: 16, color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(insight.title,
+                                    style: text.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.w600)),
+                                Text(insight.body,
+                                    style: text.bodySmall?.copyWith(
+                                        color: theme
+                                            .colorScheme.onSurfaceVariant)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  for (final rec in widget.insights!.recommendations)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Icon(Icons.arrow_right_rounded,
+                              size: 16,
+                              color: theme.colorScheme.primary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              rec['text']?.toString() ?? rec.toString(),
+                              style: text.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+                if (_expanded && widget.insights == null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'No insights available yet.',
+                    style: text.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Goal Setup Sheet ─────────────────────────────────────────────────────────
+
+class _GoalSetupSheet extends ConsumerStatefulWidget {
+  final String personId;
+  const _GoalSetupSheet({required this.personId});
+
+  @override
+  ConsumerState<_GoalSetupSheet> createState() => _GoalSetupSheetState();
+}
+
+class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
+  String? _selectedType;
+  final _labelCtrl = TextEditingController();
+  final _targetCtrl = TextEditingController();
+  final _unitCtrl = TextEditingController();
+  DateTime? _targetDate;
+  bool _saving = false;
+
+  static const _goalTypes = <String, ({IconData icon, String label})>{
+    'weight_loss': (icon: Icons.monitor_weight_rounded, label: 'Lose Weight'),
+    'weight_gain': (icon: Icons.monitor_weight_rounded, label: 'Gain Weight'),
+    'calories': (icon: Icons.local_fire_department_rounded, label: 'Calorie Target'),
+    'protein': (icon: Icons.egg_rounded, label: 'Protein Target'),
+    'hydration': (icon: Icons.water_drop_rounded, label: 'Hydration'),
+    'exercise': (icon: Icons.fitness_center_rounded, label: 'Exercise'),
+    'sleep': (icon: Icons.bedtime_rounded, label: 'Sleep'),
+    'nutrient': (icon: Icons.science_rounded, label: 'Nutrient'),
+    'custom': (icon: Icons.flag_rounded, label: 'Custom'),
+  };
+
+  @override
+  void dispose() {
+    _labelCtrl.dispose();
+    _targetCtrl.dispose();
+    _unitCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_selectedType == null || _targetCtrl.text.isEmpty) return;
+    setState(() => _saving = true);
+
+    try {
+      final body = <String, dynamic>{
+        'goal_type': _selectedType,
+        'label': _labelCtrl.text.isNotEmpty
+            ? _labelCtrl.text
+            : _goalTypes[_selectedType]!.label,
+        'target_value': double.tryParse(_targetCtrl.text) ?? 0,
+      };
+      if (_unitCtrl.text.isNotEmpty) body['target_unit'] = _unitCtrl.text;
+      if (_targetDate != null) {
+        body['target_date'] =
+            _targetDate!.toIso8601String().substring(0, 10);
+      }
+      if (widget.personId != 'self') {
+        body['family_member_id'] = widget.personId;
+      }
+
+      await apiClient.dio.post(ApiConstants.healthGoals, data: body);
+      ref.invalidate(userGoalsProvider(widget.personId));
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create goal: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollCtrl) => ListView(
+        controller: scrollCtrl,
+        padding: const EdgeInsets.all(24),
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant.withAlpha(60),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Create a Goal', style: text.titleLarge),
+          const SizedBox(height: 20),
+
+          // Goal type grid
+          Text('Goal Type', style: text.titleSmall),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _goalTypes.entries.map((e) {
+              final selected = _selectedType == e.key;
+              return ChoiceChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(e.value.icon, size: 16),
+                    const SizedBox(width: 6),
+                    Text(e.value.label),
+                  ],
+                ),
+                selected: selected,
+                onSelected: (v) {
+                  setState(() => _selectedType = v ? e.key : null);
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+
+          // Label
+          TextField(
+            controller: _labelCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Goal Label (optional)',
+              hintText: 'e.g., "Reach 75kg by summer"',
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Target value
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _targetCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Target Value',
+                    hintText: '75',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _unitCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Unit',
+                    hintText: 'kg',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Target date
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today_rounded),
+            title: Text(
+              _targetDate != null
+                  ? DateFormat.yMMMd().format(_targetDate!)
+                  : 'Target Date (optional)',
+            ),
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate:
+                    DateTime.now().add(const Duration(days: 30)),
+                firstDate: DateTime.now(),
+                lastDate:
+                    DateTime.now().add(const Duration(days: 365 * 2)),
+              );
+              if (picked != null) setState(() => _targetDate = picked);
+            },
+          ),
+          const SizedBox(height: 24),
+
+          FilledButton(
+            onPressed:
+                _selectedType != null && _targetCtrl.text.isNotEmpty && !_saving
+                    ? _save
+                    : null,
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Create Goal'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TAB 3 — Weekly Summary
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _WeeklySummaryTab extends ConsumerStatefulWidget {
+  const _WeeklySummaryTab();
+
+  @override
+  ConsumerState<_WeeklySummaryTab> createState() => _WeeklySummaryTabState();
+}
+
+class _WeeklySummaryTabState extends ConsumerState<_WeeklySummaryTab> {
+  bool _showHistory = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final personId = ref.watch(selectedPersonProvider);
+    final summaryAsync = ref.watch(weeklySummaryProvider(personId));
+
+    if (_showHistory) {
+      return _WeeklyHistoryView(
+        personId: personId,
+        onBack: () => setState(() => _showHistory = false),
+      );
+    }
+
+    return summaryAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: ShimmerList(itemCount: 4, itemHeight: 100),
+      ),
+      error: (e, _) => FriendlyError(
+        error: e,
+        context: 'weekly summary',
+        onRetry: () => ref.invalidate(weeklySummaryProvider(personId)),
+      ),
+      data: (summary) {
+        if (summary == null) {
+          return const EmptyState(
+            message:
+                'Your first weekly summary will appear\nafter a week of logging.',
+            icon: Icons.calendar_view_week_rounded,
+          );
+        }
+        return _WeeklySummaryBody(
+          summary: summary,
+          onShowHistory: () => setState(() => _showHistory = true),
+        );
+      },
+    );
+  }
+}
+
+class _WeeklySummaryBody extends StatelessWidget {
+  final WeeklySummaryData summary;
+  final VoidCallback onShowHistory;
+
+  const _WeeklySummaryBody({
+    required this.summary,
+    required this.onShowHistory,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        const SizedBox(height: 12),
+
+        // Period header
+        _StyledCard(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.date_range_rounded,
+                    color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${summary.weekStart} - ${summary.weekEnd}',
+                          style: text.titleSmall),
+                      if (summary.source != 'statistical')
+                        Text('AI-generated',
+                            style: text.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Summary text
+        if (summary.summaryText.isNotEmpty)
+          _StyledCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(summary.summaryText,
+                  style: text.bodyMedium?.copyWith(height: 1.5)),
+            ),
+          ),
+        const SizedBox(height: 16),
+
+        // Key metrics row
+        Row(
+          children: [
+            Expanded(
+              child: _MetricTile(
+                label: 'Days Logged',
+                value: '${summary.daysLogged}/7',
+                icon: Icons.calendar_today_rounded,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MetricTile(
+                label: 'Avg Score',
+                value: summary.avgHealthScore.round().toString(),
+                icon: Icons.favorite_rounded,
+                color: _scoreColor(summary.avgHealthScore),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MetricTile(
+                label: 'Avg Cal',
+                value: summary.avgDailyCalories.round().toString(),
+                icon: Icons.local_fire_department_rounded,
+                color: const Color(0xFFEF4444),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Comparison to previous week
+        if (summary.comparison.isNotEmpty) ...[
+          _ComparisonCard(comparison: summary.comparison),
+          const SizedBox(height: 16),
+        ],
+
+        // Insights
+        if (summary.insights.isNotEmpty) ...[
+          Text('Insights', style: text.titleSmall),
+          const SizedBox(height: 8),
+          for (final insight in summary.insights)
+            _InsightCard(insight: insight),
+          const SizedBox(height: 16),
+        ],
+
+        // Correlations
+        if (summary.correlations.isNotEmpty) ...[
+          Text('Correlations', style: text.titleSmall),
+          const SizedBox(height: 8),
+          _StyledCard(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  for (final corr in summary.correlations)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.link_rounded,
+                              size: 16,
+                              color: theme.colorScheme.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              corr['description']?.toString() ??
+                                  corr.toString(),
+                              style: text.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Recommendations
+        if (summary.recommendations.isNotEmpty) ...[
+          Text('Recommendations', style: text.titleSmall),
+          const SizedBox(height: 8),
+          for (final rec in summary.recommendations)
+            _RecommendationTile(rec: rec),
+          const SizedBox(height: 16),
+        ],
+
+        // Goal progress
+        if (summary.goalProgress.isNotEmpty) ...[
+          Text('Goal Progress', style: text.titleSmall),
+          const SizedBox(height: 8),
+          _StyledCard(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  for (final gp in summary.goalProgress)
+                    _GoalProgressRow(data: gp),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Previous weeks link
+        TextButton.icon(
+          onPressed: onShowHistory,
+          icon: const Icon(Icons.history_rounded, size: 18),
+          label: const Text('Previous Weeks'),
+        ),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _MetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return _StyledCard(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: text.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: text.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComparisonCard extends StatelessWidget {
+  final Map<String, dynamic> comparison;
+  const _ComparisonCard({required this.comparison});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+
+    return _StyledCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('vs. Previous Week', style: text.titleSmall),
+            const SizedBox(height: 12),
+            for (final entry in comparison.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(_prettify(entry.key),
+                          style: text.bodySmall),
+                    ),
+                    _DeltaChip(value: entry.value),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeltaChip extends StatelessWidget {
+  final dynamic value;
+  const _DeltaChip({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final num v = value is num ? value : 0;
+    final isPositive = v > 0;
+    final color =
+        isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final icon = isPositive
+        ? Icons.arrow_upward_rounded
+        : Icons.arrow_downward_rounded;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 2),
+        Text(
+          v is double ? v.toStringAsFixed(1) : v.toString(),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InsightCard extends StatefulWidget {
+  final GoalInsight insight;
+  const _InsightCard({required this.insight});
+
+  @override
+  State<_InsightCard> createState() => _InsightCardState();
+}
+
+class _InsightCardState extends State<_InsightCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final confidence = widget.insight.confidence;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _StyledCard(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.lightbulb_rounded,
+                        size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(widget.insight.title,
+                          style: text.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600)),
+                    ),
+                    if (confidence > 0)
+                      _ConfidenceDot(confidence: confidence),
+                    Icon(
+                      _expanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+                if (_expanded) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.insight.body,
+                    style: text.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfidenceDot extends StatelessWidget {
+  final double confidence;
+  const _ConfidenceDot({required this.confidence});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = confidence > 0.7
+        ? const Color(0xFF10B981)
+        : confidence > 0.4
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFFEF4444);
+
+    return Tooltip(
+      message: 'Confidence: ${(confidence * 100).round()}%',
+      child: Container(
+        width: 8,
+        height: 8,
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
+}
+
+class _RecommendationTile extends StatelessWidget {
+  final Map<String, dynamic> rec;
+  const _RecommendationTile({required this.rec});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final priority = rec['priority']?.toString() ?? 'medium';
+    final color = priority == 'high'
+        ? const Color(0xFFEF4444)
+        : priority == 'medium'
+            ? const Color(0xFFF59E0B)
+            : theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _StyledCard(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  rec['text']?.toString() ??
+                      rec['description']?.toString() ??
+                      rec.toString(),
+                  style: text.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalProgressRow extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _GoalProgressRow({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final pct =
+        ((data['progress_pct'] as num?)?.toDouble() ?? 0) / 100;
+    final label = data['label']?.toString() ?? data['goal_type']?.toString() ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(label, style: text.bodySmall)),
+              Text('${(pct * 100).round()}%',
+                  style: text.labelSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: pct.clamp(0.0, 1.0),
+              minHeight: 5,
+              backgroundColor:
+                  theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+              valueColor:
+                  AlwaysStoppedAnimation(theme.colorScheme.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Weekly History View ──────────────────────────────────────────────────────
+
+class _WeeklyHistoryView extends ConsumerWidget {
+  final String personId;
+  final VoidCallback onBack;
+
+  const _WeeklyHistoryView({required this.personId, required this.onBack});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final text = theme.textTheme;
+    final historyAsync = ref.watch(weeklySummaryHistoryProvider(personId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                onPressed: onBack,
+              ),
+              Text('Previous Weeks', style: text.titleSmall),
+            ],
+          ),
+        ),
+        Expanded(
+          child: historyAsync.when(
+            skipLoadingOnReload: true,
+            loading: () => const Padding(
+              padding: EdgeInsets.all(16),
+              child: ShimmerList(itemCount: 4, itemHeight: 80),
+            ),
+            error: (e, _) => FriendlyError(
+              error: e,
+              context: 'weekly history',
+              onRetry: () =>
+                  ref.invalidate(weeklySummaryHistoryProvider(personId)),
+            ),
+            data: (weeks) {
+              if (weeks.isEmpty) {
+                return const EmptyState(
+                  message: 'No weekly summaries yet.',
+                  icon: Icons.history_rounded,
+                );
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: weeks.length,
+                itemBuilder: (context, index) {
+                  final w = weeks[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _StyledCard(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              _scoreColor(w.avgHealthScore).withAlpha(30),
+                          child: Text(
+                            w.avgHealthScore.round().toString(),
+                            style: text.labelLarge?.copyWith(
+                              color: _scoreColor(w.avgHealthScore),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          '${w.weekStart} - ${w.weekEnd}',
+                          style: text.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          '${w.daysLogged}/7 days logged',
+                          style: text.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: const Icon(
+                            Icons.chevron_right_rounded, size: 20),
+                        onTap: () => _showWeekDetail(context, w),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showWeekDetail(BuildContext context, WeeklySummaryData week) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollCtrl) {
+          final text = Theme.of(context).textTheme;
+          return ListView(
+            controller: scrollCtrl,
+            padding: const EdgeInsets.all(24),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withAlpha(60),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text('${week.weekStart} - ${week.weekEnd}',
+                  style: text.titleLarge),
+              const SizedBox(height: 16),
+              if (week.summaryText.isNotEmpty) ...[
+                Text(week.summaryText,
+                    style: text.bodyMedium?.copyWith(height: 1.5)),
+                const SizedBox(height: 16),
+              ],
+              _DetailTile(
+                label: 'Days Logged',
+                value: '${week.daysLogged}/7',
+              ),
+              _DetailTile(
+                label: 'Avg Health Score',
+                value: week.avgHealthScore.round().toString(),
+              ),
+              _DetailTile(
+                label: 'Avg Completeness',
+                value: '${week.avgCompletenessScore.round()}%',
+              ),
+              _DetailTile(
+                label: 'Avg Daily Calories',
+                value: '${week.avgDailyCalories.round()} kcal',
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Shared helpers (preserved from original)
+// ═════════════════════════════════════════════════════════════════════════════
 
 Color _scoreColor(double? score) {
   if (score == null) return Colors.grey;
@@ -200,11 +2178,16 @@ const _dimensionMeta = <String, ({IconData icon, String label})>{
   'vitals': (icon: Icons.favorite_rounded, label: 'Vitals'),
 };
 
-// ── 2. Score Ring ───────────────────────────────────────────────────────────
+String _prettify(String key) =>
+    key.replaceAll('_', ' ').replaceAllMapped(
+      RegExp(r'(^|\s)\w'),
+      (m) => m.group(0)!.toUpperCase(),
+    );
+
+// ── Score Ring (preserved from original) ─────────────────────────────────────
 
 class _ScoreRingSkeleton extends StatelessWidget {
   const _ScoreRingSkeleton();
-
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
@@ -315,7 +2298,6 @@ class _RingPainter extends CustomPainter {
     final radius = math.min(size.width, size.height) / 2 - 12;
     const strokeWidth = 14.0;
 
-    // Track
     final trackPaint = Paint()
       ..color = trackColor
       ..style = PaintingStyle.stroke
@@ -323,7 +2305,6 @@ class _RingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, trackPaint);
 
-    // Progress arc
     if (progress > 0) {
       final arcPaint = Paint()
         ..style = PaintingStyle.stroke
@@ -349,11 +2330,10 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.color != color;
 }
 
-// ── 3. Dimension Breakdown ──────────────────────────────────────────────────
+// ── Dimension Breakdown (preserved) ──────────────────────────────────────────
 
 class _DimensionBreakdown extends StatelessWidget {
   final Map<String, DimensionScore> dimensions;
-
   const _DimensionBreakdown({required this.dimensions});
 
   @override
@@ -361,7 +2341,6 @@ class _DimensionBreakdown extends StatelessWidget {
     final theme = Theme.of(context);
     final text = theme.textTheme;
 
-    // Stable ordering: use the keys from _dimensionMeta first, then any extras.
     final orderedKeys = <String>[
       for (final k in _dimensionMeta.keys)
         if (dimensions.containsKey(k)) k,
@@ -376,7 +2355,8 @@ class _DimensionBreakdown extends StatelessWidget {
           Text('Dimensions', style: text.titleMedium),
           const SizedBox(height: 12),
           const EmptyState(
-            message: 'No dimension data yet.\nLog more health data to see your scores.',
+            message:
+                'No dimension data yet.\nLog more health data to see your scores.',
             icon: Icons.insights_rounded,
           ),
         ],
@@ -414,10 +2394,7 @@ class _DimensionRow extends StatelessWidget {
   final String dimensionKey;
   final DimensionScore dim;
 
-  const _DimensionRow({
-    required this.dimensionKey,
-    required this.dim,
-  });
+  const _DimensionRow({required this.dimensionKey, required this.dim});
 
   @override
   Widget build(BuildContext context) {
@@ -563,20 +2540,16 @@ class _DetailTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: text.bodyMedium),
-          Text(value, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+          Text(value,
+              style:
+                  text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 }
 
-String _prettify(String key) =>
-    key.replaceAll('_', ' ').replaceAllMapped(
-      RegExp(r'(^|\s)\w'),
-      (m) => m.group(0)!.toUpperCase(),
-    );
-
-// ── 4. Alerts Section ───────────────────────────────────────────────────────
+// ── Alerts Section (preserved) ───────────────────────────────────────────────
 
 class _AlertsSection extends ConsumerWidget {
   final List<HealthAlert> alerts;
@@ -599,7 +2572,8 @@ class _AlertsSection extends ConsumerWidget {
             if (active.isNotEmpty) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.error,
                   borderRadius: BorderRadius.circular(12),
@@ -729,7 +2703,8 @@ class _AlertCardState extends ConsumerState<_AlertCard> {
                           const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
                           ),
                       ],
                     ),
@@ -738,13 +2713,9 @@ class _AlertCardState extends ConsumerState<_AlertCard> {
                       spacing: 8,
                       children: [
                         _Chip(
-                          label: alert.category,
-                          color: theme.colorScheme.primary,
-                        ),
-                        _Chip(
-                          label: alert.alertType,
-                          color: _severityColor,
-                        ),
+                            label: alert.category,
+                            color: theme.colorScheme.primary),
+                        _Chip(label: alert.alertType, color: _severityColor),
                       ],
                     ),
                     if (alert.recommendation != null &&
@@ -819,7 +2790,7 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// ── 5. Score Trend ──────────────────────────────────────────────────────────
+// ── Score Trend (preserved) ──────────────────────────────────────────────────
 
 class _ScoreTrendSection extends StatelessWidget {
   final List<ScoreHistoryEntry> history;
@@ -831,7 +2802,6 @@ class _ScoreTrendSection extends StatelessWidget {
     final theme = Theme.of(context);
     final text = theme.textTheme;
 
-    // Calculate trend direction
     String direction = 'stable';
     IconData directionIcon = Icons.trending_flat_rounded;
     Color directionColor = const Color(0xFFF59E0B);
@@ -913,17 +2883,17 @@ class _TrendBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Show up to 30 bars, most recent on right
     final entries = history.reversed.take(30).toList().reversed.toList();
     const maxBarHeight = 100.0;
 
     return SizedBox(
-      height: maxBarHeight + 24, // 24 for label space
+      height: maxBarHeight + 24,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final barWidth = math.max(
             2.0,
-            (constraints.maxWidth - (entries.length - 1) * 2) / entries.length,
+            (constraints.maxWidth - (entries.length - 1) * 2) /
+                entries.length,
           );
 
           return Row(
@@ -962,7 +2932,7 @@ class _TrendBarChart extends StatelessWidget {
   }
 }
 
-// ── 6. Risk Profile Card ────────────────────────────────────────────────────
+// ── Risk Profile Card (preserved) ────────────────────────────────────────────
 
 class _RiskProfileCard extends StatelessWidget {
   final RiskProfile risk;
@@ -997,10 +2967,9 @@ class _RiskProfileCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Risk level chip
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
                     color: riskColor.withAlpha(25),
                     borderRadius: BorderRadius.circular(20),
@@ -1014,8 +2983,6 @@ class _RiskProfileCard extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // Top risks
                 if (risk.topRisks.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text('Top Risks',
@@ -1033,15 +3000,16 @@ class _RiskProfileCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Text(r.condition,
                                     style: text.bodyMedium?.copyWith(
                                         fontWeight: FontWeight.w600)),
                                 Text(r.evidence,
                                     style: text.bodySmall?.copyWith(
-                                        color: theme
-                                            .colorScheme.onSurfaceVariant)),
+                                        color: theme.colorScheme
+                                            .onSurfaceVariant)),
                               ],
                             ),
                           ),
@@ -1049,8 +3017,6 @@ class _RiskProfileCard extends StatelessWidget {
                       ),
                     ),
                 ],
-
-                // Strengths
                 if (risk.strengths.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text('Strengths',
@@ -1062,10 +3028,13 @@ class _RiskProfileCard extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle_outline_rounded,
-                              size: 16, color: Color(0xFF10B981)),
+                          const Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 16,
+                              color: Color(0xFF10B981)),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(s, style: text.bodyMedium)),
+                          Expanded(
+                              child: Text(s, style: text.bodyMedium)),
                         ],
                       ),
                     ),
@@ -1079,7 +3048,7 @@ class _RiskProfileCard extends StatelessWidget {
   }
 }
 
-// ── 7. Clinical Report Button ───────────────────────────────────────────────
+// ── Clinical Report Button (preserved) ───────────────────────────────────────
 
 class _ClinicalReportButton extends ConsumerWidget {
   final String personId;
@@ -1093,7 +3062,6 @@ class _ClinicalReportButton extends ConsumerWidget {
 
     return Column(
       children: [
-        // Generate report button
         SizedBox(
           width: double.infinity,
           height: 56,
@@ -1135,10 +3103,7 @@ class _ClinicalReportButton extends ConsumerWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 12),
-
-        // Download PDF button
         SizedBox(
           width: double.infinity,
           height: 48,
@@ -1171,7 +3136,6 @@ class _ClinicalReportButton extends ConsumerWidget {
     messenger.showSnackBar(
       const SnackBar(content: Text('Generating PDF report...')),
     );
-
     try {
       final params = <String, dynamic>{'period_days': 30};
       if (personId != 'self') params['family_member_id'] = personId;
@@ -1194,7 +3158,7 @@ class _ClinicalReportButton extends ConsumerWidget {
   }
 }
 
-// ── Shared styled card ──────────────────────────────────────────────────────
+// ── Shared styled card ───────────────────────────────────────────────────────
 
 class _StyledCard extends StatelessWidget {
   final Widget child;
@@ -1222,9 +3186,9 @@ class _StyledCard extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Clinical Report Preview Screen
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
+// Clinical Report Preview Screen (preserved)
+// ═════════════════════════════════════════════════════════════════════════════
 
 class _ClinicalReportPreview extends ConsumerWidget {
   final String personId;
@@ -1254,24 +3218,22 @@ class _ClinicalReportPreview extends ConsumerWidget {
           child: FriendlyError(
             error: e,
             context: 'clinical report',
-            onRetry: () => ref.invalidate(clinicalReportProvider(personId)),
+            onRetry: () =>
+                ref.invalidate(clinicalReportProvider(personId)),
           ),
         ),
         data: (report) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Period
             if (report.periodStart != null && report.periodEnd != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
                   'Period: ${report.periodStart} to ${report.periodEnd}',
-                  style: text.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: text.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant),
                 ),
               ),
-
-            // Demographics
             _ReportSection(
               title: 'Demographics',
               icon: Icons.person_rounded,
@@ -1286,8 +3248,6 @@ class _ClinicalReportPreview extends ConsumerWidget {
                           .toList(),
                     ),
             ),
-
-            // Executive Summary
             _ReportSection(
               title: 'Executive Summary',
               icon: Icons.summarize_rounded,
@@ -1325,8 +3285,6 @@ class _ClinicalReportPreview extends ConsumerWidget {
                 ],
               ),
             ),
-
-            // Nutrient Analysis
             _ReportSection(
               title: 'Nutrient Analysis',
               icon: Icons.science_rounded,
@@ -1341,8 +3299,6 @@ class _ClinicalReportPreview extends ConsumerWidget {
                           .toList(),
                     ),
             ),
-
-            // Risk Assessment
             _ReportSection(
               title: 'Risk Assessment',
               icon: Icons.shield_rounded,
@@ -1351,7 +3307,8 @@ class _ClinicalReportPreview extends ConsumerWidget {
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: report.riskFlags.map((flag) {
-                        final level = flag['level']?.toString() ?? 'info';
+                        final level =
+                            flag['level']?.toString() ?? 'info';
                         final color = level == 'high'
                             ? const Color(0xFFEF4444)
                             : level == 'moderate'
@@ -1360,7 +3317,8 @@ class _ClinicalReportPreview extends ConsumerWidget {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Icon(Icons.flag_rounded,
                                   size: 16, color: color),
@@ -1378,8 +3336,6 @@ class _ClinicalReportPreview extends ConsumerWidget {
                       }).toList(),
                     ),
             ),
-
-            // Recommended Labs
             _ReportSection(
               title: 'Recommended Labs',
               icon: Icons.biotech_rounded,
@@ -1395,7 +3351,8 @@ class _ClinicalReportPreview extends ConsumerWidget {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
@@ -1412,8 +3369,8 @@ class _ClinicalReportPreview extends ConsumerWidget {
                               const SizedBox(height: 4),
                               Text(lab.reason,
                                   style: text.bodySmall?.copyWith(
-                                      color: theme
-                                          .colorScheme.onSurfaceVariant)),
+                                      color: theme.colorScheme
+                                          .onSurfaceVariant)),
                               if (lab.normalRange.isNotEmpty)
                                 Text('Normal: ${lab.normalRange}',
                                     style: text.bodySmall?.copyWith(
@@ -1421,16 +3378,14 @@ class _ClinicalReportPreview extends ConsumerWidget {
                                             .onSurfaceVariant)),
                               Text('Specialist: ${lab.specialist}',
                                   style: text.bodySmall?.copyWith(
-                                      color: theme
-                                          .colorScheme.onSurfaceVariant)),
+                                      color: theme.colorScheme
+                                          .onSurfaceVariant)),
                             ],
                           ),
                         );
                       }).toList(),
                     ),
             ),
-
-            // Doctor Questions
             _ReportSection(
               title: 'Questions for Your Doctor',
               icon: Icons.help_outline_rounded,
@@ -1445,7 +3400,8 @@ class _ClinicalReportPreview extends ConsumerWidget {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   '${i + 1}.',
@@ -1456,7 +3412,8 @@ class _ClinicalReportPreview extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text(report.doctorQuestions[i],
+                                  child: Text(
+                                      report.doctorQuestions[i],
                                       style: text.bodyMedium),
                                 ),
                               ],
@@ -1465,10 +3422,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
                       ],
                     ),
             ),
-
             const SizedBox(height: 24),
-
-            // Download PDF button
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -1503,7 +3457,6 @@ class _ClinicalReportPreview extends ConsumerWidget {
                 ),
               ),
             ),
-
             const SizedBox(height: 32),
           ],
         ),
@@ -1562,9 +3515,9 @@ class _ReportSection extends StatelessWidget {
           child: ExpansionTile(
             initiallyExpanded: initiallyExpanded,
             tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-            childrenPadding:
-                const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            leading: Icon(icon, color: theme.colorScheme.primary, size: 22),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            leading:
+                Icon(icon, color: theme.colorScheme.primary, size: 22),
             title: Text(
               title,
               style: theme.textTheme.titleSmall
