@@ -77,6 +77,12 @@ class DashboardData {
   final double todayProtein;
   final double todayCarbs;
   final double todayFat;
+  // Health Connect / wearable
+  final int? todaySteps;
+  final double? todayHeartRate;
+  final double? todaySleepMins;
+  final double? todayActiveCalories;
+  final double? todayDistance;
   // extras
   final Map<String, int> mealDistribution;
   final List<DashboardTopFood> topCalorieFoods;
@@ -101,6 +107,11 @@ class DashboardData {
     required this.todayProtein,
     required this.todayCarbs,
     required this.todayFat,
+    this.todaySteps,
+    this.todayHeartRate,
+    this.todaySleepMins,
+    this.todayActiveCalories,
+    this.todayDistance,
     required this.mealDistribution,
     required this.topCalorieFoods,
     required this.healthScore,
@@ -130,6 +141,11 @@ class DashboardData {
         todayProtein: (json['today_protein'] as num?)?.toDouble() ?? 0,
         todayCarbs: (json['today_carbs'] as num?)?.toDouble() ?? 0,
         todayFat: (json['today_fat'] as num?)?.toDouble() ?? 0,
+        todaySteps: (json['today_steps'] as num?)?.toInt(),
+        todayHeartRate: (json['today_heart_rate'] as num?)?.toDouble(),
+        todaySleepMins: (json['today_sleep_mins'] as num?)?.toDouble(),
+        todayActiveCalories: (json['today_active_calories'] as num?)?.toDouble(),
+        todayDistance: (json['today_distance'] as num?)?.toDouble(),
         mealDistribution: (json['meal_distribution'] as Map<String, dynamic>?)
                 ?.map((k, v) => MapEntry(k, (v as num).toInt())) ??
             {},

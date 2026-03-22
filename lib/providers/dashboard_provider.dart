@@ -13,6 +13,7 @@ class PersonSnapshot {
   final double healthScore;
   final double todayCalories;
   final double todayWater;
+  final int? todaySteps;
 
   const PersonSnapshot({
     required this.id,
@@ -21,6 +22,7 @@ class PersonSnapshot {
     required this.healthScore,
     required this.todayCalories,
     required this.todayWater,
+    this.todaySteps,
   });
 
   factory PersonSnapshot.fromJson(Map<String, dynamic> json) => PersonSnapshot(
@@ -30,6 +32,7 @@ class PersonSnapshot {
         healthScore: (json['health_score'] as num?)?.toDouble() ?? 0,
         todayCalories: (json['today_calories'] as num?)?.toDouble() ?? 0,
         todayWater: (json['today_water'] as num?)?.toDouble() ?? 0,
+        todaySteps: (json['today_steps'] as num?)?.toInt(),
       );
 }
 
