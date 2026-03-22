@@ -302,23 +302,29 @@ class _ConnectedDevicesScreenState
             children: [
               const Text(
                 'Health Connect returned 0 data points. '
-                'This usually means Samsung Health hasn\'t synced data to Health Connect yet.',
+                'This can happen if:',
               ),
-              const SizedBox(height: 16),
-              const Text('To fix this:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('1. Open Samsung Health app'),
-              const Text('2. Go to Settings (⋮ menu)'),
-              const Text('3. Tap "Health Connect"'),
-              const Text('4. Enable "Sync with Health Connect"'),
-              const Text('5. Wait a few minutes, then sync again here'),
+              const Text('1. Samsung Health data hasn\'t been synced to Health Connect yet'),
+              const Text('2. There\'s no health data recorded in the query period'),
+              const Text('3. Health Connect permissions were granted but data access is restricted'),
+              const SizedBox(height: 16),
+              const Text('Try these steps:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('1. Open Samsung Health → walk around to record some steps'),
+              const Text('2. Open Health Connect app → verify QoreHealth has permissions'),
+              const Text('3. In Health Connect → Data and Access → check if Samsung Health is listed as a data source'),
+              const Text('4. Wait a few minutes and try "Sync Now" again'),
               if (errCount > 0) ...[
                 const SizedBox(height: 16),
-                Text('$errCount data type(s) had errors — '
-                    'some types may not be supported on your device.',
+                Text('$errCount data type(s) had read errors:',
                     style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                         fontSize: 12)),
+                ...diag.typeErrors.entries.take(3).map((e) => Text(
+                      '  ${e.key}: ${e.value.length > 60 ? '${e.value.substring(0, 60)}...' : e.value}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    )),
               ],
               const SizedBox(height: 12),
               Text(
@@ -334,16 +340,50 @@ class _ConnectedDevicesScreenState
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Got it'),
           ),
+          OutlinedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _quickStepCheck();
+            },
+            child: const Text('Check Steps'),
+          ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               _openHealthSettings();
             },
-            child: const Text('Open Samsung Health'),
+            child: const Text('Open Health Connect'),
           ),
         ],
       ),
     );
+  }
+
+  /// Quick diagnostic: check total steps in last 7 days via Health Connect.
+  Future<void> _quickStepCheck() async {
+    final now = DateTime.now();
+    final start = now.subtract(const Duration(days: 7));
+    try {
+      final steps = await Health().getTotalStepsInInterval(start, now);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(steps != null && steps > 0
+              ? 'Health Connect has $steps steps in last 7 days — data is accessible! Try syncing again.'
+              : 'Health Connect reports 0 steps in last 7 days. Samsung Health may not be sharing data with Health Connect.'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      // If steps found, trigger a sync
+      if (steps != null && steps > 0) {
+        _triggerSync();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Step check failed: $e')),
+      );
+    }
   }
 
   Future<void> _forceFullResync() async {

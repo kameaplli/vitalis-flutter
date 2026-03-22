@@ -142,21 +142,24 @@ class HealthSyncService {
     }
   }
 
-  /// Try to read a small amount of STEPS data as a definitive permission test.
+  /// Try to read health data as a definitive permission test.
   /// Returns true if we can read data (even if there are 0 points — no error means access works).
   static Future<bool> canReadData() async {
     if (!isAvailable) return false;
     await _ensureConfigured();
     try {
       final now = DateTime.now();
-      final start = now.subtract(const Duration(days: 1));
-      // This will throw if we don't have permission
-      await _health.getHealthDataFromTypes(
+      final start = now.subtract(const Duration(days: 7));
+      // Try getTotalStepsInInterval first — simpler and more reliable
+      final steps = await _health.getTotalStepsInInterval(start, now);
+      debugPrint('HealthSync: canReadData — steps in last 7 days: $steps');
+      // Also try getHealthDataFromTypes to verify full read access
+      final points = await _health.getHealthDataFromTypes(
         types: [HealthDataType.STEPS],
         startTime: start,
         endTime: now,
       );
-      debugPrint('HealthSync: canReadData = true (STEPS read succeeded)');
+      debugPrint('HealthSync: canReadData = true (${points.length} STEPS points)');
       return true;
     } catch (e) {
       debugPrint('HealthSync: canReadData = false (error: $e)');
