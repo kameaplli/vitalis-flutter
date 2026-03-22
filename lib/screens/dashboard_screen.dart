@@ -518,9 +518,54 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
               prevAvg: data.prevWeekAvgWater,
             )),
           ]),
+          // Health Connect row (steps + sleep/activity) — only if data exists
+          if (data.todaySteps != null || data.todaySleepMins != null) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              if (data.todaySteps != null)
+                Expanded(child: _StatCard(
+                  label: 'Steps', icon: Icons.directions_walk_rounded,
+                  color: const Color(0xFF22C55E),
+                  todayValue: _formatNumber(data.todaySteps!), todayUnit: '',
+                  weekAvg: data.todayActiveCalories != null
+                      ? '${data.todayActiveCalories!.toStringAsFixed(0)} active kcal'
+                      : '',
+                  prevAvg: '', up: true,
+                  showTrend: false,
+                )),
+              if (data.todaySteps != null && data.todaySleepMins != null)
+                const SizedBox(width: 10),
+              if (data.todaySleepMins != null)
+                Expanded(child: _StatCard(
+                  label: 'Sleep', icon: Icons.bedtime_rounded,
+                  color: const Color(0xFF6366F1),
+                  todayValue: _formatSleepHours(data.todaySleepMins!), todayUnit: 'hrs',
+                  weekAvg: data.todayHeartRate != null
+                      ? '${data.todayHeartRate!.toStringAsFixed(0)} bpm avg HR'
+                      : '',
+                  prevAvg: '', up: true,
+                  showTrend: false,
+                )),
+              // If only one metric exists, add an empty expanded to keep layout
+              if (data.todaySteps != null && data.todaySleepMins == null)
+                const Expanded(child: SizedBox()),
+              if (data.todaySteps == null && data.todaySleepMins != null)
+                const Expanded(child: SizedBox()),
+            ]),
+          ],
         ],
       ),
     );
+  }
+
+  static String _formatNumber(int n) {
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
+    return '$n';
+  }
+
+  static String _formatSleepHours(double mins) {
+    if (mins > 24) return (mins / 60).toStringAsFixed(1);
+    return mins.toStringAsFixed(1);
   }
 
   static Widget _sectionTitle(BuildContext context, String text) => Text(
