@@ -383,12 +383,34 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     final cardConfig = ref.watch(dashboardCardConfigProvider);
     final visibleCards = cardConfig.visibleCards;
 
+    // Partition visible cards into runs of small tiles vs full-width cards.
+    // Adjacent small tiles are grouped into a single 2-column grid sliver.
+    final slivers = <Widget>[];
+    var i = 0;
+    while (i < visibleCards.length) {
+      final type = visibleCards[i];
+      if (type.isSmallTile) {
+        // Collect consecutive small tiles
+        final smallRun = <DashboardCardType>[];
+        while (i < visibleCards.length && visibleCards[i].isSmallTile) {
+          smallRun.add(visibleCards[i]);
+          i++;
+        }
+        slivers.add(SliverToBoxAdapter(
+          child: _buildSmallTileGrid(smallRun, data, hydrationAsync),
+        ));
+      } else {
+        slivers.add(SliverToBoxAdapter(
+          child: _buildFullWidthCard(type, data, person, groceryAsync, hydrationAsync),
+        ));
+        i++;
+      }
+    }
+
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        // ── Render cards in user-configured order ─────────────────────────
-        for (final cardType in visibleCards)
-          _buildCardSliver(cardType, data, person, groceryAsync, hydrationAsync),
+        ...slivers,
 
         // ── Customize button ─────────────────────────────────────────────
         SliverToBoxAdapter(
@@ -417,20 +439,151 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     );
   }
 
-  /// Build the correct sliver widget for a given card type.
-  SliverToBoxAdapter _buildCardSliver(
-    DashboardCardType type,
+  /// Build a 2-column grid of small stat tiles.
+  Widget _buildSmallTileGrid(
+    List<DashboardCardType> tiles,
     DashboardData data,
-    String person,
-    AsyncValue<GrocerySpending> groceryAsync,
     AsyncValue<double> hydrationAsync,
   ) {
-    return SliverToBoxAdapter(
-      child: _buildCard(type, data, person, groceryAsync, hydrationAsync),
+    return GestureDetector(
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        DashboardCustomizeSheet.show(context);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle(context, "$_dayLabel Summary"),
+            const SizedBox(height: 6),
+            // Build rows of 2 tiles
+            for (var r = 0; r < tiles.length; r += 2) ...[
+              if (r > 0) const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: _buildStatTile(tiles[r], data, hydrationAsync)),
+                const SizedBox(width: 10),
+                if (r + 1 < tiles.length)
+                  Expanded(child: _buildStatTile(tiles[r + 1], data, hydrationAsync))
+                else
+                  const Expanded(child: SizedBox()),
+              ]),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildCard(
+  /// Build a single stat tile widget for a given card type.
+  Widget _buildStatTile(
+    DashboardCardType type,
+    DashboardData data,
+    AsyncValue<double> hydrationAsync,
+  ) {
+    return switch (type) {
+      DashboardCardType.calories => _StatCard(
+        label: 'Calories', icon: Icons.local_fire_department,
+        color: Colors.orange,
+        todayValue: data.todayCalories.toStringAsFixed(0), todayUnit: 'kcal',
+        weekAvg: '${data.weekAvgCalories.toStringAsFixed(0)} kcal',
+        prevAvg: data.prevWeekAvgCalories.toStringAsFixed(0),
+        up: data.weekAvgCalories >= data.prevWeekAvgCalories,
+      ),
+      DashboardCardType.weight => _StatCard(
+        label: 'Weight', icon: Icons.monitor_weight_outlined,
+        color: Colors.purple,
+        todayValue: data.currentWeight != null
+            ? data.currentWeight!.toStringAsFixed(1) : '—',
+        todayUnit: data.currentWeight != null ? 'kg' : '',
+        weekAvg: data.weightChange != null
+            ? '${data.weightChange! >= 0 ? '+' : ''}${data.weightChange!.toStringAsFixed(1)} kg'
+            : 'No prev entry',
+        prevAvg: data.previousWeight != null
+            ? '${data.previousWeight!.toStringAsFixed(1)} kg' : '—',
+        up: (data.weightChange ?? 0) <= 0,
+        showTrend: data.weightChange != null,
+      ),
+      DashboardCardType.meals => _StatCard(
+        label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
+        color: Colors.green,
+        todayValue: '${data.mealsCount}', todayUnit: 'meals',
+        weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
+        prevAvg: '${data.prevWeekAvgMeals.toStringAsFixed(1)}/day',
+        up: data.weekAvgMeals >= data.prevWeekAvgMeals,
+      ),
+      DashboardCardType.water => _HydrationStatCard(
+        hydrationAsync: hydrationAsync,
+        weekAvg: data.weekAvgWater,
+        prevAvg: data.prevWeekAvgWater,
+      ),
+      DashboardCardType.steps => _StatCard(
+        label: 'Steps', icon: Icons.directions_walk_rounded,
+        color: const Color(0xFF22C55E),
+        todayValue: data.todaySteps != null ? _formatNumber(data.todaySteps!) : '—',
+        todayUnit: '',
+        weekAvg: data.todayActiveCalories != null
+            ? '${data.todayActiveCalories!.toStringAsFixed(0)} active kcal'
+            : 'No data',
+        prevAvg: '', up: true,
+        showTrend: false,
+      ),
+      DashboardCardType.sleep => _StatCard(
+        label: 'Sleep', icon: Icons.bedtime_rounded,
+        color: const Color(0xFF6366F1),
+        todayValue: data.todaySleepMins != null
+            ? _formatSleepHours(data.todaySleepMins!) : '—',
+        todayUnit: data.todaySleepMins != null ? 'hrs' : '',
+        weekAvg: '', prevAvg: '', up: true,
+        showTrend: false,
+      ),
+      DashboardCardType.heartRate => _StatCard(
+        label: 'Heart Rate', icon: Icons.favorite_rounded,
+        color: Colors.red,
+        todayValue: data.todayHeartRate != null
+            ? data.todayHeartRate!.toStringAsFixed(0) : '—',
+        todayUnit: data.todayHeartRate != null ? 'bpm' : '',
+        weekAvg: '', prevAvg: '', up: true,
+        showTrend: false,
+      ),
+      DashboardCardType.spo2 => _StatCard(
+        label: 'SpO2', icon: Icons.bloodtype_rounded,
+        color: const Color(0xFF0EA5E9),
+        todayValue: data.todaySpo2 != null
+            ? data.todaySpo2!.toStringAsFixed(0) : '—',
+        todayUnit: data.todaySpo2 != null ? '%' : '',
+        weekAvg: '', prevAvg: '', up: true,
+        showTrend: false,
+      ),
+      DashboardCardType.exercise => _StatCard(
+        label: 'Exercise', icon: Icons.fitness_center_rounded,
+        color: const Color(0xFFF59E0B),
+        todayValue: data.todayActiveCalories != null
+            ? data.todayActiveCalories!.toStringAsFixed(0) : '—',
+        todayUnit: data.todayActiveCalories != null ? 'kcal' : '',
+        weekAvg: 'Active calories', prevAvg: '', up: true,
+        showTrend: false,
+      ),
+      DashboardCardType.distance => _StatCard(
+        label: 'Distance', icon: Icons.straighten_rounded,
+        color: const Color(0xFF8B5CF6),
+        todayValue: data.todayDistance != null
+            ? (data.todayDistance! >= 1000
+                ? '${(data.todayDistance! / 1000).toStringAsFixed(1)}'
+                : data.todayDistance!.toStringAsFixed(0))
+            : '—',
+        todayUnit: data.todayDistance != null
+            ? (data.todayDistance! >= 1000 ? 'km' : 'm')
+            : '',
+        weekAvg: '', prevAvg: '', up: true,
+        showTrend: false,
+      ),
+      _ => const SizedBox.shrink(), // Non-small tiles shouldn't reach here
+    };
+  }
+
+  /// Build a full-width card widget.
+  Widget _buildFullWidthCard(
     DashboardCardType type,
     DashboardData data,
     String person,
@@ -439,7 +592,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   ) {
     final child = switch (type) {
       DashboardCardType.quickActions => _QuickActionsBar(person: person),
-      DashboardCardType.summaryGrid => _buildSummaryGrid(data, hydrationAsync),
       DashboardCardType.hydrationQuickLog =>
         _HydrationQuickLog(person: person, hydrationAsync: hydrationAsync),
       DashboardCardType.wearableSummary => const WearableSummaryCard(),
@@ -456,6 +608,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           : const SizedBox.shrink(),
       DashboardCardType.insights => _InsightsCard(insights: data.insights),
       DashboardCardType.grocerySnapshot => _GrocerySnapshot(groceryAsync: groceryAsync),
+      _ => const SizedBox.shrink(), // Small tiles shouldn't reach here
     };
 
     // Long-press any card to open customize sheet
@@ -465,96 +618,6 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         DashboardCustomizeSheet.show(context);
       },
       child: child,
-    );
-  }
-
-  Widget _buildSummaryGrid(DashboardData data, AsyncValue<double> hydrationAsync) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(context, "$_dayLabel Summary"),
-          const SizedBox(height: 6),
-          Row(children: [
-            Expanded(child: _StatCard(
-              label: 'Calories', icon: Icons.local_fire_department,
-              color: Colors.orange,
-              todayValue: data.todayCalories.toStringAsFixed(0), todayUnit: 'kcal',
-              weekAvg: '${data.weekAvgCalories.toStringAsFixed(0)} kcal',
-              prevAvg: data.prevWeekAvgCalories.toStringAsFixed(0),
-              up: data.weekAvgCalories >= data.prevWeekAvgCalories,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _StatCard(
-              label: 'Weight', icon: Icons.monitor_weight_outlined,
-              color: Colors.purple,
-              todayValue: data.currentWeight != null
-                  ? data.currentWeight!.toStringAsFixed(1) : '—',
-              todayUnit: data.currentWeight != null ? 'kg' : '',
-              weekAvg: data.weightChange != null
-                  ? '${data.weightChange! >= 0 ? '+' : ''}${data.weightChange!.toStringAsFixed(1)} kg'
-                  : 'No prev entry',
-              prevAvg: data.previousWeight != null
-                  ? '${data.previousWeight!.toStringAsFixed(1)} kg' : '—',
-              up: (data.weightChange ?? 0) <= 0,
-              showTrend: data.weightChange != null,
-            )),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(child: _StatCard(
-              label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
-              color: Colors.green,
-              todayValue: '${data.mealsCount}', todayUnit: 'meals',
-              weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
-              prevAvg: '${data.prevWeekAvgMeals.toStringAsFixed(1)}/day',
-              up: data.weekAvgMeals >= data.prevWeekAvgMeals,
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: _HydrationStatCard(
-              hydrationAsync: hydrationAsync,
-              weekAvg: data.weekAvgWater,
-              prevAvg: data.prevWeekAvgWater,
-            )),
-          ]),
-          // Health Connect row (steps + sleep/activity) — only if data exists
-          if (data.todaySteps != null || data.todaySleepMins != null) ...[
-            const SizedBox(height: 8),
-            Row(children: [
-              if (data.todaySteps != null)
-                Expanded(child: _StatCard(
-                  label: 'Steps', icon: Icons.directions_walk_rounded,
-                  color: const Color(0xFF22C55E),
-                  todayValue: _formatNumber(data.todaySteps!), todayUnit: '',
-                  weekAvg: data.todayActiveCalories != null
-                      ? '${data.todayActiveCalories!.toStringAsFixed(0)} active kcal'
-                      : '',
-                  prevAvg: '', up: true,
-                  showTrend: false,
-                )),
-              if (data.todaySteps != null && data.todaySleepMins != null)
-                const SizedBox(width: 10),
-              if (data.todaySleepMins != null)
-                Expanded(child: _StatCard(
-                  label: 'Sleep', icon: Icons.bedtime_rounded,
-                  color: const Color(0xFF6366F1),
-                  todayValue: _formatSleepHours(data.todaySleepMins!), todayUnit: 'hrs',
-                  weekAvg: data.todayHeartRate != null
-                      ? '${data.todayHeartRate!.toStringAsFixed(0)} bpm avg HR'
-                      : '',
-                  prevAvg: '', up: true,
-                  showTrend: false,
-                )),
-              // If only one metric exists, add an empty expanded to keep layout
-              if (data.todaySteps != null && data.todaySleepMins == null)
-                const Expanded(child: SizedBox()),
-              if (data.todaySteps == null && data.todaySleepMins != null)
-                const Expanded(child: SizedBox()),
-            ]),
-          ],
-        ],
-      ),
     );
   }
 

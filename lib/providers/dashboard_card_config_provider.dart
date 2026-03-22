@@ -3,34 +3,60 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// All available dashboard card types.
+///
+/// Small tiles (isSmallTile=true) render in a 2-column grid.
+/// Large cards render full-width.
 enum DashboardCardType {
-  quickActions('Quick Actions', 'Log meal, water, weight, mood', 'quick_actions', true),
-  summaryGrid('Daily Summary', 'Calories, weight, meals, water', 'summary_grid', true),
-  hydrationQuickLog('Hydration Log', 'Quick water buttons + timeline', 'hydration_quick_log', true),
-  wearableSummary('Wearable Health', 'Steps, heart rate, sleep from wearables', 'wearable_summary', true),
-  macros('Macros', 'Protein, carbs, fat breakdown', 'macros', false),
-  mealDistribution('Meal Distribution', '7-day breakfast/lunch/dinner/snack split', 'meal_distribution', false),
-  healthScore('Health Score', 'Overall wellness score', 'health_score', false),
-  flareRisk('Eczema Flare Risk', 'AI-predicted flare probability', 'flare_risk', false),
-  topFoods('Top Foods', 'Top calorie sources today', 'top_foods', false),
-  insights('Insights', 'Personalized wellness tips', 'insights', false),
-  grocerySnapshot('Grocery Snapshot', 'Monthly spending overview', 'grocery_snapshot', false);
+  // ── Small stat tiles (2-column grid) ───────────────────────────────────
+  calories('Calories', 'Daily calorie intake', 'calories', true, true),
+  weight('Weight', 'Current weight & change', 'weight', true, true),
+  meals('Meals', 'Meals logged today', 'meals', true, true),
+  water('Water', 'Hydration intake', 'water', true, true),
+  steps('Steps', 'Daily step count', 'steps', true, true),
+  sleep('Sleep', 'Sleep duration', 'sleep', false, true),
+  heartRate('Heart Rate', 'Average heart rate', 'heart_rate', false, true),
+  spo2('SpO2', 'Blood oxygen level', 'spo2', false, true),
+  exercise('Exercise', 'Active calories burned', 'exercise', false, true),
+  distance('Distance', 'Distance walked/run', 'distance', false, true),
+
+  // ── Full-width cards ───────────────────────────────────────────────────
+  quickActions('Quick Actions', 'Log meal, water, weight, mood', 'quick_actions', true, false),
+  hydrationQuickLog('Hydration Log', 'Quick water buttons + timeline', 'hydration_quick_log', true, false),
+  wearableSummary('Wearable Health', 'Health Connect data overview', 'wearable_summary', false, false),
+  macros('Macros', 'Protein, carbs, fat breakdown', 'macros', false, false),
+  mealDistribution('Meal Distribution', '7-day meal type split', 'meal_distribution', false, false),
+  healthScore('Health Score', 'Overall wellness score', 'health_score', true, false),
+  flareRisk('Eczema Flare Risk', 'AI-predicted flare probability', 'flare_risk', false, false),
+  topFoods('Top Foods', 'Top calorie sources this week', 'top_foods', false, false),
+  insights('Insights', 'Personalized wellness tips', 'insights', false, false),
+  grocerySnapshot('Grocery Snapshot', 'Monthly spending overview', 'grocery_snapshot', false, false);
 
   final String displayName;
   final String description;
   final String key;
   final bool defaultVisible;
+  final bool isSmallTile;
 
-  const DashboardCardType(this.displayName, this.description, this.key, this.defaultVisible);
+  const DashboardCardType(this.displayName, this.description, this.key,
+      this.defaultVisible, this.isSmallTile);
 
   String get emoji => switch (this) {
+    DashboardCardType.calories => '\uD83D\uDD25',
+    DashboardCardType.weight => '\u2696\uFE0F',
+    DashboardCardType.meals => '\uD83C\uDF7D\uFE0F',
+    DashboardCardType.water => '\uD83D\uDCA7',
+    DashboardCardType.steps => '\uD83D\uDEB6',
+    DashboardCardType.sleep => '\uD83D\uDE34',
+    DashboardCardType.heartRate => '\u2764\uFE0F',
+    DashboardCardType.spo2 => '\uD83E\uDE78',
+    DashboardCardType.exercise => '\uD83C\uDFCB\uFE0F',
+    DashboardCardType.distance => '\uD83D\uDCCF',
     DashboardCardType.quickActions => '\u26A1',
-    DashboardCardType.summaryGrid => '\uD83D\uDCCA',
-    DashboardCardType.hydrationQuickLog => '\uD83D\uDCA7',
+    DashboardCardType.hydrationQuickLog => '\uD83E\uDEB3',
     DashboardCardType.wearableSummary => '\u231A',
     DashboardCardType.macros => '\uD83E\uDD69',
-    DashboardCardType.mealDistribution => '\uD83C\uDF7D\uFE0F',
-    DashboardCardType.healthScore => '\u2764\uFE0F',
+    DashboardCardType.mealDistribution => '\uD83D\uDCCA',
+    DashboardCardType.healthScore => '\uD83C\uDFC6',
     DashboardCardType.flareRisk => '\uD83D\uDEA8',
     DashboardCardType.topFoods => '\uD83C\uDF54',
     DashboardCardType.insights => '\uD83D\uDCA1',
@@ -91,6 +117,7 @@ class DashboardCardConfig {
   }
 
   /// Deserialize from JSON, preserving any new card types added in updates.
+  /// Migrates legacy 'summary_grid' → individual stat tiles.
   factory DashboardCardConfig.fromJson(String json) {
     try {
       final list = jsonDecode(json) as List;
@@ -100,7 +127,28 @@ class DashboardCardConfig {
 
       for (final item in list) {
         final map = item as Map<String, dynamic>;
-        final type = knownKeys[map['type']];
+        final key = map['type'] as String?;
+
+        // Migration: expand legacy 'summary_grid' into individual stat tiles
+        if (key == 'summary_grid') {
+          final wasVisible = map['visible'] as bool? ?? true;
+          for (final statType in [
+            DashboardCardType.calories,
+            DashboardCardType.weight,
+            DashboardCardType.meals,
+            DashboardCardType.water,
+            DashboardCardType.steps,
+            DashboardCardType.sleep,
+          ]) {
+            if (!seen.contains(statType)) {
+              parsed.add((type: statType, visible: wasVisible));
+              seen.add(statType);
+            }
+          }
+          continue;
+        }
+
+        final type = knownKeys[key];
         if (type != null && !seen.contains(type)) {
           parsed.add((type: type, visible: map['visible'] as bool? ?? type.defaultVisible));
           seen.add(type);
