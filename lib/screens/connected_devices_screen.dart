@@ -67,6 +67,34 @@ class _ConnectedDevicesScreenState
 
     final granted = await HealthSyncService.requestPermissions();
     if (!granted) {
+      // Even if requestAuthorization returned false, try syncing anyway —
+      // on some devices (Samsung Health) the permission dialog may not appear
+      // but data is still accessible via Health Connect.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Requesting Health Connect access...')),
+        );
+      }
+
+      // Attempt a sync — if it returns data, we're actually connected
+      final testResult = await HealthSyncService.syncFromPlatform();
+      if (testResult.inserted > 0) {
+        // It worked! Mark as connected
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('health_sync_connected', true);
+        if (!mounted) return;
+        setState(() {
+          _platformConnected = true;
+          _lastResult = testResult;
+        });
+        _loadPrefs();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connected! Synced ${testResult.inserted} data points.')),
+        );
+        return;
+      }
+
+      // Truly no access — offer to open Health Connect settings
       if (mounted) {
         final openSettings = await showDialog<bool>(
           context: context,
@@ -76,11 +104,16 @@ class _ConnectedDevicesScreenState
               size: 40,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: const Text('Permission Required'),
+            title: const Text('Health Connect Setup'),
             content: Text(
               Platform.isIOS
-                  ? 'Health data access was denied. Would you like to open Settings to grant permission to Apple Health?'
-                  : 'Health Connect permission was denied. Would you like to open Health Connect settings to grant access?',
+                  ? 'Please grant QoreHealth access to Apple Health data in Settings.'
+                  : 'Please open Health Connect and allow QoreHealth to read your health data.\n\n'
+                    'Steps:\n'
+                    '1. Open Health Connect\n'
+                    '2. Tap "App permissions"\n'
+                    '3. Find QoreHealth and enable all data types\n'
+                    '4. Return to this app',
             ),
             actions: [
               TextButton(
@@ -89,7 +122,7 @@ class _ConnectedDevicesScreenState
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogCtx, true),
-                child: const Text('Open Settings'),
+                child: const Text('Open Health Connect'),
               ),
             ],
           ),
@@ -126,8 +159,8 @@ class _ConnectedDevicesScreenState
   }
 
   Future<void> _recheckPermissionsAfterSettings() async {
+    // First try the API check
     final granted = await HealthSyncService.hasPermissions();
-    if (!mounted) return;
 
     if (granted) {
       final prefs = await SharedPreferences.getInstance();
@@ -141,12 +174,46 @@ class _ConnectedDevicesScreenState
         ),
       );
       _triggerSync();
-    } else {
+      return;
+    }
+
+    // hasPermissions() can return false on some devices even after granting.
+    // Try an actual sync — if data comes through, permissions are fine.
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Permissions not yet granted. Tap Connect to try again.'),
-        ),
+        const SnackBar(content: Text('Checking permissions...')),
       );
+    }
+    final testResult = await HealthSyncService.syncFromPlatform();
+    if (!mounted) return;
+
+    if (testResult.inserted > 0 || testResult.skipped > 0 || testResult.replaced > 0) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('health_sync_connected', true);
+      setState(() {
+        _platformConnected = true;
+        _lastResult = testResult;
+      });
+      _loadPrefs();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Connected! Synced ${testResult.inserted} data points.')),
+      );
+    } else {
+      // Also try requestAuthorization again — sometimes it works on second attempt
+      final retryGranted = await HealthSyncService.requestPermissions();
+      if (retryGranted) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('health_sync_connected', true);
+        if (!mounted) return;
+        setState(() => _platformConnected = true);
+        _triggerSync();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permissions not detected. Try tapping "Connect & Sync Now" below.'),
+          ),
+        );
+      }
     }
   }
 
