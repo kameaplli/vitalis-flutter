@@ -298,6 +298,20 @@ class ApiConstants {
   static const String weeklySummary = '/api/health-intelligence/weekly-summary';
   static const String weeklySummaryHistory = '/api/health-intelligence/weekly-summary/history';
 
+  // Health Twin Engine — Phase 2-4
+  static const String crossDomainCorrelations = '/api/health-intelligence/correlations';
+  static const String correlationDetail = '/api/health-intelligence/correlations/detail';
+  static const String healthLevel = '/api/health-intelligence/level';
+  static const String healthStreaks = '/api/health-intelligence/streaks';
+  static const String healthAchievements = '/api/health-intelligence/achievements';
+  static const String engagementSummary = '/api/health-intelligence/engagement';
+  static const String healthPredictions = '/api/health-intelligence/predictions';
+  static const String whatIfScenarios = '/api/health-intelligence/what-if';
+  static const String labFeedback = '/api/health-intelligence/lab-feedback';
+  static String biomarkerTimeline(String code) => '/api/health-intelligence/lab-feedback/biomarker/$code';
+  static const String familyOverview = '/api/health-intelligence/family-overview';
+  static const String familyComparison = '/api/health-intelligence/family-comparison';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';
