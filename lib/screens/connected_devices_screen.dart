@@ -321,7 +321,13 @@ class _ConnectedDevicesScreenState
                   subtitle: const Text(
                       'Automatically sync health data when you open the app'),
                   value: _autoSyncOnOpen,
-                  onChanged: _platformConnected ? _toggleAutoSync : null,
+                  onChanged: (v) {
+                    if (!_platformConnected) {
+                      _connectPlatform();
+                    } else {
+                      _toggleAutoSync(v);
+                    }
+                  },
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: cs.outlineVariant.withValues(alpha: 0.3)),
                 SwitchListTile(
@@ -329,7 +335,13 @@ class _ConnectedDevicesScreenState
                   subtitle:
                       const Text('Sync health data periodically in background'),
                   value: _backgroundSync,
-                  onChanged: _platformConnected ? _toggleBackgroundSync : null,
+                  onChanged: (v) {
+                    if (!_platformConnected) {
+                      _connectPlatform();
+                    } else {
+                      _toggleBackgroundSync(v);
+                    }
+                  },
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: cs.outlineVariant.withValues(alpha: 0.3)),
                 ListTile(
@@ -338,8 +350,13 @@ class _ConnectedDevicesScreenState
                       const Text('Re-download last 30 days of health data'),
                   trailing:
                       Icon(Icons.refresh_rounded, color: cs.onSurfaceVariant),
-                  onTap: _platformConnected ? _forceFullResync : null,
-                  enabled: _platformConnected,
+                  onTap: () {
+                    if (!_platformConnected) {
+                      _connectPlatform();
+                    } else {
+                      _forceFullResync();
+                    }
+                  },
                 ),
               ],
             ),
@@ -737,7 +754,7 @@ class _PlatformHealthCard extends StatelessWidget {
                   ),
               ],
             ),
-            if (isConnected) ...[
+            if (isSupported) ...[
               const SizedBox(height: 16),
               Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.3)),
               const SizedBox(height: 12),
@@ -774,21 +791,35 @@ class _PlatformHealthCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              // Manual sync button
+              // Sync Now button — always visible on supported platforms
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: isSyncing ? null : onSync,
-                  icon: isSyncing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sync, size: 18),
-                  label: Text(isSyncing ? 'Syncing...' : 'Sync Now'),
-                ),
+                child: isConnected
+                    ? OutlinedButton.icon(
+                        onPressed: isSyncing ? null : onSync,
+                        icon: isSyncing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.sync, size: 18),
+                        label: Text(isSyncing ? 'Syncing...' : 'Sync Now'),
+                      )
+                    : FilledButton.icon(
+                        onPressed: onConnect,
+                        icon: const Icon(Icons.sync, size: 18),
+                        label: const Text('Connect & Sync Now'),
+                      ),
               ),
+              if (!isConnected)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Tap to grant Health Connect permissions and sync Samsung Health, Google Fit, or other health data.',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                ),
             ],
           ],
         ),
