@@ -192,6 +192,12 @@ class MoreScreen extends ConsumerWidget {
       //   onTap: () => context.push('/finance'),
       // ),
       _MoreItem(
+        icon: Icons.psychology_rounded,
+        label: 'Health Twin',
+        color: const Color(0xFF009688),
+        onTap: () => context.push('/health-intelligence'),
+      ),
+      _MoreItem(
         icon: Icons.watch_rounded,
         label: 'Devices',
         color: const Color(0xFF0EA5E9),
