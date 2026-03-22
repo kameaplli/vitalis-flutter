@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
@@ -7,6 +8,7 @@ import '../models/sync_models.dart';
 
 class HealthSyncService {
   static final Health _health = Health();
+  static bool _configured = false;
 
   /// Health data types we want to sync from the platform.
   static const List<HealthDataType> _syncTypes = [
@@ -35,9 +37,38 @@ class HealthSyncService {
   /// Check if health data is available on this platform.
   static bool get isAvailable => Platform.isIOS || Platform.isAndroid;
 
+  /// Must be called before any health operations.
+  static Future<void> _ensureConfigured() async {
+    if (_configured) return;
+    try {
+      await _health.configure();
+      _configured = true;
+      debugPrint('HealthSync: configured successfully');
+    } catch (e) {
+      debugPrint('HealthSync: configure() failed: $e');
+    }
+  }
+
+  /// Check if Health Connect is available on this Android device.
+  static Future<bool> isHealthConnectAvailable() async {
+    if (!Platform.isAndroid) return Platform.isIOS;
+    try {
+      final status = await _health.getHealthConnectSdkStatus();
+      debugPrint('HealthSync: HC SDK status = $status');
+      return status == HealthConnectSdkStatus.sdkAvailable;
+    } catch (e) {
+      debugPrint('HealthSync: HC availability check failed: $e');
+      return false;
+    }
+  }
+
   /// Request permissions for all sync types (read-only).
+  /// Tries all types first, then falls back to core types if that fails.
   static Future<bool> requestPermissions() async {
     if (!isAvailable) return false;
+    await _ensureConfigured();
+
+    // First try all types
     try {
       final permissions =
           _syncTypes.map((t) => HealthDataAccess.READ).toList();
@@ -45,8 +76,31 @@ class HealthSyncService {
         _syncTypes,
         permissions: permissions,
       );
+      debugPrint('HealthSync: requestAuthorization(all) = $granted');
+      if (granted) return true;
+    } catch (e) {
+      debugPrint('HealthSync: requestAuthorization(all) error: $e');
+    }
+
+    // Fallback: try with just core types that are most likely supported
+    const coreTypes = [
+      HealthDataType.STEPS,
+      HealthDataType.HEART_RATE,
+      HealthDataType.ACTIVE_ENERGY_BURNED,
+      HealthDataType.SLEEP_ASLEEP,
+      HealthDataType.WEIGHT,
+    ];
+    try {
+      final permissions =
+          coreTypes.map((t) => HealthDataAccess.READ).toList();
+      final granted = await _health.requestAuthorization(
+        coreTypes,
+        permissions: permissions,
+      );
+      debugPrint('HealthSync: requestAuthorization(core) = $granted');
       return granted;
     } catch (e) {
+      debugPrint('HealthSync: requestAuthorization(core) error: $e');
       return false;
     }
   }
@@ -54,14 +108,39 @@ class HealthSyncService {
   /// Check if we already have permissions.
   static Future<bool> hasPermissions() async {
     if (!isAvailable) return false;
+    await _ensureConfigured();
     try {
       final result = await _health.hasPermissions(
         _syncTypes,
         permissions:
             _syncTypes.map((_) => HealthDataAccess.READ).toList(),
       );
+      debugPrint('HealthSync: hasPermissions = $result');
       return result ?? false;
     } catch (e) {
+      debugPrint('HealthSync: hasPermissions error: $e');
+      return false;
+    }
+  }
+
+  /// Try to read a small amount of STEPS data as a definitive permission test.
+  /// Returns true if we can read data (even if there are 0 points — no error means access works).
+  static Future<bool> canReadData() async {
+    if (!isAvailable) return false;
+    await _ensureConfigured();
+    try {
+      final now = DateTime.now();
+      final start = now.subtract(const Duration(days: 1));
+      // This will throw if we don't have permission
+      await _health.getHealthDataFromTypes(
+        types: [HealthDataType.STEPS],
+        startTime: start,
+        endTime: now,
+      );
+      debugPrint('HealthSync: canReadData = true (STEPS read succeeded)');
+      return true;
+    } catch (e) {
+      debugPrint('HealthSync: canReadData = false (error: $e)');
       return false;
     }
   }
@@ -72,10 +151,15 @@ class HealthSyncService {
 
   /// Perform incremental sync from the platform health store.
   /// Returns a [SyncResult] with insert/skip/replace counts.
-  static Future<SyncResult> syncFromPlatform({String person = 'self'}) async {
+  /// Set [throwOnError] to true to propagate errors instead of swallowing them.
+  static Future<SyncResult> syncFromPlatform({
+    String person = 'self',
+    bool throwOnError = false,
+  }) async {
     if (!isAvailable) {
       return SyncResult(inserted: 0, skipped: 0, replaced: 0);
     }
+    await _ensureConfigured();
 
     final prefs = await SharedPreferences.getInstance();
     final lastSyncKey = 'health_sync_last_$person';
@@ -86,17 +170,24 @@ class HealthSyncService {
         ? DateTime.fromMillisecondsSinceEpoch(lastSyncMs)
         : now.subtract(const Duration(days: 30)); // First sync: last 30 days
 
-    // Read health data from the platform store
-    List<HealthDataPoint> dataPoints;
-    try {
-      dataPoints = await _health.getHealthDataFromTypes(
-        types: _syncTypes,
-        startTime: start,
-        endTime: now,
-      );
-    } catch (e) {
-      return SyncResult(inserted: 0, skipped: 0, replaced: 0);
+    // Read health data — try each type individually to avoid one bad type
+    // killing the entire read
+    List<HealthDataPoint> dataPoints = [];
+    for (final type in _syncTypes) {
+      try {
+        final points = await _health.getHealthDataFromTypes(
+          types: [type],
+          startTime: start,
+          endTime: now,
+        );
+        dataPoints.addAll(points);
+      } catch (e) {
+        debugPrint('HealthSync: getHealthData($type) error: $e');
+        if (throwOnError) rethrow;
+        // Skip this type and continue with others
+      }
     }
+    debugPrint('HealthSync: read ${dataPoints.length} data points total');
 
     if (dataPoints.isEmpty) {
       await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
@@ -118,6 +209,8 @@ class HealthSyncService {
       return SyncResult(inserted: 0, skipped: 0, replaced: 0);
     }
 
+    debugPrint('HealthSync: uploading ${observations.length} observations');
+
     // Upload in batches of 500
     int totalInserted = 0, totalSkipped = 0, totalReplaced = 0;
 
@@ -138,12 +231,15 @@ class HealthSyncService {
           totalReplaced += (resp.data['replaced'] as int?) ?? 0;
         }
       } catch (e) {
-        // Continue with next batch on error
+        debugPrint('HealthSync: upload batch error: $e');
+        if (throwOnError) rethrow;
       }
     }
 
     // Update last sync timestamp
     await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
+
+    debugPrint('HealthSync: done — inserted=$totalInserted, skipped=$totalSkipped, replaced=$totalReplaced');
 
     return SyncResult(
       inserted: totalInserted,
