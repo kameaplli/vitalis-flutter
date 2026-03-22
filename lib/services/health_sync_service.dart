@@ -276,6 +276,13 @@ class HealthSyncService {
     // Remove duplicates provided by the health package
     dataPoints = _health.removeDuplicates(dataPoints);
 
+    // Remove overlapping step data points: Samsung Health Connect often
+    // returns both a daily summary (spanning 24h) AND individual step events
+    // within that day. The summary already includes the individual events,
+    // so keeping both causes double-counting (e.g., 2952 + 6 + 29 = 2987
+    // instead of the correct 2952).
+    dataPoints = _deduplicateOverlappingSteps(dataPoints);
+
     // Convert to canonical observation format
     final observations = dataPoints
         .map(_toCanonical)
@@ -408,6 +415,35 @@ class HealthSyncService {
       'time_zone': DateTime.now().timeZoneName,
       'is_manual': false,
     };
+  }
+
+  /// Remove overlapping step data points.
+  /// Samsung Health Connect returns daily summaries (spanning 24h) alongside
+  /// individual step events. The summary includes all individual events, so
+  /// we must remove the individual events to prevent double-counting.
+  static List<HealthDataPoint> _deduplicateOverlappingSteps(
+      List<HealthDataPoint> points) {
+    // Find daily summary step points (spanning > 12 hours)
+    final stepSummaries = points.where((p) =>
+        p.type == HealthDataType.STEPS &&
+        p.dateTo.difference(p.dateFrom).inHours > 12).toList();
+
+    if (stepSummaries.isEmpty) return points;
+
+    // Remove individual step events that fall within any summary's range
+    return points.where((p) {
+      if (p.type != HealthDataType.STEPS) return true;
+      // Keep summaries themselves
+      if (p.dateTo.difference(p.dateFrom).inHours > 12) return true;
+      // Remove if this point falls within any summary's time range
+      for (final summary in stepSummaries) {
+        if (!p.dateFrom.isBefore(summary.dateFrom) &&
+            !p.dateTo.isAfter(summary.dateTo)) {
+          return false; // Drop — already included in summary
+        }
+      }
+      return true;
+    }).toList();
   }
 
   /// Fallback: read data via aggregate/interval APIs when raw data points
