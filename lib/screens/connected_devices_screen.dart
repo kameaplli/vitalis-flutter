@@ -262,14 +262,21 @@ class _ConnectedDevicesScreenState
       ref.invalidate(connectedAccountsProvider);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Sync complete: ${result.inserted} new, '
-              '${result.replaced} updated, ${result.skipped} skipped',
+        final diag = HealthSyncService.lastDiagnostics;
+        final total = result.inserted + result.replaced + result.skipped;
+        if (total == 0 && diag != null && diag.totalPoints == 0) {
+          // No data read from Health Connect at all
+          _showNoDataDialog(diag);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Sync complete: ${result.inserted} new, '
+                '${result.replaced} updated, ${result.skipped} skipped',
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -278,6 +285,65 @@ class _ConnectedDevicesScreenState
         SnackBar(content: Text('Sync failed: $e')),
       );
     }
+  }
+
+  void _showNoDataDialog(SyncDiagnostics diag) {
+    final errCount = diag.typeErrors.length;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.info_outline_rounded,
+            size: 40, color: Theme.of(context).colorScheme.primary),
+        title: const Text('No Health Data Found'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Health Connect returned 0 data points. '
+                'This usually means Samsung Health hasn\'t synced data to Health Connect yet.',
+              ),
+              const SizedBox(height: 16),
+              const Text('To fix this:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('1. Open Samsung Health app'),
+              const Text('2. Go to Settings (⋮ menu)'),
+              const Text('3. Tap "Health Connect"'),
+              const Text('4. Enable "Sync with Health Connect"'),
+              const Text('5. Wait a few minutes, then sync again here'),
+              if (errCount > 0) ...[
+                const SizedBox(height: 16),
+                Text('$errCount data type(s) had errors — '
+                    'some types may not be supported on your device.',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontSize: 12)),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                'Query range: ${diag.queryStart.toString().substring(0, 10)} '
+                'to ${diag.queryEnd.toString().substring(0, 10)}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Got it'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _openHealthSettings();
+            },
+            child: const Text('Open Samsung Health'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _forceFullResync() async {
