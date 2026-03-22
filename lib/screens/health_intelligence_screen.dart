@@ -9,11 +9,13 @@ import '../models/health_intelligence.dart';
 import '../models/health_twin_data.dart';
 import '../providers/health_intelligence_provider.dart';
 import '../providers/health_twin_provider.dart';
+import '../providers/health_twin_engine_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/friendly_error.dart';
+import 'health_twin_engine_tabs.dart';
 
 // ── Health Intelligence Screen ──────────────────────────────────────────────
 
@@ -34,7 +36,7 @@ class _HealthIntelligenceScreenState
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(length: 8, vsync: this);
     _ringAnimCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -59,6 +61,10 @@ class _HealthIntelligenceScreenState
     ref.invalidate(userGoalsProvider(personId));
     ref.invalidate(goalInsightsProvider(personId));
     ref.invalidate(weeklySummaryProvider(personId));
+    ref.invalidate(crossDomainCorrelationsProvider(personId));
+    ref.invalidate(engagementSummaryProvider(personId));
+    ref.invalidate(healthPredictionsProvider(personId));
+    ref.invalidate(familyOverviewProvider);
     _ringAnimCtrl
       ..reset()
       ..forward();
@@ -92,6 +98,10 @@ class _HealthIntelligenceScreenState
             Tab(text: 'Digital Twin'),
             Tab(text: 'Goals'),
             Tab(text: 'Weekly'),
+            Tab(text: 'Correlations'),
+            Tab(text: 'Level & XP'),
+            Tab(text: 'Predictions'),
+            Tab(text: 'Family'),
           ],
         ),
       ),
@@ -102,6 +112,10 @@ class _HealthIntelligenceScreenState
           const _DigitalTwinTab(),
           const _GoalsTab(),
           const _WeeklySummaryTab(),
+          const CorrelationsTab(),
+          const EngagementTab(),
+          const PredictionsTab(),
+          const FamilyOverviewTab(),
         ],
       ),
     );
