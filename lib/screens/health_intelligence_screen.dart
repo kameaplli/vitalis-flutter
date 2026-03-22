@@ -1282,49 +1282,134 @@ class _GoalSetupSheet extends ConsumerStatefulWidget {
 }
 
 class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
+  String? _selectedCategory;
   String? _selectedType;
-  final _labelCtrl = TextEditingController();
   final _targetCtrl = TextEditingController();
-  final _unitCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
   DateTime? _targetDate;
   bool _saving = false;
 
-  static const _goalTypes = <String, ({IconData icon, String label})>{
-    'weight_loss': (icon: Icons.monitor_weight_rounded, label: 'Lose Weight'),
-    'weight_gain': (icon: Icons.monitor_weight_rounded, label: 'Gain Weight'),
-    'calories': (icon: Icons.local_fire_department_rounded, label: 'Calorie Target'),
-    'protein': (icon: Icons.egg_rounded, label: 'Protein Target'),
-    'hydration': (icon: Icons.water_drop_rounded, label: 'Hydration'),
-    'exercise': (icon: Icons.fitness_center_rounded, label: 'Exercise'),
-    'sleep': (icon: Icons.bedtime_rounded, label: 'Sleep'),
-    'nutrient': (icon: Icons.science_rounded, label: 'Nutrient'),
-    'custom': (icon: Icons.flag_rounded, label: 'Custom'),
+  // ── Domain-specific goal definitions ──────────────────────────────────────
+  static const _categories = <String, _GoalCategory>{
+    'weight': _GoalCategory(
+      icon: Icons.monitor_weight_rounded,
+      color: Color(0xFFF97316),
+      label: 'Weight',
+      types: [
+        _GoalTypeDef(key: 'weight_loss', label: 'Lose Weight', unit: 'kg', defaultTarget: 70,
+            hint: 'Target weight', description: 'Set your target weight in kg'),
+        _GoalTypeDef(key: 'weight_gain', label: 'Gain Weight', unit: 'kg', defaultTarget: 80,
+            hint: 'Target weight', description: 'Set your target weight in kg'),
+      ],
+    ),
+    'nutrition': _GoalCategory(
+      icon: Icons.restaurant_rounded,
+      color: Color(0xFF10B981),
+      label: 'Nutrition',
+      types: [
+        _GoalTypeDef(key: 'calories', label: 'Daily Calories', unit: 'kcal', defaultTarget: 2000,
+            hint: '2000', description: 'Daily calorie intake target',
+            presets: [1500, 1800, 2000, 2200, 2500]),
+        _GoalTypeDef(key: 'protein', label: 'Daily Protein', unit: 'g', defaultTarget: 80,
+            hint: '80', description: 'Daily protein intake in grams',
+            presets: [50, 80, 100, 120, 150]),
+        _GoalTypeDef(key: 'nutrient_balance', label: 'Nutrient Score', unit: '%', defaultTarget: 80,
+            hint: '80', description: 'Target DRI completeness percentage',
+            presets: [60, 70, 80, 90]),
+      ],
+    ),
+    'exercise': _GoalCategory(
+      icon: Icons.fitness_center_rounded,
+      color: Color(0xFFEF4444),
+      label: 'Exercise',
+      types: [
+        _GoalTypeDef(key: 'exercise', label: 'Daily Active Minutes', unit: 'min/day', defaultTarget: 30,
+            hint: '30', description: 'Average minutes of exercise per day',
+            presets: [15, 30, 45, 60]),
+        _GoalTypeDef(key: 'exercise_freq', label: 'Workout Days / Week', unit: 'days/wk', defaultTarget: 4,
+            hint: '4', description: 'How many days per week to exercise',
+            presets: [3, 4, 5, 6]),
+        _GoalTypeDef(key: 'steps', label: 'Daily Steps', unit: 'steps', defaultTarget: 10000,
+            hint: '10000', description: 'Daily step count target',
+            presets: [5000, 7500, 10000, 12000, 15000]),
+      ],
+    ),
+    'sleep': _GoalCategory(
+      icon: Icons.bedtime_rounded,
+      color: Color(0xFF8B5CF6),
+      label: 'Sleep',
+      types: [
+        _GoalTypeDef(key: 'better_sleep', label: 'Sleep Duration', unit: 'hours', defaultTarget: 8,
+            hint: '8', description: 'Target hours of sleep per night',
+            presets: [7, 7.5, 8, 8.5, 9]),
+        _GoalTypeDef(key: 'sleep_quality', label: 'Sleep Quality', unit: '/5', defaultTarget: 4,
+            hint: '4', description: 'Target sleep quality rating (1-5)',
+            presets: [3, 3.5, 4, 4.5, 5]),
+      ],
+    ),
+    'hydration': _GoalCategory(
+      icon: Icons.water_drop_rounded,
+      color: Color(0xFF3B82F6),
+      label: 'Hydration',
+      types: [
+        _GoalTypeDef(key: 'hydration', label: 'Daily Water Intake', unit: 'ml', defaultTarget: 2500,
+            hint: '2500', description: 'Daily fluid intake in millilitres',
+            presets: [1500, 2000, 2500, 3000, 3500]),
+      ],
+    ),
+    'wellbeing': _GoalCategory(
+      icon: Icons.self_improvement_rounded,
+      color: Color(0xFFF59E0B),
+      label: 'Wellbeing',
+      types: [
+        _GoalTypeDef(key: 'mood_improvement', label: 'Mood Score', unit: '/10', defaultTarget: 7,
+            hint: '7', description: 'Target average mood score (1-10)',
+            presets: [5, 6, 7, 8]),
+        _GoalTypeDef(key: 'more_energy', label: 'Energy Level', unit: '/5', defaultTarget: 4,
+            hint: '4', description: 'Target average energy level (1-5)',
+            presets: [3, 3.5, 4, 4.5, 5]),
+        _GoalTypeDef(key: 'skin_health', label: 'Skin Severity', unit: '/10', defaultTarget: 3,
+            hint: '3', description: 'Target eczema severity (lower is better)',
+            presets: [2, 3, 4, 5]),
+      ],
+    ),
   };
+
+  _GoalTypeDef? get _typeDef {
+    if (_selectedCategory == null || _selectedType == null) return null;
+    final cat = _categories[_selectedCategory];
+    if (cat == null) return null;
+    return cat.types.where((t) => t.key == _selectedType).firstOrNull;
+  }
 
   @override
   void dispose() {
-    _labelCtrl.dispose();
     _targetCtrl.dispose();
-    _unitCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
+  void _selectType(_GoalTypeDef def) {
+    setState(() {
+      _selectedType = def.key;
+      _targetCtrl.text = def.defaultTarget.toString();
+    });
+  }
+
   Future<void> _save() async {
-    if (_selectedType == null || _targetCtrl.text.isEmpty) return;
+    final def = _typeDef;
+    if (def == null || _targetCtrl.text.isEmpty) return;
     setState(() => _saving = true);
 
     try {
       final body = <String, dynamic>{
-        'goal_type': _selectedType,
-        'label': _labelCtrl.text.isNotEmpty
-            ? _labelCtrl.text
-            : _goalTypes[_selectedType]!.label,
+        'goal_type': def.key,
         'target_value': double.tryParse(_targetCtrl.text) ?? 0,
+        'target_unit': def.unit,
       };
-      if (_unitCtrl.text.isNotEmpty) body['target_unit'] = _unitCtrl.text;
+      if (_notesCtrl.text.isNotEmpty) body['notes'] = _notesCtrl.text;
       if (_targetDate != null) {
-        body['target_date'] =
-            _targetDate!.toIso8601String().substring(0, 10);
+        body['target_date'] = _targetDate!.toIso8601String().substring(0, 10);
       }
       if (widget.personId != 'self') {
         body['family_member_id'] = widget.personId;
@@ -1347,133 +1432,342 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final text = theme.textTheme;
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.7,
+      initialChildSize: 0.75,
       minChildSize: 0.4,
-      maxChildSize: 0.9,
+      maxChildSize: 0.92,
       expand: false,
       builder: (context, scrollCtrl) => ListView(
         controller: scrollCtrl,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
         children: [
+          // Drag handle
           Center(
             child: Container(
-              width: 40,
-              height: 4,
+              width: 40, height: 4,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withAlpha(60),
+                color: cs.onSurfaceVariant.withAlpha(60),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Text('Create a Goal', style: text.titleLarge),
+          const SizedBox(height: 16),
+          Text('Create a Goal', style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            _selectedCategory == null
+                ? 'Choose a category to get started'
+                : _selectedType == null
+                    ? 'Select a specific goal'
+                    : 'Set your target',
+            style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          ),
           const SizedBox(height: 20),
 
-          // Goal type grid
-          Text('Goal Type', style: text.titleSmall),
-          const SizedBox(height: 12),
+          // ── Step 1: Category Selection ──────────────────────────────────
+          const _SectionLabel(label: 'Category', step: 1),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _goalTypes.entries.map((e) {
-              final selected = _selectedType == e.key;
-              return ChoiceChip(
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(e.value.icon, size: 16),
-                    const SizedBox(width: 6),
-                    Text(e.value.label),
-                  ],
-                ),
+            children: _categories.entries.map((e) {
+              final selected = _selectedCategory == e.key;
+              final cat = e.value;
+              return _CategoryChip(
+                icon: cat.icon,
+                label: cat.label,
+                color: cat.color,
                 selected: selected,
-                onSelected: (v) {
-                  setState(() => _selectedType = v ? e.key : null);
-                },
+                onTap: () => setState(() {
+                  _selectedCategory = e.key;
+                  _selectedType = null;
+                  _targetCtrl.clear();
+                }),
               );
             }).toList(),
           ),
-          const SizedBox(height: 20),
 
-          // Label
-          TextField(
-            controller: _labelCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Goal Label (optional)',
-              hintText: 'e.g., "Reach 75kg by summer"',
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Target value
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: TextField(
-                  controller: _targetCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Target Value',
-                    hintText: '75',
+          // ── Step 2: Type Selection (shown after category) ──────────────
+          if (_selectedCategory != null) ...[
+            const SizedBox(height: 24),
+            const _SectionLabel(label: 'Goal', step: 2),
+            const SizedBox(height: 10),
+            ..._categories[_selectedCategory]!.types.map((def) {
+              final selected = _selectedType == def.key;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: selected
+                      ? _categories[_selectedCategory]!.color.withAlpha(25)
+                      : cs.surfaceContainerHighest.withAlpha(120),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _selectType(def),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          if (selected)
+                            Icon(Icons.check_circle_rounded,
+                                color: _categories[_selectedCategory]!.color, size: 22)
+                          else
+                            Icon(Icons.radio_button_off_rounded,
+                                color: cs.outline, size: 22),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(def.label,
+                                    style: text.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(def.description,
+                                    style: text.bodySmall?.copyWith(
+                                        color: cs.onSurfaceVariant)),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(def.unit,
+                                style: text.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: cs.onSurfaceVariant)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _unitCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Unit',
-                    hintText: 'kg',
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Target date
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.calendar_today_rounded),
-            title: Text(
-              _targetDate != null
-                  ? DateFormat.yMMMd().format(_targetDate!)
-                  : 'Target Date (optional)',
-            ),
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate:
-                    DateTime.now().add(const Duration(days: 30)),
-                firstDate: DateTime.now(),
-                lastDate:
-                    DateTime.now().add(const Duration(days: 365 * 2)),
               );
-              if (picked != null) setState(() => _targetDate = picked);
-            },
-          ),
-          const SizedBox(height: 24),
+            }),
+          ],
 
-          FilledButton(
-            onPressed:
-                _selectedType != null && _targetCtrl.text.isNotEmpty && !_saving
-                    ? _save
+          // ── Step 3: Target Configuration (shown after type) ────────────
+          if (_typeDef != null) ...[
+            const SizedBox(height: 24),
+            const _SectionLabel(label: 'Target', step: 3),
+            const SizedBox(height: 10),
+
+            // Quick-pick presets
+            if (_typeDef!.presets != null) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _typeDef!.presets!.map((v) {
+                  final isSelected = _targetCtrl.text == v.toString();
+                  return ChoiceChip(
+                    label: Text('$v ${_typeDef!.unit}'),
+                    selected: isSelected,
+                    onSelected: (_) =>
+                        setState(() => _targetCtrl.text = v.toString()),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Custom value input
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _targetCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: _typeDef!.label,
+                      hintText: _typeDef!.hint,
+                      suffixText: _typeDef!.unit,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Target date picker
+            Material(
+              color: cs.surfaceContainerHighest.withAlpha(120),
+              borderRadius: BorderRadius.circular(12),
+              child: ListTile(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                leading: Icon(Icons.calendar_today_rounded,
+                    color: cs.primary),
+                title: Text(
+                  _targetDate != null
+                      ? 'By ${DateFormat.yMMMd().format(_targetDate!)}'
+                      : 'Set a deadline (optional)',
+                  style: text.bodyMedium,
+                ),
+                trailing: _targetDate != null
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () =>
+                            setState(() => _targetDate = null),
+                      )
                     : null,
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('Create Goal'),
-          ),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate:
+                        DateTime.now().add(const Duration(days: 30)),
+                    firstDate: DateTime.now(),
+                    lastDate:
+                        DateTime.now().add(const Duration(days: 365 * 2)),
+                  );
+                  if (picked != null) {
+                    setState(() => _targetDate = picked);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Notes
+            TextField(
+              controller: _notesCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Notes (optional)',
+                hintText: 'Any extra context for this goal...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Save button
+            FilledButton.icon(
+              onPressed: _targetCtrl.text.isNotEmpty && !_saving
+                  ? _save
+                  : null,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check_rounded),
+              label: Text(_saving ? 'Saving...' : 'Create Goal'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+// ── Helper widgets & data classes for Goal Setup ─────────────────────────────
+
+class _GoalCategory {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final List<_GoalTypeDef> types;
+  const _GoalCategory({
+    required this.icon, required this.color,
+    required this.label, required this.types,
+  });
+}
+
+class _GoalTypeDef {
+  final String key;
+  final String label;
+  final String unit;
+  final num defaultTarget;
+  final String hint;
+  final String description;
+  final List<num>? presets;
+  const _GoalTypeDef({
+    required this.key, required this.label, required this.unit,
+    required this.defaultTarget, required this.hint,
+    required this.description, this.presets,
+  });
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final int step;
+  const _SectionLabel({required this.label, required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        Container(
+          width: 24, height: 24,
+          decoration: BoxDecoration(
+            color: cs.primary, shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text('$step',
+                style: text.labelSmall?.copyWith(
+                    color: cs.onPrimary, fontWeight: FontWeight.w700)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(label,
+            style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.icon, required this.label, required this.color,
+    required this.selected, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? color.withAlpha(30) : cs.surfaceContainerHighest.withAlpha(120),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? color : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: selected ? color : cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600,
+                  color: selected ? color : cs.onSurfaceVariant,
+                )),
+          ],
+        ),
       ),
     );
   }
