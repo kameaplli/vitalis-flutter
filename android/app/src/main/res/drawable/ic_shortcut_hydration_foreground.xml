@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <!-- Water droplet icon centered in adaptive icon safe zone (offset 30,30) -->
+  <group
+      android:translateX="30"
+      android:translateY="30"
+      android:scaleX="2"
+      android:scaleY="2">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2.69l-0.66,0.73C11.04,3.74 7,8.28 7,12.5C7,15.54 9.24,18 12,18s5,-2.46 5,-5.5c0,-4.22 -4.04,-8.76 -4.34,-9.08L12,2.69zM12,16c-1.65,0 -3,-1.57 -3,-3.5c0,-2.54 1.87,-5.56 3,-7.07c1.13,1.51 3,4.53 3,7.07C15,14.43 13.65,16 12,16z"/>
+  </group>
+</vector>
