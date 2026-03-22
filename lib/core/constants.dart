@@ -290,6 +290,14 @@ class ApiConstants {
   static String syncDisconnect(String id) => '/api/sync/accounts/$id';
   static String syncResync(String id) => '/api/sync/accounts/$id/resync';
 
+  // Digital Twin / Goals / Weekly Summary
+  static const String twinDaily = '/api/health-intelligence/twin/daily';
+  static const String twinTrend = '/api/health-intelligence/twin/trend';
+  static const String healthGoals = '/api/health-intelligence/goals';
+  static const String healthGoalInsights = '/api/health-intelligence/goals/insights';
+  static const String weeklySummary = '/api/health-intelligence/weekly-summary';
+  static const String weeklySummaryHistory = '/api/health-intelligence/weekly-summary/history';
+
   // Debug / Diagnostics (no auth required)
   static const String debugGoogleApi      = '/api/debug/google-api';
   static const String debugVoiceAiStatus  = '/api/debug/voice-ai-status';
