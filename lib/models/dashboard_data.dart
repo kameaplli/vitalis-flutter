@@ -83,6 +83,7 @@ class DashboardData {
   final double? todaySleepMins;
   final double? todayActiveCalories;
   final double? todayDistance;
+  final double? todaySpo2;
   // extras
   final Map<String, int> mealDistribution;
   final List<DashboardTopFood> topCalorieFoods;
@@ -112,6 +113,7 @@ class DashboardData {
     this.todaySleepMins,
     this.todayActiveCalories,
     this.todayDistance,
+    this.todaySpo2,
     required this.mealDistribution,
     required this.topCalorieFoods,
     required this.healthScore,
@@ -146,6 +148,7 @@ class DashboardData {
         todaySleepMins: (json['today_sleep_mins'] as num?)?.toDouble(),
         todayActiveCalories: (json['today_active_calories'] as num?)?.toDouble(),
         todayDistance: (json['today_distance'] as num?)?.toDouble(),
+        todaySpo2: (json['today_spo2'] as num?)?.toDouble(),
         mealDistribution: (json['meal_distribution'] as Map<String, dynamic>?)
                 ?.map((k, v) => MapEntry(k, (v as num).toInt())) ??
             {},
