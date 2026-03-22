@@ -229,7 +229,46 @@ class HealthSyncService {
       queryEnd: now,
     );
 
+    // If raw data points are empty, try aggregate APIs as fallback.
+    // Some Samsung devices only expose aggregates through Health Connect.
     if (dataPoints.isEmpty) {
+      debugPrint('HealthSync: raw data empty, trying aggregate fallback...');
+      final aggObservations = await _readAggregateData(start, now);
+      if (aggObservations.isNotEmpty) {
+        debugPrint('HealthSync: aggregate fallback got ${aggObservations.length} observations');
+        // Update diagnostics
+        _lastSyncDiagnostics = SyncDiagnostics(
+          totalPoints: aggObservations.length,
+          typeResults: {'aggregate_fallback': aggObservations.length},
+          typeErrors: typeErrors,
+          queryStart: start,
+          queryEnd: now,
+        );
+        // Upload aggregates directly
+        int totalInserted = 0, totalSkipped = 0, totalReplaced = 0;
+        for (var i = 0; i < aggObservations.length; i += 500) {
+          final batch = aggObservations.sublist(
+              i, (i + 500).clamp(0, aggObservations.length));
+          try {
+            final resp = await apiClient.dio.post(
+              ApiConstants.syncIngest,
+              data: {'observations': batch, 'person': person},
+            );
+            if (resp.statusCode == 200) {
+              totalInserted += (resp.data['inserted'] as int?) ?? 0;
+              totalSkipped += (resp.data['skipped'] as int?) ?? 0;
+              totalReplaced += (resp.data['replaced'] as int?) ?? 0;
+            }
+          } catch (e) {
+            debugPrint('HealthSync: aggregate upload error: $e');
+          }
+        }
+        await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
+        return SyncResult(
+            inserted: totalInserted,
+            skipped: totalSkipped,
+            replaced: totalReplaced);
+      }
       await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
       return SyncResult(inserted: 0, skipped: 0, replaced: 0);
     }
@@ -369,5 +408,103 @@ class HealthSyncService {
       'time_zone': DateTime.now().timeZoneName,
       'is_manual': false,
     };
+  }
+
+  /// Fallback: read data via aggregate/interval APIs when raw data points
+  /// are not available (common on Samsung devices with Health Connect).
+  /// Returns canonical observation maps ready for upload.
+  static Future<List<Map<String, dynamic>>> _readAggregateData(
+      DateTime start, DateTime end) async {
+    final observations = <Map<String, dynamic>>[];
+    final sourceId = Platform.isIOS ? 'apple_health' : 'health_connect';
+    final tz = DateTime.now().timeZoneName;
+
+    // Read daily step totals
+    try {
+      // Get steps day by day
+      var day = DateTime(start.year, start.month, start.day);
+      final endDay = DateTime(end.year, end.month, end.day);
+      while (!day.isAfter(endDay)) {
+        final dayEnd = day.add(const Duration(days: 1));
+        final steps = await _health.getTotalStepsInInterval(day, dayEnd);
+        if (steps != null && steps > 0) {
+          observations.add({
+            'data_type': 'steps',
+            'effective_start': day.toUtc().toIso8601String(),
+            'effective_end': dayEnd.toUtc().toIso8601String(),
+            'value_numeric': steps.toDouble(),
+            'value_text': null,
+            'value_json': null,
+            'unit': 'steps',
+            'source_id': sourceId,
+            'source_record_id': 'agg_steps_${day.toIso8601String().substring(0, 10)}',
+            'time_zone': tz,
+            'is_manual': false,
+          });
+        }
+        day = dayEnd;
+      }
+      debugPrint('HealthSync: aggregate steps → ${observations.length} daily entries');
+    } catch (e) {
+      debugPrint('HealthSync: aggregate steps error: $e');
+    }
+
+    // Try getHealthIntervalDataFromTypes for other data types
+    const aggregateTypes = [
+      HealthDataType.HEART_RATE,
+      HealthDataType.ACTIVE_ENERGY_BURNED,
+      HealthDataType.DISTANCE_WALKING_RUNNING,
+      HealthDataType.SLEEP_ASLEEP,
+      HealthDataType.WEIGHT,
+    ];
+
+    const typeToCanonical = {
+      HealthDataType.HEART_RATE: ('heart_rate', 'bpm'),
+      HealthDataType.ACTIVE_ENERGY_BURNED: ('active_calories', 'kcal'),
+      HealthDataType.DISTANCE_WALKING_RUNNING: ('distance', 'm'),
+      HealthDataType.SLEEP_ASLEEP: ('sleep_session', 'min'),
+      HealthDataType.WEIGHT: ('weight', 'kg'),
+    };
+
+    for (final type in aggregateTypes) {
+      try {
+        final points = await _health.getHealthIntervalDataFromTypes(
+          types: [type],
+          startDate: start,
+          endDate: end,
+          interval: 1,
+        );
+        for (final p in points) {
+          final mapping = typeToCanonical[type];
+          if (mapping == null) continue;
+          double? value;
+          if (p.value is NumericHealthValue) {
+            value = (p.value as NumericHealthValue).numericValue.toDouble();
+          }
+          if (value == null || value == 0) continue;
+          observations.add({
+            'data_type': mapping.$1,
+            'effective_start': p.dateFrom.toUtc().toIso8601String(),
+            'effective_end': p.dateTo.toUtc().toIso8601String(),
+            'value_numeric': value,
+            'value_text': null,
+            'value_json': null,
+            'unit': mapping.$2,
+            'source_id': sourceId,
+            'source_record_id': p.uuid,
+            'time_zone': tz,
+            'is_manual': false,
+          });
+        }
+        if (points.isNotEmpty) {
+          debugPrint('HealthSync: aggregate ${type.name} → ${points.length} points');
+        }
+      } catch (e) {
+        debugPrint('HealthSync: aggregate ${type.name} error: $e');
+        // Continue with next type
+      }
+    }
+
+    return observations;
   }
 }
