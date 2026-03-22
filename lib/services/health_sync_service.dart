@@ -6,9 +6,28 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/sync_models.dart';
 
+class SyncDiagnostics {
+  final int totalPoints;
+  final Map<String, int> typeResults;
+  final Map<String, String> typeErrors;
+  final DateTime queryStart;
+  final DateTime queryEnd;
+  SyncDiagnostics({
+    required this.totalPoints,
+    required this.typeResults,
+    required this.typeErrors,
+    required this.queryStart,
+    required this.queryEnd,
+  });
+}
+
 class HealthSyncService {
   static final Health _health = Health();
   static bool _configured = false;
+  static SyncDiagnostics? _lastSyncDiagnostics;
+
+  /// Get the last sync diagnostics (for debugging in the UI).
+  static SyncDiagnostics? get lastDiagnostics => _lastSyncDiagnostics;
 
   /// Health data types we want to sync from the platform.
   static const List<HealthDataType> _syncTypes = [
@@ -173,6 +192,8 @@ class HealthSyncService {
     // Read health data — try each type individually to avoid one bad type
     // killing the entire read
     List<HealthDataPoint> dataPoints = [];
+    final typeResults = <String, int>{};
+    final typeErrors = <String, String>{};
     for (final type in _syncTypes) {
       try {
         final points = await _health.getHealthDataFromTypes(
@@ -180,14 +201,30 @@ class HealthSyncService {
           startTime: start,
           endTime: now,
         );
+        if (points.isNotEmpty) {
+          typeResults[type.name] = points.length;
+        }
         dataPoints.addAll(points);
       } catch (e) {
+        typeErrors[type.name] = e.toString();
         debugPrint('HealthSync: getHealthData($type) error: $e');
         if (throwOnError) rethrow;
         // Skip this type and continue with others
       }
     }
     debugPrint('HealthSync: read ${dataPoints.length} data points total');
+    debugPrint('HealthSync: by type: $typeResults');
+    if (typeErrors.isNotEmpty) {
+      debugPrint('HealthSync: errors: $typeErrors');
+    }
+    // Store diagnostic info for the UI
+    _lastSyncDiagnostics = SyncDiagnostics(
+      totalPoints: dataPoints.length,
+      typeResults: typeResults,
+      typeErrors: typeErrors,
+      queryStart: start,
+      queryEnd: now,
+    );
 
     if (dataPoints.isEmpty) {
       await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
