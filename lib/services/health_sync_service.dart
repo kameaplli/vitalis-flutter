@@ -428,10 +428,14 @@ class HealthSyncService {
         final dayEnd = day.add(const Duration(days: 1));
         final steps = await _health.getTotalStepsInInterval(day, dayEnd);
         if (steps != null && steps > 0) {
+          // Use local time (NOT UTC) to preserve the correct calendar date.
+          // Converting to UTC shifts midnight backward for positive UTC offsets
+          // (e.g., IST midnight → previous day 18:30 UTC), causing the backend
+          // to file the cache under the wrong date.
           observations.add({
             'data_type': 'steps',
-            'effective_start': day.toUtc().toIso8601String(),
-            'effective_end': dayEnd.toUtc().toIso8601String(),
+            'effective_start': day.toIso8601String(),
+            'effective_end': dayEnd.toIso8601String(),
             'value_numeric': steps.toDouble(),
             'value_text': null,
             'value_json': null,
@@ -484,8 +488,8 @@ class HealthSyncService {
           if (value == null || value == 0) continue;
           observations.add({
             'data_type': mapping.$1,
-            'effective_start': p.dateFrom.toUtc().toIso8601String(),
-            'effective_end': p.dateTo.toUtc().toIso8601String(),
+            'effective_start': p.dateFrom.toIso8601String(),
+            'effective_end': p.dateTo.toIso8601String(),
             'value_numeric': value,
             'value_text': null,
             'value_json': null,
