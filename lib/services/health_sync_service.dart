@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/sync_models.dart';
+import 'notification_service.dart';
 
 class SyncDiagnostics {
   final int totalPoints;
@@ -25,6 +26,7 @@ class SyncDiagnostics {
 class HealthSyncService {
   static final Health _health = Health();
   static bool _configured = false;
+  static bool _syncInProgress = false;
   static SyncDiagnostics? _lastSyncDiagnostics;
 
   /// Get the last sync diagnostics (for debugging in the UI).
@@ -37,7 +39,7 @@ class HealthSyncService {
     HealthDataType.STEPS,
     HealthDataType.HEART_RATE,
     HealthDataType.RESTING_HEART_RATE,
-    HealthDataType.HEART_RATE_VARIABILITY_SDNN,
+    if (Platform.isIOS) HealthDataType.HEART_RATE_VARIABILITY_SDNN,
     HealthDataType.WEIGHT,
     HealthDataType.BODY_FAT_PERCENTAGE,
     HealthDataType.BLOOD_OXYGEN,
@@ -185,7 +187,29 @@ class HealthSyncService {
     if (!isAvailable) {
       return SyncResult(inserted: 0, skipped: 0, replaced: 0);
     }
+
+    // Prevent concurrent syncs (dashboard auto-sync + manual trigger + etc.)
+    if (_syncInProgress) {
+      debugPrint('HealthSync: sync already in progress, skipping');
+      return SyncResult(inserted: 0, skipped: 0, replaced: 0);
+    }
+    _syncInProgress = true;
+
+    try {
+      return await _doSync(person: person, throwOnError: throwOnError);
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  static Future<SyncResult> _doSync({
+    String person = 'self',
+    bool throwOnError = false,
+  }) async {
     await _ensureConfigured();
+
+    // Show ongoing notification so user knows sync is running
+    try { await NotificationService.showSyncStarted(); } catch (_) {}
 
     final prefs = await SharedPreferences.getInstance();
     final lastSyncKey = 'health_sync_last_$person';
@@ -250,21 +274,22 @@ class HealthSyncService {
         );
         // Upload aggregates directly
         int totalInserted = 0, totalSkipped = 0, totalReplaced = 0;
-        for (var i = 0; i < aggObservations.length; i += 500) {
+        for (var i = 0; i < aggObservations.length; i += 25) {
           final batch = aggObservations.sublist(
-              i, (i + 500).clamp(0, aggObservations.length));
+              i, (i + 25).clamp(0, aggObservations.length));
           final result = await _uploadBatchWithRetry(batch, person);
           totalInserted += result.$1;
           totalSkipped += result.$2;
           totalReplaced += result.$3;
         }
         await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
-        return SyncResult(
-            inserted: totalInserted,
-            skipped: totalSkipped,
-            replaced: totalReplaced);
+        final r = SyncResult(
+            inserted: totalInserted, skipped: totalSkipped, replaced: totalReplaced);
+        try { await NotificationService.showSyncComplete(inserted: totalInserted, total: aggObservations.length); } catch (_) {}
+        return r;
       }
       await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
+      try { await NotificationService.showSyncComplete(); } catch (_) {}
       return SyncResult(inserted: 0, skipped: 0, replaced: 0);
     }
 
@@ -287,25 +312,39 @@ class HealthSyncService {
 
     if (observations.isEmpty) {
       await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
+      try { await NotificationService.showSyncComplete(); } catch (_) {}
       return SyncResult(inserted: 0, skipped: 0, replaced: 0);
     }
 
     debugPrint('HealthSync: uploading ${observations.length} observations');
 
-    // Upload in batches of 500
+    // Upload in batches of 25 — smaller batches avoid Railway 503 timeouts
+    // from the per-observation supersession queries + cache refresh.
     int totalInserted = 0, totalSkipped = 0, totalReplaced = 0;
+    int consecutiveFailures = 0;
 
-    for (var i = 0; i < observations.length; i += 500) {
+    for (var i = 0; i < observations.length; i += 25) {
       final batch =
-          observations.sublist(i, (i + 500).clamp(0, observations.length));
+          observations.sublist(i, (i + 25).clamp(0, observations.length));
       try {
         final result = await _uploadBatchWithRetry(batch, person);
+        if (result.$1 > 0 || result.$2 > 0 || result.$3 > 0) {
+          consecutiveFailures = 0; // batch succeeded
+        } else {
+          consecutiveFailures++;
+        }
         totalInserted += result.$1;
         totalSkipped += result.$2;
         totalReplaced += result.$3;
       } catch (e) {
         debugPrint('HealthSync: upload batch error: $e');
+        consecutiveFailures++;
         if (throwOnError) rethrow;
+      }
+      // Abort remaining batches if network is consistently down
+      if (consecutiveFailures >= 2) {
+        debugPrint('HealthSync: aborting remaining batches after $consecutiveFailures consecutive failures');
+        break;
       }
     }
 
@@ -313,6 +352,13 @@ class HealthSyncService {
     await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
 
     debugPrint('HealthSync: done — inserted=$totalInserted, skipped=$totalSkipped, replaced=$totalReplaced');
+
+    // Notify user that sync is complete
+    if (consecutiveFailures >= 2 && totalInserted == 0) {
+      try { await NotificationService.showSyncFailed(); } catch (_) {}
+    } else {
+      try { await NotificationService.showSyncComplete(inserted: totalInserted, total: observations.length); } catch (_) {}
+    }
 
     return SyncResult(
       inserted: totalInserted,
@@ -463,13 +509,16 @@ class HealthSyncService {
         final isRetryable = e is DioException &&
             (e.response?.statusCode == 503 ||
              e.type == DioExceptionType.receiveTimeout ||
-             e.type == DioExceptionType.connectionTimeout);
+             e.type == DioExceptionType.connectionTimeout ||
+             e.type == DioExceptionType.connectionError ||
+             e.type == DioExceptionType.unknown);
         if (!isRetryable || attempt == maxRetries) {
           debugPrint('HealthSync: upload failed after ${attempt + 1} attempts');
           return (0, 0, 0);
         }
-        // Wait before retry: 5s, 15s
-        await Future.delayed(Duration(seconds: attempt == 0 ? 5 : 15));
+        // Wait before retry: 5s, 15s, 30s
+        final delays = [5, 15, 30];
+        await Future.delayed(Duration(seconds: delays[attempt.clamp(0, 2)]));
       }
     }
     return (0, 0, 0);

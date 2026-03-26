@@ -251,13 +251,19 @@ class ClinicalReport {
     final questions =
         rawQuestions.map((e) => e.toString()).toList();
 
+    // Backend sends scores nested: {scores: {avg_score, dimension_averages}}
+    final scores = json['scores'] as Map<String, dynamic>? ?? const {};
+
     return ClinicalReport(
-      id: json['id'] as String,
+      id: (json['report_id'] ?? json['id'] ?? '') as String,
       demographics:
           (json['demographics'] as Map<String, dynamic>?) ?? const {},
-      overallScore: (json['overall_score'] as num?)?.toDouble(),
+      overallScore: (scores['avg_score'] as num?)?.toDouble()
+          ?? (json['overall_score'] as num?)?.toDouble(),
       dimensionScores:
-          (json['dimension_scores'] as Map<String, dynamic>?) ?? const {},
+          (scores['dimension_averages'] as Map<String, dynamic>?)
+          ?? (json['dimension_scores'] as Map<String, dynamic>?)
+          ?? const {},
       nutrientSummary:
           (json['nutrient_summary'] as Map<String, dynamic>?) ?? const {},
       riskFlags: flags,
