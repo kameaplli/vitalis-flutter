@@ -8,9 +8,10 @@ final smartCorrelationProvider = FutureProvider.family<SmartCorrelationResult?, 
   (ref, params) async {
     ref.keepAlive();
     try {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
       final res = await apiClient.dio.get(
         ApiConstants.eczemaSmartCorrelation,
-        queryParameters: {'days': params.days, 'person': params.person},
+        queryParameters: {'days': params.days, 'person': params.person, 'date': today},
       );
       return SmartCorrelationResult.fromJson(res.data as Map<String, dynamic>);
     } catch (_) {
