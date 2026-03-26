@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,7 +31,9 @@ class HealthSyncService {
   static SyncDiagnostics? get lastDiagnostics => _lastSyncDiagnostics;
 
   /// Health data types we want to sync from the platform.
-  static const List<HealthDataType> _syncTypes = [
+  /// Platform-conditional: DISTANCE_WALKING_RUNNING is iOS-only (not available
+  /// on Google Health Connect).
+  static List<HealthDataType> get _syncTypes => [
     HealthDataType.STEPS,
     HealthDataType.HEART_RATE,
     HealthDataType.RESTING_HEART_RATE,
@@ -43,7 +46,8 @@ class HealthSyncService {
     HealthDataType.BLOOD_PRESSURE_SYSTOLIC,
     HealthDataType.BLOOD_PRESSURE_DIASTOLIC,
     HealthDataType.ACTIVE_ENERGY_BURNED,
-    HealthDataType.DISTANCE_WALKING_RUNNING,
+    if (Platform.isIOS) HealthDataType.DISTANCE_WALKING_RUNNING,
+    if (Platform.isAndroid) HealthDataType.DISTANCE_DELTA,
     HealthDataType.WATER,
     HealthDataType.WORKOUT,
     HealthDataType.SLEEP_ASLEEP,
@@ -249,19 +253,10 @@ class HealthSyncService {
         for (var i = 0; i < aggObservations.length; i += 500) {
           final batch = aggObservations.sublist(
               i, (i + 500).clamp(0, aggObservations.length));
-          try {
-            final resp = await apiClient.dio.post(
-              ApiConstants.syncIngest,
-              data: {'observations': batch, 'person': person},
-            );
-            if (resp.statusCode == 200) {
-              totalInserted += (resp.data['inserted'] as int?) ?? 0;
-              totalSkipped += (resp.data['skipped'] as int?) ?? 0;
-              totalReplaced += (resp.data['replaced'] as int?) ?? 0;
-            }
-          } catch (e) {
-            debugPrint('HealthSync: aggregate upload error: $e');
-          }
+          final result = await _uploadBatchWithRetry(batch, person);
+          totalInserted += result.$1;
+          totalSkipped += result.$2;
+          totalReplaced += result.$3;
         }
         await prefs.setInt(lastSyncKey, now.millisecondsSinceEpoch);
         return SyncResult(
@@ -304,18 +299,10 @@ class HealthSyncService {
       final batch =
           observations.sublist(i, (i + 500).clamp(0, observations.length));
       try {
-        final resp = await apiClient.dio.post(
-          ApiConstants.syncIngest,
-          data: {
-            'observations': batch,
-            'person': person,
-          },
-        );
-        if (resp.statusCode == 200) {
-          totalInserted += (resp.data['inserted'] as int?) ?? 0;
-          totalSkipped += (resp.data['skipped'] as int?) ?? 0;
-          totalReplaced += (resp.data['replaced'] as int?) ?? 0;
-        }
+        final result = await _uploadBatchWithRetry(batch, person);
+        totalInserted += result.$1;
+        totalSkipped += result.$2;
+        totalReplaced += result.$3;
       } catch (e) {
         debugPrint('HealthSync: upload batch error: $e');
         if (throwOnError) rethrow;
@@ -350,6 +337,7 @@ class HealthSyncService {
       HealthDataType.BLOOD_PRESSURE_DIASTOLIC: 'blood_pressure',
       HealthDataType.ACTIVE_ENERGY_BURNED: 'active_calories',
       HealthDataType.DISTANCE_WALKING_RUNNING: 'distance',
+      HealthDataType.DISTANCE_DELTA: 'distance',
       HealthDataType.WATER: 'water',
       HealthDataType.WORKOUT: 'workout',
       HealthDataType.SLEEP_ASLEEP: 'sleep_session',
@@ -446,6 +434,47 @@ class HealthSyncService {
     }).toList();
   }
 
+  /// Upload a batch of observations with retry on 503 / timeout.
+  /// Returns (inserted, skipped, replaced).
+  static Future<(int, int, int)> _uploadBatchWithRetry(
+    List<Map<String, dynamic>> batch,
+    String person, {
+    int maxRetries = 2,
+  }) async {
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final resp = await apiClient.dio.post(
+          ApiConstants.syncIngest,
+          data: {'observations': batch, 'person': person},
+          options: Options(
+            receiveTimeout: const Duration(seconds: 90),
+            sendTimeout: const Duration(seconds: 60),
+          ),
+        );
+        if (resp.statusCode == 200) {
+          return (
+            (resp.data['inserted'] as int?) ?? 0,
+            (resp.data['skipped'] as int?) ?? 0,
+            (resp.data['replaced'] as int?) ?? 0,
+          );
+        }
+      } catch (e) {
+        debugPrint('HealthSync: upload attempt ${attempt + 1} error: $e');
+        final isRetryable = e is DioException &&
+            (e.response?.statusCode == 503 ||
+             e.type == DioExceptionType.receiveTimeout ||
+             e.type == DioExceptionType.connectionTimeout);
+        if (!isRetryable || attempt == maxRetries) {
+          debugPrint('HealthSync: upload failed after ${attempt + 1} attempts');
+          return (0, 0, 0);
+        }
+        // Wait before retry: 5s, 15s
+        await Future.delayed(Duration(seconds: attempt == 0 ? 5 : 15));
+      }
+    }
+    return (0, 0, 0);
+  }
+
   /// Fallback: read data via aggregate/interval APIs when raw data points
   /// are not available (common on Samsung devices with Health Connect).
   /// Returns canonical observation maps ready for upload.
@@ -489,19 +518,22 @@ class HealthSyncService {
       debugPrint('HealthSync: aggregate steps error: $e');
     }
 
-    // Try getHealthIntervalDataFromTypes for other data types
-    const aggregateTypes = [
+    // Try getHealthIntervalDataFromTypes for other data types.
+    // DISTANCE_WALKING_RUNNING is iOS-only; use DISTANCE_DELTA on Android.
+    final aggregateTypes = [
       HealthDataType.HEART_RATE,
       HealthDataType.ACTIVE_ENERGY_BURNED,
-      HealthDataType.DISTANCE_WALKING_RUNNING,
+      if (Platform.isIOS) HealthDataType.DISTANCE_WALKING_RUNNING,
+      if (Platform.isAndroid) HealthDataType.DISTANCE_DELTA,
       HealthDataType.SLEEP_ASLEEP,
       HealthDataType.WEIGHT,
     ];
 
-    const typeToCanonical = {
+    final typeToCanonical = {
       HealthDataType.HEART_RATE: ('heart_rate', 'bpm'),
       HealthDataType.ACTIVE_ENERGY_BURNED: ('active_calories', 'kcal'),
       HealthDataType.DISTANCE_WALKING_RUNNING: ('distance', 'm'),
+      HealthDataType.DISTANCE_DELTA: ('distance', 'm'),
       HealthDataType.SLEEP_ASLEEP: ('sleep_session', 'min'),
       HealthDataType.WEIGHT: ('weight', 'kg'),
     };
