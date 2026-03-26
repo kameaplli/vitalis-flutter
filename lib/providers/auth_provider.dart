@@ -6,6 +6,7 @@ import '../core/secure_storage.dart';
 import '../models/user.dart';
 import '../services/biometric_service.dart';
 import '../services/fcm_service.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import '../services/notification_service.dart';
 
 enum AuthStatus { loading, authenticated, unauthenticated }
@@ -52,6 +53,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: user);
       try { await NotificationService.scheduleAll(); } catch (_) {}
       try { await FcmService.getAndRegisterToken(); } catch (_) {}
+      try { await _syncTimezone(); } catch (_) {}
       SecureStorage.setNotificationsEnabled(true);
     } catch (_) {
       await apiClient.clearToken();
@@ -72,6 +74,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = AppUser.fromJson(res.data['user']);
       try { await NotificationService.scheduleAll(); } catch (_) {}
       try { await FcmService.getAndRegisterToken(); } catch (_) {}
+      try { await _syncTimezone(); } catch (_) {}
       SecureStorage.setNotificationsEnabled(true);
 
       // ── Biometric setup ───────────────────────────────────────────────────
@@ -127,6 +130,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (refreshToken != null) await SecureStorage.saveRefreshToken(refreshToken);
       final user = AppUser.fromJson(res.data['user']);
       try { await FcmService.getAndRegisterToken(); } catch (_) {}
+      try { await _syncTimezone(); } catch (_) {}
 
       final available = await BiometricService.isAvailable();
       final prompted  = await SecureStorage.getBiometricsPrompted();
@@ -160,6 +164,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (state.showBioOffer) {
       state = AuthState(status: state.status, user: state.user, error: state.error);
     }
+  }
+
+  /// Send the device's IANA timezone to the backend so server-side jobs
+  /// (hydration reminders, daily summaries) respect the user's local time.
+  Future<void> _syncTimezone() async {
+    final tz = await FlutterTimezone.getLocalTimezone(); // e.g. "Australia/Sydney"
+    await apiClient.dio.put(ApiConstants.profile, data: {'timezone': tz});
   }
 
   Future<void> logout() async {
