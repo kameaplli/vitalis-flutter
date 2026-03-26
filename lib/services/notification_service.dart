@@ -146,7 +146,7 @@ const _hydrationChannel = AndroidNotificationDetails(
   actions: [
     AndroidNotificationAction('hydrate_50', '50ml', showsUserInterface: false),
     AndroidNotificationAction('hydrate_100', '100ml', showsUserInterface: false),
-    AndroidNotificationAction('hydrate_150', '150ml', showsUserInterface: false),
+    AndroidNotificationAction('hydrate_200', '200ml', showsUserInterface: false),
   ],
 );
 
@@ -313,18 +313,44 @@ class NotificationService {
   /// Set this from main.dart once the router is available.
   static void Function(String route)? onNavigate;
 
+  static const _pendingActionsKey = 'pending_notification_actions';
+
+  static const _hydrationAmounts = {
+    'hydrate_50': 50,
+    'hydrate_100': 100,
+    'hydrate_200': 200,
+  };
+
+  /// Persist a pending action to SharedPreferences so it survives app restarts.
+  static Future<void> _persistAction(String action) async {
+    pendingActions.add(action);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final existing = prefs.getStringList(_pendingActionsKey) ?? [];
+      existing.add(action);
+      await prefs.setStringList(_pendingActionsKey, existing);
+    } catch (_) {}
+  }
+
+  /// Load persisted pending actions (call on app start before processing).
+  static Future<void> loadPersistedActions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(_pendingActionsKey) ?? [];
+      if (stored.isNotEmpty) {
+        pendingActions.addAll(stored);
+        await prefs.remove(_pendingActionsKey);
+      }
+    } catch (_) {}
+  }
+
   /// Handle notification tap / action button in foreground.
   static void _onNotificationAction(NotificationResponse response) {
     final actionId = response.actionId ?? '';
     final payload = response.payload ?? '';
 
-    final hydrationAmounts = {
-      'hydrate_50': 50,
-      'hydrate_100': 100,
-      'hydrate_150': 150,
-    };
-    if (hydrationAmounts.containsKey(actionId)) {
-      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': hydrationAmounts[actionId]}));
+    if (_hydrationAmounts.containsKey(actionId)) {
+      _persistAction(jsonEncode({'type': 'hydrate', 'ml': _hydrationAmounts[actionId]}));
       return;
     }
 
@@ -339,18 +365,14 @@ class NotificationService {
   static void _onBackgroundAction(NotificationResponse response) {
     final actionId = response.actionId ?? '';
     final payload = response.payload ?? '';
-    final hydrationAmounts = {
-      'hydrate_50': 50,
-      'hydrate_100': 100,
-      'hydrate_150': 150,
-    };
-    if (hydrationAmounts.containsKey(actionId)) {
-      pendingActions.add(jsonEncode({'type': 'hydrate', 'ml': hydrationAmounts[actionId]}));
+
+    if (_hydrationAmounts.containsKey(actionId)) {
+      _persistAction(jsonEncode({'type': 'hydrate', 'ml': _hydrationAmounts[actionId]}));
       return;
     }
     // Store deep-link for when app opens
     if (payload.startsWith('/')) {
-      pendingActions.add(jsonEncode({'type': 'navigate', 'route': payload}));
+      _persistAction(jsonEncode({'type': 'navigate', 'route': payload}));
     }
   }
 
