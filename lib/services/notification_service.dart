@@ -761,6 +761,72 @@ class NotificationService {
     );
   }
 
+  // ── Health Connect Sync Notifications ─────────────────────────────────────
+
+  static Future<void> showSyncStarted() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      6001,
+      'Health Connect Sync',
+      'Syncing your health data in the background...',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'qorehealth_smart',
+          'Smart Notifications',
+          channelDescription: 'Health Connect sync updates',
+          importance: Importance.low,
+          priority: Priority.low,
+          icon: '@mipmap/ic_launcher',
+          ongoing: true,
+          showProgress: true,
+          indeterminate: true,
+        ),
+      ),
+    );
+  }
+
+  static Future<void> showSyncComplete({int inserted = 0, int total = 0}) async {
+    if (!_initialized) await init();
+    final body = inserted > 0
+        ? 'Health Connect sync complete — $inserted new records synced.'
+        : 'Health Connect sync complete — all data is up to date.';
+    await _plugin.show(
+      6001, // Same ID replaces the "syncing..." notification
+      'Health Connect Sync Complete',
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'qorehealth_smart',
+          'Smart Notifications',
+          channelDescription: 'Health Connect sync updates',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+      payload: '/dashboard',
+    );
+  }
+
+  static Future<void> showSyncFailed() async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      6001,
+      'Health Connect Sync',
+      'Sync could not complete — will retry next time.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'qorehealth_smart',
+          'Smart Notifications',
+          channelDescription: 'Health Connect sync updates',
+          importance: Importance.low,
+          priority: Priority.low,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+    );
+  }
+
   /// Diagnostic: print all pending notifications for debugging.
   static Future<void> debugPendingNotifications() async {
     if (!_initialized) await init();
