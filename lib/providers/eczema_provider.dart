@@ -9,8 +9,9 @@ final eczemaProvider =
     FutureProvider.family<List<EczemaLogSummary>, String>((ref, key) async {
   ref.keepAlive(); // keep cached between tab switches
   final (person, days) = PK.personDays(key);
+  final today = DateTime.now().toIso8601String().substring(0, 10);
   final res = await apiClient.dio.get(ApiConstants.eczemaHistory,
-      queryParameters: {'person': person, 'days': days});
+      queryParameters: {'person': person, 'days': days, 'date': today});
   return (res.data['entries'] as List)
       .map((e) => EczemaLogSummary.fromJson(e))
       .toList();
@@ -21,8 +22,9 @@ final eczemaHeatmapProvider =
     FutureProvider.family<EczemaHeatmapData, String>((ref, key) async {
   ref.keepAlive();
   final (person, days) = PK.personDays(key);
+  final today = DateTime.now().toIso8601String().substring(0, 10);
   final res = await apiClient.dio.get(ApiConstants.eczemaHeatmap,
-      queryParameters: {'person': person, 'days': days});
+      queryParameters: {'person': person, 'days': days, 'date': today});
   return EczemaHeatmapData.fromJson(res.data as Map<String, dynamic>);
 });
 
@@ -31,8 +33,9 @@ final eczemaFoodCorrelationProvider =
     FutureProvider.family<FoodCorrelationData, String>((ref, key) async {
   ref.keepAlive();
   final (person, days) = PK.personDays(key, 90);
+  final today = DateTime.now().toIso8601String().substring(0, 10);
   final res = await apiClient.dio.get(ApiConstants.eczemaFoodCorrelation,
-      queryParameters: {'person': person, 'days': days});
+      queryParameters: {'person': person, 'days': days, 'date': today});
   return FoodCorrelationData.fromJson(res.data as Map<String, dynamic>);
 });
 

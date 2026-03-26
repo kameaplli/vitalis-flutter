@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../providers/nutrition_provider.dart';
+import '../providers/meal_sync_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../core/api_client.dart';
 import '../core/app_cache.dart';
@@ -51,9 +52,53 @@ class _NutritionHistoryContentState
   Widget build(BuildContext context) {
     ref.watch(selectedPersonProvider);
     final entriesAsync = ref.watch(nutritionEntriesProvider(_key));
+    final syncState = ref.watch(mealSyncProvider);
+    final pendingIds = syncState.pendingMeals.map((m) => m.tempId).toSet();
 
     return Column(
       children: [
+        // Failed sync banner
+        if (syncState.hasFailures)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.red.shade50,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: syncState.failedMeals.entries.map((e) => Row(
+                children: [
+                  const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(e.value,
+                      style: const TextStyle(fontSize: 12, color: Colors.red))),
+                  TextButton(
+                    onPressed: () => ref.read(mealSyncProvider.notifier).dismissFailure(e.key),
+                    child: const Text('Dismiss', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+              )).toList(),
+            ),
+          ),
+        // Syncing indicator
+        if (syncState.hasPending)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            color: Colors.blue.shade50,
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 12, height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Syncing ${syncState.pendingMeals.length} meal${syncState.pendingMeals.length > 1 ? 's' : ''}...',
+                  style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                ),
+              ],
+            ),
+          ),
         // Date range row
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
@@ -90,12 +135,17 @@ class _NutritionHistoryContentState
             skipLoadingOnReload: true,
             loading: () => const ShimmerList(itemCount: 5, itemHeight: 72),
             error: (e, _) => FriendlyError(error: e, context: 'nutrition entries'),
-            data: (entries) {
-              if (entries.isEmpty) {
+            data: (serverEntries) {
+              // Merge pending local meals with server entries
+              final allEntries = [
+                ...syncState.localEntries,
+                ...serverEntries,
+              ];
+              if (allEntries.isEmpty) {
                 return const Center(child: Text('No entries found'));
               }
               final grouped = <String, List<NutritionEntry>>{};
-              for (final e in entries) {
+              for (final e in allEntries) {
                 grouped.putIfAbsent(e.date, () => []).add(e);
               }
               final dates = grouped.keys.toList()
@@ -120,7 +170,58 @@ class _NutritionHistoryContentState
                           ),
                         ),
                       ),
-                      ...dayEntries.map((entry) => Dismissible(
+                      ...dayEntries.map((entry) {
+                        final isPending = pendingIds.contains(entry.id);
+                        if (isPending) {
+                          // Pending local entry — no swipe actions, show sync indicator
+                          return ListTile(
+                            dense: true,
+                            visualDensity: const VisualDensity(vertical: -2),
+                            leading: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Icon(_mealIcon(entry.meal),
+                                    color: _mealColor(entry.meal)
+                                        .withValues(alpha: 0.5),
+                                    size: 20),
+                                const Positioned(
+                                  right: -4,
+                                  bottom: -4,
+                                  child: SizedBox(
+                                    width: 10,
+                                    height: 10,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 1.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            title: Text(
+                              entry.description.isEmpty
+                                  ? entry.meal ?? 'Meal'
+                                  : entry.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600),
+                            ),
+                            subtitle: Text(
+                              '${entry.person} • ${entry.time} • syncing...',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade400),
+                            ),
+                            trailing: Text(
+                              '${entry.calories.toStringAsFixed(0)} kcal',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade500),
+                            ),
+                          );
+                        }
+                        return Dismissible(
                             key: Key(entry.id),
                             direction: DismissDirection.horizontal,
                             dismissThresholds: const {
@@ -175,7 +276,8 @@ class _NutritionHistoryContentState
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
-                          )),
+                          );
+                      }),
                     ],
                   );
                 },

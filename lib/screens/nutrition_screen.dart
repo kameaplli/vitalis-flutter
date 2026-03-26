@@ -9,6 +9,7 @@ import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/nutrition_provider.dart';
+import '../providers/meal_sync_provider.dart';
 import '../providers/food_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../providers/nutrition_analytics_provider.dart';
@@ -262,35 +263,75 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
   Future<void> _logMeal(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final personId = ref.read(selectedPersonProvider);
-    final isEdit = ref.read(nutritionProvider).editEntryId != null;
-    final ok = await ref.read(nutritionProvider.notifier).logNutrition(personId: personId);
-    if (!mounted) return;
-    if (ok) {
+    final nutritionState = ref.read(nutritionProvider);
+    final isEdit = nutritionState.editEntryId != null;
+
+    if (!isEdit) {
+      // ── New meal: optimistic local-first ──────────────────────────────
+      // Snapshot the current state before resetting
+      final foods = List<SelectedFood>.of(nutritionState.selectedFoods);
+      final mealType = nutritionState.mealType;
+      final t = nutritionState.mealTime;
+      final timeStr =
+          '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+      final forChild = (personId != 'self') ? personId : nutritionState.forChild;
+      final dateStr = DateTime.now().toIso8601String().substring(0, 10);
+
+      // Queue for background sync (appears in entries list instantly)
+      ref.read(mealSyncProvider.notifier).queueMeal(
+            selectedFoods: foods,
+            mealType: mealType,
+            date: dateStr,
+            time: timeStr,
+            forChild: forChild,
+            personId: personId,
+          );
+
+      // Reset nutrition state instantly
+      ref.read(nutritionProvider.notifier).clearFoods();
+      ref.read(nutritionProvider.notifier).setMealType(mealType);
+
       HapticFeedback.heavyImpact();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Row(children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Text('Meal logged!'),
+          ]),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
     }
+
+    // ── Edit: await API call (not optimistic) ─────────────────────────
+    final ok = await ref.read(nutritionProvider.notifier).logNutrition(
+      personId: personId,
+    );
+    if (!mounted) return;
+
+    if (ok) HapticFeedback.heavyImpact();
     messenger.showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            if (ok) const Icon(Icons.check_circle, color: Colors.white, size: 20),
-            if (ok) const SizedBox(width: 8),
-            Text(ok
-                ? (isEdit ? 'Entry updated!' : 'Meal logged successfully!')
-                : 'Failed to save'),
-          ],
-        ),
+        content: Row(children: [
+          if (ok) const Icon(Icons.check_circle, color: Colors.white, size: 20),
+          if (ok) const SizedBox(width: 8),
+          Text(ok ? 'Entry updated!' : 'Failed to save'),
+        ]),
         behavior: SnackBarBehavior.floating,
         backgroundColor: ok ? Colors.green : Colors.red,
         duration: const Duration(seconds: 2),
       ),
     );
     if (ok && context.mounted) {
-      // Always refresh entries list, dashboard, and analytics after any successful log/edit
       ref.invalidate(nutritionEntriesProvider);
       ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
       ref.invalidate(nutritionAnalyticsProvider);
       AppCache.clearAnalytics();
-      if (isEdit) context.pop();
+      context.pop();
     }
   }
 

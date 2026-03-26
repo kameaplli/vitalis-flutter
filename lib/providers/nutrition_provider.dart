@@ -215,53 +215,55 @@ class NutritionNotifier extends StateNotifier<NutritionState> {
     state = state.copyWith(selectedFoods: foods);
   }
 
+  /// Log a new meal or update an existing one.
+  ///
+  /// For **new meals**: returns the snapshot needed for [MealSyncNotifier] to
+  /// queue a background sync. The caller (screen) is responsible for calling
+  /// `mealSyncProvider.notifier.queueMeal(...)`. This method resets state
+  /// instantly so the UI feels immediate.
+  ///
+  /// For **edits** (editEntryId != null): still awaits the API call since the
+  /// user is replacing existing server data.
   Future<bool> logNutrition({String? date, String? personId}) async {
     if (state.selectedFoods.isEmpty) return false;
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final t = state.mealTime;
-      final timeStr =
-          '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-      // Use passed-in personId (from selectedPersonProvider) rather than state.forChild
-      final forChild = (personId != null && personId != 'self') ? personId : state.forChild;
-      final foods = state.selectedFoods.map((sf) => {
-        'food_id': sf.food.id,
-        'quantity': sf.grams / (sf.food.servingSize ?? 100),
-      }).toList();
 
-      if (state.editEntryId != null) {
-        // Editing an existing entry — use PUT
+    final t = state.mealTime;
+    final timeStr =
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    final forChild = (personId != null && personId != 'self') ? personId : state.forChild;
+    final dateStr = date ?? DateTime.now().toIso8601String().substring(0, 10);
+
+    if (state.editEntryId != null) {
+      // ── Editing existing entry — await API (no optimistic shortcut) ──
+      state = state.copyWith(isLoading: true, error: null);
+      try {
+        final foods = state.selectedFoods.map((sf) => {
+          'food_id': sf.food.id,
+          'quantity': sf.grams / (sf.food.servingSize ?? 100),
+        }).toList();
         await apiClient.dio.put(
           '${ApiConstants.nutritionLog}/${state.editEntryId}',
           data: {
             'meal_type': state.mealType,
             'for_child': forChild,
-            'date': date ?? DateTime.now().toIso8601String().substring(0, 10),
+            'date': dateStr,
             'time': timeStr,
             'foods': foods,
           },
         );
-      } else {
-        // New entry — use POST
-        await apiClient.dio.post(ApiConstants.nutritionLog, data: {
-          'meal_type': state.mealType,
-          'for_child': forChild,
-          'date': date ?? DateTime.now().toIso8601String().substring(0, 10),
-          'time': timeStr,
-          'foods': foods,
-        });
+        state = NutritionState(mealType: state.mealType, forChild: state.forChild);
+        await clearDraft();
+        return true;
+      } catch (e) {
+        state = state.copyWith(isLoading: false, error: e.toString());
+        return false;
       }
-      // reset state; clear editEntryId, keep meal type for convenience
-      state = NutritionState(
-        mealType: state.mealType,
-        forChild: state.forChild,
-      );
-      await clearDraft();
-      return true;
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      return false;
     }
+
+    // ── New meal — reset state instantly, caller queues background sync ──
+    state = NutritionState(mealType: state.mealType, forChild: state.forChild);
+    await clearDraft();
+    return true;
   }
 }
 
