@@ -6,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../providers/health_provider.dart';
 import '../providers/interests_provider.dart';
 import '../providers/selected_person_provider.dart';
+import '../providers/supplement_intake_provider.dart';
 import '../widgets/person_selector.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
@@ -602,13 +603,7 @@ class _MedicationInsights extends StatelessWidget {
 
 class _SupplementInsights extends ConsumerStatefulWidget {
   final String personKey;
-  final Set<String> loggedThisSession;
-  final void Function(String id) onLogged;
-  const _SupplementInsights({
-    required this.personKey,
-    required this.loggedThisSession,
-    required this.onLogged,
-  });
+  const _SupplementInsights({required this.personKey});
 
   @override
   ConsumerState<_SupplementInsights> createState() => _SupplementInsightsState();
@@ -621,18 +616,18 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
     final entries = ref.watch(supplementsProvider(widget.personKey)).valueOrNull ?? [];
     if (entries.isEmpty) return const SizedBox.shrink();
 
+    final intakeState = ref.watch(supplementIntakeProvider);
     final active = entries.where((e) => e['is_active'] == true).toList();
     final today = DateTime.now().toIso8601String().substring(0, 10);
 
-    // Merge backend state with local session state for immediate feedback
-    final logged = widget.loggedThisSession;
+    // Merge backend state with optimistic local state for immediate feedback
     final takenToday = active.where((e) {
       final id = e['id']?.toString() ?? '';
-      return e['last_intake_date'] == today || logged.contains(id);
+      return e['last_intake_date'] == today || intakeState.isTaken(id);
     }).length;
     final remaining = active.where((e) {
       final id = e['id']?.toString() ?? '';
-      return e['last_intake_date'] != today && !logged.contains(id);
+      return e['last_intake_date'] != today && !intakeState.isTaken(id);
     }).toList();
     final total = active.length;
     final allDone = total > 0 && takenToday >= total;
@@ -714,36 +709,20 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
     );
   }
 
-  Future<void> _logIntake(Map<String, dynamic> e) async {
+  void _logIntake(Map<String, dynamic> e) {
     final id = e['id']?.toString() ?? '';
+    final name = e['supplement_name']?.toString() ?? '';
     if (id.isEmpty) return;
-    try {
-      final res = await apiClient.dio.post(
-        ApiConstants.supplementLogIntake(id),
-      );
-      final data = res.data as Map<String, dynamic>;
-      if (!mounted) return;
-
-      final nutrients = data['nutrients_matched'] as int? ?? 0;
-      final msg = data['already_logged'] == true
-          ? '${e['supplement_name']} already logged today'
-          : 'Logged ${e['supplement_name']} ($nutrients nutrients tracked)';
+    ref.read(supplementIntakeProvider.notifier)
+        .logIntake(id, name, widget.personKey);
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
+        SnackBar(
+          content: Text('Logged $name'),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 1),
+        ),
       );
-
-      // Immediate local state update — chip disappears instantly
-      widget.onLogged(id);
-
-      // Also refresh provider for persistence / "not taken" text in the list below
-      ref.invalidate(supplementsProvider(widget.personKey));
-      ref.invalidate(supplementsCatalogProvider);
-    } catch (err) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyErrorMessage(err, context: 'supplement schedule'))),
-        );
-      }
     }
   }
 }
@@ -1114,15 +1093,18 @@ class _SupplementsTab extends ConsumerStatefulWidget {
 class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
   static const _forms = ['Tablet', 'Capsule', 'Liquid', 'Powder', 'Gummy', 'Softgel', 'Drops'];
 
-  /// IDs logged this session — shared with _SupplementInsights for instant UI feedback
-  final _loggedThisSession = <String>{};
-
   String get personKey => widget.personKey;
 
   @override
   Widget build(BuildContext context) {
     final logsAsync = ref.watch(supplementsProvider(personKey));
+    final intakeState = ref.watch(supplementIntakeProvider);
     final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    // Seed intake provider from server data when available
+    logsAsync.whenData((entries) {
+      ref.read(supplementIntakeProvider.notifier).seedFromServer(entries);
+    });
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -1140,12 +1122,36 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 80),
             children: [
+              // ── Sync errors banner ─────────────────────────────────
+              if (intakeState.errors.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Material(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Column(
+                      children: intakeState.errors.entries.map((e) {
+                        final name = entries
+                            .where((s) => s['id']?.toString() == e.key)
+                            .map((s) => s['supplement_name'] as String?)
+                            .firstOrNull ?? 'Supplement';
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                          title: Text(e.value, style: TextStyle(fontSize: 12, color: Colors.red.shade900)),
+                          trailing: TextButton(
+                            onPressed: () => ref.read(supplementIntakeProvider.notifier)
+                                .retry(e.key, name, personKey),
+                            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+
               // ── Today score + quick-log ───────────────────────────────
-              _SupplementInsights(
-                personKey: personKey,
-                loggedThisSession: _loggedThisSession,
-                onLogged: (id) => setState(() => _loggedThisSession.add(id)),
-              ),
+              _SupplementInsights(personKey: personKey),
 
               // ── All supplements list ─────────────────────────────────
               Padding(
@@ -1155,7 +1161,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
               ...entries.map((item) {
                 final isActive = item['is_active'] == true;
                 final itemId = item['id']?.toString() ?? '';
-                final takenToday = item['last_intake_date'] == today || _loggedThisSession.contains(itemId);
+                final takenToday = item['last_intake_date'] == today || intakeState.isTaken(itemId);
                 final name = item['supplement_name'] ?? '';
                 final subtitle = [
                   if (item['dosage'] != null && (item['dosage'] as String).isNotEmpty) item['dosage'],
@@ -1234,7 +1240,9 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
                         : null,
                     trailing: isActive
                         ? (takenToday
-                            ? Icon(Icons.check_circle, color: Colors.green.shade400, size: 22)
+                            ? (intakeState.isSyncing(itemId)
+                                ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green.shade400))
+                                : Icon(Icons.check_circle, color: Colors.green.shade400, size: 22))
                             : Text('not taken', style: TextStyle(fontSize: 11, color: Colors.orange.shade400)))
                         : Text('off', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
                     onTap: () => _showForm(context, ref, item: item),
@@ -1605,8 +1613,14 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
           // Quick-log: active supplements for this person not yet taken today
           Builder(builder: (_) {
             final today = DateTime.now().toIso8601String().substring(0, 10);
+            final intake = ref.watch(supplementIntakeProvider);
             final quickLog = personSupplements
-                .where((s) => s['is_active'] == true && s['last_intake_date'] != today)
+                .where((s) {
+                  final id = s['id']?.toString() ?? '';
+                  return s['is_active'] == true
+                      && s['last_intake_date'] != today
+                      && !intake.isTaken(id);
+                })
                 .toList();
             if (quickLog.isEmpty) return const SizedBox.shrink();
             return Padding(
@@ -1625,27 +1639,20 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                       backgroundColor: Colors.green.shade50,
                       visualDensity: VisualDensity.compact,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      onPressed: () async {
+                      onPressed: () {
                         final id = s['id']?.toString() ?? '';
+                        final name = s['supplement_name'] ?? '';
                         if (id.isEmpty) return;
-                        try {
-                          final res = await apiClient.dio.post(ApiConstants.supplementLogIntake(id));
-                          final data = res.data as Map<String, dynamic>;
-                          if (context.mounted) {
-                            final nutrients = data['nutrients_matched'] as int? ?? 0;
-                            final msg = data['already_logged'] == true
-                                ? '${s['supplement_name']} already logged today'
-                                : 'Logged ${s['supplement_name']} ($nutrients nutrients)';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
-                            );
-                            ref.invalidate(supplementsProvider(widget.personKey));
-                            ref.invalidate(supplementsCatalogProvider);
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(e, context: 'supplement'))));
-                          }
+                        ref.read(supplementIntakeProvider.notifier)
+                            .logIntake(id, name, widget.personKey);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Logged $name'),
+                              backgroundColor: Colors.green.shade700,
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
                         }
                       },
                     )).toList(),

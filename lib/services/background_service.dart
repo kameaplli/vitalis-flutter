@@ -11,6 +11,9 @@ class BackgroundService {
   /// Process pending actions. Returns true if any hydration was logged
   /// (caller should invalidate hydration/dashboard providers).
   static Future<bool> processPendingActions() async {
+    // Load any actions persisted to disk (survives app kill)
+    await NotificationService.loadPersistedActions();
+
     if (NotificationService.pendingActions.isEmpty) return false;
 
     final actions = List<String>.from(NotificationService.pendingActions);
