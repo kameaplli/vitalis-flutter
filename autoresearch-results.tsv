@@ -10,3 +10,5 @@ iteration	commit	metric	delta	guard	status	description
 7	f892782	73139	-20	pass	keep	replace mood emoji switch with const map lookup in dashboard_screen
 8	a1a1ce4	72599	-540	pass	keep	remove 2 dead social widgets (reaction_bar, community_pulse_section)
 9	abc32a7	70229	-2370	pass	keep	remove 10 dead files — nutrition, social, eczema, standalone screens
+10	a86dfb4	68635	-1594	pass	keep	remove 10 more dead files — cascade effect from prior removals
+11	-	68635	0	pass	plateau	no more dead files found — remaining gains are micro-optimizations (5-20 LOC each)
