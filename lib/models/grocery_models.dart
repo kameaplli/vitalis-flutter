@@ -76,6 +76,7 @@ class GroceryItem {
   final double quantity;
   final double? unitPrice;
   final double? totalPrice;
+  final double discountAmount;
   final bool isFoodItem;
   final String? matchedFoodId;
   final double? estCalories;
@@ -95,6 +96,7 @@ class GroceryItem {
     required this.quantity,
     this.unitPrice,
     this.totalPrice,
+    this.discountAmount = 0.0,
     required this.isFoodItem,
     this.matchedFoodId,
     this.estCalories,
@@ -115,6 +117,7 @@ class GroceryItem {
         quantity:       (j['quantity'] as num?)?.toDouble() ?? 1.0,
         unitPrice:      (j['unit_price'] as num?)?.toDouble(),
         totalPrice:     (j['total_price'] as num?)?.toDouble(),
+        discountAmount: (j['discount_amount'] as num?)?.toDouble() ?? 0.0,
         isFoodItem:     j['is_food_item'] as bool? ?? true,
         matchedFoodId:  j['matched_food_id'] as String?,
         estCalories:    (j['est_calories'] as num?)?.toDouble(),
@@ -149,12 +152,14 @@ class GrocerySpending {
   final double totalSpend;
   final double foodSpend;
   final double nonFoodSpend;
+  final double totalSavings;
   final List<GroceryCategorySpend> byCategory;
 
   const GrocerySpending({
     required this.totalSpend,
     required this.foodSpend,
     required this.nonFoodSpend,
+    this.totalSavings = 0.0,
     required this.byCategory,
   });
 
@@ -162,6 +167,7 @@ class GrocerySpending {
         totalSpend:    (j['total_spend'] as num).toDouble(),
         foodSpend:     (j['food_spend'] as num).toDouble(),
         nonFoodSpend:  (j['non_food_spend'] as num).toDouble(),
+        totalSavings:  (j['total_savings'] as num?)?.toDouble() ?? 0.0,
         byCategory:    (j['by_category'] as List)
             .map((e) => GroceryCategorySpend.fromJson(e as Map<String, dynamic>))
             .toList(),
