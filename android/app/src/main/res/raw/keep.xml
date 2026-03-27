@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_shortcut_meal,@drawable/ic_shortcut_hydration,@drawable/ic_shortcut_workout,@drawable/ic_notification" />
