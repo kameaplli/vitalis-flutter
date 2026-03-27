@@ -153,14 +153,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
-  cupertino_icons:
-    dependency: "direct main"
-    description:
-      name: cupertino_icons
-      sha256: ba631d1c7f7bef6b729a622b7b752645a2d076dba9976925b8f25725a30e1ee6
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.8"
   dbus:
     dependency: transitive
     description:
@@ -500,7 +492,7 @@ packages:
     source: hosted
     version: "3.1.2"
   flutter_svg:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: flutter_svg
       sha256: "87fbd7c534435b6c5d9d98b01e1fd527812b82e68ddd8bd35fc45ed0fa8f0a95"
@@ -530,14 +522,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  gal:
-    dependency: "direct main"
-    description:
-      name: gal
-      sha256: "969598f986789127fd407a750413249e1352116d4c2be66e81837ffeeaafdfee"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.3.2"
   geolocator:
     dependency: "direct main"
     description:

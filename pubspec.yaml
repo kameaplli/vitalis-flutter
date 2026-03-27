@@ -62,22 +62,15 @@ dependencies:
   # Shimmer skeleton loading
   shimmer: ^3.0.0
 
-  # SVG rendering
-  flutter_svg: ^2.0.10+1
-
   # PDF generation + printing/sharing
   pdf: ^3.11.0
   printing: ^5.13.1
 
-  # Icons
-  cupertino_icons: ^1.0.6
-
   # Google Fonts (Plus Jakarta Sans)
   google_fonts: ^6.2.1
 
-  # Share & gallery save (share cards)
+  # Share (share cards)
   share_plus: ^10.1.4
-  gal: ^2.3.0
 
   # Audio recording (voice meal logging — server-side Whisper transcription)
   record: ^6.2.0
