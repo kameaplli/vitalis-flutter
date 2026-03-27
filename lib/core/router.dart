@@ -35,6 +35,7 @@ import '../screens/health/labs_dashboard_screen.dart';
 import '../screens/health/lab_upload_screen.dart';
 import '../screens/health/biomarker_detail_screen.dart';
 import '../providers/interests_provider.dart';
+import '../providers/onboarding_provider.dart';
 import '../widgets/app_shell.dart';
 
 class _LoadingScreen extends StatelessWidget {
@@ -47,10 +48,6 @@ class _LoadingScreen extends StatelessWidget {
 
 final _rootNavigatorKey  = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
-
-/// Tracks whether the user has completed onboarding.
-/// Initialized via provider override in main.dart.
-final onboardingCompleteProvider = StateProvider<bool?>((ref) => null);
 
 /// Fires whenever authProvider changes — triggers GoRouter redirect re-evaluation.
 class _AuthRefreshNotifier extends ChangeNotifier {

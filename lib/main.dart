@@ -12,6 +12,7 @@ import 'package:workmanager/workmanager.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'providers/interests_provider.dart';
+import 'providers/onboarding_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/fcm_service.dart';
 import 'services/health_sync_service.dart';
