@@ -17,6 +17,7 @@ import '../screens/receipt_scan_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/skin_photos_screen.dart';
+import '../screens/mood_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/interests_screen.dart';
 import '../screens/notification_preferences_screen.dart';
@@ -122,7 +123,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/health/symptoms',    builder: (_, __) => const HealthSubScreen(category: 'symptoms')),
           GoRoute(path: '/health/medications', builder: (_, __) => const HealthSubScreen(category: 'medications')),
           GoRoute(path: '/health/supplements', builder: (_, __) => const HealthSubScreen(category: 'supplements')),
-          GoRoute(path: '/health/mood',        builder: (_, __) => const HealthSubScreen(category: 'mood')),
+          GoRoute(path: '/health/mood',        builder: (_, __) => const MoodScreen()),
           GoRoute(path: '/health/sleep',       builder: (_, __) => const HealthSubScreen(category: 'sleep')),
           GoRoute(path: '/health/exercise',    builder: (_, __) => const HealthSubScreen(category: 'exercise')),
           GoRoute(path: '/health/weight',      builder: (_, __) => const WeightScreen()),
