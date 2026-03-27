@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
-import '../core/nutrition_utils.dart';
+import '../screens/nutrition/daily_intake.dart';
 import '../services/health_sync_service.dart';
 import '../models/dashboard_data.dart';
 import '../models/grocery_models.dart';
@@ -2139,7 +2139,7 @@ class _MacrosCard extends ConsumerWidget {
       final m = auth.user?.profile.children.where((c) => c.id == person).firstOrNull;
       age = m?.age; gender = m?.gender;
     }
-    final intake = getDailyIntake(age, gender);
+    final intake = dailyIntake(age, gender);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
