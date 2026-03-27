@@ -1281,35 +1281,15 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
     return 'Good evening';
   }
 
-  String _moodToEmoji(String mood) {
-    switch (mood.toLowerCase()) {
-      case 'happy': return '😊';
-      case 'excited': return '🤩';
-      case 'pumped up': return '🔥';
-      case 'motivated': return '💪';
-      case 'grateful': return '🙏';
-      case 'loved': return '💕';
-      case 'calm': return '😌';
-      case 'peaceful': return '🧘';
-      case 'neutral': return '😐';
-      case 'confused': return '🤔';
-      case 'nervous': return '😬';
-      case 'focused': return '🧠';
-      case 'horny': return '😏';
-      case 'sleepy': return '😴';
-      case 'tired': return '🥱';
-      case 'exhausted': return '😮‍💨';
-      case 'sad': return '😔';
-      case 'anxious': return '😰';
-      case 'stressed': return '😤';
-      case 'irritated': return '😠';
-      case 'overwhelmed': return '🤯';
-      case 'lonely': return '😞';
-      case 'angry': return '😡';
-      case 'frustrated': return '😢';
-      default: return '✨';
-    }
-  }
+  static const _moodEmojis = {
+    'happy': '😊', 'excited': '🤩', 'pumped up': '🔥', 'motivated': '💪',
+    'grateful': '🙏', 'loved': '💕', 'calm': '😌', 'peaceful': '🧘',
+    'neutral': '😐', 'confused': '🤔', 'nervous': '😬', 'focused': '🧠',
+    'horny': '😏', 'sleepy': '😴', 'tired': '🥱', 'exhausted': '😮‍💨',
+    'sad': '😔', 'anxious': '😰', 'stressed': '😤', 'irritated': '😠',
+    'overwhelmed': '🤯', 'lonely': '😞', 'angry': '😡', 'frustrated': '😢',
+  };
+  String _moodToEmoji(String mood) => _moodEmojis[mood.toLowerCase()] ?? '✨';
 
   Widget _buildContent({
     required String greeting, required String name,
