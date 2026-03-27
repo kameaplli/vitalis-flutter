@@ -9,32 +9,9 @@ import '../../core/constants.dart';
 import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
+import '../../core/lab_tier_helpers.dart';
 import '../../widgets/friendly_error.dart';
 import '../../widgets/radial_spoke_chart.dart';
-
-// ── Tier Colors (kept consistent, work in both light/dark) ──────────────────
-
-const _kOptimalColor = Color(0xFF16A34A);    // green-600
-const _kSufficientColor = Color(0xFF2563EB); // blue-600
-const _kSuboptimalColor = Color(0xFFD97706); // amber-600
-const _kCriticalColor = Color(0xFFDC2626);   // red-600
-const _kUnknownColor = Color(0xFF64748B);    // slate-500
-
-Color _tierColor(String? tier) => switch (tier) {
-      'optimal' => _kOptimalColor,
-      'sufficient' => _kSufficientColor,
-      'suboptimal' => _kSuboptimalColor,
-      'critical' => _kCriticalColor,
-      _ => _kUnknownColor,
-    };
-
-String _tierLabel(String? tier) => switch (tier) {
-      'optimal' => 'OPTIMAL',
-      'sufficient' => 'SUFFICIENT',
-      'suboptimal' => 'NEEDS WORK',
-      'critical' => 'CRITICAL',
-      _ => 'UNKNOWN',
-    };
 
 IconData _pillarIcon(String pillar) => switch (pillar.toLowerCase()) {
       'cardiovascular' => Icons.favorite_rounded,
@@ -323,7 +300,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           SliverToBoxAdapter(
             child: _HorizontalResultCards(
               results: widget.dash.attentionNeeded,
-              accentColor: _kCriticalColor,
+              accentColor: kCriticalColor,
               icon: Icons.warning_amber_rounded,
             ),
           ),
@@ -336,7 +313,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
           SliverToBoxAdapter(
             child: _HorizontalResultCards(
               results: widget.dash.improvements,
-              accentColor: _kOptimalColor,
+              accentColor: kOptimalColor,
               icon: Icons.trending_up_rounded,
             ),
           ),
@@ -457,17 +434,17 @@ class _PanicBanner extends StatelessWidget {
           for (final alert in emergencies)
             _AlertCard(
               alert: alert,
-              borderColor: _kCriticalColor,
+              borderColor: kCriticalColor,
               icon: Icons.emergency_rounded,
-              iconColor: _kCriticalColor,
+              iconColor: kCriticalColor,
               label: 'EMERGENCY',
             ),
           for (final alert in seeDoctor)
             _AlertCard(
               alert: alert,
-              borderColor: _kSuboptimalColor,
+              borderColor: kSuboptimalColor,
               icon: Icons.local_hospital_rounded,
-              iconColor: _kSuboptimalColor,
+              iconColor: kSuboptimalColor,
               label: 'SEE DOCTOR',
             ),
         ],
@@ -644,7 +621,7 @@ class _HorizontalResultCards extends StatelessWidget {
         itemCount: results.length,
         itemBuilder: (context, i) {
           final r = results[i];
-          final tierColor = _tierColor(r.tier);
+          final tierColor = getTierColor(r.tier);
           return GestureDetector(
             onTap: () {
               final code = r.biomarkerCode ?? '';
@@ -728,15 +705,15 @@ class _TrendArrow extends StatelessWidget {
     switch (direction) {
       case 'rising':
         icon = Icons.trending_up_rounded;
-        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        color = isImproving == true ? kOptimalColor : kCriticalColor;
         break;
       case 'falling':
         icon = Icons.trending_down_rounded;
-        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        color = isImproving == true ? kOptimalColor : kCriticalColor;
         break;
       case 'stable':
         icon = Icons.trending_flat_rounded;
-        color = _kSufficientColor;
+        color = kSufficientColor;
         break;
       default:
         return const SizedBox.shrink();
@@ -774,10 +751,10 @@ class _InsightCard extends StatelessWidget {
   const _InsightCard({required this.insight, required this.ref});
 
   Color _severityColor() => switch (insight.severity) {
-        'critical' => _kCriticalColor,
-        'warning' => _kSuboptimalColor,
-        'info' => _kSufficientColor,
-        _ => _kUnknownColor,
+        'critical' => kCriticalColor,
+        'warning' => kSuboptimalColor,
+        'info' => kSufficientColor,
+        _ => kUnknownTierColor,
       };
 
   IconData _severityIcon() => switch (insight.severity) {
@@ -940,13 +917,13 @@ class _RecommendationsSection extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: _kOptimalColor.withValues(alpha: 0.1),
+                                  color: kOptimalColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                     'Impact ${(rec.impactScore! * 10).round()}/10',
                                     style: const TextStyle(
-                                        color: _kOptimalColor,
+                                        color: kOptimalColor,
                                         fontSize: 9,
                                         fontWeight: FontWeight.w700)),
                               ),
@@ -1062,7 +1039,7 @@ class _ReportTile extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Delete',
-                style: TextStyle(color: _kCriticalColor, fontWeight: FontWeight.w700)),
+                style: TextStyle(color: kCriticalColor, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -1086,7 +1063,7 @@ class _ReportTile extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete: $e'),
-            backgroundColor: _kCriticalColor,
+            backgroundColor: kCriticalColor,
           ),
         );
       }
@@ -1104,7 +1081,7 @@ class _ReportTile extends StatelessWidget {
       background: Container(
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
         decoration: BoxDecoration(
-          color: _kCriticalColor.withValues(alpha: 0.1),
+          color: kCriticalColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.centerRight,
@@ -1114,11 +1091,11 @@ class _ReportTile extends StatelessWidget {
           children: [
             Text('Delete',
                 style: TextStyle(
-                    color: _kCriticalColor,
+                    color: kCriticalColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 14)),
             SizedBox(width: 8),
-            Icon(Icons.delete_rounded, color: _kCriticalColor, size: 22),
+            Icon(Icons.delete_rounded, color: kCriticalColor, size: 22),
           ],
         ),
       ),
@@ -1163,14 +1140,14 @@ class _ReportTile extends StatelessWidget {
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: (report.results.isEmpty ? _kCriticalColor : _kOptimalColor)
+              color: (report.results.isEmpty ? kCriticalColor : kOptimalColor)
                   .withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '${report.results.length} results',
               style: TextStyle(
-                color: report.results.isEmpty ? _kCriticalColor : _kOptimalColor,
+                color: report.results.isEmpty ? kCriticalColor : kOptimalColor,
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
               ),
@@ -1207,7 +1184,7 @@ class _ScoreSection extends StatelessWidget {
       spokes.add(SpokeData(
         key: pillar,
         label: pillar,
-        detail: '${summary.biomarkerCount} markers  ·  ${_tierLabel(summary.status)}',
+        detail: '${summary.biomarkerCount} markers  ·  ${getTierLabel(summary.status)}',
         value: spokeValue,
         color: ChartColors.at(colorIdx),
         subtitle: score != null ? '${score.round()}/100' : null,
@@ -1230,7 +1207,7 @@ class _ScoreSection extends StatelessWidget {
               size: MediaQuery.of(context).size.width * 0.78,
               centerTitle: centerTitle,
               centerSubtitle: centerSub,
-              centerColor: hasScore ? _scoreColor(dash.healthScore!) : _kOptimalColor,
+              centerColor: hasScore ? _scoreColor(dash.healthScore!) : kOptimalColor,
             ),
           )
         else
@@ -1280,10 +1257,10 @@ class _ScoreSection extends StatelessWidget {
       };
 
   static Color _scoreColor(double score) {
-    if (score >= 80) return _kOptimalColor;
-    if (score >= 60) return _kSufficientColor;
-    if (score >= 40) return _kSuboptimalColor;
-    return _kCriticalColor;
+    if (score >= 80) return kOptimalColor;
+    if (score >= 60) return kSufficientColor;
+    if (score >= 40) return kSuboptimalColor;
+    return kCriticalColor;
   }
 }
 
@@ -1328,7 +1305,7 @@ class _OptimalTrendChip extends StatelessWidget {
     if (pctChange.abs() < 0.5) return const SizedBox.shrink(); // <0.5% is noise
 
     final isUp = pctChange > 0;
-    final color = isUp ? _kOptimalColor : _kCriticalColor;
+    final color = isUp ? kOptimalColor : kCriticalColor;
     final icon = isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
     final displayPct = pctChange.abs().round().clamp(0, 999); // cap display at 999%
 
@@ -1356,10 +1333,10 @@ class _TierBreakdownBar extends StatelessWidget {
 
     final cs = Theme.of(context).colorScheme;
     final segments = [
-      (dash.optimalCount, _kOptimalColor, 'Optimal'),
-      (dash.sufficientCount, _kSufficientColor, 'Sufficient'),
-      (dash.suboptimalCount, _kSuboptimalColor, 'Needs Work'),
-      (dash.criticalCount, _kCriticalColor, 'Critical'),
+      (dash.optimalCount, kOptimalColor, 'Optimal'),
+      (dash.sufficientCount, kSufficientColor, 'Sufficient'),
+      (dash.suboptimalCount, kSuboptimalColor, 'Needs Work'),
+      (dash.criticalCount, kCriticalColor, 'Critical'),
     ];
 
     return Padding(
@@ -1433,7 +1410,7 @@ class _PillarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tierColor = _tierColor(summary.status);
+    final tierColor = getTierColor(summary.status);
 
     return GestureDetector(
       onTap: onTap,
@@ -1519,7 +1496,7 @@ class _PillarHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tierColor = _tierColor(summary.status);
+    final tierColor = getTierColor(summary.status);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -1539,7 +1516,7 @@ class _PillarHeader extends StatelessWidget {
               color: tierColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(_tierLabel(summary.status),
+            child: Text(getTierLabel(summary.status),
                 style: TextStyle(
                     color: tierColor,
                     fontSize: 10,
@@ -1562,14 +1539,14 @@ class _BiomarkerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tierColor = _tierColor(result.tier);
+    final tierColor = getTierColor(result.tier);
     final code = result.biomarkerCode ?? '';
 
     // Urgency border for critical/suboptimal
     final borderColor = result.tier == 'critical'
-        ? _kCriticalColor.withValues(alpha: 0.4)
+        ? kCriticalColor.withValues(alpha: 0.4)
         : result.tier == 'suboptimal'
-            ? _kSuboptimalColor.withValues(alpha: 0.3)
+            ? kSuboptimalColor.withValues(alpha: 0.3)
             : cs.outlineVariant.withValues(alpha: 0.2);
 
     return GestureDetector(
@@ -1613,7 +1590,7 @@ class _BiomarkerCard extends StatelessWidget {
                       const SizedBox(height: 1),
                       Row(
                         children: [
-                          Text(_tierLabel(result.tier),
+                          Text(getTierLabel(result.tier),
                               style: TextStyle(
                                   color: tierColor,
                                   fontSize: 10,
@@ -1688,10 +1665,10 @@ class _PreviousValueChip extends StatelessWidget {
 
     final isUp = diff > 0;
     final color = isImproving == true
-        ? _kOptimalColor
+        ? kOptimalColor
         : isImproving == false
-            ? _kCriticalColor
-            : _kUnknownColor;
+            ? kCriticalColor
+            : kUnknownTierColor;
 
     return Padding(
       padding: const EdgeInsets.only(top: 2),
@@ -1739,7 +1716,7 @@ class _WhoopRangeBar extends StatelessWidget {
         }
 
         final markerX = position * barWidth;
-        final tierColor = _tierColor(result.tier);
+        final tierColor = getTierColor(result.tier);
 
         return Stack(
           clipBehavior: Clip.none,
@@ -1790,14 +1767,14 @@ class _GradientBarPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final gradient = LinearGradient(
       colors: [
-        _kCriticalColor.withValues(alpha: 0.35),
-        _kSuboptimalColor.withValues(alpha: 0.30),
-        _kSufficientColor.withValues(alpha: 0.25),
-        _kOptimalColor.withValues(alpha: 0.35),
-        _kOptimalColor.withValues(alpha: 0.35),
-        _kSufficientColor.withValues(alpha: 0.25),
-        _kSuboptimalColor.withValues(alpha: 0.30),
-        _kCriticalColor.withValues(alpha: 0.35),
+        kCriticalColor.withValues(alpha: 0.35),
+        kSuboptimalColor.withValues(alpha: 0.30),
+        kSufficientColor.withValues(alpha: 0.25),
+        kOptimalColor.withValues(alpha: 0.35),
+        kOptimalColor.withValues(alpha: 0.35),
+        kSufficientColor.withValues(alpha: 0.25),
+        kSuboptimalColor.withValues(alpha: 0.30),
+        kCriticalColor.withValues(alpha: 0.35),
       ],
       stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
     );
@@ -1845,10 +1822,10 @@ class _ScoreRingPainter extends CustomPainter {
     );
 
     final segments = [
-      (optimalPercent, _kOptimalColor),
-      (sufficientPercent, _kSufficientColor),
-      (suboptimalPercent, _kSuboptimalColor),
-      (criticalPercent, _kCriticalColor),
+      (optimalPercent, kOptimalColor),
+      (sufficientPercent, kSufficientColor),
+      (suboptimalPercent, kSuboptimalColor),
+      (criticalPercent, kCriticalColor),
     ];
 
     double currentAngle = startAngle;

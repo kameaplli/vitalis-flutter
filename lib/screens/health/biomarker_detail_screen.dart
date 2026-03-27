@@ -6,32 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
+import '../../core/lab_tier_helpers.dart';
 import '../../widgets/friendly_error.dart';
 import '../../widgets/chart_style.dart';
-
-// ── Tier Colors (consistent across labs screens) ────────────────────────────
-
-const _kOptimalColor = Color(0xFF16A34A);
-const _kSufficientColor = Color(0xFF2563EB);
-const _kSuboptimalColor = Color(0xFFD97706);
-const _kCriticalColor = Color(0xFFDC2626);
-const _kUnknownColor = Color(0xFF64748B);
-
-Color _tierColor(String? tier) => switch (tier) {
-      'optimal' => _kOptimalColor,
-      'sufficient' => _kSufficientColor,
-      'suboptimal' => _kSuboptimalColor,
-      'critical' => _kCriticalColor,
-      _ => _kUnknownColor,
-    };
-
-String _tierLabel(String? tier) => switch (tier) {
-      'optimal' => 'OPTIMAL',
-      'sufficient' => 'SUFFICIENT',
-      'suboptimal' => 'NEEDS WORK',
-      'critical' => 'CRITICAL',
-      _ => 'UNKNOWN',
-    };
 
 class BiomarkerDetailScreen extends ConsumerWidget {
   final String biomarkerCode;
@@ -74,7 +51,7 @@ class _DetailBody extends StatelessWidget {
         history.dataPoints.isNotEmpty ? history.dataPoints.last.value : null;
     final latestTier =
         history.dataPoints.isNotEmpty ? history.dataPoints.last.tier : null;
-    final tierColor = _tierColor(latestTier);
+    final tierColor = getTierColor(latestTier);
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -138,7 +115,7 @@ class _DetailBody extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: tierColor.withValues(alpha: 0.25)),
                   ),
-                  child: Text(_tierLabel(latestTier),
+                  child: Text(getTierLabel(latestTier),
                       style: TextStyle(
                           color: tierColor,
                           fontSize: 12,
@@ -264,7 +241,7 @@ class _DetailBody extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(Icons.lightbulb_outline_rounded,
-                              color: _kSuboptimalColor, size: 18),
+                              color: kSuboptimalColor, size: 18),
                           const SizedBox(width: 8),
                           Text('Action Points',
                               style: TextStyle(
@@ -349,7 +326,7 @@ class _DetailBody extends StatelessWidget {
               const SizedBox(height: 8),
               Text('Source: ${history.ranges!.source}',
                   style: const TextStyle(
-                      color: _kOptimalColor,
+                      color: kOptimalColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
             ],
@@ -426,7 +403,7 @@ class _DetailBody extends StatelessWidget {
                         height: 10,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _tierColor(dp.tier),
+                          color: getTierColor(dp.tier),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -444,7 +421,7 @@ class _DetailBody extends StatelessWidget {
                       const Spacer(),
                       Text(_formatValue(dp.value),
                           style: TextStyle(
-                              color: _tierColor(dp.tier),
+                              color: getTierColor(dp.tier),
                               fontSize: 16,
                               fontWeight: FontWeight.w800)),
                       const SizedBox(width: 4),
@@ -488,17 +465,17 @@ class _TrendBadge extends StatelessWidget {
     switch (direction) {
       case 'rising':
         icon = Icons.trending_up_rounded;
-        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        color = isImproving == true ? kOptimalColor : kCriticalColor;
         label = isImproving == true ? 'Improving' : 'Rising';
         break;
       case 'falling':
         icon = Icons.trending_down_rounded;
-        color = isImproving == true ? _kOptimalColor : _kCriticalColor;
+        color = isImproving == true ? kOptimalColor : kCriticalColor;
         label = isImproving == true ? 'Improving' : 'Declining';
         break;
       case 'stable':
         icon = Icons.trending_flat_rounded;
-        color = _kSufficientColor;
+        color = kSufficientColor;
         label = 'Stable';
         break;
       default:
@@ -538,10 +515,10 @@ class _TrendSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final color = history.isImproving == true
-        ? _kOptimalColor
+        ? kOptimalColor
         : history.isImproving == false
-            ? _kCriticalColor
-            : _kSufficientColor;
+            ? kCriticalColor
+            : kSufficientColor;
 
     final dirLabel = switch (history.direction) {
       'lower_better' => 'Lower is better',
@@ -659,10 +636,10 @@ class _NutrientConnectionsCard extends StatelessWidget {
       };
 
   Color _strengthColor(String strength) => switch (strength) {
-        'strong' => _kOptimalColor,
-        'moderate' => _kSufficientColor,
-        'weak' => _kUnknownColor,
-        _ => _kUnknownColor,
+        'strong' => kOptimalColor,
+        'moderate' => kSufficientColor,
+        'weak' => kUnknownTierColor,
+        _ => kUnknownTierColor,
       };
 
   @override
@@ -677,7 +654,7 @@ class _NutrientConnectionsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.eco_rounded, color: _kOptimalColor, size: 18),
+                const Icon(Icons.eco_rounded, color: kOptimalColor, size: 18),
                 const SizedBox(width: 8),
                 Text('Nutrients that affect this biomarker',
                     style: TextStyle(
@@ -832,12 +809,12 @@ class _RecommendationCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _kOptimalColor.withValues(alpha: 0.1),
+                      color: kOptimalColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text('${(rec.impactScore! * 10).round()}/10',
                         style: const TextStyle(
-                            color: _kOptimalColor,
+                            color: kOptimalColor,
                             fontSize: 10,
                             fontWeight: FontWeight.w700)),
                   ),
@@ -951,7 +928,7 @@ class _PopulationComparison extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tierColor = _tierColor(tier);
+    final tierColor = getTierColor(tier);
     final diff = yourValue - populationAvg;
     final diffPercent = populationAvg != 0 ? (diff / populationAvg * 100) : 0.0;
     final isAbove = diff > 0;
@@ -1209,7 +1186,7 @@ class _LargeRangeBar extends StatelessWidget {
                 }
 
                 final markerX = position * barWidth;
-                final tierColor = currentValue != null ? _classifyValue(currentValue!) : _kUnknownColor;
+                final tierColor = currentValue != null ? _classifyValue(currentValue!) : kUnknownTierColor;
 
                 return Stack(
                   clipBehavior: Clip.none,
@@ -1254,11 +1231,11 @@ class _LargeRangeBar extends StatelessWidget {
             const SizedBox(height: 16),
 
             _RangeRow('Optimal', ranges.optimalLow, ranges.optimalHigh,
-                unit, _kOptimalColor),
+                unit, kOptimalColor),
             _RangeRow('Sufficient', ranges.sufficientLow,
-                ranges.sufficientHigh, unit, _kSufficientColor),
+                ranges.sufficientHigh, unit, kSufficientColor),
             _RangeRow('Standard', ranges.standardLow, ranges.standardHigh,
-                unit, _kSuboptimalColor),
+                unit, kSuboptimalColor),
           ],
         ),
       ),
@@ -1266,10 +1243,10 @@ class _LargeRangeBar extends StatelessWidget {
   }
 
   Color _classifyValue(double value) {
-    if (_inRange(value, ranges.optimalLow, ranges.optimalHigh)) return _kOptimalColor;
-    if (_inRange(value, ranges.sufficientLow, ranges.sufficientHigh)) return _kSufficientColor;
-    if (_inRange(value, ranges.standardLow, ranges.standardHigh)) return _kSuboptimalColor;
-    return _kCriticalColor;
+    if (_inRange(value, ranges.optimalLow, ranges.optimalHigh)) return kOptimalColor;
+    if (_inRange(value, ranges.sufficientLow, ranges.sufficientHigh)) return kSufficientColor;
+    if (_inRange(value, ranges.standardLow, ranges.standardHigh)) return kSuboptimalColor;
+    return kCriticalColor;
   }
 
   bool _inRange(double v, double? low, double? high) {
@@ -1344,14 +1321,14 @@ class _GradientBarPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final gradient = LinearGradient(
       colors: [
-        _kCriticalColor.withValues(alpha: 0.35),
-        _kSuboptimalColor.withValues(alpha: 0.30),
-        _kSufficientColor.withValues(alpha: 0.25),
-        _kOptimalColor.withValues(alpha: 0.35),
-        _kOptimalColor.withValues(alpha: 0.35),
-        _kSufficientColor.withValues(alpha: 0.25),
-        _kSuboptimalColor.withValues(alpha: 0.30),
-        _kCriticalColor.withValues(alpha: 0.35),
+        kCriticalColor.withValues(alpha: 0.35),
+        kSuboptimalColor.withValues(alpha: 0.30),
+        kSufficientColor.withValues(alpha: 0.25),
+        kOptimalColor.withValues(alpha: 0.35),
+        kOptimalColor.withValues(alpha: 0.35),
+        kSufficientColor.withValues(alpha: 0.25),
+        kSuboptimalColor.withValues(alpha: 0.30),
+        kCriticalColor.withValues(alpha: 0.35),
       ],
       stops: const [0.0, 0.15, 0.25, 0.4, 0.6, 0.75, 0.85, 1.0],
     );
@@ -1403,7 +1380,7 @@ class _HistoryChart extends StatelessWidget {
         rangeAnnotations.add(HorizontalRangeAnnotation(
           y1: ranges!.optimalLow!.clamp(minY, maxY),
           y2: ranges!.optimalHigh!.clamp(minY, maxY),
-          color: _kOptimalColor.withValues(alpha: 0.08),
+          color: kOptimalColor.withValues(alpha: 0.08),
         ));
       }
     }
@@ -1482,11 +1459,11 @@ class _HistoryChart extends StatelessWidget {
               if (isLast) {
                 // Glowing latest dot colored by tier
                 return ChartStyle.dotPainter(spot, percent, barData, index,
-                    overrideColor: _tierColor(tier));
+                    overrideColor: getTierColor(tier));
               }
               return FlDotCirclePainter(
                 radius: ChartStyle.historicalDotRadius,
-                color: _tierColor(tier),
+                color: getTierColor(tier),
                 strokeWidth: 1.5,
                 strokeColor: cs.surface,
               );
