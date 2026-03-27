@@ -1,0 +1,4 @@
+# metric_direction: lower_is_better (APK size in bytes)
+# pivoted from import count (155 — hit wall) to APK size
+iteration	commit	metric	delta	guard	status	description
+0	baseline	45311039	0	pass	baseline	release APK 43.2MB (45311039 bytes)
