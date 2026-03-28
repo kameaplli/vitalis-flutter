@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../models/social_models.dart';
+import '../../models/social_models.dart' hide Badge;
 import '../../providers/auth_provider.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';

@@ -294,7 +294,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
           const SizedBox(height: 12),
 
           // Message button
-          if (_connectionStatus == ConnectionStatus.accepted)
+          if (_connectionStatus == ConnectionStatus.connected)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: OutlinedButton.icon(

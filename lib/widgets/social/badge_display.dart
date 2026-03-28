@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 import '../../models/social_models.dart';
 
 /// Displays a row of badge icons from a badge showcase list (IDs).

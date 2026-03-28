@@ -1276,6 +1276,24 @@ class _MessageBubble extends StatelessWidget {
     this.onLongPress,
   });
 
+  void _showFullImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: InteractiveViewer(
+            child: CachedNetworkImage(
+              imageUrl: ApiConstants.resolveUrl(url),
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');

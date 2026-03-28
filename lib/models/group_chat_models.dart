@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart' show Icons;
+
 class GroupChat {
   final String id;
   final String name;
