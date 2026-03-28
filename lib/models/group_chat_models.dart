@@ -88,6 +88,20 @@ class MessageReaction {
       };
 }
 
+class ReadReceipt {
+  final String userId;
+  final String userName;
+  final DateTime readAt;
+
+  ReadReceipt({required this.userId, required this.userName, required this.readAt});
+
+  factory ReadReceipt.fromJson(Map<String, dynamic> json) => ReadReceipt(
+        userId: json['user_id'] ?? '',
+        userName: json['user_name'] ?? '',
+        readAt: DateTime.tryParse(json['read_at'] ?? '') ?? DateTime.now(),
+      );
+}
+
 class ChatMessage {
   final String id;
   final String groupId;
@@ -98,6 +112,8 @@ class ChatMessage {
   final String? imageUrl;
   final bool isPinned;
   final List<MessageReaction> reactions;
+  final int readByCount;
+  final List<ReadReceipt> readReceipts;
   final DateTime createdAt;
 
   ChatMessage({
@@ -110,6 +126,8 @@ class ChatMessage {
     this.imageUrl,
     this.isPinned = false,
     this.reactions = const [],
+    this.readByCount = 0,
+    this.readReceipts = const [],
     required this.createdAt,
   });
 
@@ -127,12 +145,22 @@ class ChatMessage {
               ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
               .toList() ??
           const [],
+      readByCount: (json['read_by_count'] as num?)?.toInt() ?? 0,
+      readReceipts: (json['read_receipts'] as List<dynamic>?)
+              ?.map((r) => ReadReceipt.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          const [],
       createdAt:
           DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
 
-  ChatMessage copyWith({bool? isPinned, List<MessageReaction>? reactions}) =>
+  ChatMessage copyWith({
+    bool? isPinned,
+    List<MessageReaction>? reactions,
+    int? readByCount,
+    List<ReadReceipt>? readReceipts,
+  }) =>
       ChatMessage(
         id: id,
         groupId: groupId,
@@ -143,6 +171,8 @@ class ChatMessage {
         imageUrl: imageUrl,
         isPinned: isPinned ?? this.isPinned,
         reactions: reactions ?? this.reactions,
+        readByCount: readByCount ?? this.readByCount,
+        readReceipts: readReceipts ?? this.readReceipts,
         createdAt: createdAt,
       );
 

@@ -215,6 +215,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
     } catch (_) {}
   }
 
+  /// Mark all messages in this group as read.
+  Future<void> markAsRead() async {
+    try {
+      await apiClient.dio.post(
+        '${ApiConstants.groupChatMessages(_groupId)}/read',
+      );
+    } catch (_) {}
+  }
+
   /// React to a message with an emoji. Optimistic update.
   void reactToMessage(String messageId, String emoji) {
     final idx = state.messages.indexWhere((m) => m.id == messageId);

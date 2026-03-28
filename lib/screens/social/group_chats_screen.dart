@@ -174,6 +174,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
     _textCtrl.addListener(_onTextChanged);
+    // Mark messages as read when entering chat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(chatNotifierProvider(widget.group.id).notifier)
+          .markAsRead();
+    });
   }
 
   @override
@@ -287,6 +293,26 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 );
               },
             ),
+            if (msg.readByCount > 0)
+              ListTile(
+                leading: Icon(Icons.done_all_rounded, color: cs.primary),
+                title: Text('Read by ${msg.readByCount}'),
+                subtitle: msg.readReceipts.isNotEmpty
+                    ? Text(
+                        msg.readReceipts
+                            .take(5)
+                            .map((r) => r.userName)
+                            .join(', '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      )
+                    : null,
+                onTap: () => Navigator.pop(ctx),
+              ),
             const SizedBox(height: 8),
           ],
         ),
@@ -879,6 +905,11 @@ class _MessageBubble extends StatelessWidget {
                           const SizedBox(width: 6),
                           Icon(Icons.push_pin, size: 12,
                               color: cs.primary.withValues(alpha: 0.7)),
+                        ],
+                        if (message.readByCount > 0) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.done_all_rounded, size: 14,
+                              color: cs.primary.withValues(alpha: 0.6)),
                         ],
                       ],
                     ),
