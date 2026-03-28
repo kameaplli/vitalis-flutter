@@ -215,6 +215,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
     } catch (_) {}
   }
 
+  /// Notify server that the user is typing (or stopped).
+  Future<void> setTyping(bool typing) async {
+    try {
+      await apiClient.dio.post(
+        '${ApiConstants.groupChatMessages(_groupId)}/typing',
+        data: {'typing': typing},
+      );
+    } catch (_) {
+      // Non-critical — typing indicators are best-effort
+    }
+  }
+
   /// Optimistic send — show message locally, then sync to server.
   Future<void> sendMessage(String text, {String? senderName, String? senderId}) async {
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
@@ -258,6 +270,41 @@ final chatNotifierProvider =
     StateNotifierProvider.family<ChatNotifier, ChatState, String>(
         (ref, groupId) {
   return ChatNotifier(groupId);
+});
+
+// ── Typing Indicator ─────────────────────────────────────────────────────────
+
+class TypingUser {
+  final String userId;
+  final String name;
+
+  TypingUser({required this.userId, required this.name});
+
+  factory TypingUser.fromJson(Map<String, dynamic> json) => TypingUser(
+        userId: json['user_id'] ?? '',
+        name: json['name'] ?? '',
+      );
+}
+
+final typingUsersProvider =
+    StreamProvider.family<List<TypingUser>, String>((ref, groupId) async* {
+  // Poll typing status every 3 seconds
+  while (true) {
+    try {
+      final res = await apiClient.dio.get(
+        '${ApiConstants.groupChatMessages(groupId)}/typing',
+      );
+      final list = res.data is List
+          ? res.data as List
+          : (res.data as Map)['typing_users'] as List? ?? [];
+      yield list
+          .map((e) => TypingUser.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      yield [];
+    }
+    await Future.delayed(const Duration(seconds: 3));
+  }
 });
 
 // ── Group Chat Actions ──────────────────────────────────────────────────────

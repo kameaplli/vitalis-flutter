@@ -167,11 +167,13 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
 class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final _textCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  bool _isTyping = false;
 
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+    _textCtrl.addListener(_onTextChanged);
   }
 
   @override
@@ -179,6 +181,16 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     _textCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _onTextChanged() {
+    final typing = _textCtrl.text.isNotEmpty;
+    if (typing != _isTyping) {
+      _isTyping = typing;
+      ref
+          .read(chatNotifierProvider(widget.group.id).notifier)
+          .setTyping(typing);
+    }
   }
 
   void _onScroll() {
@@ -429,6 +441,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       ),
           ),
 
+          // Typing indicator
+          _TypingIndicator(groupId: widget.group.id),
+
           // Input bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -473,6 +488,114 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TypingIndicator extends ConsumerWidget {
+  final String groupId;
+  const _TypingIndicator({required this.groupId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final typingAsync = ref.watch(typingUsersProvider(groupId));
+
+    return typingAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (users) {
+        if (users.isEmpty) return const SizedBox.shrink();
+
+        final text = users.length == 1
+            ? '${users.first.name} is typing...'
+            : users.length == 2
+                ? '${users[0].name} and ${users[1].name} are typing...'
+                : '${users.length} people are typing...';
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: Row(
+            children: [
+              _BouncingDots(color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    fontStyle: FontStyle.italic,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Three bouncing dots animation for typing indicator.
+class _BouncingDots extends StatefulWidget {
+  final Color color;
+  const _BouncingDots({required this.color});
+
+  @override
+  State<_BouncingDots> createState() => _BouncingDotsState();
+}
+
+class _BouncingDotsState extends State<_BouncingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 12,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(3, (i) {
+            final delay = i * 0.2;
+            final t = ((_ctrl.value - delay) % 1.0).clamp(0.0, 1.0);
+            final bounce = t < 0.5
+                ? (t * 2) * -4
+                : ((1 - t) * 2) * -4;
+            return Transform.translate(
+              offset: Offset(0, bounce),
+              child: Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: widget.color.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
