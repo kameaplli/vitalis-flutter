@@ -36,3 +36,9 @@ iteration	commit	metric	delta	guard	status	description
 32	0cce5c3	10115	+58	pass	keep	Mute group notifications: toggle in popup menu, muted icon in group list, snackbar confirmation
 33	cc739f6	10292	+177	pass	keep	Edit group: admin edit name/description bottom sheet, mute toggle refinement, muted indicator
 34	2956f75	10825	+533	pass	keep	Poll comments: PollComment model, discussion thread bottom sheet, comment count in poll footer, API endpoint + provider
+35	59acf98	10991	+166	pass	keep	Image sharing in chat: photo picker (gallery), image preview strip, image display in bubbles with CachedNetworkImage, fullscreen viewer with InteractiveViewer, multipart upload
+36	659eaa7	11337	+346	pass	keep	Profile badges: Badge model (4 tiers), BadgeCatalog (12 defs), BadgeShowcaseRow/BadgeCard/BadgeGrid widgets, badges provider, enriched profile badge grid with tap-to-detail dialog
+37	72961b4	11450	+113	pass	keep	Group notification preferences: GroupNotifPref enum (all/mentions_only/muted), picker bottom sheet in chat room popup menu, setGroupNotifPref API call
+38	7f5b3c6	11621	+171	pass	keep	Enhanced notifications: day grouping (Today/Yesterday/weekday), filter chips (All/Unread/Social/Polls/Groups), swipe-to-mark-read Dismissible, 7 new notification types
+39	1d316cb	11778	+157	pass	keep	User search in Discover: search bar with API query, search results with avatar/level/name, tap to profile, People filter chip
+40	2db5eae	12538	+760	pass	keep	Direct messages: DmConversation+DmMessage models, inbox screen with unread counts, chat room with bubbles+timestamps+read receipts, DmChatNotifier with 4s polling, Message button on connected profiles
