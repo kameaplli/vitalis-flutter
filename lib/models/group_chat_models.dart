@@ -68,6 +68,26 @@ class GroupChat {
       };
 }
 
+class MessageReaction {
+  final String emoji;
+  final int count;
+  final bool userReacted;
+
+  MessageReaction({required this.emoji, this.count = 0, this.userReacted = false});
+
+  factory MessageReaction.fromJson(Map<String, dynamic> json) => MessageReaction(
+        emoji: json['emoji'] ?? '',
+        count: (json['count'] as num?)?.toInt() ?? 0,
+        userReacted: json['user_reacted'] == true,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'emoji': emoji,
+        'count': count,
+        'user_reacted': userReacted,
+      };
+}
+
 class ChatMessage {
   final String id;
   final String groupId;
@@ -77,6 +97,7 @@ class ChatMessage {
   final String text;
   final String? imageUrl;
   final bool isPinned;
+  final List<MessageReaction> reactions;
   final DateTime createdAt;
 
   ChatMessage({
@@ -88,6 +109,7 @@ class ChatMessage {
     required this.text,
     this.imageUrl,
     this.isPinned = false,
+    this.reactions = const [],
     required this.createdAt,
   });
 
@@ -101,12 +123,17 @@ class ChatMessage {
       text: json['text'] ?? '',
       imageUrl: json['image_url'],
       isPinned: json['is_pinned'] == true,
+      reactions: (json['reactions'] as List<dynamic>?)
+              ?.map((r) => MessageReaction.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          const [],
       createdAt:
           DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
 
-  ChatMessage copyWith({bool? isPinned}) => ChatMessage(
+  ChatMessage copyWith({bool? isPinned, List<MessageReaction>? reactions}) =>
+      ChatMessage(
         id: id,
         groupId: groupId,
         senderId: senderId,
@@ -115,6 +142,7 @@ class ChatMessage {
         text: text,
         imageUrl: imageUrl,
         isPinned: isPinned ?? this.isPinned,
+        reactions: reactions ?? this.reactions,
         createdAt: createdAt,
       );
 
@@ -127,6 +155,7 @@ class ChatMessage {
         'text': text,
         'image_url': imageUrl,
         'is_pinned': isPinned,
+        'reactions': reactions.map((r) => r.toJson()).toList(),
         'created_at': createdAt.toIso8601String(),
       };
 }

@@ -215,6 +215,69 @@ class ChatNotifier extends StateNotifier<ChatState> {
     } catch (_) {}
   }
 
+  /// React to a message with an emoji. Optimistic update.
+  void reactToMessage(String messageId, String emoji) {
+    final idx = state.messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    final msg = state.messages[idx];
+
+    // Toggle: if user already reacted with this emoji, remove it
+    final existing = msg.reactions.where((r) => r.emoji == emoji).firstOrNull;
+    List<MessageReaction> newReactions;
+
+    if (existing != null && existing.userReacted) {
+      // Un-react
+      newReactions = msg.reactions.map((r) {
+        if (r.emoji == emoji) {
+          return MessageReaction(
+            emoji: r.emoji,
+            count: (r.count - 1).clamp(0, 99999),
+            userReacted: false,
+          );
+        }
+        return r;
+      }).where((r) => r.count > 0).toList();
+    } else if (existing != null) {
+      // Add user to existing reaction
+      newReactions = msg.reactions.map((r) {
+        if (r.emoji == emoji) {
+          return MessageReaction(
+            emoji: r.emoji,
+            count: r.count + 1,
+            userReacted: true,
+          );
+        }
+        return r;
+      }).toList();
+    } else {
+      // New reaction type
+      newReactions = [
+        ...msg.reactions,
+        MessageReaction(emoji: emoji, count: 1, userReacted: true),
+      ];
+    }
+
+    final updated = List<ChatMessage>.from(state.messages);
+    updated[idx] = msg.copyWith(reactions: newReactions);
+    state = state.copyWith(messages: updated);
+
+    // Background API call
+    apiClient.dio.post(
+      '${ApiConstants.groupChatMessages(_groupId)}/$messageId/react',
+      data: {'emoji': emoji},
+    ).catchError((_) {
+      // Revert on failure
+      if (mounted) {
+        final revertIdx = state.messages.indexWhere((m) => m.id == messageId);
+        if (revertIdx != -1) {
+          final reverted = List<ChatMessage>.from(state.messages);
+          reverted[revertIdx] = msg;
+          state = state.copyWith(messages: reverted);
+        }
+      }
+    });
+  }
+
   /// Pin or unpin a message (admin-only).
   Future<void> togglePin(String messageId) async {
     final idx = state.messages.indexWhere((m) => m.id == messageId);

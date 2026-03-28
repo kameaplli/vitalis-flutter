@@ -214,6 +214,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         .sendMessage(text);
   }
 
+  static const _quickReactions = ['\u2764\uFE0F', '\uD83D\uDC4D', '\uD83D\uDE02', '\uD83D\uDD25', '\uD83D\uDE22', '\uD83D\uDE4F'];
+
   void _showMessageOptions(ChatMessage msg) {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
@@ -226,21 +228,50 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Icon(
-                msg.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-                color: cs.primary,
+            const SizedBox(height: 12),
+            // Quick reaction row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _quickReactions.map((emoji) {
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      HapticFeedback.lightImpact();
+                      ref
+                          .read(chatNotifierProvider(widget.group.id).notifier)
+                          .reactToMessage(msg.id, emoji);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                    ),
+                  );
+                }).toList(),
               ),
-              title: Text(msg.isPinned ? 'Unpin Message' : 'Pin Message'),
-              onTap: () {
-                Navigator.pop(ctx);
-                HapticFeedback.lightImpact();
-                ref
-                    .read(chatNotifierProvider(widget.group.id).notifier)
-                    .togglePin(msg.id);
-              },
             ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            if (widget.group.isAdmin)
+              ListTile(
+                leading: Icon(
+                  msg.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                  color: cs.primary,
+                ),
+                title: Text(msg.isPinned ? 'Unpin Message' : 'Pin Message'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  HapticFeedback.lightImpact();
+                  ref
+                      .read(chatNotifierProvider(widget.group.id).notifier)
+                      .togglePin(msg.id);
+                },
+              ),
             ListTile(
               leading: Icon(Icons.copy_rounded, color: cs.onSurfaceVariant),
               title: const Text('Copy Text'),
@@ -491,9 +522,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                               _MessageBubble(
                                 message: msg,
                                 showAvatar: showAvatar,
-                                onLongPress: widget.group.isAdmin
-                                    ? () => _showMessageOptions(msg)
-                                    : null,
+                                onLongPress: () => _showMessageOptions(msg),
                               ),
                             ],
                           );
@@ -877,6 +906,50 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Reaction pills
+                  if (message.reactions.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: message.reactions.map((r) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: r.userReacted
+                                  ? cs.primaryContainer.withValues(alpha: 0.4)
+                                  : cs.surfaceContainerHighest
+                                      .withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(10),
+                              border: r.userReacted
+                                  ? Border.all(
+                                      color: cs.primary.withValues(alpha: 0.3),
+                                      width: 1,
+                                    )
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(r.emoji,
+                                    style: const TextStyle(fontSize: 12)),
+                                if (r.count > 1) ...[
+                                  const SizedBox(width: 2),
+                                  Text('${r.count}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: cs.onSurfaceVariant,
+                                        fontWeight: FontWeight.w500,
+                                      )),
+                                ],
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                 ],
               ),
             ),
