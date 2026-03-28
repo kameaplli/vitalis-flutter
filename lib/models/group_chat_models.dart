@@ -10,6 +10,7 @@ class GroupChat {
   final ChatMessage? lastMessage;
   final bool isMember;
   final GroupChatRole? myRole;
+  final bool isMuted;
   final DateTime createdAt;
 
   GroupChat({
@@ -24,6 +25,7 @@ class GroupChat {
     this.lastMessage,
     this.isMember = false,
     this.myRole,
+    this.isMuted = false,
     required this.createdAt,
   });
 
@@ -47,6 +49,7 @@ class GroupChat {
       myRole: json['my_role'] != null
           ? GroupChatRole.fromString(json['my_role'] as String)
           : null,
+      isMuted: json['is_muted'] == true,
       createdAt:
           DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
@@ -64,6 +67,7 @@ class GroupChat {
         'last_message': lastMessage?.toJson(),
         'is_member': isMember,
         'my_role': myRole?.value,
+        'is_muted': isMuted,
         'created_at': createdAt.toIso8601String(),
       };
 }

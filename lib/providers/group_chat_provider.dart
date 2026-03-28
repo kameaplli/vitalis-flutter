@@ -438,6 +438,13 @@ Future<void> leaveGroupChat(String groupId) async {
   await apiClient.dio.post(ApiConstants.groupChatLeave(groupId));
 }
 
+Future<void> muteGroupChat(String groupId, bool muted) async {
+  await apiClient.dio.post(
+    '${ApiConstants.groupChatDetail(groupId)}/mute',
+    data: {'muted': muted},
+  );
+}
+
 Future<void> inviteToGroupChat(String groupId, List<String> userIds) async {
   await apiClient.dio.post(
     ApiConstants.groupChatInvite(groupId),

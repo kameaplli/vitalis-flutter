@@ -944,6 +944,11 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
                           Icon(Icons.lock_outline,
                               size: 14, color: cs.outline),
                         ],
+                        if (g.isMuted) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.notifications_off_outlined,
+                              size: 14, color: cs.outline),
+                        ],
                       ],
                     ),
                     subtitle: Column(

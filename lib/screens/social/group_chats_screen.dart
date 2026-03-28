@@ -378,6 +378,34 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     );
   }
 
+  Future<void> _toggleMute() async {
+    final newMuted = !widget.group.isMuted;
+    try {
+      await muteGroupChat(widget.group.id, newMuted);
+      ref.read(groupsNotifierProvider.notifier).refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newMuted
+                ? 'Notifications muted for ${widget.group.name}'
+                : 'Notifications enabled for ${widget.group.name}'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmLeave(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -527,8 +555,22 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           PopupMenuButton<String>(
             onSelected: (val) {
               if (val == 'leave') _confirmLeave(context);
+              if (val == 'mute') _toggleMute();
             },
             itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'mute',
+                child: ListTile(
+                  leading: Icon(widget.group.isMuted
+                      ? Icons.notifications_active_outlined
+                      : Icons.notifications_off_outlined),
+                  title: Text(widget.group.isMuted
+                      ? 'Unmute Notifications'
+                      : 'Mute Notifications'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               if (widget.group.access == GroupChatAccess.inviteOnly &&
                   widget.group.isAdmin)
                 const PopupMenuItem(
