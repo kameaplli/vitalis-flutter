@@ -208,6 +208,8 @@ class ApiConstants {
   static String socialConnectionRemove(String id) => '/api/social/connections/$id';
   static const String socialBlock = '/api/social/block';
   static String socialUnblock(String id) => '/api/social/block/$id';
+  static const String socialBlockedUsers = '/api/social/block/list';
+  static const String socialReport = '/api/social/report';
   static const String socialSearch = '/api/social/search';
   static const String socialFeed = '/api/social/feed';
   static const String socialFeedRecipes = '/api/social/feed/recipes';

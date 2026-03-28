@@ -558,6 +558,48 @@ final commentsProvider =
   }
 });
 
+// ── Report & Block ──────────────────────────────────────────────────────────
+
+/// Submit a report against content or a user.
+Future<void> submitReport({
+  required ReportTargetType targetType,
+  required String targetId,
+  required ReportReason reason,
+  String? details,
+}) async {
+  await apiClient.dio.post(ApiConstants.socialReport, data: {
+    'target_type': targetType.value,
+    'target_id': targetId,
+    'reason': reason.value,
+    if (details != null && details.trim().isNotEmpty) 'details': details.trim(),
+  });
+}
+
+/// Block a user.
+Future<void> blockUser(String userId) async {
+  await apiClient.dio.post(ApiConstants.socialBlock, data: {
+    'user_id': userId,
+  });
+}
+
+/// Unblock a user.
+Future<void> unblockUser(String userId) async {
+  await apiClient.dio.delete(ApiConstants.socialUnblock(userId));
+}
+
+/// Provider for blocked users list.
+final blockedUsersProvider = FutureProvider<List<BlockedUser>>((ref) async {
+  ref.keepAlive();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.socialBlockedUsers);
+    return _extractList(res.data, 'blocked_users')
+        .map((u) => BlockedUser.fromJson(u as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
 // ── Share Card Data ──────────────────────────────────────────────────────────
 
 final shareCardDataProvider =

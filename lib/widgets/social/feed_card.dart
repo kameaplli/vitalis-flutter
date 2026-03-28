@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/social_models.dart';
+import 'report_block_sheet.dart';
 
 /// Premium feed card — Instagram/LinkedIn hybrid with rich animations.
 /// Performance: RepaintBoundary isolation, cached computations, optimistic UI.
@@ -587,7 +588,13 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
           IconButton(
             icon: Icon(Icons.more_horiz_rounded,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 20),
-            onPressed: () {},
+            onPressed: () => ReportBlockSheet.show(
+              context,
+              targetId: event.id,
+              targetType: ReportTargetType.feedEvent,
+              targetUserId: event.actorId,
+              targetUserName: event.actorName,
+            ),
             visualDensity: VisualDensity.compact,
           ),
         ],

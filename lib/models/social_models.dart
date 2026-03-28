@@ -423,6 +423,59 @@ class UserSearchResult {
   }
 }
 
+// ─── Report ────────────────────────────────────────────────────────────────
+
+enum ReportReason {
+  spam('spam', 'Spam or scam'),
+  harassment('harassment', 'Harassment or bullying'),
+  hateSpeech('hate_speech', 'Hate speech'),
+  misinformation('misinformation', 'Health misinformation'),
+  inappropriate('inappropriate', 'Inappropriate content'),
+  impersonation('impersonation', 'Impersonation'),
+  other('other', 'Other');
+
+  final String value;
+  final String label;
+  const ReportReason(this.value, this.label);
+}
+
+enum ReportTargetType {
+  feedEvent('feed_event'),
+  comment('comment'),
+  user('user'),
+  poll('poll'),
+  groupChat('group_chat'),
+  chatMessage('chat_message');
+
+  final String value;
+  const ReportTargetType(this.value);
+}
+
+// ─── Blocked User ──────────────────────────────────────────────────────────
+
+class BlockedUser {
+  final String userId;
+  final String name;
+  final String? avatarUrl;
+  final DateTime blockedAt;
+
+  BlockedUser({
+    required this.userId,
+    required this.name,
+    this.avatarUrl,
+    required this.blockedAt,
+  });
+
+  factory BlockedUser.fromJson(Map<String, dynamic> json) {
+    return BlockedUser(
+      userId: json['user_id'] ?? '',
+      name: json['name'] ?? '',
+      avatarUrl: json['avatar_url'],
+      blockedAt: DateTime.tryParse(json['blocked_at'] ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
 // ─── Friend Streak ──────────────────────────────────────────────────────────
 
 class FriendStreak {
