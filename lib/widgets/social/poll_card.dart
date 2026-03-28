@@ -7,8 +7,14 @@ import '../../models/poll_models.dart';
 class PollCard extends StatefulWidget {
   final Poll poll;
   final ValueChanged<String> onVote;
+  final VoidCallback? onComment;
 
-  const PollCard({super.key, required this.poll, required this.onVote});
+  const PollCard({
+    super.key,
+    required this.poll,
+    required this.onVote,
+    this.onComment,
+  });
 
   @override
   State<PollCard> createState() => _PollCardState();
@@ -149,6 +155,24 @@ class _PollCardState extends State<PollCard>
               Text(
                 poll.isActive ? _timeRemaining(poll.expiresAt) : 'Ended',
                 style: tt.bodySmall?.copyWith(color: cs.outline),
+              ),
+              const SizedBox(width: 8),
+              Text('·', style: tt.bodySmall?.copyWith(color: cs.outline)),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: widget.onComment,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chat_bubble_outline_rounded,
+                        size: 14, color: cs.outline),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${poll.commentCount}',
+                      style: tt.bodySmall?.copyWith(color: cs.outline),
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               if (poll.hasVoted) ...[

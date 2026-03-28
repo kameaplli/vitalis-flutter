@@ -12,6 +12,7 @@ import '../../widgets/social/feed_card.dart';
 import '../../widgets/social/comment_sheet.dart';
 import '../../widgets/social/poll_card.dart';
 import '../../widgets/social/create_poll_sheet.dart';
+import '../../widgets/social/poll_comment_sheet.dart';
 import 'community_guidelines_screen.dart';
 import '../../models/poll_models.dart';
 import '../../providers/poll_provider.dart';
@@ -705,12 +706,15 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (_, i) => PollCard(
+                (ctx, i) => PollCard(
                   poll: filtered[i],
                   onVote: (optionId) {
                     ref
                         .read(pollsNotifierProvider.notifier)
                         .vote(filtered[i].id, optionId);
+                  },
+                  onComment: () {
+                    PollCommentSheet.show(ctx, ref, filtered[i]);
                   },
                 ),
                 childCount: filtered.length,

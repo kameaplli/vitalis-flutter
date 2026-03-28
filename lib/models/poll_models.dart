@@ -1,3 +1,33 @@
+class PollComment {
+  final String id;
+  final String pollId;
+  final String userId;
+  final String userName;
+  final String? avatarUrl;
+  final String text;
+  final DateTime createdAt;
+
+  PollComment({
+    required this.id,
+    required this.pollId,
+    required this.userId,
+    required this.userName,
+    this.avatarUrl,
+    required this.text,
+    required this.createdAt,
+  });
+
+  factory PollComment.fromJson(Map<String, dynamic> json) => PollComment(
+        id: json['id'] ?? '',
+        pollId: json['poll_id'] ?? '',
+        userId: json['user_id'] ?? '',
+        userName: json['user_name'] ?? '',
+        avatarUrl: json['avatar_url'],
+        text: json['text'] ?? '',
+        createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      );
+}
+
 class Poll {
   final String id;
   final String creatorId;
@@ -7,6 +37,7 @@ class Poll {
   final List<PollOption> options;
   final PollAccess access;
   final int totalVotes;
+  final int commentCount;
   final String? userVoteOptionId; // null if user hasn't voted
   final bool isExpired;
   final DateTime expiresAt;
@@ -21,6 +52,7 @@ class Poll {
     required this.options,
     this.access = PollAccess.public_,
     this.totalVotes = 0,
+    this.commentCount = 0,
     this.userVoteOptionId,
     this.isExpired = false,
     required this.expiresAt,
@@ -43,6 +75,7 @@ class Poll {
           [],
       access: PollAccess.fromString(json['access'] ?? 'public'),
       totalVotes: (json['total_votes'] as num?)?.toInt() ?? 0,
+      commentCount: (json['comment_count'] as num?)?.toInt() ?? 0,
       userVoteOptionId: json['user_vote_option_id'],
       isExpired: json['is_expired'] == true,
       expiresAt: DateTime.tryParse(json['expires_at'] ?? '') ??
@@ -61,6 +94,7 @@ class Poll {
         'options': options.map((o) => o.toJson()).toList(),
         'access': access.value,
         'total_votes': totalVotes,
+        'comment_count': commentCount,
         'user_vote_option_id': userVoteOptionId,
         'is_expired': isExpired,
         'expires_at': expiresAt.toIso8601String(),
@@ -70,6 +104,7 @@ class Poll {
   Poll copyWith({
     String? userVoteOptionId,
     int? totalVotes,
+    int? commentCount,
     List<PollOption>? options,
     bool? isExpired,
   }) {
@@ -82,6 +117,7 @@ class Poll {
       options: options ?? this.options,
       access: access,
       totalVotes: totalVotes ?? this.totalVotes,
+      commentCount: commentCount ?? this.commentCount,
       userVoteOptionId: userVoteOptionId ?? this.userVoteOptionId,
       isExpired: isExpired ?? this.isExpired,
       expiresAt: expiresAt,

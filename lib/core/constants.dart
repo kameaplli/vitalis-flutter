@@ -243,6 +243,7 @@ class ApiConstants {
   static String pollVote(String id) => '/api/social/polls/$id/vote';
   static String pollInvite(String id) => '/api/social/polls/$id/invite';
   static const String pollsMine = '/api/social/polls/mine';
+  static String pollComments(String id) => '/api/social/polls/$id/comments';
 
   // Group Chats
   static const String groupChats = '/api/social/groups';

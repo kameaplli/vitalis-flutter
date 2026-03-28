@@ -190,3 +190,26 @@ Future<void> inviteToPoll(String pollId, List<String> userIds) async {
     data: {'user_ids': userIds},
   );
 }
+
+// ── Poll Comments ──────────────────────────────────────────────────────────
+
+/// Comments on a specific poll.
+final pollCommentsProvider =
+    FutureProvider.family<List<PollComment>, String>((ref, pollId) async {
+  final res = await apiClient.dio.get(ApiConstants.pollComments(pollId));
+  final list = res.data is List
+      ? res.data as List
+      : (res.data as Map)['comments'] as List? ?? [];
+  return list
+      .map((e) => PollComment.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+/// Post a comment on a poll. Returns the new comment.
+Future<PollComment> postPollComment(String pollId, String text) async {
+  final res = await apiClient.dio.post(
+    ApiConstants.pollComments(pollId),
+    data: {'text': text},
+  );
+  return PollComment.fromJson(res.data as Map<String, dynamic>);
+}
