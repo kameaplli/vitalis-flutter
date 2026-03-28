@@ -9,6 +9,8 @@ class SocialProfile {
   final int level;
   final String? streakBuddyId;
   final Map<String, dynamic> privacySettings;
+  final bool isOnline;
+  final DateTime? lastSeenAt;
   final DateTime? createdAt;
 
   SocialProfile({
@@ -20,8 +22,22 @@ class SocialProfile {
     this.level = 1,
     this.streakBuddyId,
     this.privacySettings = const <String, dynamic>{},
+    this.isOnline = false,
+    this.lastSeenAt,
     this.createdAt,
   });
+
+  /// Human-readable presence text.
+  String get presenceText {
+    if (isOnline) return 'Online';
+    if (lastSeenAt == null) return '';
+    final diff = DateTime.now().difference(lastSeenAt!);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${lastSeenAt!.month}/${lastSeenAt!.day}';
+  }
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) {
     return SocialProfile(
@@ -38,6 +54,10 @@ class SocialProfile {
       privacySettings: (json['privacy_settings'] is Map)
               ? Map<String, dynamic>.from(json['privacy_settings'])
               : <String, dynamic>{},
+      isOnline: json['is_online'] == true,
+      lastSeenAt: json['last_seen_at'] != null
+          ? DateTime.tryParse(json['last_seen_at'])
+          : null,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'])
           : null,

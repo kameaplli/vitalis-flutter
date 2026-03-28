@@ -8,6 +8,7 @@ import '../../core/constants.dart';
 import '../../widgets/social/badge_display.dart';
 import '../../widgets/social/connection_button.dart';
 import '../../providers/dm_provider.dart';
+import '../../widgets/social/online_indicator.dart';
 import 'dm_screen.dart';
 
 // ── Social Profile Screen ──────────────────────────────────────────────────────
@@ -209,6 +210,15 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
             profile.displayName ?? 'User',
             style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
+
+          // Online presence
+          if (profile.presenceText.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            PresenceBadge(
+              isOnline: profile.isOnline,
+              presenceText: profile.presenceText,
+            ),
+          ],
 
           // Level badge
           const SizedBox(height: 4),

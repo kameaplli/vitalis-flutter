@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants.dart';
 import '../../models/dm_models.dart';
 import '../../providers/dm_provider.dart';
+import '../../widgets/social/online_indicator.dart';
 
 // ── DM Inbox ──────────────────────────────────────────────────────────────────
 
@@ -106,19 +107,13 @@ class _ConversationTile extends StatelessWidget {
         : '?';
 
     return ListTile(
-      leading: CircleAvatar(
+      leading: AvatarWithPresence(
+        avatarUrl: hasAvatar
+            ? ApiConstants.resolveUrl(conversation.otherAvatarUrl)
+            : null,
+        fallbackInitial: initial,
+        isOnline: conversation.isOtherOnline,
         radius: 24,
-        backgroundColor: cs.primaryContainer,
-        backgroundImage: hasAvatar
-            ? CachedNetworkImageProvider(
-                ApiConstants.resolveUrl(conversation.otherAvatarUrl))
-            : null,
-        child: !hasAvatar
-            ? Text(initial,
-                style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: cs.onPrimaryContainer))
-            : null,
       ),
       title: Row(
         children: [

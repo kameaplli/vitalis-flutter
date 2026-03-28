@@ -6,6 +6,7 @@ class DmConversation {
   final String? otherAvatarUrl;
   final DmMessage? lastMessage;
   final int unreadCount;
+  final bool isOtherOnline;
   final DateTime updatedAt;
 
   DmConversation({
@@ -15,6 +16,7 @@ class DmConversation {
     this.otherAvatarUrl,
     this.lastMessage,
     this.unreadCount = 0,
+    this.isOtherOnline = false,
     required this.updatedAt,
   });
 
@@ -28,6 +30,7 @@ class DmConversation {
             ? DmMessage.fromJson(json['last_message'] as Map<String, dynamic>)
             : null,
         unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+        isOtherOnline: json['is_other_online'] == true,
         updatedAt:
             DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
       );
@@ -39,6 +42,7 @@ class DmConversation {
         'other_avatar_url': otherAvatarUrl,
         'last_message': lastMessage?.toJson(),
         'unread_count': unreadCount,
+        'is_other_online': isOtherOnline,
         'updated_at': updatedAt.toIso8601String(),
       };
 }
