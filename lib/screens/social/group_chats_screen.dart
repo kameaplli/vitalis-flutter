@@ -214,6 +214,55 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         .sendMessage(text);
   }
 
+  void _showMessageOptions(ChatMessage msg) {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(
+                msg.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                color: cs.primary,
+              ),
+              title: Text(msg.isPinned ? 'Unpin Message' : 'Pin Message'),
+              onTap: () {
+                Navigator.pop(ctx);
+                HapticFeedback.lightImpact();
+                ref
+                    .read(chatNotifierProvider(widget.group.id).notifier)
+                    .togglePin(msg.id);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.copy_rounded, color: cs.onSurfaceVariant),
+              title: const Text('Copy Text'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: msg.text));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Copied to clipboard'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmLeave(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -392,6 +441,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       ),
       body: Column(
         children: [
+          // Pinned message banner
+          _PinnedBanner(
+            groupId: widget.group.id,
+            isAdmin: widget.group.isAdmin,
+          ),
+
           // Messages
           Expanded(
             child: chatState.isLoading
@@ -434,7 +489,12 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                             children: [
                               if (showDate) _DateHeader(date: msg.createdAt),
                               _MessageBubble(
-                                  message: msg, showAvatar: showAvatar),
+                                message: msg,
+                                showAvatar: showAvatar,
+                                onLongPress: widget.group.isAdmin
+                                    ? () => _showMessageOptions(msg)
+                                    : null,
+                              ),
                             ],
                           );
                         },
@@ -487,6 +547,89 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedBanner extends ConsumerWidget {
+  final String groupId;
+  final bool isAdmin;
+  const _PinnedBanner({required this.groupId, required this.isAdmin});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final chatState = ref.watch(chatNotifierProvider(groupId));
+    final pinned = chatState.messages.where((m) => m.isPinned).toList();
+
+    if (pinned.isEmpty) return const SizedBox.shrink();
+
+    final latest = pinned.first;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.2),
+        border: Border(
+          bottom: BorderSide(
+            color: cs.primary.withValues(alpha: 0.2),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.push_pin, size: 16, color: cs.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  latest.senderName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: cs.primary,
+                  ),
+                ),
+                Text(
+                  latest.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: cs.onSurface.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (pinned.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(
+                '+${pinned.length - 1}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (isAdmin)
+            IconButton(
+              icon: Icon(Icons.close, size: 16, color: cs.outline),
+              onPressed: () {
+                ref
+                    .read(chatNotifierProvider(groupId).notifier)
+                    .togglePin(latest.id);
+              },
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
         ],
       ),
     );
@@ -646,7 +789,12 @@ class _DateHeader extends StatelessWidget {
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool showAvatar;
-  const _MessageBubble({required this.message, this.showAvatar = true});
+  final VoidCallback? onLongPress;
+  const _MessageBubble({
+    required this.message,
+    this.showAvatar = true,
+    this.onLongPress,
+  });
 
   String _formatTime(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
@@ -660,71 +808,80 @@ class _MessageBubble extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final isTemp = message.id.startsWith('temp_');
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: showAvatar ? 6 : 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showAvatar)
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: cs.secondaryContainer,
-              child: Text(
-                message.senderName.isNotEmpty
-                    ? message.senderName[0].toUpperCase()
-                    : '?',
-                style: tt.labelSmall
-                    ?.copyWith(color: cs.onSecondaryContainer),
-              ),
-            )
-          else
-            const SizedBox(width: 32),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showAvatar)
-                  Row(
-                    children: [
-                      Text(message.senderName,
-                          style: tt.labelSmall
-                              ?.copyWith(fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatTime(message.createdAt),
-                        style: tt.labelSmall?.copyWith(
-                            color: cs.outline, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                if (showAvatar)
-                const SizedBox(height: 2),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
-                      bottomRight: Radius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    message.text,
-                    style: tt.bodyMedium?.copyWith(
-                      color: isTemp
-                          ? cs.onSurface.withValues(alpha: 0.5)
-                          : null,
-                    ),
-                  ),
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: showAvatar ? 6 : 2),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showAvatar)
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: cs.secondaryContainer,
+                child: Text(
+                  message.senderName.isNotEmpty
+                      ? message.senderName[0].toUpperCase()
+                      : '?',
+                  style: tt.labelSmall
+                      ?.copyWith(color: cs.onSecondaryContainer),
                 ),
-              ],
+              )
+            else
+              const SizedBox(width: 32),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showAvatar)
+                    Row(
+                      children: [
+                        Text(message.senderName,
+                            style: tt.labelSmall
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatTime(message.createdAt),
+                          style: tt.labelSmall?.copyWith(
+                              color: cs.outline, fontSize: 10),
+                        ),
+                        if (message.isPinned) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.push_pin, size: 12,
+                              color: cs.primary.withValues(alpha: 0.7)),
+                        ],
+                      ],
+                    ),
+                  if (showAvatar)
+                  const SizedBox(height: 2),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: message.isPinned
+                          ? cs.primaryContainer.withValues(alpha: 0.3)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(14),
+                        bottomLeft: Radius.circular(14),
+                        bottomRight: Radius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      message.text,
+                      style: tt.bodyMedium?.copyWith(
+                        color: isTemp
+                            ? cs.onSurface.withValues(alpha: 0.5)
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

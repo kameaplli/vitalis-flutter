@@ -76,6 +76,7 @@ class ChatMessage {
   final String? senderAvatarUrl;
   final String text;
   final String? imageUrl;
+  final bool isPinned;
   final DateTime createdAt;
 
   ChatMessage({
@@ -86,6 +87,7 @@ class ChatMessage {
     this.senderAvatarUrl,
     required this.text,
     this.imageUrl,
+    this.isPinned = false,
     required this.createdAt,
   });
 
@@ -98,10 +100,23 @@ class ChatMessage {
       senderAvatarUrl: json['sender_avatar_url'],
       text: json['text'] ?? '',
       imageUrl: json['image_url'],
+      isPinned: json['is_pinned'] == true,
       createdAt:
           DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
+
+  ChatMessage copyWith({bool? isPinned}) => ChatMessage(
+        id: id,
+        groupId: groupId,
+        senderId: senderId,
+        senderName: senderName,
+        senderAvatarUrl: senderAvatarUrl,
+        text: text,
+        imageUrl: imageUrl,
+        isPinned: isPinned ?? this.isPinned,
+        createdAt: createdAt,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -111,6 +126,7 @@ class ChatMessage {
         'sender_avatar_url': senderAvatarUrl,
         'text': text,
         'image_url': imageUrl,
+        'is_pinned': isPinned,
         'created_at': createdAt.toIso8601String(),
       };
 }

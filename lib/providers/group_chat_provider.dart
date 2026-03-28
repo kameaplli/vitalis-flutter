@@ -215,6 +215,40 @@ class ChatNotifier extends StateNotifier<ChatState> {
     } catch (_) {}
   }
 
+  /// Pin or unpin a message (admin-only).
+  Future<void> togglePin(String messageId) async {
+    final idx = state.messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    final msg = state.messages[idx];
+    final newPinned = !msg.isPinned;
+
+    // Optimistic update
+    final updated = List<ChatMessage>.from(state.messages);
+    updated[idx] = msg.copyWith(isPinned: newPinned);
+    state = state.copyWith(messages: updated);
+
+    try {
+      await apiClient.dio.post(
+        '${ApiConstants.groupChatMessages(_groupId)}/${messageId}/pin',
+        data: {'pinned': newPinned},
+      );
+    } catch (_) {
+      // Revert
+      if (mounted) {
+        final revertIdx = state.messages.indexWhere((m) => m.id == messageId);
+        if (revertIdx != -1) {
+          final reverted = List<ChatMessage>.from(state.messages);
+          reverted[revertIdx] = msg;
+          state = state.copyWith(messages: reverted);
+        }
+      }
+    }
+  }
+
+  /// Get pinned messages from current state.
+  List<ChatMessage> get pinnedMessages =>
+      state.messages.where((m) => m.isPinned).toList();
+
   /// Notify server that the user is typing (or stopped).
   Future<void> setTyping(bool typing) async {
     try {
