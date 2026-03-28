@@ -600,6 +600,34 @@ final blockedUsersProvider = FutureProvider<List<BlockedUser>>((ref) async {
   }
 });
 
+// ── Badges ───────────────────────────────────────────────────────────────────
+
+/// Badges for the current user.
+final myBadgesProvider = FutureProvider<List<Badge>>((ref) async {
+  ref.keepAlive();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.socialBadges);
+    return _extractList(res.data, 'badges')
+        .map((b) => Badge.fromJson(b as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
+/// Badges for a specific user.
+final userBadgesProvider =
+    FutureProvider.family<List<Badge>, String>((ref, userId) async {
+  try {
+    final res = await apiClient.dio.get(ApiConstants.socialUserBadges(userId));
+    return _extractList(res.data, 'badges')
+        .map((b) => Badge.fromJson(b as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
 // ── Share Card Data ──────────────────────────────────────────────────────────
 
 final shareCardDataProvider =
