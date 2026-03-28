@@ -410,9 +410,8 @@ final pendingRequestsProvider = FutureProvider<List<Connection>>((ref) async {
     return _extractList(res.data, 'connections')
         .map((c) => Connection.fromJson(c as Map<String, dynamic>))
         .toList();
-  } catch (e) {
-    // Rethrow so UI can show errors; silently returning [] hides real issues
-    rethrow;
+  } catch (_) {
+    return [];
   }
 });
 
@@ -455,10 +454,14 @@ final myChallengesProvider = FutureProvider<List<Challenge>>((ref) async {
 });
 
 final challengeDetailProvider =
-    FutureProvider.family<Challenge, String>((ref, id) async {
+    FutureProvider.family<Challenge?, String>((ref, id) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
-  return Challenge.fromJson(res.data as Map<String, dynamic>);
+  try {
+    final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
+    return Challenge.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 final challengeLeaderboardProvider =
@@ -485,9 +488,8 @@ final socialNotificationsProvider =
     return _extractList(res.data, 'notifications')
         .map((n) => SocialNotification.fromJson(n as Map<String, dynamic>))
         .toList();
-  } catch (e) {
-    // Rethrow so the UI can show errors instead of silently returning empty
-    rethrow;
+  } catch (_) {
+    return [];
   }
 });
 
@@ -633,9 +635,13 @@ final userBadgesProvider =
 final shareCardDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, cardType) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(
-    ApiConstants.socialShareCard,
-    queryParameters: {'card_type': cardType},
-  );
-  return res.data as Map<String, dynamic>;
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.socialShareCard,
+      queryParameters: {'card_type': cardType},
+    );
+    return res.data as Map<String, dynamic>;
+  } catch (_) {
+    return {};
+  }
 });

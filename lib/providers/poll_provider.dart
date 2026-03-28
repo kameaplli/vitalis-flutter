@@ -130,28 +130,40 @@ final pollsNotifierProvider =
 /// All public + user-visible polls (feed tab).
 final pollsProvider = FutureProvider<List<Poll>>((ref) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.polls);
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['polls'] as List? ?? [];
-  return list.map((e) => Poll.fromJson(e as Map<String, dynamic>)).toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.polls);
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['polls'] as List? ?? [];
+    return list.map((e) => Poll.fromJson(e as Map<String, dynamic>)).toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 /// Polls created by current user.
 final myPollsProvider = FutureProvider<List<Poll>>((ref) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.pollsMine);
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['polls'] as List? ?? [];
-  return list.map((e) => Poll.fromJson(e as Map<String, dynamic>)).toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.pollsMine);
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['polls'] as List? ?? [];
+    return list.map((e) => Poll.fromJson(e as Map<String, dynamic>)).toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 /// Single poll detail.
 final pollDetailProvider =
-    FutureProvider.family<Poll, String>((ref, pollId) async {
-  final res = await apiClient.dio.get(ApiConstants.pollDetail(pollId));
-  return Poll.fromJson(res.data as Map<String, dynamic>);
+    FutureProvider.family<Poll?, String>((ref, pollId) async {
+  try {
+    final res = await apiClient.dio.get(ApiConstants.pollDetail(pollId));
+    return Poll.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 // ── Poll Actions ────────────────────────────────────────────────────────────
@@ -196,13 +208,17 @@ Future<void> inviteToPoll(String pollId, List<String> userIds) async {
 /// Comments on a specific poll.
 final pollCommentsProvider =
     FutureProvider.family<List<PollComment>, String>((ref, pollId) async {
-  final res = await apiClient.dio.get(ApiConstants.pollComments(pollId));
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['comments'] as List? ?? [];
-  return list
-      .map((e) => PollComment.fromJson(e as Map<String, dynamic>))
-      .toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.pollComments(pollId));
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['comments'] as List? ?? [];
+    return list
+        .map((e) => PollComment.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 /// Post a comment on a poll. Returns the new comment.

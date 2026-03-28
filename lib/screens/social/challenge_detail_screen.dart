@@ -37,10 +37,14 @@ class ChallengeDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-      data: (challenge) => _ChallengeContent(
-        challenge: challenge,
-        boardAsync: boardAsync,
-      ),
+      data: (challenge) => challenge == null
+          ? Center(
+              child: Text('Challenge not found',
+                  style: TextStyle(color: cs.onSurfaceVariant)))
+          : _ChallengeContent(
+              challenge: challenge,
+              boardAsync: boardAsync,
+            ),
     );
   }
 }

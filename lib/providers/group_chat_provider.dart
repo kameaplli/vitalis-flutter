@@ -82,32 +82,44 @@ final groupsNotifierProvider =
 /// All visible group chats (public + user's private groups).
 final groupChatsProvider = FutureProvider<List<GroupChat>>((ref) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.groupChats);
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['groups'] as List? ?? [];
-  return list
-      .map((e) => GroupChat.fromJson(e as Map<String, dynamic>))
-      .toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.groupChats);
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['groups'] as List? ?? [];
+    return list
+        .map((e) => GroupChat.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 /// Single group chat detail.
 final groupChatDetailProvider =
-    FutureProvider.family<GroupChat, String>((ref, groupId) async {
-  final res = await apiClient.dio.get(ApiConstants.groupChatDetail(groupId));
-  return GroupChat.fromJson(res.data as Map<String, dynamic>);
+    FutureProvider.family<GroupChat?, String>((ref, groupId) async {
+  try {
+    final res = await apiClient.dio.get(ApiConstants.groupChatDetail(groupId));
+    return GroupChat.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 /// Members of a group chat.
 final groupChatMembersProvider =
     FutureProvider.family<List<GroupMember>, String>((ref, groupId) async {
-  final res = await apiClient.dio.get(ApiConstants.groupChatMembers(groupId));
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['members'] as List? ?? [];
-  return list
-      .map((e) => GroupMember.fromJson(e as Map<String, dynamic>))
-      .toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.groupChatMembers(groupId));
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['members'] as List? ?? [];
+    return list
+        .map((e) => GroupMember.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 // ── Chat Messages (StateNotifier for real-time feel) ────────────────────────
