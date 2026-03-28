@@ -1185,6 +1185,20 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
             ),
           ),
 
+          // Trending section
+          if (_selectedFilter == 'All') ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: Text(
+                  'Trending Now',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(child: _buildTrendingSection()),
+          ],
+
           // Challenges section
           if (_selectedFilter == 'All' || _selectedFilter == 'Challenges') ...[
             SliverToBoxAdapter(
@@ -1214,6 +1228,58 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
           ],
 
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrendingSection() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Pull stats from existing providers
+    final pollsState = ref.watch(pollsNotifierProvider);
+    final groupsState = ref.watch(groupsNotifierProvider);
+    final feedState = ref.watch(socialFeedNotifierProvider);
+
+    final activePolls = pollsState.polls.where((p) => p.isActive).length;
+    final totalVotes = pollsState.polls.fold<int>(0, (s, p) => s + p.totalVotes);
+    final activeGroups = groupsState.groups.where((g) => g.isMember).length;
+    final recentPosts = feedState.events.length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _TrendCard(
+              icon: Icons.poll_rounded,
+              iconColor: const Color(0xFF6366F1),
+              label: 'Active Polls',
+              value: '$activePolls',
+              subtitle: '$totalVotes votes',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _TrendCard(
+              icon: Icons.forum_rounded,
+              iconColor: const Color(0xFF22C55E),
+              label: 'My Groups',
+              value: '$activeGroups',
+              subtitle: '${groupsState.groups.length} total',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _TrendCard(
+              icon: Icons.dynamic_feed_rounded,
+              iconColor: const Color(0xFFF97316),
+              label: 'Feed',
+              value: '$recentPosts',
+              subtitle: 'recent posts',
+            ),
+          ),
         ],
       ),
     );
@@ -1495,6 +1561,78 @@ class _RecipeCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Trend Card ──────────────────────────────────────────────────────────────
+
+class _TrendCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final String subtitle;
+
+  const _TrendCard({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
             ),
           ),
         ],
