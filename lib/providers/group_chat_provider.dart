@@ -466,3 +466,10 @@ Future<void> inviteToGroupChat(String groupId, List<String> userIds) async {
     data: {'user_ids': userIds},
   );
 }
+
+Future<void> setGroupNotifPref(String groupId, GroupNotifPref pref) async {
+  await apiClient.dio.post(
+    '${ApiConstants.groupChatDetail(groupId)}/notifications',
+    data: {'pref': pref.value},
+  );
+}

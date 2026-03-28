@@ -447,6 +447,74 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     );
   }
 
+  void _showNotifPrefPicker() {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              'Notification Preference',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Choose what notifications you receive from this group',
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            ...GroupNotifPref.values.map((pref) {
+              final isSelected = widget.group.notifPref == pref;
+              return ListTile(
+                leading: Icon(pref.icon,
+                    color: isSelected ? cs.primary : cs.onSurfaceVariant),
+                title: Text(pref.label),
+                trailing: isSelected
+                    ? Icon(Icons.check_circle_rounded, color: cs.primary)
+                    : null,
+                selected: isSelected,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    await setGroupNotifPref(widget.group.id, pref);
+                    ref.read(groupsNotifierProvider.notifier).refresh();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Notifications set to: ${pref.label}'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed: $e')),
+                      );
+                    }
+                  }
+                },
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showEditGroupSheet() {
     final cs = Theme.of(context).colorScheme;
     showModalBottomSheet(
@@ -643,6 +711,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             onSelected: (val) {
               if (val == 'leave') _confirmLeave(context);
               if (val == 'mute') _toggleMute();
+              if (val == 'notif_pref') _showNotifPrefPicker();
               if (val == 'edit') _showEditGroupSheet();
             },
             itemBuilder: (_) => [
@@ -665,6 +734,17 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                   title: Text(widget.group.isMuted
                       ? 'Unmute Notifications'
                       : 'Mute Notifications'),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'notif_pref',
+                child: ListTile(
+                  leading: Icon(widget.group.notifPref.icon),
+                  title: const Text('Notification Preference'),
+                  subtitle: Text(widget.group.notifPref.label,
+                      style: TextStyle(fontSize: 11, color: cs.outline)),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                 ),

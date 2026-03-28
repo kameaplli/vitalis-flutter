@@ -11,6 +11,7 @@ class GroupChat {
   final bool isMember;
   final GroupChatRole? myRole;
   final bool isMuted;
+  final GroupNotifPref notifPref;
   final DateTime createdAt;
 
   GroupChat({
@@ -26,6 +27,7 @@ class GroupChat {
     this.isMember = false,
     this.myRole,
     this.isMuted = false,
+    this.notifPref = GroupNotifPref.all,
     required this.createdAt,
   });
 
@@ -50,6 +52,7 @@ class GroupChat {
           ? GroupChatRole.fromString(json['my_role'] as String)
           : null,
       isMuted: json['is_muted'] == true,
+      notifPref: GroupNotifPref.fromString(json['notif_pref'] ?? 'all'),
       createdAt:
           DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
@@ -68,6 +71,7 @@ class GroupChat {
         'is_member': isMember,
         'my_role': myRole?.value,
         'is_muted': isMuted,
+        'notif_pref': notifPref.value,
         'created_at': createdAt.toIso8601String(),
       };
 }
@@ -236,6 +240,28 @@ enum GroupChatAccess {
   String get label => switch (this) {
         GroupChatAccess.public_ => 'Public',
         GroupChatAccess.inviteOnly => 'Invite Only',
+      };
+}
+
+enum GroupNotifPref {
+  all('all', 'All Messages'),
+  mentionsOnly('mentions_only', 'Mentions Only'),
+  muted('muted', 'Muted');
+
+  final String value;
+  final String label;
+  const GroupNotifPref(this.value, this.label);
+
+  static GroupNotifPref fromString(String s) => switch (s) {
+        'mentions_only' => GroupNotifPref.mentionsOnly,
+        'muted' => GroupNotifPref.muted,
+        _ => GroupNotifPref.all,
+      };
+
+  IconData get icon => switch (this) {
+        GroupNotifPref.all => Icons.notifications_rounded,
+        GroupNotifPref.mentionsOnly => Icons.alternate_email_rounded,
+        GroupNotifPref.muted => Icons.notifications_off_rounded,
       };
 }
 
