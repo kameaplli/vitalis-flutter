@@ -714,11 +714,47 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
 
 // ── Groups Tab ────────────────────────────────────────────────────────────────
 
-class _GroupsTab extends ConsumerWidget {
+class _GroupsTab extends ConsumerStatefulWidget {
   const _GroupsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_GroupsTab> createState() => _GroupsTabState();
+}
+
+enum _GroupFilter { all, joined, public_ }
+
+class _GroupsTabState extends ConsumerState<_GroupsTab> {
+  _GroupFilter _filter = _GroupFilter.all;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<GroupChat> _applyFilters(List<GroupChat> groups) {
+    var filtered = groups;
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((g) =>
+          g.name.toLowerCase().contains(q) ||
+          (g.description?.toLowerCase().contains(q) ?? false)).toList();
+    }
+    switch (_filter) {
+      case _GroupFilter.all:
+        break;
+      case _GroupFilter.joined:
+        filtered = filtered.where((g) => g.isMember).toList();
+      case _GroupFilter.public_:
+        filtered = filtered.where((g) => g.access == GroupChatAccess.public_).toList();
+    }
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final groupsState = ref.watch(groupsNotifierProvider);
@@ -745,159 +781,225 @@ class _GroupsTab extends ConsumerWidget {
       );
     }
 
-    final groups = groupsState.groups;
+    final filtered = _applyFilters(groupsState.groups);
 
-    {
-      return RefreshIndicator(
-        onRefresh: () =>
-            ref.read(groupsNotifierProvider.notifier).refresh(),
-          child: CustomScrollView(
-            slivers: [
-              // Create group button
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: cs.surface,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(20)),
-                        ),
-                        builder: (_) => _CreateGroupInline(ref: ref),
-                      );
-                    },
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Create Group'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(groupsNotifierProvider.notifier).refresh(),
+      child: CustomScrollView(
+        slivers: [
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Search groups...',
+                  hintStyle: TextStyle(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    fontSize: 14,
                   ),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  isDense: true,
                 ),
               ),
+            ),
+          ),
 
-              if (groups.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+          // Filter chips
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Wrap(
+                spacing: 8,
+                children: _GroupFilter.values.map((f) {
+                  final selected = _filter == f;
+                  final label = switch (f) {
+                    _GroupFilter.all => 'All',
+                    _GroupFilter.joined => 'Joined',
+                    _GroupFilter.public_ => 'Public',
+                  };
+                  return FilterChip(
+                    label: Text(label, style: TextStyle(fontSize: 12,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _filter = f),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
+          // Create group button
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: cs.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (_) => _CreateGroupInline(ref: ref),
+                  );
+                },
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Create Group'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+
+          if (filtered.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.forum_outlined, size: 56, color: cs.outline),
+                    const SizedBox(height: 12),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'No groups match "$_searchQuery"'
+                          : 'No groups yet',
+                      style: tt.titleSmall?.copyWith(color: cs.outline),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'Try a different search'
+                          : 'Start a conversation!',
+                      style: tt.bodySmall?.copyWith(color: cs.outline),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, i) {
+                  final g = filtered[i];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: cs.primaryContainer,
+                      child: Text(
+                        g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
+                        style: tt.titleSmall
+                            ?.copyWith(color: cs.onPrimaryContainer),
+                      ),
+                    ),
+                    title: Row(
                       children: [
-                        Icon(Icons.forum_outlined,
-                            size: 56, color: cs.outline),
-                        const SizedBox(height: 12),
-                        Text('No groups yet',
-                            style:
-                                tt.titleSmall?.copyWith(color: cs.outline)),
-                        const SizedBox(height: 4),
-                        Text('Start a conversation!',
-                            style:
-                                tt.bodySmall?.copyWith(color: cs.outline)),
+                        Flexible(
+                          child: Text(g.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        if (g.access == GroupChatAccess.inviteOnly) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.lock_outline,
+                              size: 14, color: cs.outline),
+                        ],
                       ],
                     ),
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, i) {
-                      final g = groups[i];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: cs.primaryContainer,
-                          child: Text(
-                            g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
-                            style: tt.titleSmall
-                                ?.copyWith(color: cs.onPrimaryContainer),
-                          ),
-                        ),
-                        title: Row(
-                          children: [
-                            Flexible(
-                              child: Text(g.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ),
-                            if (g.access == GroupChatAccess.inviteOnly) ...[
-                              const SizedBox(width: 6),
-                              Icon(Icons.lock_outline,
-                                  size: 14, color: cs.outline),
-                            ],
-                          ],
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (g.description != null &&
-                                g.description!.isNotEmpty)
-                              Text(g.description!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall
-                                      ?.copyWith(color: cs.outline)),
-                            Text(
-                              g.lastMessage != null
-                                  ? '${g.lastMessage!.senderName}: ${g.lastMessage!.text}'
-                                  : '${g.memberCount} members',
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (g.description != null &&
+                            g.description!.isNotEmpty)
+                          Text(g.description!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: tt.bodySmall?.copyWith(
-                                  color: cs.outline,
-                                  fontSize: 11),
-                            ),
-                          ],
+                              style: tt.bodySmall
+                                  ?.copyWith(color: cs.outline)),
+                        Text(
+                          g.lastMessage != null
+                              ? '${g.lastMessage!.senderName}: ${g.lastMessage!.text}'
+                              : '${g.memberCount} members',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.outline,
+                              fontSize: 11),
                         ),
-                        trailing: !g.isMember &&
-                                g.access == GroupChatAccess.public_
-                            ? FilledButton.tonal(
-                                onPressed: () async {
-                                  HapticFeedback.lightImpact();
-                                  try {
-                                    await joinGroupChat(g.id);
-                                    ref.read(groupsNotifierProvider.notifier).refresh();
-                                  } catch (_) {}
-                                },
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12),
-                                  minimumSize: const Size(0, 32),
+                      ],
+                    ),
+                    trailing: !g.isMember &&
+                            g.access == GroupChatAccess.public_
+                        ? FilledButton.tonal(
+                            onPressed: () async {
+                              HapticFeedback.lightImpact();
+                              try {
+                                await joinGroupChat(g.id);
+                                ref.read(groupsNotifierProvider.notifier).refresh();
+                              } catch (_) {}
+                            },
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: const Text('Join'),
+                          )
+                        : g.unreadCount > 0
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.primary,
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text('Join'),
+                                child: Text('${g.unreadCount}',
+                                    style: tt.labelSmall
+                                        ?.copyWith(color: cs.onPrimary)),
                               )
-                            : g.unreadCount > 0
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text('${g.unreadCount}',
-                                        style: tt.labelSmall
-                                            ?.copyWith(color: cs.onPrimary)),
-                                  )
-                                : null,
-                        onTap: g.isMember
-                            ? () => context.push(
-                                  '/social/groups/${g.id}',
-                                  extra: g,
-                                )
                             : null,
-                      );
-                    },
-                    childCount: groups.length,
-                  ),
-                ),
-            ],
-          ),
-        );
-      }
+                    onTap: g.isMember
+                        ? () => context.push(
+                              '/social/groups/${g.id}',
+                              extra: g,
+                            )
+                        : null,
+                  );
+                },
+                childCount: filtered.length,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
