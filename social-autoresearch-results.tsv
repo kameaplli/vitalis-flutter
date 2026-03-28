@@ -32,3 +32,7 @@ iteration	commit	metric	delta	guard	status	description
 28	d2429f3	9648	+220	pass	keep	Community guidelines: 7 illustrated rules (kind, accurate, privacy, no hate, no diet shame, no spam, report), header card, violation warning, shield icon in social hub bar
 29	aa8ff72	9718	+70	pass	keep	Read receipts: ReadReceipt model, double-check mark icon, "Read by N" in long-press menu with names, markAsRead() on chat enter
 30	a9d5ab5	9892	+174	pass	keep	Blocked users screen: list with avatars+blocked-ago, unblock confirmation dialog, empty state, error retry
+31	4563190	10057	+165	pass	keep	@Mentions: autocomplete overlay from members list, insert on tap, highlighted mentions in message bubbles with RegExp
+32	0cce5c3	10115	+58	pass	keep	Mute group notifications: toggle in popup menu, muted icon in group list, snackbar confirmation
+33	cc739f6	10292	+177	pass	keep	Edit group: admin edit name/description bottom sheet, mute toggle refinement, muted indicator
+34	2956f75	10825	+533	pass	keep	Poll comments: PollComment model, discussion thread bottom sheet, comment count in poll footer, API endpoint + provider
