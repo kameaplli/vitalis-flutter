@@ -256,6 +256,10 @@ class ApiConstants {
   static String groupChatLeave(String id) => '/api/social/groups/$id/leave';
   static String groupChatInvite(String id) => '/api/social/groups/$id/invite';
 
+  // Direct Messages
+  static const String dmConversations = '/api/social/dm';
+  static String dmMessages(String id) => '/api/social/dm/$id/messages';
+
   // Blood Test Intelligence (Labs)
   static const String labUpload     = '/api/labs/upload';
   static String labParseStatus(String jobId) => '/api/labs/parse-status/$jobId';

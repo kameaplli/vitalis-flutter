@@ -7,6 +7,8 @@ import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../widgets/social/badge_display.dart';
 import '../../widgets/social/connection_button.dart';
+import '../../providers/dm_provider.dart';
+import 'dm_screen.dart';
 
 // ── Social Profile Screen ──────────────────────────────────────────────────────
 
@@ -279,7 +281,38 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
               },
             ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+
+          // Message button
+          if (_connectionStatus == ConnectionStatus.accepted)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    final convo = await startConversation(widget.userId);
+                    if (mounted) {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => DmChatScreen(conversation: convo),
+                      ));
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to start conversation: $e')),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.chat_outlined, size: 18),
+                label: const Text('Message'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 16),
 
           // Stats showcase
           _StatsSection(profile: profile, privacy: privacy),
