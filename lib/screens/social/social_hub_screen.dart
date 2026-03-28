@@ -12,6 +12,7 @@ import '../../widgets/social/feed_card.dart';
 import '../../widgets/social/comment_sheet.dart';
 import '../../widgets/social/poll_card.dart';
 import '../../widgets/social/create_poll_sheet.dart';
+import 'community_guidelines_screen.dart';
 import '../../models/poll_models.dart';
 import '../../providers/poll_provider.dart';
 import '../../providers/group_chat_provider.dart';
@@ -111,6 +112,17 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
                   HapticFeedback.lightImpact();
                   _showUserSearch(context);
                 },
+              ),
+              IconButton(
+                icon: Icon(Icons.shield_outlined,
+                    color: cs.onSurfaceVariant, size: 22),
+                tooltip: 'Community Guidelines',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CommunityGuidelinesScreen(),
+                  ),
+                ),
               ),
               _NotificationBellButton(),
             ],
