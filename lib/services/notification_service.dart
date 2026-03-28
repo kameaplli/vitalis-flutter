@@ -313,6 +313,10 @@ class NotificationService {
   /// Set this from main.dart once the router is available.
   static void Function(String route)? onNavigate;
 
+  /// Callback fired when a hydration quick-log action is tapped in the foreground.
+  /// Set this from app_shell.dart so the dashboard refreshes immediately.
+  static void Function()? onHydrationLogged;
+
   static const _pendingActionsKey = 'pending_notification_actions';
 
   static const _hydrationAmounts = {
@@ -351,6 +355,8 @@ class NotificationService {
 
     if (_hydrationAmounts.containsKey(actionId)) {
       _persistAction(jsonEncode({'type': 'hydrate', 'ml': _hydrationAmounts[actionId]}));
+      // Notify the app shell so it processes immediately + refreshes dashboard
+      onHydrationLogged?.call();
       return;
     }
 
@@ -445,6 +451,13 @@ class NotificationService {
   ];
 
   static Future<void> _scheduleHydration() async {
+    // Defensively cancel all hydration IDs (1000–1098) first.
+    // cancelAll() should handle this, but some Android OEMs don't properly
+    // cancel repeating AlarmManager entries — belt-and-suspenders.
+    for (int i = 1000; i < 1099; i++) {
+      await _plugin.cancel(i);
+    }
+
     final startStr = await NotificationPrefs.hydrationStart();
     final endStr   = await NotificationPrefs.hydrationEnd();
     final interval = await NotificationPrefs.hydrationInterval();
@@ -455,6 +468,8 @@ class NotificationService {
     final startMin = startH * 60 + startM;
     final endMin   = endH * 60 + endM;
     if (endMin <= startMin || interval <= 0) return;
+
+    debugPrint('[Notifications] hydration window: ${startH.toString().padLeft(2,'0')}:${startM.toString().padLeft(2,'0')} – ${endH.toString().padLeft(2,'0')}:${endM.toString().padLeft(2,'0')}, interval=${interval}min');
 
     int id = 1000;
     int msgIdx = 0;

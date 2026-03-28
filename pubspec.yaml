@@ -94,17 +94,15 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  integration_test:
-    sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/qorehealth_icon.png"
-  adaptive_icon_foreground: "assets/qorehealth_icon.png"
-  adaptive_icon_background: "#000000"
+  image_path: "assets/qorehealth_app_icon.png"
+  adaptive_icon_foreground: "assets/qorehealth_app_icon_foreground.png"
+  adaptive_icon_background: "#FFFFFF"
 
 flutter:
   uses-material-design: true

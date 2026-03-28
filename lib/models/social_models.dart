@@ -121,6 +121,12 @@ class ReactionSummary {
       userReacted: json['user_reacted'] == true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'count': count,
+        'user_reacted': userReacted,
+      };
 }
 
 // ─── Feed Event ─────────────────────────────────────────────────────────────
@@ -193,6 +199,20 @@ class FeedEvent {
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'actor_id': actorId,
+        'actor_name': actorName,
+        'actor_avatar_url': actorAvatarUrl,
+        'event_type': eventType,
+        'content_type': contentType,
+        'content_snapshot': contentSnapshot,
+        'is_read': isRead,
+        'reactions': reactions.map((r) => r.toJson()).toList(),
+        'comment_count': commentCount,
+        'created_at': createdAt.toIso8601String(),
+      };
 
   // Helper getters
   bool get isAchievement => eventType == 'achievement';

@@ -55,6 +55,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Wire up foreground hydration quick-log callback so taps process immediately
+    NotificationService.onHydrationLogged = _processPendingActionsOnResume;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBiometricLock();
       _handleBiometricOffer();
@@ -64,6 +66,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   void dispose() {
+    NotificationService.onHydrationLogged = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -86,6 +89,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       }
       // Re-schedule notifications (Android may kill them on force-stop)
       NotificationService.scheduleAll().catchError((_) {});
+      // Process any pending notification actions (e.g., hydration quick-log tapped while backgrounded)
+      _processPendingActionsOnResume();
       // Check for new social notifications on resume
       BackgroundService.checkSocialNotifications();
     }
@@ -123,6 +128,23 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     }
     BackgroundService.checkFlareRisk();
     BackgroundService.checkSocialNotifications();
+    _prefetchAndWarm();
+  }
+
+  /// Process pending notification actions on resume (not just cold start).
+  /// Fixes: hydration quick-log buttons tapped while app is backgrounded
+  /// were only processed on cold start, never appearing on the dashboard.
+  Future<void> _processPendingActionsOnResume() async {
+    final hydrationLogged = await BackgroundService.processPendingActions();
+    if (hydrationLogged && mounted) {
+      final person = ref.read(selectedPersonProvider);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      ref.invalidate(todayHydrationProvider(person));
+      ref.invalidate(dashboardProvider((person, today)));
+    }
+  }
+
+  void _prefetchAndWarm() {
     // Prefetch data for screens the user is likely to visit
     final person = ref.read(selectedPersonProvider);
     PrefetchService.warmAll(ref, person);
@@ -310,14 +332,14 @@ class _BottomNavWithGenie extends StatelessWidget {
             ),
           ],
         ),
-        // Center voice button overlay (glowing +)
+        // Center voice button overlay (glowing + at same height as other nav icons)
         Positioned(
-          top: -22,
+          top: 6,
           child: GestureDetector(
             onTap: onGenieTap,
             child: Container(
-              width: 60,
-              height: 60,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -328,15 +350,14 @@ class _BottomNavWithGenie extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: cs.primary.withValues(alpha: 0.45),
-                    blurRadius: 18,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 4),
+                    blurRadius: 16,
+                    spreadRadius: 1,
                   ),
                 ],
               ),
               child: const Icon(
                 Icons.add_rounded,
-                size: 34,
+                size: _iconSize,
                 color: Colors.white,
               ),
             ),

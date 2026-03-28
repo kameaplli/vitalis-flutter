@@ -10,6 +10,11 @@ import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../widgets/social/feed_card.dart';
 import '../../widgets/social/comment_sheet.dart';
+import '../../widgets/social/poll_card.dart';
+import '../../widgets/social/create_poll_sheet.dart';
+import '../../providers/poll_provider.dart';
+import '../../providers/group_chat_provider.dart';
+import '../../models/group_chat_models.dart';
 
 // ── Social Hub Screen ──────────────────────────────────────────────────────────
 
@@ -30,7 +35,7 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -130,8 +135,12 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
             indicatorWeight: 3,
             indicatorColor: cs.primary,
             dividerColor: Colors.transparent,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: const [
               Tab(text: 'Feed'),
+              Tab(text: 'Polls'),
+              Tab(text: 'Groups'),
               Tab(text: 'Discover'),
             ],
           ),
@@ -149,69 +158,15 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
                       _showComposeSheet(context);
                     },
                   ),
+                  const _PollsTab(),
+                  const _GroupsTab(),
                   const _DiscoverTab(),
                 ],
               ),
             ),
           ],
         ),
-
-        // ── Gradient FAB ──
-        Positioned(
-          right: 20,
-          bottom: 20,
-          child: _GradientFab(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              _showComposeSheet(context);
-            },
-          ),
-        ),
       ],
-    );
-  }
-}
-
-// ── Gradient FAB with glow ──────────────────────────────────────────────────
-
-class _GradientFab extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _GradientFab({required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: FloatingActionButton(
-        heroTag: 'social_compose',
-        onPressed: onPressed,
-        elevation: 0,
-        shape: const CircleBorder(),
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [cs.primary, cs.tertiary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-        ),
-      ),
     );
   }
 }
@@ -266,12 +221,38 @@ class _ComposePromptBar extends StatelessWidget {
 
 // ── Feed Tab ────────────────────────────────────────────────────────────────────
 
-class _FeedTab extends ConsumerWidget {
+class _FeedTab extends ConsumerStatefulWidget {
   final List<FeedEvent> optimisticPosts;
   final VoidCallback? onCompose;
   const _FeedTab({this.optimisticPosts = const [], this.onCompose});
 
-  void _showCommentSheet(BuildContext context, WidgetRef ref, FeedEvent event) {
+  @override
+  ConsumerState<_FeedTab> createState() => _FeedTabState();
+}
+
+class _FeedTabState extends ConsumerState<_FeedTab> {
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 300) {
+      ref.read(socialFeedNotifierProvider.notifier).loadMore();
+    }
+  }
+
+  void _showCommentSheet(BuildContext context, FeedEvent event) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -279,7 +260,6 @@ class _FeedTab extends ConsumerWidget {
       builder: (_) => CommentSheet(
         event: event,
         onCommentAdded: () {
-          // Optimistic increment — no full refresh needed
           ref.read(socialFeedNotifierProvider.notifier)
               .incrementCommentCount(event.id);
         },
@@ -309,8 +289,7 @@ class _FeedTab extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Watch FeedState directly — never flickers through loading after first load
+  Widget build(BuildContext context) {
     final feedState = ref.watch(socialFeedNotifierProvider);
     final cs = Theme.of(context).colorScheme;
 
@@ -346,7 +325,7 @@ class _FeedTab extends ConsumerWidget {
     final events = feedState.events;
     final serverIds = events.map((e) => e.id).toSet();
     final allEvents = [
-      ...optimisticPosts.where((op) => !serverIds.contains(op.id)),
+      ...widget.optimisticPosts.where((op) => !serverIds.contains(op.id)),
       ...events,
     ];
 
@@ -361,10 +340,11 @@ class _FeedTab extends ConsumerWidget {
         ref.invalidate(connectionsProvider);
       },
       child: CustomScrollView(
+        controller: _scrollCtrl,
         slivers: [
           // Compose prompt bar
           SliverToBoxAdapter(
-            child: _ComposePromptBar(onTap: onCompose),
+            child: _ComposePromptBar(onTap: widget.onCompose),
           ),
           SliverToBoxAdapter(
             child: Container(height: 8, color: cs.surfaceContainerLow),
@@ -385,7 +365,7 @@ class _FeedTab extends ConsumerWidget {
                       reactionType: type,
                     );
                   },
-                  onComment: () => _showCommentSheet(context, ref, event),
+                  onComment: () => _showCommentSheet(context, event),
                   onShare: () => _sharePost(context, event),
                   onProfileTap: () {
                     context.push('/social/profile/${event.actorId}');
@@ -395,6 +375,14 @@ class _FeedTab extends ConsumerWidget {
               childCount: allEvents.length,
             ),
           ),
+          // Loading indicator for infinite scroll
+          if (feedState.isLoadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
@@ -491,6 +479,423 @@ class _NotificationBellButton extends ConsumerWidget {
         HapticFeedback.lightImpact();
         context.push('/social/notifications');
       },
+    );
+  }
+}
+
+// ── Polls Tab ─────────────────────────────────────────────────────────────────
+
+class _PollsTab extends ConsumerWidget {
+  const _PollsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final pollsState = ref.watch(pollsNotifierProvider);
+
+    if (pollsState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (pollsState.error != null && pollsState.polls.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.poll_outlined, size: 48, color: cs.outline),
+            const SizedBox(height: 12),
+            Text('Could not load polls', style: tt.bodyMedium),
+            TextButton(
+              onPressed: () =>
+                  ref.read(pollsNotifierProvider.notifier).refresh(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final polls = pollsState.polls;
+
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(pollsNotifierProvider.notifier).refresh(),
+      child: CustomScrollView(
+        slivers: [
+          // Create poll button
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  final created = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: cs.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (_) => const CreatePollSheet(),
+                  );
+                  if (created == true) {
+                    ref.read(pollsNotifierProvider.notifier).refresh();
+                  }
+                },
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Create Poll'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+
+          if (polls.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.poll_outlined, size: 56, color: cs.outline),
+                    const SizedBox(height: 12),
+                    Text('No polls yet',
+                        style: tt.titleSmall?.copyWith(color: cs.outline)),
+                    const SizedBox(height: 4),
+                    Text('Be the first to create one!',
+                        style: tt.bodySmall?.copyWith(color: cs.outline)),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, i) => PollCard(
+                  poll: polls[i],
+                  onVote: (optionId) {
+                    ref
+                        .read(pollsNotifierProvider.notifier)
+                        .vote(polls[i].id, optionId);
+                  },
+                ),
+                childCount: polls.length,
+              ),
+            ),
+
+          const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Groups Tab ────────────────────────────────────────────────────────────────
+
+class _GroupsTab extends ConsumerWidget {
+  const _GroupsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final groupsState = ref.watch(groupsNotifierProvider);
+
+    if (groupsState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (groupsState.error != null && groupsState.groups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.forum_outlined, size: 48, color: cs.outline),
+            const SizedBox(height: 12),
+            Text('Could not load groups', style: tt.bodyMedium),
+            TextButton(
+              onPressed: () =>
+                  ref.read(groupsNotifierProvider.notifier).refresh(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final groups = groupsState.groups;
+
+    {
+      return RefreshIndicator(
+        onRefresh: () =>
+            ref.read(groupsNotifierProvider.notifier).refresh(),
+          child: CustomScrollView(
+            slivers: [
+              // Create group button
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: cs.surface,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (_) => _CreateGroupInline(ref: ref),
+                      );
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Create Group'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ),
+
+              if (groups.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.forum_outlined,
+                            size: 56, color: cs.outline),
+                        const SizedBox(height: 12),
+                        Text('No groups yet',
+                            style:
+                                tt.titleSmall?.copyWith(color: cs.outline)),
+                        const SizedBox(height: 4),
+                        Text('Start a conversation!',
+                            style:
+                                tt.bodySmall?.copyWith(color: cs.outline)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) {
+                      final g = groups[i];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: cs.primaryContainer,
+                          child: Text(
+                            g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
+                            style: tt.titleSmall
+                                ?.copyWith(color: cs.onPrimaryContainer),
+                          ),
+                        ),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(g.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                            if (g.access == GroupChatAccess.inviteOnly) ...[
+                              const SizedBox(width: 6),
+                              Icon(Icons.lock_outline,
+                                  size: 14, color: cs.outline),
+                            ],
+                          ],
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (g.description != null &&
+                                g.description!.isNotEmpty)
+                              Text(g.description!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall
+                                      ?.copyWith(color: cs.outline)),
+                            Text(
+                              g.lastMessage != null
+                                  ? '${g.lastMessage!.senderName}: ${g.lastMessage!.text}'
+                                  : '${g.memberCount} members',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tt.bodySmall?.copyWith(
+                                  color: cs.outline,
+                                  fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        trailing: !g.isMember &&
+                                g.access == GroupChatAccess.public_
+                            ? FilledButton.tonal(
+                                onPressed: () async {
+                                  HapticFeedback.lightImpact();
+                                  try {
+                                    await joinGroupChat(g.id);
+                                    ref.read(groupsNotifierProvider.notifier).refresh();
+                                  } catch (_) {}
+                                },
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12),
+                                  minimumSize: const Size(0, 32),
+                                ),
+                                child: const Text('Join'),
+                              )
+                            : g.unreadCount > 0
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: cs.primary,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text('${g.unreadCount}',
+                                        style: tt.labelSmall
+                                            ?.copyWith(color: cs.onPrimary)),
+                                  )
+                                : null,
+                        onTap: g.isMember
+                            ? () => context.push(
+                                  '/social/groups/${g.id}',
+                                  extra: g,
+                                )
+                            : null,
+                      );
+                    },
+                    childCount: groups.length,
+                  ),
+                ),
+            ],
+          ),
+        );
+      }
+  }
+}
+
+/// Inline create group sheet used from the Groups tab.
+class _CreateGroupInline extends StatefulWidget {
+  final WidgetRef ref;
+  const _CreateGroupInline({required this.ref});
+
+  @override
+  State<_CreateGroupInline> createState() => _CreateGroupInlineState();
+}
+
+class _CreateGroupInlineState extends State<_CreateGroupInline> {
+  final _nameCtrl = TextEditingController();
+  var _access = GroupChatAccess.public_;
+  var _creating = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    if (_nameCtrl.text.trim().isEmpty || _creating) return;
+    setState(() => _creating = true);
+    try {
+      await createGroupChat(
+        name: _nameCtrl.text.trim(),
+        access: _access,
+      );
+      widget.ref.read(groupsNotifierProvider.notifier).refresh();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+        setState(() => _creating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Create Group',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameCtrl,
+            maxLength: 50,
+            decoration: InputDecoration(
+              labelText: 'Group name',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<GroupChatAccess>(
+            segments: const [
+              ButtonSegment(
+                value: GroupChatAccess.public_,
+                label: Text('Public'),
+                icon: Icon(Icons.public, size: 16),
+              ),
+              ButtonSegment(
+                value: GroupChatAccess.inviteOnly,
+                label: Text('Invite Only'),
+                icon: Icon(Icons.lock_outline, size: 16),
+              ),
+            ],
+            selected: {_access},
+            onSelectionChanged: (s) => setState(() => _access = s.first),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: _nameCtrl.text.trim().isNotEmpty && !_creating
+                ? _create
+                : null,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _creating
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Create Group'),
+          ),
+        ],
+      ),
     );
   }
 }

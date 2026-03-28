@@ -1,0 +1,182 @@
+class GroupChat {
+  final String id;
+  final String name;
+  final String? description;
+  final String? avatarUrl;
+  final String creatorId;
+  final GroupChatAccess access;
+  final int memberCount;
+  final int unreadCount;
+  final ChatMessage? lastMessage;
+  final bool isMember;
+  final GroupChatRole? myRole;
+  final DateTime createdAt;
+
+  GroupChat({
+    required this.id,
+    required this.name,
+    this.description,
+    this.avatarUrl,
+    required this.creatorId,
+    this.access = GroupChatAccess.public_,
+    this.memberCount = 0,
+    this.unreadCount = 0,
+    this.lastMessage,
+    this.isMember = false,
+    this.myRole,
+    required this.createdAt,
+  });
+
+  bool get isAdmin =>
+      myRole == GroupChatRole.admin || myRole == GroupChatRole.owner;
+
+  factory GroupChat.fromJson(Map<String, dynamic> json) {
+    return GroupChat(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'],
+      avatarUrl: json['avatar_url'],
+      creatorId: json['creator_id'] ?? '',
+      access: GroupChatAccess.fromString(json['access'] ?? 'public'),
+      memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
+      unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+      lastMessage: json['last_message'] != null
+          ? ChatMessage.fromJson(json['last_message'] as Map<String, dynamic>)
+          : null,
+      isMember: json['is_member'] == true,
+      myRole: json['my_role'] != null
+          ? GroupChatRole.fromString(json['my_role'] as String)
+          : null,
+      createdAt:
+          DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'avatar_url': avatarUrl,
+        'creator_id': creatorId,
+        'access': access.value,
+        'member_count': memberCount,
+        'unread_count': unreadCount,
+        'last_message': lastMessage?.toJson(),
+        'is_member': isMember,
+        'my_role': myRole?.value,
+        'created_at': createdAt.toIso8601String(),
+      };
+}
+
+class ChatMessage {
+  final String id;
+  final String groupId;
+  final String senderId;
+  final String senderName;
+  final String? senderAvatarUrl;
+  final String text;
+  final String? imageUrl;
+  final DateTime createdAt;
+
+  ChatMessage({
+    required this.id,
+    required this.groupId,
+    required this.senderId,
+    required this.senderName,
+    this.senderAvatarUrl,
+    required this.text,
+    this.imageUrl,
+    required this.createdAt,
+  });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] ?? '',
+      groupId: json['group_id'] ?? '',
+      senderId: json['sender_id'] ?? '',
+      senderName: json['sender_name'] ?? '',
+      senderAvatarUrl: json['sender_avatar_url'],
+      text: json['text'] ?? '',
+      imageUrl: json['image_url'],
+      createdAt:
+          DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'group_id': groupId,
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'sender_avatar_url': senderAvatarUrl,
+        'text': text,
+        'image_url': imageUrl,
+        'created_at': createdAt.toIso8601String(),
+      };
+}
+
+class GroupMember {
+  final String userId;
+  final String userName;
+  final String? avatarUrl;
+  final GroupChatRole role;
+  final DateTime joinedAt;
+
+  GroupMember({
+    required this.userId,
+    required this.userName,
+    this.avatarUrl,
+    this.role = GroupChatRole.member,
+    required this.joinedAt,
+  });
+
+  factory GroupMember.fromJson(Map<String, dynamic> json) {
+    return GroupMember(
+      userId: json['user_id'] ?? '',
+      userName: json['user_name'] ?? json['name'] ?? '',
+      avatarUrl: json['avatar_url'],
+      role: GroupChatRole.fromString(json['role'] ?? 'member'),
+      joinedAt:
+          DateTime.tryParse(json['joined_at'] ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
+enum GroupChatAccess {
+  public_('public'),
+  inviteOnly('invite_only');
+
+  final String value;
+  const GroupChatAccess(this.value);
+
+  static GroupChatAccess fromString(String s) {
+    if (s == 'invite_only') return GroupChatAccess.inviteOnly;
+    return GroupChatAccess.public_;
+  }
+
+  String get label => switch (this) {
+        GroupChatAccess.public_ => 'Public',
+        GroupChatAccess.inviteOnly => 'Invite Only',
+      };
+}
+
+enum GroupChatRole {
+  owner('owner'),
+  admin('admin'),
+  member('member');
+
+  final String value;
+  const GroupChatRole(this.value);
+
+  static GroupChatRole fromString(String s) => switch (s) {
+        'owner' => GroupChatRole.owner,
+        'admin' => GroupChatRole.admin,
+        _ => GroupChatRole.member,
+      };
+
+  String get label => switch (this) {
+        GroupChatRole.owner => 'Owner',
+        GroupChatRole.admin => 'Admin',
+        GroupChatRole.member => 'Member',
+      };
+}
