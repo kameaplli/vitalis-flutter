@@ -1,7 +1,13 @@
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart' as dio_pkg;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../core/api_client.dart';
+import '../../core/constants.dart';
 import '../../models/group_chat_models.dart';
 import '../../providers/group_chat_provider.dart';
 
@@ -278,6 +284,47 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         .sendMessage(text);
   }
 
+  File? _pendingImage;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+    setState(() => _pendingImage = File(picked.path));
+  }
+
+  Future<void> _sendImage() async {
+    if (_pendingImage == null) return;
+    final file = _pendingImage!;
+    setState(() => _pendingImage = null);
+    HapticFeedback.lightImpact();
+
+    try {
+      final formData = dio_pkg.FormData.fromMap({
+        'image': await dio_pkg.MultipartFile.fromFile(file.path),
+        if (_textCtrl.text.trim().isNotEmpty) 'text': _textCtrl.text.trim(),
+      });
+      _textCtrl.clear();
+      await apiClient.dio.post(
+        ApiConstants.groupChatMessages(widget.group.id),
+        data: formData,
+        options: dio_pkg.Options(contentType: 'multipart/form-data'),
+      );
+      // Let poll pick up the new message
+      ref.read(chatNotifierProvider(widget.group.id).notifier);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send image: $e')),
+        );
+      }
+    }
+  }
+
   static const _quickReactions = ['\u2764\uFE0F', '\uD83D\uDC4D', '\uD83D\uDE02', '\uD83D\uDD25', '\uD83D\uDE22', '\uD83D\uDE4F'];
 
   void _showMessageOptions(ChatMessage msg) {
@@ -373,6 +420,28 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               ),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: CachedNetworkImage(
+                imageUrl: ApiConstants.resolveUrl(imageUrl),
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -748,6 +817,38 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               ),
             ),
 
+          // Image preview strip
+          if (_pendingImage != null)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              color: cs.surface,
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      _pendingImage!,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('Image attached',
+                      style: TextStyle(
+                          fontSize: 13, color: cs.onSurfaceVariant)),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        size: 18, color: cs.error),
+                    onPressed: () =>
+                        setState(() => _pendingImage = null),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+            ),
+
           // Input bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -761,13 +862,21 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               top: false,
               child: Row(
                 children: [
+                  IconButton(
+                    onPressed: _pickImage,
+                    icon: Icon(Icons.photo_outlined,
+                        size: 22, color: cs.onSurfaceVariant),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: TextField(
                       controller: _textCtrl,
                       maxLines: 3,
                       minLines: 1,
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
+                      onSubmitted: (_) =>
+                          _pendingImage != null ? _sendImage() : _send(),
                       decoration: InputDecoration(
                         hintText: 'Message...',
                         border: OutlineInputBorder(
@@ -784,7 +893,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                   ),
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    onPressed: _send,
+                    onPressed:
+                        _pendingImage != null ? _sendImage : _send,
                     icon: const Icon(Icons.send_rounded, size: 20),
                   ),
                 ],
@@ -1151,8 +1261,7 @@ class _MessageBubble extends StatelessWidget {
                   if (showAvatar)
                   const SizedBox(height: 2),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    clipBehavior: Clip.hardEdge,
                     decoration: BoxDecoration(
                       color: message.isPinned
                           ? cs.primaryContainer.withValues(alpha: 0.3)
@@ -1163,14 +1272,71 @@ class _MessageBubble extends StatelessWidget {
                         bottomRight: Radius.circular(14),
                       ),
                     ),
-                    child: _MentionText(
-                      text: message.text,
-                      mentionColor: cs.primary,
-                      style: tt.bodyMedium?.copyWith(
-                        color: isTemp
-                            ? cs.onSurface.withValues(alpha: 0.5)
-                            : cs.onSurface,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image attachment
+                        if (message.imageUrl != null &&
+                            message.imageUrl!.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => _showFullImage(
+                                context, message.imageUrl!),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                  maxWidth: 240, maxHeight: 200),
+                              child: CachedNetworkImage(
+                                imageUrl: ApiConstants.resolveUrl(
+                                    message.imageUrl),
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(
+                                  width: 200,
+                                  height: 120,
+                                  color: cs.surfaceContainerHighest,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                ),
+                                errorWidget: (_, __, ___) => Container(
+                                  width: 200,
+                                  height: 80,
+                                  color: cs.errorContainer,
+                                  child: Icon(Icons.broken_image_rounded,
+                                      color: cs.onErrorContainer),
+                                ),
+                              ),
+                            ),
+                          ),
+                        // Text content
+                        if (message.text.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            child: _MentionText(
+                              text: message.text,
+                              mentionColor: cs.primary,
+                              style: tt.bodyMedium?.copyWith(
+                                color: isTemp
+                                    ? cs.onSurface.withValues(alpha: 0.5)
+                                    : cs.onSurface,
+                              ),
+                            ),
+                          ),
+                        if (message.text.isEmpty &&
+                            (message.imageUrl == null ||
+                                message.imageUrl!.isEmpty))
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            child: _MentionText(
+                              text: message.text,
+                              mentionColor: cs.primary,
+                              style: tt.bodyMedium?.copyWith(
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   // Reaction pills
