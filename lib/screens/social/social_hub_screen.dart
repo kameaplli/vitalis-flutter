@@ -12,6 +12,7 @@ import '../../widgets/social/feed_card.dart';
 import '../../widgets/social/comment_sheet.dart';
 import '../../widgets/social/poll_card.dart';
 import '../../widgets/social/create_poll_sheet.dart';
+import '../../models/poll_models.dart';
 import '../../providers/poll_provider.dart';
 import '../../providers/group_chat_provider.dart';
 import '../../models/group_chat_models.dart';
@@ -485,11 +486,55 @@ class _NotificationBellButton extends ConsumerWidget {
 
 // ── Polls Tab ─────────────────────────────────────────────────────────────────
 
-class _PollsTab extends ConsumerWidget {
+class _PollsTab extends ConsumerStatefulWidget {
   const _PollsTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PollsTab> createState() => _PollsTabState();
+}
+
+enum _PollFilter { all, active, expired, mine }
+
+class _PollsTabState extends ConsumerState<_PollsTab> {
+  _PollFilter _filter = _PollFilter.all;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Poll> _applyFilters(List<Poll> polls) {
+    var filtered = polls;
+
+    // Text search
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((p) =>
+          p.question.toLowerCase().contains(q) ||
+          p.creatorName.toLowerCase().contains(q)).toList();
+    }
+
+    // Filter chips
+    switch (_filter) {
+      case _PollFilter.all:
+        break;
+      case _PollFilter.active:
+        filtered = filtered.where((p) => p.isActive).toList();
+      case _PollFilter.expired:
+        filtered = filtered.where((p) => !p.isActive).toList();
+      case _PollFilter.mine:
+        // Show polls the user voted on or created
+        filtered = filtered.where((p) => p.hasVoted).toList();
+    }
+
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final pollsState = ref.watch(pollsNotifierProvider);
@@ -516,17 +561,81 @@ class _PollsTab extends ConsumerWidget {
       );
     }
 
-    final polls = pollsState.polls;
+    final filtered = _applyFilters(pollsState.polls);
 
     return RefreshIndicator(
       onRefresh: () =>
           ref.read(pollsNotifierProvider.notifier).refresh(),
       child: CustomScrollView(
         slivers: [
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Search polls...',
+                  hintStyle: TextStyle(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter chips
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Wrap(
+                spacing: 8,
+                children: _PollFilter.values.map((f) {
+                  final selected = _filter == f;
+                  final label = switch (f) {
+                    _PollFilter.all => 'All',
+                    _PollFilter.active => 'Active',
+                    _PollFilter.expired => 'Ended',
+                    _PollFilter.mine => 'Voted',
+                  };
+                  return FilterChip(
+                    label: Text(label, style: TextStyle(fontSize: 12,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _filter = f),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
           // Create poll button
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: OutlinedButton.icon(
                 onPressed: () async {
                   HapticFeedback.lightImpact();
@@ -555,7 +664,7 @@ class _PollsTab extends ConsumerWidget {
             ),
           ),
 
-          if (polls.isEmpty)
+          if (filtered.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
@@ -564,11 +673,19 @@ class _PollsTab extends ConsumerWidget {
                   children: [
                     Icon(Icons.poll_outlined, size: 56, color: cs.outline),
                     const SizedBox(height: 12),
-                    Text('No polls yet',
-                        style: tt.titleSmall?.copyWith(color: cs.outline)),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'No polls match "$_searchQuery"'
+                          : 'No polls yet',
+                      style: tt.titleSmall?.copyWith(color: cs.outline),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Be the first to create one!',
-                        style: tt.bodySmall?.copyWith(color: cs.outline)),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'Try a different search'
+                          : 'Be the first to create one!',
+                      style: tt.bodySmall?.copyWith(color: cs.outline),
+                    ),
                   ],
                 ),
               ),
@@ -577,14 +694,14 @@ class _PollsTab extends ConsumerWidget {
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) => PollCard(
-                  poll: polls[i],
+                  poll: filtered[i],
                   onVote: (optionId) {
                     ref
                         .read(pollsNotifierProvider.notifier)
-                        .vote(polls[i].id, optionId);
+                        .vote(filtered[i].id, optionId);
                   },
                 ),
-                childCount: polls.length,
+                childCount: filtered.length,
               ),
             ),
 
