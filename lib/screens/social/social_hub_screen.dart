@@ -1151,14 +1151,49 @@ class _DiscoverTab extends ConsumerStatefulWidget {
 
 class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
   String _selectedFilter = 'All';
+  final _searchCtrl = TextEditingController();
+  List<dynamic>? _searchResults;
+  bool _searching = false;
 
   static const _filters = [
     'All',
+    'People',
     'Recipes',
     'Challenges',
     'Streaks',
     'Achievements',
   ];
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (query.trim().length < 2) {
+      setState(() {
+        _searchResults = null;
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final res = await apiClient.dio.get(
+        ApiConstants.socialSearch,
+        queryParameters: {'q': query.trim()},
+      );
+      final list = res.data is List
+          ? res.data as List
+          : (res.data as Map)['users'] as List? ?? [];
+      if (mounted) setState(() => _searchResults = list);
+    } catch (_) {
+      if (mounted) setState(() => _searchResults = []);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1173,6 +1208,51 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
       },
       child: CustomScrollView(
         slivers: [
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: _searchUsers,
+                decoration: InputDecoration(
+                  hintText: 'Search people...',
+                  hintStyle: TextStyle(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(Icons.search_rounded,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.close_rounded,
+                              size: 18, color: cs.onSurfaceVariant),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _searchUsers('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor:
+                      cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Search results
+          if (_searchResults != null)
+            SliverToBoxAdapter(
+              child: _buildSearchResults(),
+            ),
+
           // Filter chips
           SliverToBoxAdapter(
             child: SizedBox(
@@ -1251,6 +1331,83 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    if (_searching) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_searchResults == null || _searchResults!.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            _searchCtrl.text.length < 2
+                ? 'Type at least 2 characters'
+                : 'No users found',
+            style: TextStyle(
+                fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+          child: Text(
+            '${_searchResults!.length} result${_searchResults!.length == 1 ? '' : 's'}',
+            style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+        ..._searchResults!.take(10).map((user) {
+          final data = user is Map<String, dynamic> ? user : <String, dynamic>{};
+          final name = data['display_name'] ?? data['name'] ?? 'User';
+          final userId = data['user_id'] ?? data['id'] ?? '';
+          final avatarUrl = data['avatar_url'] as String?;
+          final level = (data['level'] as num?)?.toInt() ?? 1;
+
+          return ListTile(
+            leading: CircleAvatar(
+              radius: 20,
+              backgroundColor: cs.primaryContainer,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? NetworkImage(ApiConstants.resolveUrl(avatarUrl))
+                  : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onPrimaryContainer),
+                    )
+                  : null,
+            ),
+            title: Text(name,
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+            subtitle: Text('Level $level',
+                style: tt.bodySmall?.copyWith(color: cs.outline)),
+            trailing: Icon(Icons.chevron_right_rounded,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+            onTap: () {
+              if (userId.isNotEmpty) {
+                context.push('/social/profile/$userId');
+              }
+            },
+          );
+        }),
+        const Divider(height: 1),
+      ],
     );
   }
 
