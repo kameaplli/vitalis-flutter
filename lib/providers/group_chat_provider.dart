@@ -438,6 +438,21 @@ Future<void> leaveGroupChat(String groupId) async {
   await apiClient.dio.post(ApiConstants.groupChatLeave(groupId));
 }
 
+Future<GroupChat> updateGroupChat(
+  String groupId, {
+  String? name,
+  String? description,
+}) async {
+  final res = await apiClient.dio.patch(
+    ApiConstants.groupChatDetail(groupId),
+    data: {
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+    },
+  );
+  return GroupChat.fromJson(res.data as Map<String, dynamic>);
+}
+
 Future<void> muteGroupChat(String groupId, bool muted) async {
   await apiClient.dio.post(
     '${ApiConstants.groupChatDetail(groupId)}/mute',

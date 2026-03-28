@@ -378,6 +378,24 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     );
   }
 
+  void _showEditGroupSheet() {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _EditGroupSheet(
+        group: widget.group,
+        onSaved: () {
+          ref.read(groupsNotifierProvider.notifier).refresh();
+        },
+      ),
+    );
+  }
+
   Future<void> _toggleMute() async {
     final newMuted = !widget.group.isMuted;
     try {
@@ -556,8 +574,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             onSelected: (val) {
               if (val == 'leave') _confirmLeave(context);
               if (val == 'mute') _toggleMute();
+              if (val == 'edit') _showEditGroupSheet();
             },
             itemBuilder: (_) => [
+              if (widget.group.isAdmin)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Edit Group'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
               PopupMenuItem(
                 value: 'mute',
                 child: ListTile(
@@ -1328,6 +1357,139 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text('Create Group'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Edit Group Sheet ─────────────────────────────────────────────────────────
+
+class _EditGroupSheet extends StatefulWidget {
+  final GroupChat group;
+  final VoidCallback onSaved;
+  const _EditGroupSheet({required this.group, required this.onSaved});
+
+  @override
+  State<_EditGroupSheet> createState() => _EditGroupSheetState();
+}
+
+class _EditGroupSheetState extends State<_EditGroupSheet> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _descCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.group.name);
+    _descCtrl = TextEditingController(text: widget.group.description ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await updateGroupChat(
+        widget.group.id,
+        name: _nameCtrl.text.trim(),
+        description: _descCtrl.text.trim().isNotEmpty
+            ? _descCtrl.text.trim()
+            : null,
+      );
+      widget.onSaved();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Group updated'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Edit Group',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameCtrl,
+            decoration: InputDecoration(
+              labelText: 'Group Name',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            maxLength: 50,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descCtrl,
+            decoration: InputDecoration(
+              labelText: 'Description (optional)',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            maxLines: 3,
+            maxLength: 200,
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _nameCtrl.text.trim().isNotEmpty && !_saving
+                ? _save
+                : null,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _saving
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Save Changes'),
           ),
         ],
       ),
