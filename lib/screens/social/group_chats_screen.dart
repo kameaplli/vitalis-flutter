@@ -168,6 +168,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   final _textCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   bool _isTyping = false;
+  List<GroupMember> _mentionSuggestions = [];
+  bool _showMentions = false;
 
   @override
   void initState() {
@@ -197,6 +199,62 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           .read(chatNotifierProvider(widget.group.id).notifier)
           .setTyping(typing);
     }
+    _checkForMention();
+  }
+
+  void _checkForMention() {
+    final text = _textCtrl.text;
+    final cursor = _textCtrl.selection.baseOffset;
+    if (cursor <= 0 || cursor > text.length) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+
+    // Find the @ before cursor
+    final before = text.substring(0, cursor);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx == -1 || (atIdx > 0 && before[atIdx - 1] != ' ' && before[atIdx - 1] != '\n')) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+
+    final query = before.substring(atIdx + 1).toLowerCase();
+    if (query.contains(' ') || query.length > 20) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+
+    // Filter members
+    final membersAsync = ref.read(groupChatMembersProvider(widget.group.id));
+    membersAsync.whenData((members) {
+      final filtered = query.isEmpty
+          ? members.take(5).toList()
+          : members
+              .where((m) => m.userName.toLowerCase().contains(query))
+              .take(5)
+              .toList();
+      setState(() {
+        _mentionSuggestions = filtered;
+        _showMentions = filtered.isNotEmpty;
+      });
+    });
+  }
+
+  void _insertMention(GroupMember member) {
+    final text = _textCtrl.text;
+    final cursor = _textCtrl.selection.baseOffset;
+    final before = text.substring(0, cursor);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx == -1) return;
+
+    final after = text.substring(cursor);
+    final mention = '@${member.userName} ';
+    final newText = text.substring(0, atIdx) + mention + after;
+    _textCtrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: atIdx + mention.length),
+    );
+    setState(() => _showMentions = false);
   }
 
   void _onScroll() {
@@ -559,6 +617,66 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           // Typing indicator
           _TypingIndicator(groupId: widget.group.id),
 
+          // Mention suggestions overlay
+          if (_showMentions && _mentionSuggestions.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              decoration: BoxDecoration(
+                color: cs.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: cs.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _mentionSuggestions.length,
+                itemBuilder: (_, i) {
+                  final member = _mentionSuggestions[i];
+                  return ListTile(
+                    dense: true,
+                    visualDensity: const VisualDensity(vertical: -2),
+                    leading: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: cs.primaryContainer,
+                      child: Text(
+                        member.userName.isNotEmpty
+                            ? member.userName[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                    title: Text(member.userName,
+                        style: tt.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500)),
+                    trailing: member.role != GroupChatRole.member
+                        ? Text(
+                            member.role.label,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: cs.primary,
+                            ),
+                          )
+                        : null,
+                    onTap: () => _insertMention(member),
+                  );
+                },
+              ),
+            ),
+
           // Input bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -605,6 +723,52 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Renders message text with @mentions highlighted in primary color.
+class _MentionText extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
+  final Color mentionColor;
+
+  const _MentionText({
+    required this.text,
+    this.style,
+    required this.mentionColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final regex = RegExp(r'@\w+');
+    final matches = regex.allMatches(text).toList();
+
+    if (matches.isEmpty) {
+      return Text(text, style: style);
+    }
+
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+      }
+      spans.add(TextSpan(
+        text: match.group(0),
+        style: TextStyle(
+          color: mentionColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ));
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return RichText(text: TextSpan(style: style, children: spans));
   }
 }
 
@@ -928,12 +1092,13 @@ class _MessageBubble extends StatelessWidget {
                         bottomRight: Radius.circular(14),
                       ),
                     ),
-                    child: Text(
-                      message.text,
+                    child: _MentionText(
+                      text: message.text,
+                      mentionColor: cs.primary,
                       style: tt.bodyMedium?.copyWith(
                         color: isTemp
                             ? cs.onSurface.withValues(alpha: 0.5)
-                            : null,
+                            : cs.onSurface,
                       ),
                     ),
                   ),
