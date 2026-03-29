@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/food_item.dart';
 import '../../providers/food_provider.dart';
 import '../../providers/nutrition_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Meal suggestions for selected meal type ─────────────────────────────────
 
@@ -40,7 +41,7 @@ class MealSuggestionsSection extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.lightbulb_outline, size: 16, color: cs.primary),
+                HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 16, color: cs.primary),
                 const SizedBox(width: 6),
                 Text('Suggested for $mealLabel',
                     style: Theme.of(context).textTheme.titleMedium),

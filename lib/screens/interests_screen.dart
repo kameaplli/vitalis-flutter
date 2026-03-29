@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/interests_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Interest selection screen shown after first registration.
 /// Users pick which health modules they want to use.
@@ -73,8 +74,8 @@ class _InterestsScreenState extends ConsumerState<InterestsScreen>
                           color: cs.primaryContainer,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Icon(
-                          Icons.tune_rounded,
+                        child: HugeIcon(icon: 
+                          HugeIcons.strokeRoundedPreferenceHorizontal,
                           color: cs.onPrimaryContainer,
                           size: 30,
                         ),
@@ -173,18 +174,18 @@ class _InterestCard extends StatelessWidget {
     required this.onToggle,
   });
 
-  static const _icons = <String, IconData>{
-    'nutrition': Icons.restaurant_rounded,
-    'eczema': Icons.dry_rounded,
-    'family': Icons.family_restroom_rounded,
-    'weight': Icons.fitness_center_rounded,
-    'hydration': Icons.water_drop_rounded,
+  static const _icons = <String, List<List<dynamic>>>{
+    'nutrition': HugeIcons.strokeRoundedRestaurant01,
+    'eczema': HugeIcons.strokeRoundedDroplet,
+    'family': HugeIcons.strokeRoundedUserGroup,
+    'weight': HugeIcons.strokeRoundedDumbbell01,
+    'hydration': HugeIcons.strokeRoundedDroplet,
   };
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final icon = _icons[interest.id] ?? Icons.circle;
+    final icon = _icons[interest.id] ?? HugeIcons.strokeRoundedCircle;
 
     return GestureDetector(
       onTap: onToggle,
@@ -215,8 +216,8 @@ class _InterestCard extends StatelessWidget {
                     : cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
+              child: HugeIcon(
+                icon: icon,
                 color: active ? cs.primary : cs.onSurfaceVariant,
                 size: 22,
               ),
@@ -272,21 +273,21 @@ class _InterestCard extends StatelessWidget {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: interest.alwaysOn
-                  ? Icon(
-                      Icons.check_circle,
+                  ? HugeIcon(icon: 
+                      HugeIcons.strokeRoundedCheckmarkCircle01,
                       key: const ValueKey('locked'),
                       color: cs.primary,
                       size: 24,
                     )
                   : active
-                      ? Icon(
-                          Icons.check_circle,
+                      ? HugeIcon(icon: 
+                          HugeIcons.strokeRoundedCheckmarkCircle01,
                           key: const ValueKey('on'),
                           color: cs.primary,
                           size: 24,
                         )
-                      : Icon(
-                          Icons.circle_outlined,
+                      : HugeIcon(icon: 
+                          HugeIcons.strokeRoundedCircle,
                           key: const ValueKey('off'),
                           color: cs.outlineVariant,
                           size: 24,

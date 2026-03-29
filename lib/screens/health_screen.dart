@@ -50,7 +50,7 @@ class _HealthList extends ConsumerWidget {
               if (entries.isEmpty && headerBuilder == null) {
                 return const EmptyState(
                   message: 'No entries during this period.\nTap + to add your first entry.',
-                  icon: Icons.note_add_rounded,
+                  icon: HugeIcons.strokeRoundedNote01,
                 );
               }
               return CustomScrollView(
@@ -61,7 +61,7 @@ class _HealthList extends ConsumerWidget {
                     const SliverFillRemaining(
                       child: EmptyState(
                         message: 'No entries during this period.\nTap + to add your first entry.',
-                        icon: Icons.note_add_rounded,
+                        icon: HugeIcons.strokeRoundedNote01,
                       ),
                     )
                   else ...[

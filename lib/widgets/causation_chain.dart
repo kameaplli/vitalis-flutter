@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// A single event in a causation chain.
 class CausationEvent {
@@ -136,7 +137,7 @@ class _CausationNode extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(isFlare ? Icons.warning_amber : Icons.restaurant,
+                          HugeIcon(icon: isFlare ? HugeIcons.strokeRoundedAlert02 : HugeIcons.strokeRoundedRestaurant01,
                               size: 14, color: nodeColor),
                           const SizedBox(width: 6),
                           Expanded(

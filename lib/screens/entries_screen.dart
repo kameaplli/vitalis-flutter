@@ -13,6 +13,7 @@ import '../models/food_item.dart';
 import '../providers/nutrition_analytics_provider.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Standalone route screen — wraps NutritionHistoryContent in a Scaffold.
 class EntriesScreen extends ConsumerWidget {
@@ -67,7 +68,7 @@ class _NutritionHistoryContentState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: syncState.failedMeals.entries.map((e) => Row(
                 children: [
-                  const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                  HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 16, color: Colors.red),
                   const SizedBox(width: 8),
                   Expanded(child: Text(e.value,
                       style: const TextStyle(fontSize: 12, color: Colors.red))),
@@ -110,7 +111,7 @@ class _NutritionHistoryContentState
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.filter_list, size: 20),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedFilterHorizontal, size: 20),
               onPressed: () => _showFilterDialog(context),
             ),
             if (_startDate != null || _endDate != null)
@@ -124,7 +125,7 @@ class _NutritionHistoryContentState
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           child: Row(children: [
-            Icon(Icons.swipe, size: 13, color: Colors.grey.shade400),
+            HugeIcon(icon: HugeIcons.strokeRoundedTouch01, size: 13, color: Colors.grey.shade400),
             const SizedBox(width: 4),
             Text('Swipe right to edit · Swipe left to delete',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
@@ -180,7 +181,7 @@ class _NutritionHistoryContentState
                             leading: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                Icon(_mealIcon(entry.meal),
+                                HugeIcon(icon: _mealIcon(entry.meal),
                                     color: _mealColor(entry.meal)
                                         .withValues(alpha: 0.5),
                                     size: 20),
@@ -232,13 +233,13 @@ class _NutritionHistoryContentState
                               color: Colors.blue,
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.only(left: 16),
-                              child: const Icon(Icons.edit, color: Colors.white, size: 18),
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, color: Colors.white, size: 18),
                             ),
                             secondaryBackground: Container(
                               color: Colors.red,
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 16),
-                              child: const Icon(Icons.delete, color: Colors.white, size: 18),
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Colors.white, size: 18),
                             ),
                             confirmDismiss: (dir) async {
                               if (dir == DismissDirection.startToEnd) {
@@ -259,7 +260,7 @@ class _NutritionHistoryContentState
                             child: ListTile(
                               dense: true,
                               visualDensity: const VisualDensity(vertical: -2),
-                              leading: Icon(_mealIcon(entry.meal),
+                              leading: HugeIcon(icon: _mealIcon(entry.meal),
                                   color: _mealColor(entry.meal), size: 20),
                               title: Text(
                                 entry.description.isEmpty
@@ -344,16 +345,16 @@ class _NutritionHistoryContentState
     }
   }
 
-  IconData _mealIcon(String? meal) {
+  List<List<dynamic>> _mealIcon(String? meal) {
     switch (meal) {
       case 'breakfast':
-        return Icons.free_breakfast_outlined;
+        return HugeIcons.strokeRoundedCoffee01;
       case 'lunch':
-        return Icons.lunch_dining_outlined;
+        return HugeIcons.strokeRoundedRestaurant01;
       case 'dinner':
-        return Icons.dinner_dining_outlined;
+        return HugeIcons.strokeRoundedRestaurant01;
       default:
-        return Icons.restaurant_outlined;
+        return HugeIcons.strokeRoundedRestaurant01;
     }
   }
 
@@ -399,7 +400,7 @@ class _NutritionHistoryContentState
           children: [
             ListTile(
               title: Text(_startDate ?? 'Start date (any)'),
-              leading: const Icon(Icons.calendar_today),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01),
               onTap: () async {
                 Navigator.pop(ctx);
                 final d = await showDatePicker(
@@ -417,7 +418,7 @@ class _NutritionHistoryContentState
             ),
             ListTile(
               title: Text(_endDate ?? 'End date (any)'),
-              leading: const Icon(Icons.calendar_today_outlined),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01),
               onTap: () async {
                 Navigator.pop(ctx);
                 final d = await showDatePicker(

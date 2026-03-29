@@ -14,6 +14,7 @@ import '../../widgets/causation_chain.dart';
 import '../../widgets/what_if_simulator.dart';
 import '../../widgets/swipeable_insight_cards.dart';
 import 'eczema_helpers.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Report content widget ────────────────────────────────────────────────────
 
@@ -286,7 +287,7 @@ class ReportContent extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    const Icon(Icons.restaurant, size: 18, color: Colors.red),
+                    HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, size: 18, color: Colors.red),
                     const SizedBox(width: 6),
                     Text('Suspected Trigger Foods',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -342,7 +343,7 @@ class ReportContent extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      const Icon(Icons.eco, size: 18, color: Colors.green),
+                      HugeIcon(icon: HugeIcons.strokeRoundedLeaf01, size: 18, color: Colors.green),
                       const SizedBox(width: 6),
                       Text('Foods with Lower Itch',
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -381,7 +382,7 @@ class ReportContent extends StatelessWidget {
             EnvironmentCorrelationCard(correlation: envCorrelation!)
           else
             const EmptyAnalysisCard(
-              icon: Icons.cloud,
+              icon: HugeIcons.strokeRoundedCloud,
               title: 'Environmental Triggers',
               message: 'Save eczema logs to auto-capture weather data. '
                   'Location permission is needed to track temperature, '
@@ -394,7 +395,7 @@ class ReportContent extends StatelessWidget {
             SmartCorrelationCard(result: smartCorrelation!)
           else
             const EmptyAnalysisCard(
-              icon: Icons.psychology,
+              icon: HugeIcons.strokeRoundedBrain,
               title: 'Smart Food Analysis',
               message: 'Log both eczema and nutrition data to unlock '
                   'AI-powered food trigger analysis with Bayesian '
@@ -410,7 +411,7 @@ class ReportContent extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Icon(Icons.calendar_month, size: 18, color: cs.primary),
+                    HugeIcon(icon: HugeIcons.strokeRoundedCalendar01, size: 18, color: cs.primary),
                     const SizedBox(width: 6),
                     Text('Severity Calendar',
                         style: Theme.of(context).textTheme.titleSmall),
@@ -489,7 +490,7 @@ class ReportContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      const Icon(Icons.timeline, size: 18, color: Colors.deepPurple),
+                      HugeIcon(icon: HugeIcons.strokeRoundedActivity01, size: 18, color: Colors.deepPurple),
                       const SizedBox(width: 6),
                       Text('Recent Causation Chain',
                           style: Theme.of(context).textTheme.titleSmall),
@@ -515,7 +516,7 @@ class ReportContent extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      const Icon(Icons.science, size: 18, color: Colors.indigo),
+                      HugeIcon(icon: HugeIcons.strokeRoundedTestTube01, size: 18, color: Colors.indigo),
                       const SizedBox(width: 6),
                       Text('What-If Simulator',
                           style: Theme.of(context).textTheme.titleSmall),
@@ -561,7 +562,7 @@ class ReportContent extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedFile01),
               label: const Text('Export PDF Report'),
               onPressed: onExportPdf,
             ),
@@ -630,7 +631,7 @@ class ReportContent extends StatelessWidget {
           label: 'Avoid ${trigger.displayName}',
           description: '${(trigger.posteriorProbability * 100).toInt()}% trigger probability',
           predictedItch: (currentAvg - reduction).clamp(0.0, 10.0),
-          icon: Icons.no_food,
+          icon: HugeIcons.strokeRoundedRestaurant01,
         ));
       }
     }
@@ -640,7 +641,7 @@ class ReportContent extends StatelessWidget {
         label: 'Improve sleep quality',
         description: 'Get 7+ hours consistently',
         predictedItch: (currentAvg * 0.85).clamp(0.0, 10.0),
-        icon: Icons.bedtime,
+        icon: HugeIcons.strokeRoundedBed,
       ));
     }
     return scenarios;
@@ -657,7 +658,7 @@ class ReportContent extends StatelessWidget {
           title: '${cat.displayName} increases itch ${cat.riskMultiplier.toStringAsFixed(1)}x',
           body: 'Avg itch ${cat.avgItchWith.toStringAsFixed(1)}/10 with ${cat.displayName} '
               'vs ${cat.avgItchWithout.toStringAsFixed(1)}/10 without.',
-          icon: Icons.restaurant,
+          icon: HugeIcons.strokeRoundedRestaurant01,
           color: Colors.red,
         ));
       }
@@ -665,7 +666,7 @@ class ReportContent extends StatelessWidget {
         insights.add(SwipeableInsight(
           title: '${bt.displayName}: confirmed trigger',
           body: '${(bt.posteriorProbability * 100).toInt()}% probability based on ${bt.timesConsumed} observations.',
-          icon: Icons.verified,
+          icon: HugeIcons.strokeRoundedCheckmarkCircle01,
           color: Colors.deepOrange,
         ));
       }
@@ -677,7 +678,7 @@ class ReportContent extends StatelessWidget {
           title: '${f.factor} affects your skin ${f.riskMultiplier.toStringAsFixed(1)}x',
           body: 'Itch is ${f.avgItchBad.toStringAsFixed(1)}/10 in bad conditions '
               'vs ${f.avgItchNormal.toStringAsFixed(1)}/10 normally.',
-          icon: Icons.cloud,
+          icon: HugeIcons.strokeRoundedCloud,
           color: Colors.blue,
         ));
       }
@@ -687,7 +688,7 @@ class ReportContent extends StatelessWidget {
       insights.add(SwipeableInsight(
         title: '$logCount entries logged!',
         body: "Your data is getting powerful. Keep logging for more accurate insights.",
-        icon: Icons.trending_up,
+        icon: HugeIcons.strokeRoundedChartIncrease,
         color: Colors.green,
       ));
     }
@@ -696,7 +697,7 @@ class ReportContent extends StatelessWidget {
       insights.add(const SwipeableInsight(
         title: 'Keep logging!',
         body: 'More data means better insights. Try to log daily for the best results.',
-        icon: Icons.edit_note,
+        icon: HugeIcons.strokeRoundedEdit01,
       ));
     }
 
@@ -707,7 +708,7 @@ class ReportContent extends StatelessWidget {
 // ─── Stat card for report ───────────────────────────────────────────────────
 
 class EmptyAnalysisCard extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String message;
   const EmptyAnalysisCard({super.key, required this.icon, required this.title, required this.message});
@@ -725,7 +726,7 @@ class EmptyAnalysisCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, color: cs.onSurfaceVariant, size: 20),
+                HugeIcon(icon: icon, color: cs.onSurfaceVariant, size: 20),
                 const SizedBox(width: 8),
                 Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -733,7 +734,7 @@ class EmptyAnalysisCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: cs.onSurfaceVariant),
+                HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

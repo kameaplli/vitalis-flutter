@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Available app color skins. Dark mode is a separate toggle.
 enum AppSkin {
-  light('Daylight', Icons.wb_sunny_outlined),
-  dark('Teal Dark', Icons.dark_mode_outlined),
-  sunset('Sunset Glow', Icons.gradient_outlined),
-  ocean('Ocean Blue', Icons.water_outlined),
-  lavender('Lavender', Icons.local_florist_outlined);
+  light('Daylight', HugeIcons.strokeRoundedSun01),
+  dark('Teal Dark', HugeIcons.strokeRoundedMoon01),
+  sunset('Sunset Glow', HugeIcons.strokeRoundedCircle),
+  ocean('Ocean Blue', HugeIcons.strokeRoundedDroplet),
+  lavender('Lavender', HugeIcons.strokeRoundedLeaf01);
 
   final String label;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   const AppSkin(this.label, this.icon);
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// A small (i) icon button that shows a help tooltip when tapped.
 class HelpTooltip extends StatelessWidget {
@@ -15,7 +16,7 @@ class HelpTooltip extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return IconButton(
-      icon: Icon(Icons.help_outline, size: iconSize, color: cs.outline),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedHelpCircle, size: iconSize, color: cs.outline),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
       tooltip: message,

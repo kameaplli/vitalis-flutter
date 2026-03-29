@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/poll_models.dart';
 import '../../providers/poll_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Bottom sheet for creating a new poll.
 class CreatePollSheet extends ConsumerStatefulWidget {
@@ -139,7 +140,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                               borderRadius: BorderRadius.circular(12)),
                           suffixIcon: _optionCtrls.length > 2
                               ? IconButton(
-                                  icon: const Icon(Icons.close, size: 18),
+                                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                                   onPressed: () => _removeOption(i),
                                 )
                               : null,
@@ -155,7 +156,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
             if (_optionCtrls.length < 6)
               TextButton.icon(
                 onPressed: _addOption,
-                icon: const Icon(Icons.add, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                 label: const Text('Add option'),
               ),
 
@@ -171,12 +172,12 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                       ButtonSegment(
                         value: PollAccess.public_,
                         label: const Text('Public'),
-                        icon: const Icon(Icons.public, size: 16),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 16),
                       ),
                       ButtonSegment(
                         value: PollAccess.inviteOnly,
                         label: const Text('Invite'),
-                        icon: const Icon(Icons.lock_outline, size: 16),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 16),
                       ),
                     ],
                     selected: {_access},

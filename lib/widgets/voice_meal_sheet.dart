@@ -9,6 +9,7 @@ import 'package:record/record.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import 'help_tooltip.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Voice meal logging bottom sheet.
 ///
@@ -330,7 +331,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(children: [
-              Icon(Icons.mic, color: cs.primary),
+              HugeIcon(icon: HugeIcons.strokeRoundedMic01, color: cs.primary),
               const SizedBox(width: 10),
               Expanded(child: Text(
                 _state == _VoiceState.confirmed ? 'Confirm Your Meal' : 'Voice Meal Logger',
@@ -401,7 +402,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             color: cs.primary,
             boxShadow: [BoxShadow(color: cs.primary.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5)],
           ),
-          child: const Icon(Icons.mic, size: 48, color: Colors.white),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 48, color: Colors.white),
         ),
       ),
       const SizedBox(height: 24),
@@ -422,7 +423,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome, size: 14, color: cs.primary),
+            HugeIcon(icon: HugeIcons.strokeRoundedStars, size: 14, color: cs.primary),
             const SizedBox(width: 4),
             Text('AI-powered transcription',
               style: tt.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
@@ -454,7 +455,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       // Type instead option
       OutlinedButton.icon(
         onPressed: _showTextInput,
-        icon: const Icon(Icons.keyboard, size: 18),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: 18),
         label: const Text('Type instead'),
       ),
     ]);
@@ -464,7 +465,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(children: [
-        Icon(Icons.format_quote, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        HugeIcon(icon: HugeIcons.strokeRoundedQuoteDown, size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
         const SizedBox(width: 6),
         Flexible(child: Text(text, style: Theme.of(context).textTheme.bodySmall)),
       ]),
@@ -495,7 +496,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
                   spreadRadius: 5 + _currentAmplitude * 10,
                 )],
               ),
-              child: const Icon(Icons.mic, size: 48, color: Colors.white),
+              child: HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 48, color: Colors.white),
             ),
           );
         },
@@ -550,7 +551,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         height: 52,
         child: FilledButton.icon(
           onPressed: _stopAndProcess,
-          icon: const Icon(Icons.check),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
           label: const Text('Done — Process my meal', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           style: FilledButton.styleFrom(backgroundColor: cs.primary),
         ),
@@ -586,7 +587,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   Widget _buildConfirmedState(ColorScheme cs, TextTheme tt) {
     if (_meals.isEmpty) {
       return Column(children: [
-        Icon(Icons.check_circle, size: 64, color: cs.primary),
+        HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 64, color: cs.primary),
         const SizedBox(height: 16),
         Text('All meals logged!', style: tt.titleMedium),
       ]);
@@ -606,7 +607,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Icon(Icons.record_voice_over, size: 16, color: cs.onSurfaceVariant),
+                HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Expanded(child: Text('"$_transcript"', style: tt.bodySmall?.copyWith(
                   fontStyle: FontStyle.italic,
@@ -619,8 +620,8 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
                 final total = allItems.length;
                 final pct = total > 0 ? (matched / total * 100).round() : 0;
                 return Row(children: [
-                  Icon(
-                    pct >= 80 ? Icons.check_circle : pct >= 50 ? Icons.info : Icons.warning,
+                  HugeIcon(
+                    icon: pct >= 80 ? HugeIcons.strokeRoundedCheckmarkCircle01 : pct >= 50 ? HugeIcons.strokeRoundedInformationCircle : HugeIcons.strokeRoundedAlert02,
                     size: 14,
                     color: pct >= 80 ? Colors.green : pct >= 50 ? Colors.orange : Colors.red,
                   ),
@@ -649,7 +650,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             height: 48,
             child: FilledButton.icon(
               onPressed: _logAllMeals,
-              icon: const Icon(Icons.check_circle),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
               label: Text(
                 _meals.length == 1 ? 'Log Meal' : 'Log All ${_meals.length} Meals',
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
@@ -669,7 +670,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () => setState(() => _state = _VoiceState.idle),
-              icon: const Icon(Icons.mic, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 18),
               label: const Text('Add more'),
             ),
           ),
@@ -677,7 +678,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           Expanded(
             child: OutlinedButton.icon(
               onPressed: _showTextInput,
-              icon: const Icon(Icons.keyboard, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard, size: 18),
               label: const Text('Type to add'),
             ),
           ),
@@ -744,8 +745,8 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
             leading: CircleAvatar(
               radius: 14,
               backgroundColor: isMatched ? cs.primaryContainer : Colors.orange.shade100,
-              child: Icon(
-                isMatched ? Icons.check : Icons.help_outline,
+              child: HugeIcon(icon: 
+                isMatched ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedHelpCircle,
                 size: 16,
                 color: isMatched ? cs.primary : Colors.orange.shade700,
               ),
@@ -761,9 +762,9 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
                 if (!isMatched)
                   Tooltip(
                     message: 'AI estimated — will create as custom food',
-                    child: Icon(Icons.auto_awesome, size: 16, color: Colors.orange.shade600),
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedStars, size: 16, color: Colors.orange.shade600),
                   ),
-                Icon(Icons.edit_outlined, size: 14, color: cs.onSurfaceVariant),
+                HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 14, color: cs.onSurfaceVariant),
               ],
             ),
           );
@@ -805,18 +806,18 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
   Widget _mealIcon(String type, ColorScheme cs) {
     final icon = switch (type) {
-      'breakfast' => Icons.free_breakfast,
-      'lunch' => Icons.lunch_dining,
-      'dinner' => Icons.dinner_dining,
-      _ => Icons.restaurant,
+      'breakfast' => HugeIcons.strokeRoundedCoffee01,
+      'lunch' => HugeIcons.strokeRoundedRestaurant01,
+      'dinner' => HugeIcons.strokeRoundedRestaurant01,
+      _ => HugeIcons.strokeRoundedRestaurant01,
     };
-    return Icon(icon, color: cs.primary);
+    return HugeIcon(icon: icon, color: cs.primary);
   }
 
   Widget _buildErrorState(ColorScheme cs, TextTheme tt) {
     return Column(children: [
       const SizedBox(height: 30),
-      Icon(Icons.error_outline, size: 64, color: cs.error),
+      HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 64, color: cs.error),
       const SizedBox(height: 16),
       Text('Oops!', style: tt.titleMedium?.copyWith(color: cs.error)),
       const SizedBox(height: 8),
@@ -825,13 +826,13 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       const SizedBox(height: 24),
       FilledButton.icon(
         onPressed: () => setState(() => _state = _VoiceState.idle),
-        icon: const Icon(Icons.mic),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedMic01),
         label: const Text('Try Again'),
       ),
       const SizedBox(height: 8),
       OutlinedButton.icon(
         onPressed: _showTextInput,
-        icon: const Icon(Icons.keyboard),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard),
         label: const Text('Type instead'),
       ),
     ]);

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Returns a user-friendly error message based on the error type.
 /// Avoids generic "Something went wrong" — gives actionable, contextual info.
@@ -65,8 +66,8 @@ class FriendlyError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              _iconForError(error),
+            HugeIcon(
+              icon: _iconForError(error),
               size: 48,
               color: cs.outline,
             ),
@@ -84,7 +85,7 @@ class FriendlyError extends StatelessWidget {
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                 label: const Text('Retry'),
               ),
             ],
@@ -94,28 +95,28 @@ class FriendlyError extends StatelessWidget {
     );
   }
 
-  IconData _iconForError(Object error) {
+  List<List<dynamic>> _iconForError(Object error) {
     if (error is DioException) {
       if (error.type == DioExceptionType.connectionError ||
           error.type == DioExceptionType.connectionTimeout) {
-        return Icons.wifi_off_rounded;
+        return HugeIcons.strokeRoundedWifiOff01;
       }
       if (error.type == DioExceptionType.badResponse) {
         final code = error.response?.statusCode;
-        if (code == 401) return Icons.lock_outline_rounded;
-        if (code == 403) return Icons.block_rounded;
-        if (code != null && code >= 500) return Icons.cloud_off_rounded;
+        if (code == 401) return HugeIcons.strokeRoundedLockPassword;
+        if (code == 403) return HugeIcons.strokeRoundedCancel01;
+        if (code != null && code >= 500) return HugeIcons.strokeRoundedCloud;
       }
     }
-    if (error is SocketException) return Icons.wifi_off_rounded;
-    return Icons.error_outline_rounded;
+    if (error is SocketException) return HugeIcons.strokeRoundedWifiOff01;
+    return HugeIcons.strokeRoundedAlert01;
   }
 }
 
 /// A simple empty-state widget for when data loads successfully but is empty.
 class EmptyState extends StatelessWidget {
   final String message;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Widget? iconWidget;
   final String? actionLabel;
   final VoidCallback? onAction;
@@ -123,7 +124,7 @@ class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
     required this.message,
-    this.icon = Icons.inbox_rounded,
+    this.icon = HugeIcons.strokeRoundedInbox,
     this.iconWidget,
     this.actionLabel,
     this.onAction,
@@ -138,7 +139,7 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            iconWidget ?? Icon(icon, size: 48, color: cs.outline.withValues(alpha: 0.5)),
+            iconWidget ?? HugeIcon(icon: icon, size: 48, color: cs.outline.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               message,
@@ -153,7 +154,7 @@ class EmptyState extends StatelessWidget {
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: onAction,
-                icon: const Icon(Icons.add, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                 label: Text(actionLabel!),
               ),
             ],

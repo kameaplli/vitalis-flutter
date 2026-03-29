@@ -29,6 +29,7 @@ import 'eczema/eczema_compare_tab.dart';
 import 'eczema/eczema_heatmap_tab.dart';
 import 'eczema/eczema_report_tab.dart';
 import 'eczema/eczema_pdf_export.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -404,7 +405,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
               child: Row(children: [
-                Icon(Icons.touch_app_outlined, size: 13, color: cs.onSurfaceVariant),
+                HugeIcon(icon: HugeIcons.strokeRoundedTouch01, size: 13, color: cs.onSurfaceVariant),
                 const SizedBox(width: 3),
                 Flexible(
                   child: Text('Tap zone to score  ·  Pinch to zoom',
@@ -474,7 +475,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           bottom: 48,
           child: FloatingActionButton.extended(
             heroTag: 'eczema_save_fab',
-            icon: const Icon(Icons.assignment),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedTask01),
             label: Text(hasScores
                 ? 'Review & Save (${_regionScores.length})'
                 : (_editingId != null ? 'Edit Details' : 'Log Details')),
@@ -552,7 +553,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                     Row(children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Icon(Icons.calendar_today, size: 15),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01, size: 15),
                           label: Text(DateFormat('dd MMM yyyy').format(_date)),
                           onPressed: () async {
                             Navigator.pop(ctx);
@@ -564,7 +565,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Icon(Icons.access_time, size: 15),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 15),
                           label: Text(_time.format(sheetCtx)),
                           onPressed: () async {
                             Navigator.pop(ctx);
@@ -595,12 +596,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                     else
                       Card(
                         child: ListTile(
-                          leading: const Icon(Icons.cloud_off, size: 20),
+                          leading: HugeIcon(icon: HugeIcons.strokeRoundedCloud, size: 20),
                           title: const Text('Environment data unavailable', style: TextStyle(fontSize: 13)),
                           subtitle: const Text('Enable location to auto-capture weather', style: TextStyle(fontSize: 11)),
                           dense: true,
                           onTap: _fetchEnvironment,
-                          trailing: const Icon(Icons.refresh, size: 18),
+                          trailing: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                         ),
                       ),
                     const SizedBox(height: 8),
@@ -789,7 +790,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                         icon: _saving
                             ? const SizedBox(width: 18, height: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.save),
+                            : HugeIcon(icon: HugeIcons.strokeRoundedFloppyDisk),
                         label: Text(_editingId != null ? 'Update Log' : 'Save Assessment',
                             style: const TextStyle(fontSize: 16)),
                         onPressed: _saving ? null : () {
@@ -954,12 +955,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: Row(children: [
             IconButton(
-              icon: const Icon(Icons.science_outlined, size: 20),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedTestTube01, size: 20),
               tooltip: 'Generate mock data (90 days)',
               onPressed: _generateMockData,
             ),
             IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined, size: 20),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 20),
               tooltip: 'Delete all mock data',
               onPressed: _deleteMockData,
             ),

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/easi_models.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Canvas dimensions ─────────────────────────────────────────────────────
 // Matches body_map_clinical.png: 1548 wide × 1134 tall (front+back).
@@ -644,8 +645,8 @@ class EczemaBodyComparison extends StatelessWidget {
             border: Border.all(color: deltaColor.withValues(alpha: 0.3)),
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(
-              improved ? Icons.trending_down : (delta > 0 ? Icons.trending_up : Icons.trending_flat),
+            HugeIcon(icon:
+              improved ? HugeIcons.strokeRoundedChartDecrease : (delta > 0 ? HugeIcons.strokeRoundedChartIncrease : HugeIcons.strokeRoundedMinusSign),
               color: deltaColor, size: 18,
             ),
             const SizedBox(width: 6),
@@ -663,7 +664,7 @@ class EczemaBodyComparison extends StatelessWidget {
         Row(children: [
           _easiBadge('Visit A', easiA, severityA, labelA),
           const SizedBox(width: 8),
-          Icon(Icons.arrow_forward, size: 16, color: cs.onSurfaceVariant),
+          HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16, color: cs.onSurfaceVariant),
           const SizedBox(width: 8),
           _easiBadge('Visit B', easiB, severityB, labelB),
         ]),

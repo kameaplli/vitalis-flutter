@@ -7,6 +7,7 @@ import '../core/constants.dart';
 import '../models/sync_models.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/source_badge.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Unified Health Timeline Screen ──────────────────────────────────────────
 // Shows ALL health data from ALL sources in a single chronological feed.
@@ -140,7 +141,7 @@ class _HealthTimelineScreenState extends ConsumerState<HealthTimelineScreen> {
         centerTitle: true,
         actions: [
           PopupMenuButton<int>(
-            icon: const Icon(Icons.date_range),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01),
             tooltip: 'Date range',
             onSelected: _setDays,
             itemBuilder: (_) => [
@@ -363,7 +364,7 @@ class _TimelineEntryState extends State<_TimelineEntry> {
                         color: info.color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(info.icon, size: 16, color: info.color),
+                      child: HugeIcon(icon: info.icon, size: 16, color: info.color),
                     ),
                     const SizedBox(width: 10),
                     // Data type name
@@ -398,8 +399,8 @@ class _TimelineEntryState extends State<_TimelineEntry> {
                     ),
                     if (hasDetails) ...[
                       const SizedBox(width: 4),
-                      Icon(
-                        _expanded ? Icons.expand_less : Icons.expand_more,
+                      HugeIcon(icon:
+                        _expanded ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01,
                         size: 18,
                         color: cs.onSurfaceVariant,
                       ),
@@ -557,7 +558,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.timeline_rounded, size: 64,
+            HugeIcon(icon: HugeIcons.strokeRoundedActivity01, size: 64,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
             const SizedBox(height: 16),
             Text(
@@ -590,7 +591,7 @@ class _EmptyState extends StatelessWidget {
 // ── Data type visual info ───────────────────────────────────────────────────
 
 class _DataTypeVisual {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   const _DataTypeVisual({required this.icon, required this.color});
 }
@@ -599,53 +600,53 @@ _DataTypeVisual _dataTypeInfo(String dataType) {
   switch (dataType) {
     case 'steps':
       return const _DataTypeVisual(
-          icon: Icons.directions_walk_rounded, color: Color(0xFF22C55E));
+          icon: HugeIcons.strokeRoundedRunningShoes, color: Color(0xFF22C55E));
     case 'heart_rate':
     case 'resting_heart_rate':
       return const _DataTypeVisual(
-          icon: Icons.favorite_rounded, color: Color(0xFFEF4444));
+          icon: HugeIcons.strokeRoundedFavourite, color: Color(0xFFEF4444));
     case 'heart_rate_variability':
       return const _DataTypeVisual(
-          icon: Icons.show_chart_rounded, color: Color(0xFFEC4899));
+          icon: HugeIcons.strokeRoundedChartLineData01, color: Color(0xFFEC4899));
     case 'weight':
       return const _DataTypeVisual(
-          icon: Icons.monitor_weight_rounded, color: Color(0xFF8B5CF6));
+          icon: HugeIcons.strokeRoundedBodyWeight, color: Color(0xFF8B5CF6));
     case 'body_fat_pct':
       return const _DataTypeVisual(
-          icon: Icons.percent_rounded, color: Color(0xFFF97316));
+          icon: HugeIcons.strokeRoundedPercentCircle, color: Color(0xFFF97316));
     case 'spo2':
     case 'blood_oxygen':
       return const _DataTypeVisual(
-          icon: Icons.air_rounded, color: Color(0xFF3B82F6));
+          icon: HugeIcons.strokeRoundedFastWind, color: Color(0xFF3B82F6));
     case 'blood_glucose':
       return const _DataTypeVisual(
-          icon: Icons.water_drop_rounded, color: Color(0xFFF59E0B));
+          icon: HugeIcons.strokeRoundedDroplet, color: Color(0xFFF59E0B));
     case 'blood_pressure':
       return const _DataTypeVisual(
-          icon: Icons.speed_rounded, color: Color(0xFFDC2626));
+          icon: HugeIcons.strokeRoundedDashboardSpeed02, color: Color(0xFFDC2626));
     case 'body_temperature':
       return const _DataTypeVisual(
-          icon: Icons.thermostat_rounded, color: Color(0xFFEA580C));
+          icon: HugeIcons.strokeRoundedThermometer, color: Color(0xFFEA580C));
     case 'active_calories':
       return const _DataTypeVisual(
-          icon: Icons.local_fire_department_rounded, color: Color(0xFFF97316));
+          icon: HugeIcons.strokeRoundedFire, color: Color(0xFFF97316));
     case 'distance':
       return const _DataTypeVisual(
-          icon: Icons.straighten_rounded, color: Color(0xFF06B6D4));
+          icon: HugeIcons.strokeRoundedRuler, color: Color(0xFF06B6D4));
     case 'water':
       return const _DataTypeVisual(
-          icon: Icons.water_drop_rounded, color: Color(0xFF3B82F6));
+          icon: HugeIcons.strokeRoundedDroplet, color: Color(0xFF3B82F6));
     case 'workout':
       return const _DataTypeVisual(
-          icon: Icons.fitness_center_rounded, color: Color(0xFF10B981));
+          icon: HugeIcons.strokeRoundedDumbbell01, color: Color(0xFF10B981));
     case 'sleep_session':
       return const _DataTypeVisual(
-          icon: Icons.bedtime_rounded, color: Color(0xFF6366F1));
+          icon: HugeIcons.strokeRoundedBed, color: Color(0xFF6366F1));
     case 'sleep_stage':
       return const _DataTypeVisual(
-          icon: Icons.bedtime_rounded, color: Color(0xFF818CF8));
+          icon: HugeIcons.strokeRoundedBed, color: Color(0xFF818CF8));
     default:
       return const _DataTypeVisual(
-          icon: Icons.data_usage_rounded, color: Color(0xFF6B7280));
+          icon: HugeIcons.strokeRoundedChartLineData01, color: Color(0xFF6B7280));
   }
 }

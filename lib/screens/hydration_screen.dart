@@ -9,6 +9,7 @@ import '../widgets/circular_progress_ring.dart';
 import '../core/timezone_util.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 const double _defaultGoalMl = 2500;
 
@@ -110,7 +111,7 @@ class _HydrationScreenState extends ConsumerState<HydrationScreen> {
                         button: true,
                         label: 'Select time, currently ${_selectedTime.format(context)}',
                         child: OutlinedButton.icon(
-                          icon: const Icon(Icons.access_time, size: 16),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 16),
                           label: Text('${_selectedTime.format(context)} ${localTimezone()}'),
                           onPressed: () async {
                             final t = await showTimePicker(

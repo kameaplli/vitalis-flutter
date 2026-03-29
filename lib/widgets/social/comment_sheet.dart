@@ -5,6 +5,7 @@ import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Bottom sheet for viewing and adding comments on a feed event.
 class CommentSheet extends ConsumerStatefulWidget {
@@ -214,7 +215,7 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                 ],
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.close_rounded, color: cs.onSurfaceVariant, size: 20),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, color: cs.onSurfaceVariant, size: 20),
                   onPressed: () => Navigator.pop(context),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -244,7 +245,7 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.error_outline_rounded,
+                              HugeIcon(icon: HugeIcons.strokeRoundedAlert01,
                                   size: 40, color: cs.error),
                               const SizedBox(height: 12),
                               Text(_error!,
@@ -271,8 +272,8 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.chat_bubble_outline_rounded,
+                                  HugeIcon(icon: 
+                                    HugeIcons.strokeRoundedComment01,
                                     size: 48,
                                     color: cs.onSurfaceVariant.withValues(alpha: 0.3),
                                   ),
@@ -370,8 +371,8 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                               colors: [cs.primary, cs.tertiary],
                             ),
                           ),
-                          child: const Icon(
-                            Icons.send_rounded,
+                          child: HugeIcon(icon: 
+                            HugeIcons.strokeRoundedSent,
                             color: Colors.white,
                             size: 16,
                           ),

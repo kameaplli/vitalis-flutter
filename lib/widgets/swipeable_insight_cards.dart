@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// A single insight for the swipeable card stack.
 class SwipeableInsight {
   final String title;
   final String body;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color? color;
 
   const SwipeableInsight({
     required this.title,
     required this.body,
-    this.icon = Icons.insights,
+    this.icon = HugeIcons.strokeRoundedIdea01,
     this.color,
   });
 }
@@ -41,7 +42,7 @@ class _SwipeableInsightCardsState extends State<SwipeableInsightCards> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_outline, size: 48, color: Colors.grey),
+            HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 48, color: Colors.grey),
             SizedBox(height: 8),
             Text("You've seen all insights!", style: TextStyle(color: Colors.grey)),
           ],
@@ -145,7 +146,7 @@ class _InsightCardContent extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(insight.icon, size: 24, color: color),
+                HugeIcon(icon: insight.icon, size: 24, color: color),
                 const SizedBox(width: 10),
                 Expanded(child: Text(insight.title,
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color))),
@@ -157,7 +158,7 @@ class _InsightCardContent extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.swipe, size: 14, color: Colors.grey.shade400),
+                HugeIcon(icon: HugeIcons.strokeRoundedTouch01, size: 14, color: Colors.grey.shade400),
                 const SizedBox(width: 4),
                 Text('Swipe right = helpful, left = dismiss',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),

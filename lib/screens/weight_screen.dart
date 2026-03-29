@@ -10,6 +10,7 @@ import '../widgets/weight_chart_widget.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/days_slider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Standalone route screen — wraps WeightContent in a Scaffold.
 class WeightScreen extends ConsumerWidget {
@@ -205,7 +206,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.monitor_weight_outlined, color: cs.primary, size: 20),
+                        HugeIcon(icon: HugeIcons.strokeRoundedBodyWeight, color: cs.primary, size: 20),
                         const SizedBox(width: 8),
                         Text('Log Weight', style: Theme.of(context).textTheme.titleSmall),
                       ],
@@ -245,7 +246,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                           ? const SizedBox(
                               width: 18, height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check_rounded),
+                          : HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
                       label: Text('Log ${_weight.toStringAsFixed(1)} kg'),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(double.infinity, 52),

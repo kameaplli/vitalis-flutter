@@ -203,14 +203,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               if (_gender != 'male') ...[
                 const SizedBox(height: 16),
                 SwitchListTile(
-                  secondary: const HugeIcon(icon: HugeIcons.strokeRoundedBaby01, size: 24),
+                  secondary: HugeIcon(icon: HugeIcons.strokeRoundedBaby01, size: 24),
                   title: const Text('Pregnant'),
                   subtitle: const Text('Adjusts your nutritional reference values'),
                   value: _isPregnant,
                   onChanged: (v) => setState(() => _isPregnant = v),
                 ),
                 SwitchListTile(
-                  secondary: const HugeIcon(icon: HugeIcons.strokeRoundedBabyBottle, size: 24),
+                  secondary: HugeIcon(icon: HugeIcons.strokeRoundedBabyBottle, size: 24),
                   title: const Text('Lactating'),
                   subtitle: const Text('Adjusts your nutritional reference values'),
                   value: _isLactating,
@@ -219,30 +219,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ] else ...[
               ListTile(
-                leading: const HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 24),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 24),
                 title: const Text('Name'),
                 trailing: Text(user.name),
               ),
               ListTile(
-                leading: const HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 24),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 24),
                 title: const Text('Email'),
                 trailing: Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
               ),
               if (user.age != null)
                 ListTile(
-                  leading: const HugeIcon(icon: HugeIcons.strokeRoundedBirthdayCake, size: 24),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedBirthdayCake, size: 24),
                   title: const Text('Age'),
                   trailing: Text('${user.age}'),
                 ),
               if (user.gender != null)
                 ListTile(
-                  leading: const HugeIcon(icon: HugeIcons.strokeRoundedUserGroup, size: 24),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedUserGroup, size: 24),
                   title: const Text('Gender'),
                   trailing: Text(user.gender!),
                 ),
               if (user.height != null)
                 ListTile(
-                  leading: const HugeIcon(icon: HugeIcons.strokeRoundedRuler, size: 24),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedRuler, size: 24),
                   title: const Text('Height'),
                   trailing: Text('${user.height!.toStringAsFixed(0)} cm'),
                 ),
@@ -263,7 +263,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             // Biometric login toggle
             if (_biometricAvailable)
               SwitchListTile(
-                secondary: const HugeIcon(icon: HugeIcons.strokeRoundedFingerPrint, size: 24),
+                secondary: HugeIcon(icon: HugeIcons.strokeRoundedFingerPrint, size: 24),
                 title: const Text('Biometric login'),
                 subtitle: Text(_biometricEnabled
                     ? 'Fingerprint / Face ID active'
@@ -272,14 +272,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onChanged: _toggleBiometric,
               ),
             ListTile(
-              leading: const HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 24),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 24),
               title: const Text('Notification preferences'),
               subtitle: const Text('Meals, hydration, supplements, eczema alerts'),
               trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),
             ListTile(
-              leading: const HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircleEdit, size: 24),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircleEdit, size: 24),
               title: const Text('Customize Dashboard'),
               subtitle: const Text('Choose which cards to show and their order'),
               trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
@@ -733,7 +733,7 @@ class _ThemePicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(themeProvider);
     return ListTile(
-      leading: Icon(current.icon),
+      leading: HugeIcon(icon: current.icon),
       title: const Text('App theme'),
       subtitle: Text(current.label),
       trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
@@ -753,7 +753,7 @@ class _ThemePicker extends ConsumerWidget {
                       value: skin,
                       groupValue: current,
                       title: Text(skin.label),
-                      secondary: Icon(skin.icon),
+                      secondary: HugeIcon(icon: skin.icon),
                       onChanged: (v) {
                         if (v != null) {
                           ref.read(themeProvider.notifier).setSkin(v);

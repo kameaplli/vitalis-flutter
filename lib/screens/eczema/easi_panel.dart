@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/easi_models.dart';
 import 'eczema_helpers.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── EASI scoring panel (bottom sheet) ───────────────────────────────────────
 
@@ -105,7 +106,7 @@ class _EasiPanelState extends State<EasiPanel> {
                 Text(widget.region.group.label,
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               ])),
-              IconButton(icon: const Icon(Icons.close), onPressed: () {
+              IconButton(icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01), onPressed: () {
                 Navigator.pop(context);
                 widget.onDismiss();
               }),
@@ -243,13 +244,13 @@ class _EasiPanelState extends State<EasiPanel> {
 
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               TextButton.icon(
-                icon: const Icon(Icons.delete_outline, size: 16),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 16),
                 label: const Text('Remove'),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
                 onPressed: () { Navigator.pop(context); widget.onRemove(); },
               ),
               FilledButton.icon(
-                icon: const Icon(Icons.check, size: 16),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 16),
                 label: const Text('Confirm'),
                 onPressed: () {
                   Navigator.pop(context);

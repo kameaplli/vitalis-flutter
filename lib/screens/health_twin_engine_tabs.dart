@@ -4,16 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/health_twin_engine_data.dart';
 import '../providers/health_twin_engine_provider.dart';
 import '../providers/selected_person_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Shared Empty State ──────────────────────────────────────────────────────
 
 class _EmptyStateWidget extends StatelessWidget {
   final String message;
-  final IconData icon;
+  final List<List<dynamic>> icon;
 
   const _EmptyStateWidget({
     required this.message,
-    this.icon = Icons.inbox_rounded,
+    this.icon = HugeIcons.strokeRoundedInbox,
   });
 
   @override
@@ -25,7 +26,7 @@ class _EmptyStateWidget extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: theme.colorScheme.outline),
+            HugeIcon(icon: icon, size: 56, color: theme.colorScheme.outline),
             const SizedBox(height: 16),
             Text(
               message,
@@ -61,7 +62,7 @@ class CorrelationsTab extends ConsumerWidget {
           return const _EmptyStateWidget(
             message:
                 'Not enough cross-domain data yet.\nLog meals, mood, sleep, and exercise to discover correlations.',
-            icon: Icons.insights_rounded,
+            icon: HugeIcons.strokeRoundedIdea01,
           );
         }
         return RefreshIndicator(
@@ -181,7 +182,7 @@ class _TopInsightCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb_outline_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedBulb,
                       size: 16, color: cs.primary),
                   const SizedBox(width: 6),
                   Expanded(
@@ -378,8 +379,8 @@ class _DomainSummaryGrid extends StatelessWidget {
           ),
           child: Column(
             children: [
-              Icon(
-                _domainIcon(e.key),
+              HugeIcon(
+                icon: _domainIcon(e.key),
                 size: 20,
                 color: hasData ? cs.primary : cs.outline,
               ),
@@ -404,24 +405,24 @@ class _DomainSummaryGrid extends StatelessWidget {
     );
   }
 
-  IconData _domainIcon(String domain) {
+  List<List<dynamic>> _domainIcon(String domain) {
     switch (domain.toLowerCase()) {
       case 'nutrition':
-        return Icons.restaurant_rounded;
+        return HugeIcons.strokeRoundedRestaurant01;
       case 'hydration':
-        return Icons.water_drop_rounded;
+        return HugeIcons.strokeRoundedDroplet;
       case 'mood':
-        return Icons.mood_rounded;
+        return HugeIcons.strokeRoundedSmileDizzy;
       case 'sleep':
-        return Icons.bedtime_rounded;
+        return HugeIcons.strokeRoundedBed;
       case 'exercise':
-        return Icons.fitness_center_rounded;
+        return HugeIcons.strokeRoundedDumbbell01;
       case 'weight':
-        return Icons.monitor_weight_rounded;
+        return HugeIcons.strokeRoundedBodyWeight;
       case 'symptoms':
-        return Icons.healing_rounded;
+        return HugeIcons.strokeRoundedBandage;
       default:
-        return Icons.circle_outlined;
+        return HugeIcons.strokeRoundedCircle;
     }
   }
 }
@@ -446,7 +447,7 @@ class EngagementTab extends ConsumerWidget {
         if (summary == null) {
           return const _EmptyStateWidget(
             message: 'No engagement data available yet.',
-            icon: Icons.emoji_events_rounded,
+            icon: HugeIcons.strokeRoundedAward01,
           );
         }
 
@@ -483,7 +484,7 @@ class EngagementTab extends ConsumerWidget {
                   if (achData == null || achData.achievements.isEmpty) {
                     return const _EmptyStateWidget(
                       message: 'No achievements yet. Keep logging!',
-                      icon: Icons.emoji_events_outlined,
+                      icon: HugeIcons.strokeRoundedAward01,
                     );
                   }
                   return _AchievementsSection(data: achData);
@@ -707,7 +708,7 @@ class _XpSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.star_rounded, color: Colors.amber.shade700, size: 22),
+                HugeIcon(icon: HugeIcons.strokeRoundedStar, color: Colors.amber.shade700, size: 22),
                 const SizedBox(width: 6),
                 Text('Experience Points',
                     style: theme.textTheme.titleSmall
@@ -982,7 +983,7 @@ class PredictionsTab extends ConsumerWidget {
           return const _EmptyStateWidget(
             message:
                 'Predictions need more data.\nKeep logging daily to unlock insights.',
-            icon: Icons.auto_graph_rounded,
+            icon: HugeIcons.strokeRoundedChartLineData01,
           );
         }
 
@@ -1067,23 +1068,23 @@ class _DataQualityBanner extends StatelessWidget {
     final theme = Theme.of(context);
     Color bg;
     Color fg;
-    IconData icon;
+    List<List<dynamic>> icon;
 
     switch (quality.toLowerCase()) {
       case 'good':
         bg = Colors.green.shade50;
         fg = Colors.green.shade800;
-        icon = Icons.check_circle_rounded;
+        icon = HugeIcons.strokeRoundedCheckmarkCircle01;
         break;
       case 'fair':
         bg = Colors.amber.shade50;
         fg = Colors.amber.shade800;
-        icon = Icons.info_rounded;
+        icon = HugeIcons.strokeRoundedInformationCircle;
         break;
       default:
         bg = Colors.red.shade50;
         fg = Colors.red.shade800;
-        icon = Icons.warning_rounded;
+        icon = HugeIcons.strokeRoundedAlert02;
     }
 
     return Container(
@@ -1094,7 +1095,7 @@ class _DataQualityBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: fg, size: 20),
+          HugeIcon(icon: icon, color: fg, size: 20),
           const SizedBox(width: 8),
           Text(
             'Data quality: ${quality[0].toUpperCase()}${quality.substring(1)}',
@@ -1208,7 +1209,7 @@ class _PredictionCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.flag_rounded, size: 16, color: cs.primary),
+                    HugeIcon(icon: HugeIcons.strokeRoundedFlag01, size: 16, color: cs.primary),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -1277,22 +1278,22 @@ class _RiskFlagCard extends StatelessWidget {
 
     Color bg;
     Color fg;
-    IconData icon;
+    List<List<dynamic>> icon;
     switch (severity) {
       case 'high':
         bg = Colors.red.shade50;
         fg = Colors.red.shade800;
-        icon = Icons.error_rounded;
+        icon = HugeIcons.strokeRoundedAlert01;
         break;
       case 'medium':
         bg = Colors.amber.shade50;
         fg = Colors.amber.shade800;
-        icon = Icons.warning_rounded;
+        icon = HugeIcons.strokeRoundedAlert02;
         break;
       default:
         bg = Colors.yellow.shade50;
         fg = Colors.yellow.shade900;
-        icon = Icons.info_rounded;
+        icon = HugeIcons.strokeRoundedInformationCircle;
     }
 
     return Card(
@@ -1304,7 +1305,7 @@ class _RiskFlagCard extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Icon(icon, color: fg, size: 22),
+            HugeIcon(icon: icon, color: fg, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Text(message,
@@ -1379,7 +1380,7 @@ class _WhatIfCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.arrow_right_rounded,
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                           size: 18, color: cs.primary),
                       Expanded(
                         child: Text(
@@ -1457,7 +1458,7 @@ class _LabFeedbackSection extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check_circle_rounded,
+                    HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                         size: 16, color: Colors.green.shade700),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1651,7 +1652,7 @@ class _LabBiomarkerCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.lightbulb_outline_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedBulb,
                       size: 14, color: cs.primary),
                   const SizedBox(width: 4),
                   Expanded(
@@ -1689,7 +1690,7 @@ class FamilyOverviewTab extends ConsumerWidget {
         if (data == null || data.members.isEmpty) {
           return const _EmptyStateWidget(
             message: 'No family members found.\nAdd family members in Profile.',
-            icon: Icons.family_restroom_rounded,
+            icon: HugeIcons.strokeRoundedUserGroup,
           );
         }
 
@@ -1796,7 +1797,7 @@ class FamilyOverviewTab extends ConsumerWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.warning_amber_rounded,
+                              HugeIcon(icon: HugeIcons.strokeRoundedAlert02,
                                   size: 16, color: Colors.amber.shade700),
                               const SizedBox(width: 8),
                               Expanded(
@@ -1867,7 +1868,7 @@ class FamilyOverviewTab extends ConsumerWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.notification_important_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedNotification01,
                               size: 18, color: alertColor),
                           const SizedBox(width: 8),
                           Expanded(
@@ -2076,7 +2077,7 @@ class _FamilyMemberCard extends StatelessWidget {
               Row(
                 children: [
                   if (member.activeGoals.isNotEmpty) ...[
-                    Icon(Icons.flag_rounded, size: 14, color: cs.outline),
+                    HugeIcon(icon: HugeIcons.strokeRoundedFlag01, size: 14, color: cs.outline),
                     const SizedBox(width: 2),
                     Text('${member.activeGoals.length} goals',
                         style: theme.textTheme.labelSmall
@@ -2084,7 +2085,7 @@ class _FamilyMemberCard extends StatelessWidget {
                     const SizedBox(width: 12),
                   ],
                   if (member.activeAlerts > 0) ...[
-                    Icon(Icons.warning_amber_rounded,
+                    HugeIcon(icon: HugeIcons.strokeRoundedAlert02,
                         size: 14, color: Colors.amber.shade700),
                     const SizedBox(width: 2),
                     Text('${member.activeAlerts} alerts',
@@ -2101,7 +2102,7 @@ class _FamilyMemberCard extends StatelessWidget {
                             ?.copyWith(color: cs.outline)),
                   ],
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                       size: 18, color: cs.outline),
                 ],
               ),

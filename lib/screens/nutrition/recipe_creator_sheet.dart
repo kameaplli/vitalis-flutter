@@ -6,6 +6,7 @@ import '../../core/constants.dart';
 import '../../models/food_item.dart';
 import '../../providers/food_provider.dart';
 import 'food_search_sheet.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Recipe creator bottom sheet ─────────────────────────────────────────────
 
@@ -351,7 +352,7 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
 
                               // Delete button
                               IconButton(
-                                icon: Icon(Icons.close,
+                                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
                                     size: 20,
                                     color: colorScheme.error),
                                 onPressed: () => _removeIngredient(idx),
@@ -368,7 +369,7 @@ class _RecipeCreatorSheetState extends ConsumerState<RecipeCreatorSheet> {
                   // Add ingredient button
                   OutlinedButton.icon(
                     onPressed: _addIngredient,
-                    icon: const Icon(Icons.add),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
                     label: const Text('Add Ingredient'),
                   ),
                 ],

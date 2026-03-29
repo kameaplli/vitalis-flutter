@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/smart_correlation_data.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Phase 2: Smart food correlation results display.
 class SmartCorrelationCard extends StatelessWidget {
@@ -61,7 +62,7 @@ class _DataQualityBanner extends StatelessWidget {
             : quality == 'moderate'
                 ? Colors.orange
                 : Colors.grey;
-    final icon = quality == 'insufficient' ? Icons.info_outline : Icons.check_circle;
+    final icon = quality == 'insufficient' ? HugeIcons.strokeRoundedInformationCircle : HugeIcons.strokeRoundedCheckmarkCircle01;
     final message = quality == 'insufficient'
         ? 'Need more data (min 15 entries). Currently $entries entries.'
         : quality == 'moderate'
@@ -77,7 +78,7 @@ class _DataQualityBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: color),
+          HugeIcon(icon: icon, size: 16, color: color),
           const SizedBox(width: 8),
           Expanded(child: Text(message, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500))),
         ],
@@ -104,7 +105,7 @@ class _BayesianTriggersCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.psychology, color: cs.primary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedBrain, color: cs.primary, size: 20),
                 const SizedBox(width: 8),
                 Text('Trigger Probability (Bayesian)', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -198,7 +199,7 @@ class _CategoryCorrelationsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.category, color: cs.primary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedMenu01, color: cs.primary, size: 20),
                 const SizedBox(width: 8),
                 Text('Category Correlations', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -229,8 +230,8 @@ class _CategoryRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(
-            isTrigger ? Icons.warning : (isSafe ? Icons.check_circle : Icons.remove_circle_outline),
+          HugeIcon(icon: 
+            isTrigger ? HugeIcons.strokeRoundedAlert02 : (isSafe ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedRemove01),
             size: 14,
             color: color,
           ),
@@ -283,7 +284,7 @@ class _CombinationTriggersCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.merge_type, color: Colors.deepOrange, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedExchange01, color: Colors.deepOrange, size: 20),
                 const SizedBox(width: 8),
                 Text('Combination Triggers', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -351,7 +352,7 @@ class _LagAnalysisCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.schedule, color: cs.tertiary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedClock01, color: cs.tertiary, size: 20),
                 const SizedBox(width: 8),
                 Text('Reaction Timing', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -366,7 +367,7 @@ class _LagAnalysisCard extends StatelessWidget {
                 child: Row(
                   children: [
                     SizedBox(width: 100, child: Text(_catName(l.category), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                    Icon(Icons.arrow_forward, size: 14, color: cs.onSurfaceVariant),
+                    HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 14, color: cs.onSurfaceVariant),
                     const SizedBox(width: 4),
                     Text(lagStr, style: TextStyle(fontSize: 12, color: cs.tertiary, fontWeight: FontWeight.w600)),
                     const Spacer(),
@@ -405,7 +406,7 @@ class _CumulativeEffectsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.stacked_line_chart, color: Colors.purple, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, color: Colors.purple, size: 20),
                 const SizedBox(width: 8),
                 Text('Cumulative Exposure', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -471,7 +472,7 @@ class _FoodCorrelationsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.restaurant, color: cs.primary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, color: cs.primary, size: 20),
                 const SizedBox(width: 8),
                 Text('Individual Foods', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],

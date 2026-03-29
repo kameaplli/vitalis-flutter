@@ -219,7 +219,7 @@ class _DigitalTwinTab extends ConsumerWidget {
           return EmptyState(
             message:
                 'No data available for today.\nLog some meals or hydration to see your Digital Twin.',
-            icon: Icons.person_search_rounded,
+            icon: HugeIcons.strokeRoundedUserSearch01,
           );
         }
         return ListView(
@@ -1816,7 +1816,7 @@ class _WeeklySummaryTabState extends ConsumerState<_WeeklySummaryTab> {
           return const EmptyState(
             message:
                 'Your first weekly summary will appear\nafter a week of logging.',
-            icon: Icons.calendar_today_rounded,
+            icon: HugeIcons.strokeRoundedCalendar01,
           );
         }
         return _WeeklySummaryBody(
@@ -2352,7 +2352,7 @@ class _WeeklyHistoryView extends ConsumerWidget {
               if (weeks.isEmpty) {
                 return const EmptyState(
                   message: 'No weekly summaries yet.',
-                  icon: Icons.history_rounded,
+                  icon: HugeIcons.strokeRoundedClock01,
                 );
               }
               return ListView.builder(
@@ -2665,7 +2665,7 @@ class _DimensionBreakdown extends StatelessWidget {
           const EmptyState(
             message:
                 'No dimension data yet.\nLog more health data to see your scores.',
-            icon: Icons.insights_rounded,
+            icon: HugeIcons.strokeRoundedIdea01,
           ),
         ],
       );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Connection status for the button.
 enum ConnectionStatus {
@@ -37,7 +38,7 @@ class ConnectionButton extends StatelessWidget {
             HapticFeedback.lightImpact();
             onAddFriend?.call();
           },
-          icon: const Icon(Icons.person_add_alt_1, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedUserAdd01, size: 18),
           label: const Text('Add Friend'),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -47,7 +48,7 @@ class ConnectionButton extends StatelessWidget {
       case ConnectionStatus.pendingSent:
         return OutlinedButton.icon(
           onPressed: null,
-          icon: Icon(Icons.schedule, size: 18, color: cs.onSurfaceVariant),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18, color: cs.onSurfaceVariant),
           label: Text(
             'Pending',
             style: TextStyle(color: cs.onSurfaceVariant),
@@ -67,7 +68,7 @@ class ConnectionButton extends StatelessWidget {
                 HapticFeedback.lightImpact();
                 onAccept?.call();
               },
-              icon: const Icon(Icons.check, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
               label: const Text('Accept'),
               style: FilledButton.styleFrom(
                 padding:
@@ -99,7 +100,7 @@ class ConnectionButton extends StatelessWidget {
             HapticFeedback.lightImpact();
             onRemove?.call();
           },
-          icon: Icon(Icons.how_to_reg, size: 18, color: cs.primary),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedUserCheck01, size: 18, color: cs.primary),
           label: Text(
             'Friends',
             style: TextStyle(color: cs.primary),
