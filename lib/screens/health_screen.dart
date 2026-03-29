@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -69,7 +70,7 @@ class _HealthList extends ConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
                         child: MergeSemantics(
                           child: Row(children: [
-                            ExcludeSemantics(child: Icon(Icons.swipe, size: 12, color: Theme.of(context).colorScheme.outline)),
+                            ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedSwipeRight01, size: 12, color: Theme.of(context).colorScheme.outline)),
                             const SizedBox(width: 4),
                             Text('Swipe right to edit · left to delete',
                                 style: TextStyle(
@@ -94,13 +95,13 @@ class _HealthList extends ConsumerWidget {
                               color: Colors.blue,
                               alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.only(left: 16),
-                              child: const Icon(Icons.edit, color: Colors.white),
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, color: Colors.white),
                             ),
                             secondaryBackground: Container(
                               color: Colors.red,
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 16),
-                              child: const Icon(Icons.delete, color: Colors.white),
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Colors.white),
                             ),
                             confirmDismiss: (dir) async {
                               if (dir == DismissDirection.startToEnd) {
@@ -179,7 +180,7 @@ class _DraggableFabState extends State<_DraggableFab> {
         child: FloatingActionButton(
           onPressed: widget.onPressed,
           tooltip: 'Add new entry',
-          child: const Icon(Icons.add, semanticLabel: 'Add new entry'),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, color: Theme.of(context).colorScheme.onPrimaryContainer),
         ),
       ),
     );
@@ -204,28 +205,28 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
     final key    = '${person}_$_days';
 
     final allCards = [
-      _CardDef('symptoms',    'Symptoms',    Icons.thermostat_rounded,       const Color(0xFFE53935),
+      _CardDef('symptoms',    'Symptoms',    HugeIcons.strokeRoundedThermometer, const Color(0xFFE53935),
           ref.watch(symptomsProvider(key))),
-      _CardDef('medications', 'Medications', Icons.medical_services_rounded, const Color(0xFF1E88E5),
+      _CardDef('medications', 'Medications', HugeIcons.strokeRoundedFirstAidKit, const Color(0xFF1E88E5),
           ref.watch(medicationsProvider('${person}_7'))),
-      const _CardDef('labs',        'Decode', Icons.biotech_rounded,          Color(0xFFD32F2F),
+      const _CardDef('labs',        'Decode', HugeIcons.strokeRoundedDna,          Color(0xFFD32F2F),
           AsyncValue.data([])),
-      _CardDef('supplements', 'Supplements', Icons.science_rounded,         const Color(0xFFF9A825),
+      _CardDef('supplements', 'Supplements', HugeIcons.strokeRoundedTestTube01,  const Color(0xFFF9A825),
           ref.watch(supplementsProvider('${person}_7'))),
-      _CardDef('mood',        'Mood',        Icons.self_improvement_rounded, const Color(0xFF43A047),
+      _CardDef('mood',        'Mood',        HugeIcons.strokeRoundedYoga01,      const Color(0xFF43A047),
           ref.watch(moodProvider(key))),
-      _CardDef('sleep',       'Sleep',       Icons.bedtime_rounded,         const Color(0xFF5C6BC0),
+      _CardDef('sleep',       'Sleep',       HugeIcons.strokeRoundedBed,         const Color(0xFF5C6BC0),
           ref.watch(sleepProvider(key))),
-      _CardDef('exercise',    'Exercise',    Icons.directions_run_rounded,  const Color(0xFFFF7043),
+      _CardDef('exercise',    'Exercise',    HugeIcons.strokeRoundedRunningShoes, const Color(0xFFFF7043),
           ref.watch(exerciseProvider(key))),
-      const _CardDef('weight',      'Weight',      Icons.fitness_center_rounded,   Color(0xFF8E24AA),
+      const _CardDef('weight',      'Weight',      HugeIcons.strokeRoundedDumbbell01, Color(0xFF8E24AA),
           AsyncValue.data([])),
-      const _CardDef('eczema',      'Eczema',      Icons.dry_rounded,             Color(0xFF00897B),
+      const _CardDef('eczema',      'Eczema',      HugeIcons.strokeRoundedBandage,    Color(0xFF00897B),
           AsyncValue.data([])),
-      _CardDef('skin-photos', 'Skin Photos', Icons.photo_camera_rounded,    const Color(0xFF6D4C41),
+      _CardDef('skin-photos', 'Skin Photos', HugeIcons.strokeRoundedCamera01,   const Color(0xFF6D4C41),
           ref.watch(skinPhotosProvider(person)).whenData((photos) =>
               photos.map((p) => <String, dynamic>{'id': p.id}).toList())),
-      const _CardDef('products',    'Products',    Icons.local_pharmacy_rounded,   Color(0xFF3949AB),
+      const _CardDef('products',    'Products',    HugeIcons.strokeRoundedMedicine01, Color(0xFF3949AB),
           AsyncValue.data([])),
     ];
 
@@ -291,7 +292,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen> {
 class _CardDef {
   final String category;
   final String label;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   final AsyncValue<List<Map<String, dynamic>>> logsAsync;
 
@@ -385,7 +386,7 @@ class _HealthCardState extends State<_HealthCard>
                                 color: def.color.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: Icon(def.icon, size: 32, color: def.color),
+                              child: HugeIcon(icon: def.icon, size: 32, color: def.color),
                             ),
                             if (badge != null)
                               Positioned(
@@ -437,7 +438,7 @@ class _HealthCardState extends State<_HealthCard>
 // ─── Insight widgets (computed from local data, no extra API calls) ───────────
 
 class _InsightChip extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final String value;
   final Color color;
@@ -455,7 +456,7 @@ class _InsightChip extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 20),
+          HugeIcon(icon: icon, color: color, size: 20),
           const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: color)),
           Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
@@ -499,17 +500,17 @@ class _SymptomInsights extends StatelessWidget {
           Row(
             children: [
               Expanded(child: _InsightChip(
-                icon: Icons.numbers, label: 'Total', value: '$total',
+                icon: HugeIcons.strokeRoundedAbacus, label: 'Total', value: '$total',
                 color: const Color(0xFFE53935),
               )),
               const SizedBox(width: 8),
               Expanded(child: _InsightChip(
-                icon: Icons.speed, label: 'Avg severity', value: avgSeverity.toStringAsFixed(1),
+                icon: HugeIcons.strokeRoundedDashboardSpeed02, label: 'Avg severity', value: avgSeverity.toStringAsFixed(1),
                 color: const Color(0xFFFF9800),
               )),
               const SizedBox(width: 8),
               Expanded(child: _InsightChip(
-                icon: Icons.warning_amber_rounded, label: 'Severe', value: '$highSev',
+                icon: HugeIcons.strokeRoundedAlert02, label: 'Severe', value: '$highSev',
                 color: const Color(0xFFD32F2F),
               )),
             ],
@@ -566,17 +567,17 @@ class _MedicationInsights extends StatelessWidget {
           Row(
             children: [
               Expanded(child: _InsightChip(
-                icon: Icons.check_circle, label: 'Active', value: '$active',
+                icon: HugeIcons.strokeRoundedCheckmarkCircle01, label: 'Active', value: '$active',
                 color: const Color(0xFF43A047),
               )),
               const SizedBox(width: 8),
               Expanded(child: _InsightChip(
-                icon: Icons.pause_circle, label: 'Stopped', value: '$inactive',
+                icon: HugeIcons.strokeRoundedPauseCircle, label: 'Stopped', value: '$inactive',
                 color: const Color(0xFF9E9E9E),
               )),
               const SizedBox(width: 8),
               Expanded(child: _InsightChip(
-                icon: Icons.medication_rounded, label: 'Total', value: '${entries.length}',
+                icon: HugeIcons.strokeRoundedMedicine01, label: 'Total', value: '${entries.length}',
                 color: const Color(0xFF1E88E5),
               )),
             ],
@@ -653,8 +654,8 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
           // ── Today score ────────────────────────────────────────────────
           Row(
             children: [
-              Icon(
-                allDone ? Icons.check_circle : Icons.pending,
+              HugeIcon(
+                icon: allDone ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedLoading01,
                 color: allDone ? Colors.green : Colors.amber.shade700,
                 size: 24,
               ),
@@ -687,7 +688,7 @@ class _SupplementInsightsState extends ConsumerState<_SupplementInsights> {
               spacing: 8,
               runSpacing: 8,
               children: remaining.map((e) => ActionChip(
-                avatar: Icon(Icons.add_circle_outline, size: 16, color: Colors.teal.shade700),
+                avatar: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 16, color: Colors.teal.shade700),
                 label: Text(
                   e['supplement_name'] ?? '',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.teal.shade900),
@@ -769,7 +770,7 @@ class _SymptomsTab extends ConsumerWidget {
                   color: sevColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(Icons.sick_outlined, color: sevColor, size: 22),
+                child: HugeIcon(icon: HugeIcons.strokeRoundedSad01, size: 22, color: sevColor),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -977,7 +978,7 @@ class _MedicationsTab extends ConsumerWidget {
       headerBuilder: () => _MedicationInsights(logsAsync: logsAsync),
       itemBuilder: (item) => ListTile(
         leading:
-            const Icon(Icons.medication_outlined, color: Colors.blue),
+            HugeIcon(icon: HugeIcons.strokeRoundedMedicine01, color: Colors.blue),
         title: Text(item['medication_name'] ?? ''),
         subtitle: Text(
             '${item['dosage'] ?? ''} • ${item['frequency'] ?? ''}'),
@@ -1109,7 +1110,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddOptions(context, ref),
-        child: const Icon(Icons.add),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, color: Theme.of(context).colorScheme.onPrimaryContainer),
       ),
       body: logsAsync.when(
         skipLoadingOnReload: true,
@@ -1137,7 +1138,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
                             .firstOrNull ?? 'Supplement';
                         return ListTile(
                           dense: true,
-                          leading: Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                          leading: HugeIcon(icon: HugeIcons.strokeRoundedAlert01, color: Colors.red.shade700, size: 20),
                           title: Text(e.value, style: TextStyle(fontSize: 12, color: Colors.red.shade900)),
                           trailing: TextButton(
                             onPressed: () => ref.read(supplementIntakeProvider.notifier)
@@ -1180,13 +1181,13 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
                     color: Colors.blue,
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.only(left: 16),
-                    child: const Icon(Icons.edit, color: Colors.white),
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, color: Colors.white),
                   ),
                   secondaryBackground: Container(
                     color: Colors.red,
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 16),
-                    child: const Icon(Icons.delete, color: Colors.white),
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Colors.white),
                   ),
                   confirmDismiss: (dir) async {
                     if (dir == DismissDirection.startToEnd) {
@@ -1242,7 +1243,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
                         ? (takenToday
                             ? (intakeState.isSyncing(itemId)
                                 ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green.shade400))
-                                : Icon(Icons.check_circle, color: Colors.green.shade400, size: 22))
+                                : HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.green.shade400, size: 22))
                             : Text('not taken', style: TextStyle(fontSize: 11, color: Colors.orange.shade400)))
                         : Text('off', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
                     onTap: () => _showForm(context, ref, item: item),
@@ -1428,7 +1429,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
                       decoration: const InputDecoration(
                         labelText: 'Reminder time',
                         isDense: true,
-                        suffixIcon: Icon(Icons.access_time, size: 18),
+                        suffixIcon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
                       ),
                       child: Text(reminderTime),
                     ),
@@ -1573,12 +1574,12 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
               autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Search supplements...',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01),
                 isDense: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                         onPressed: () { _searchCtrl.clear(); setState(() => _query = ''); })
                     : null,
               ),
@@ -1594,17 +1595,17 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
               children: [
                 OutlinedButton.icon(
                   onPressed: () { Navigator.pop(context); widget.onBarcode(); },
-                  icon: const Icon(Icons.qr_code_scanner, size: 16),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedQrCode, size: 16),
                   label: const Text('Scan Barcode', style: TextStyle(fontSize: 12)),
                 ),
                 OutlinedButton.icon(
                   onPressed: () { Navigator.pop(context); widget.onManual(); },
-                  icon: const Icon(Icons.edit_note, size: 16),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedNoteEdit, size: 16),
                   label: const Text('Enter Manually', style: TextStyle(fontSize: 12)),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _showImportBrand(context),
-                  icon: const Icon(Icons.cloud_download_outlined, size: 16),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCloudDownload, size: 16),
                   label: const Text('Import Brand', style: TextStyle(fontSize: 12)),
                 ),
               ],
@@ -1634,7 +1635,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                     spacing: 6,
                     runSpacing: 4,
                     children: quickLog.take(10).map((s) => ActionChip(
-                      avatar: Icon(Icons.add_circle, size: 16, color: Colors.green.shade600),
+                      avatar: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, size: 16, color: Colors.green.shade600),
                       label: Text(s['supplement_name'] ?? '', style: const TextStyle(fontSize: 11)),
                       backgroundColor: Colors.green.shade50,
                       visualDensity: VisualDensity.compact,
@@ -1671,7 +1672,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.spa_outlined, size: 48, color: cs.primary.withValues(alpha: 0.3)),
+                        HugeIcon(icon: HugeIcons.strokeRoundedYoga01, size: 48, color: cs.primary.withValues(alpha: 0.3)),
                         const SizedBox(height: 8),
                         Text('No supplements logged yet',
                             style: TextStyle(color: Colors.grey.shade500)),
@@ -1686,7 +1687,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                            HugeIcon(icon: HugeIcons.strokeRoundedSearchRemove, size: 48, color: Colors.grey.shade400),
                             const SizedBox(height: 8),
                             Text('No match for "$_query"',
                                 style: TextStyle(color: Colors.grey.shade500)),
@@ -1706,10 +1707,10 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                           final form = s['form'] as String? ?? '';
                           final subtitle = [brand, dosage, form].where((e) => e.isNotEmpty).join(' · ');
                           return ListTile(
-                            leading: const Icon(Icons.spa_outlined, color: Colors.amber),
+                            leading: HugeIcon(icon: HugeIcons.strokeRoundedYoga01, color: Colors.amber),
                             title: Text(name),
                             subtitle: subtitle.isNotEmpty ? Text(subtitle, style: const TextStyle(fontSize: 12)) : null,
-                            trailing: const Icon(Icons.add_circle, color: Colors.green, size: 28),
+                            trailing: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, color: Colors.green, size: 28),
                             onTap: () {
                               Navigator.pop(context);
                               widget.onSelect({
@@ -1809,7 +1810,7 @@ class _SupplementSearchSheetState extends ConsumerState<_SupplementSearchSheet> 
                 Navigator.pop(ctx);
                 _runBrandImport(brand);
               },
-              icon: const Icon(Icons.cloud_download, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCloudDownload, size: 18),
               label: const Text('Import'),
             ),
           ],
@@ -1979,7 +1980,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
               Navigator.pop(ctx);
               widget.onScanned(barcode, null, null);
             },
-            icon: const Icon(Icons.edit, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
             label: const Text('Enter Manually'),
           ),
           FilledButton.icon(
@@ -1987,7 +1988,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
               Navigator.pop(ctx);
               _showSupplementWebLookup(barcode);
             },
-            icon: const Icon(Icons.search, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 18),
             label: const Text('Search Online'),
           ),
         ],
@@ -2052,7 +2053,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
                 barcode: barcode,
               );
             },
-            icon: const Icon(Icons.search, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 18),
             label: const Text('Search'),
           ),
         ],
@@ -2181,7 +2182,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
                 servingSize: data['serving_size'] as String?,
               );
             },
-            icon: const Icon(Icons.check, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
             label: const Text('Use This'),
           ),
         ],
@@ -2227,7 +2228,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
             onPressed: () {
               _showManualBarcode();
             },
-            icon: const Icon(Icons.keyboard),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard),
             label: const Text('Enter barcode manually'),
           ),
         ),
@@ -2349,7 +2350,7 @@ class _SleepTile extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.bedtime_rounded, size: 16, color: Color(0xFF5C6BC0)),
+                        HugeIcon(icon: HugeIcons.strokeRoundedBed, size: 16, color: const Color(0xFF5C6BC0)),
                         const SizedBox(width: 4),
                         Text(
                           duration != null ? '${duration.toStringAsFixed(1)}h' : '--',
@@ -2398,17 +2399,17 @@ class _SleepTile extends StatelessWidget {
               Row(
                 children: [
                   if (bedtime != null) ...[
-                    Icon(Icons.nights_stay_rounded, size: 13, color: cs.outline),
+                    HugeIcon(icon: HugeIcons.strokeRoundedMoon01, size: 13, color: cs.outline),
                     const SizedBox(width: 3),
                     Text(bedtime, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                   ],
                   if (bedtime != null && wakeTime != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Icon(Icons.arrow_forward, size: 12, color: cs.outline),
+                      child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 12, color: cs.outline),
                     ),
                   if (wakeTime != null) ...[
-                    Icon(Icons.wb_sunny_rounded, size: 13, color: cs.outline),
+                    HugeIcon(icon: HugeIcons.strokeRoundedSun01, size: 13, color: cs.outline),
                     const SizedBox(width: 3),
                     Text(wakeTime, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                   ],
@@ -2422,11 +2423,11 @@ class _SleepTile extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     if (interruptions != null && interruptions > 0)
-                      _factorChip('Woke ${interruptions}x', Icons.notification_important_rounded, Colors.red.shade300),
+                      _factorChip('Woke ${interruptions}x', HugeIcons.strokeRoundedAlertCircle, Colors.red.shade300),
                     if (caffeine == true)
-                      _factorChip('Late caffeine', Icons.coffee_rounded, Colors.brown.shade300),
+                      _factorChip('Late caffeine', HugeIcons.strokeRoundedCoffee01, Colors.brown.shade300),
                     if (screen == true)
-                      _factorChip('Screen', Icons.phone_android_rounded, Colors.blue.shade300),
+                      _factorChip('Screen', HugeIcons.strokeRoundedSmartPhone01, Colors.blue.shade300),
                   ],
                 ),
               ],
@@ -2441,7 +2442,7 @@ class _SleepTile extends StatelessWidget {
     );
   }
 
-  Widget _factorChip(String label, IconData icon, Color color) {
+  Widget _factorChip(String label, List<List<dynamic>> icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -2451,7 +2452,7 @@ class _SleepTile extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: color),
+          HugeIcon(icon: icon, size: 11, color: color),
           const SizedBox(width: 3),
           Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
         ],
@@ -2537,7 +2538,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
                   color: const Color(0xFF5C6BC0).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.bedtime_rounded, color: Color(0xFF5C6BC0), size: 22),
+                child: HugeIcon(icon: HugeIcons.strokeRoundedBed, color: const Color(0xFF5C6BC0), size: 22),
               ),
               const SizedBox(width: 10),
               Text(isEdit ? 'Edit Sleep' : 'Log Sleep',
@@ -2552,14 +2553,14 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
           ],
 
           // Section 1: Time & Duration
-          _sectionLabel('Sleep Schedule', Icons.schedule_rounded),
+          _sectionLabel('Sleep Schedule', HugeIcons.strokeRoundedClock01),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(child: _TimePickerField(
                 label: 'Bedtime',
                 value: bedtime,
-                icon: Icons.nights_stay_rounded,
+                icon: HugeIcons.strokeRoundedMoon01,
                 onChanged: (v) { setState(() => bedtime = v); _updateDurationFromTimes(); },
               )),
               Padding(
@@ -2575,7 +2576,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
               Expanded(child: _TimePickerField(
                 label: 'Wake up',
                 value: wakeTime,
-                icon: Icons.wb_sunny_rounded,
+                icon: HugeIcons.strokeRoundedSun01,
                 onChanged: (v) { setState(() => wakeTime = v); _updateDurationFromTimes(); },
               )),
             ],
@@ -2584,7 +2585,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
           const SizedBox(height: 20),
 
           // Section 2: Quality & Energy
-          _sectionLabel('How was your sleep?', Icons.star_rounded),
+          _sectionLabel('How was your sleep?', HugeIcons.strokeRoundedStar),
           const SizedBox(height: 8),
 
           // Quality — emoji scale
@@ -2622,11 +2623,11 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
             borderRadius: BorderRadius.circular(8),
             child: Row(
               children: [
-                Icon(Icons.tune_rounded, size: 16, color: cs.primary),
+                HugeIcon(icon: HugeIcons.strokeRoundedPreferenceHorizontal, size: 16, color: cs.primary),
                 const SizedBox(width: 6),
                 Text('Sleep factors', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.primary)),
                 const Spacer(),
-                Icon(_showFactors ? Icons.expand_less : Icons.expand_more, size: 20, color: cs.outline),
+                HugeIcon(icon: _showFactors ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01, size: 20, color: cs.outline),
               ],
             ),
           ),
@@ -2635,7 +2636,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
             // Interruptions
             Row(
               children: [
-                Icon(Icons.notification_important_rounded, size: 16, color: cs.onSurfaceVariant),
+                HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 6),
                 Text('Night wake-ups', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                 const Spacer(),
@@ -2650,14 +2651,14 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
             const SizedBox(height: 10),
             // Toggle factors
             _ToggleRow(
-              icon: Icons.coffee_rounded,
+              icon: HugeIcons.strokeRoundedCoffee01,
               label: 'Caffeine after 2 PM',
               value: hadCaffeineLate,
               onChanged: (v) => setState(() => hadCaffeineLate = v),
             ),
             const SizedBox(height: 6),
             _ToggleRow(
-              icon: Icons.phone_android_rounded,
+              icon: HugeIcons.strokeRoundedSmartPhone01,
               label: 'Screen time before bed',
               value: screenBeforeBed,
               onChanged: (v) => setState(() => screenBeforeBed = v),
@@ -2671,7 +2672,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
               labelText: 'Notes (optional)',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               isDense: true,
-              prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+              prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedNoteEdit, size: 20),
             ),
             maxLines: 2,
             minLines: 1,
@@ -2692,7 +2693,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
                 flex: 2,
                 child: FilledButton.icon(
                   onPressed: _save,
-                  icon: const Icon(Icons.check_rounded, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
                   label: const Text('Save'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 48),
@@ -2707,11 +2708,11 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
     );
   }
 
-  Widget _sectionLabel(String text, IconData icon) {
+  Widget _sectionLabel(String text, List<List<dynamic>> icon) {
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, size: 16, color: cs.primary),
+        HugeIcon(icon: icon, size: 16, color: cs.primary),
         const SizedBox(width: 6),
         Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
       ],
@@ -2745,7 +2746,7 @@ class _SleepFormSheetState extends State<_SleepFormSheet> {
 class _TimePickerField extends StatelessWidget {
   final String label;
   final String value;
-  final IconData? icon;
+  final List<List<dynamic>>? icon;
   final ValueChanged<String> onChanged;
   const _TimePickerField({required this.label, required this.value, this.icon, required this.onChanged});
 
@@ -2768,7 +2769,7 @@ class _TimePickerField extends StatelessWidget {
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           isDense: true,
-          prefixIcon: icon != null ? Icon(icon, size: 16) : null,
+          prefixIcon: icon != null ? HugeIcon(icon: icon!, size: 16) : null,
         ),
         child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
@@ -2848,17 +2849,17 @@ class _StepperButton extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _circleBtn(Icons.remove, value > min, () => onChanged(value - 1), cs),
+        _circleBtn(HugeIcons.strokeRoundedMinusSign, value > min, () => onChanged(value - 1), cs),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Text('$value', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: cs.onSurface)),
         ),
-        _circleBtn(Icons.add, value < max, () => onChanged(value + 1), cs),
+        _circleBtn(HugeIcons.strokeRoundedAdd01, value < max, () => onChanged(value + 1), cs),
       ],
     );
   }
 
-  Widget _circleBtn(IconData icon, bool enabled, VoidCallback onTap, ColorScheme cs) {
+  Widget _circleBtn(List<List<dynamic>> icon, bool enabled, VoidCallback onTap, ColorScheme cs) {
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(16),
@@ -2868,7 +2869,7 @@ class _StepperButton extends StatelessWidget {
           shape: BoxShape.circle,
           color: enabled ? cs.primaryContainer : cs.surfaceContainerHighest,
         ),
-        child: Icon(icon, size: 16, color: enabled ? cs.onPrimaryContainer : cs.outline),
+        child: Center(child: HugeIcon(icon: icon, size: 16, color: enabled ? cs.onPrimaryContainer : cs.outline)),
       ),
     );
   }
@@ -2876,7 +2877,7 @@ class _StepperButton extends StatelessWidget {
 
 /// Toggle row with icon, label, and switch
 class _ToggleRow extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -2887,7 +2888,7 @@ class _ToggleRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, size: 16, color: cs.onSurfaceVariant),
+        HugeIcon(icon: icon, size: 16, color: cs.onSurfaceVariant),
         const SizedBox(width: 6),
         Expanded(child: Text(label, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
         Switch.adaptive(value: value, onChanged: onChanged),
@@ -2936,23 +2937,23 @@ class _ExerciseTile extends StatelessWidget {
   final Map<String, dynamic> item;
   const _ExerciseTile({required this.item});
 
-  static const _typeIcons = <String, IconData>{
-    'Walking': Icons.directions_walk_rounded,
-    'Running': Icons.directions_run_rounded,
-    'Cycling': Icons.directions_bike_rounded,
-    'Swimming': Icons.pool_rounded,
-    'Yoga': Icons.self_improvement_rounded,
-    'Weight Training': Icons.fitness_center_rounded,
-    'HIIT': Icons.local_fire_department_rounded,
-    'Pilates': Icons.accessibility_new_rounded,
-    'Dance': Icons.music_note_rounded,
-    'Stretching': Icons.sports_gymnastics_rounded,
-    'Sports': Icons.sports_soccer_rounded,
-    'Hiking': Icons.terrain_rounded,
-    'Climbing': Icons.landscape_rounded,
-    'Martial Arts': Icons.sports_martial_arts_rounded,
-    'Rowing': Icons.rowing_rounded,
-    'Jump Rope': Icons.sports_rounded,
+  static const _typeIcons = <String, List<List<dynamic>>>{
+    'Walking': HugeIcons.strokeRoundedRunningShoes,
+    'Running': HugeIcons.strokeRoundedRunningShoes,
+    'Cycling': HugeIcons.strokeRoundedBicycle,
+    'Swimming': HugeIcons.strokeRoundedSwimming,
+    'Yoga': HugeIcons.strokeRoundedYoga01,
+    'Weight Training': HugeIcons.strokeRoundedDumbbell01,
+    'HIIT': HugeIcons.strokeRoundedFire,
+    'Pilates': HugeIcons.strokeRoundedGymnastic,
+    'Dance': HugeIcons.strokeRoundedMusicNote01,
+    'Stretching': HugeIcons.strokeRoundedGymnastic,
+    'Sports': HugeIcons.strokeRoundedFootball,
+    'Hiking': HugeIcons.strokeRoundedMountain,
+    'Climbing': HugeIcons.strokeRoundedMountain,
+    'Martial Arts': HugeIcons.strokeRoundedBoxingGlove,
+    'Rowing': HugeIcons.strokeRoundedBoat,
+    'Jump Rope': HugeIcons.strokeRoundedSkippingRope,
   };
 
   static const _intensityColors = <String, Color>{
@@ -2975,7 +2976,7 @@ class _ExerciseTile extends StatelessWidget {
     final notes = item['notes'] as String? ?? '';
     final date = item['date'] as String? ?? '';
 
-    final typeIcon = _typeIcons[type] ?? Icons.directions_run_rounded;
+    final typeIcon = _typeIcons[type] ?? HugeIcons.strokeRoundedRunningShoes;
     final intColor = _intensityColors[intensity] ?? const Color(0xFFFF7043);
 
     return Padding(
@@ -2997,7 +2998,7 @@ class _ExerciseTile extends StatelessWidget {
                       color: intColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(typeIcon, size: 20, color: intColor),
+                    child: HugeIcon(icon: typeIcon, size: 20, color: intColor),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -3076,24 +3077,24 @@ class _ExerciseFormSheet extends StatefulWidget {
 }
 
 class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
-  static const _types = <String, IconData>{
-    'Walking': Icons.directions_walk_rounded,
-    'Running': Icons.directions_run_rounded,
-    'Cycling': Icons.directions_bike_rounded,
-    'Swimming': Icons.pool_rounded,
-    'Yoga': Icons.self_improvement_rounded,
-    'Weight Training': Icons.fitness_center_rounded,
-    'HIIT': Icons.local_fire_department_rounded,
-    'Pilates': Icons.accessibility_new_rounded,
-    'Dance': Icons.music_note_rounded,
-    'Stretching': Icons.sports_gymnastics_rounded,
-    'Sports': Icons.sports_soccer_rounded,
-    'Hiking': Icons.terrain_rounded,
-    'Climbing': Icons.landscape_rounded,
-    'Martial Arts': Icons.sports_martial_arts_rounded,
-    'Rowing': Icons.rowing_rounded,
-    'Jump Rope': Icons.sports_rounded,
-    'Other': Icons.more_horiz_rounded,
+  static const _types = <String, List<List<dynamic>>>{
+    'Walking': HugeIcons.strokeRoundedRunningShoes,
+    'Running': HugeIcons.strokeRoundedRunningShoes,
+    'Cycling': HugeIcons.strokeRoundedBicycle,
+    'Swimming': HugeIcons.strokeRoundedSwimming,
+    'Yoga': HugeIcons.strokeRoundedYoga01,
+    'Weight Training': HugeIcons.strokeRoundedDumbbell01,
+    'HIIT': HugeIcons.strokeRoundedFire,
+    'Pilates': HugeIcons.strokeRoundedGymnastic,
+    'Dance': HugeIcons.strokeRoundedMusicNote01,
+    'Stretching': HugeIcons.strokeRoundedGymnastic,
+    'Sports': HugeIcons.strokeRoundedFootball,
+    'Hiking': HugeIcons.strokeRoundedMountain,
+    'Climbing': HugeIcons.strokeRoundedMountain,
+    'Martial Arts': HugeIcons.strokeRoundedBoxingGlove,
+    'Rowing': HugeIcons.strokeRoundedBoat,
+    'Jump Rope': HugeIcons.strokeRoundedSkippingRope,
+    'Other': HugeIcons.strokeRoundedMoreHorizontal,
   };
 
   static const _cardioTypes = {'Walking', 'Running', 'Cycling', 'Swimming', 'Hiking', 'Rowing', 'Jump Rope'};
@@ -3162,7 +3163,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                   color: const Color(0xFFFF7043).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.directions_run_rounded, color: Color(0xFFFF7043), size: 22),
+                child: HugeIcon(icon: HugeIcons.strokeRoundedRunningShoes, color: const Color(0xFFFF7043), size: 22),
               ),
               const SizedBox(width: 10),
               Text(isEdit ? 'Edit Workout' : 'Log Workout',
@@ -3177,7 +3178,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
           ],
 
           // Section 1: Exercise type — visual grid
-          _sectionLabel('Activity', Icons.category_rounded),
+          _sectionLabel('Activity', HugeIcons.strokeRoundedMenu01),
           const SizedBox(height: 8),
           SizedBox(
             height: 80,
@@ -3200,7 +3201,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(e.value, size: 24, color: isActive ? const Color(0xFFFF7043) : cs.onSurfaceVariant),
+                          HugeIcon(icon: e.value, size: 24, color: isActive ? const Color(0xFFFF7043) : cs.onSurfaceVariant),
                           const SizedBox(height: 4),
                           Text(e.key, style: TextStyle(
                             fontSize: 10, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
@@ -3218,7 +3219,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
           const SizedBox(height: 16),
 
           // Section 2: Duration & Intensity
-          _sectionLabel('Duration & Intensity', Icons.timer_rounded),
+          _sectionLabel('Duration & Intensity', HugeIcons.strokeRoundedTimer01),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -3280,7 +3281,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
           // Muscle groups for strength training
           if (_isStrength) ...[
             const SizedBox(height: 16),
-            _sectionLabel('Muscle Groups', Icons.fitness_center_rounded),
+            _sectionLabel('Muscle Groups', HugeIcons.strokeRoundedDumbbell01),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -3301,7 +3302,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
           const SizedBox(height: 14),
 
           // Perceived exertion (RPE) — always shown
-          _sectionLabel('How hard did it feel?', Icons.speed_rounded),
+          _sectionLabel('How hard did it feel?', HugeIcons.strokeRoundedDashboardSpeed02),
           const SizedBox(height: 6),
           _EmojiScale(
             value: perceivedExertion,
@@ -3321,11 +3322,11 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
             borderRadius: BorderRadius.circular(8),
             child: Row(
               children: [
-                Icon(Icons.tune_rounded, size: 16, color: cs.primary),
+                HugeIcon(icon: HugeIcons.strokeRoundedPreferenceHorizontal, size: 16, color: cs.primary),
                 const SizedBox(width: 6),
                 Text('Advanced metrics', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.primary)),
                 const Spacer(),
-                Icon(_showAdvanced ? Icons.expand_less : Icons.expand_more, size: 20, color: cs.outline),
+                HugeIcon(icon: _showAdvanced ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01, size: 20, color: cs.outline),
               ],
             ),
           ),
@@ -3341,7 +3342,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                       labelText: 'Distance (km)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       isDense: true,
-                      prefixIcon: const Icon(Icons.straighten_rounded, size: 18),
+                      prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedRuler, size: 18),
                     ),
                   )),
                   const SizedBox(width: 10),
@@ -3353,7 +3354,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                     labelText: 'Calories',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     isDense: true,
-                    prefixIcon: const Icon(Icons.local_fire_department_rounded, size: 18),
+                    prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedFire, size: 18),
                   ),
                 )),
               ],
@@ -3368,7 +3369,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                     labelText: 'Avg HR (bpm)',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     isDense: true,
-                    prefixIcon: const Icon(Icons.monitor_heart_rounded, size: 18),
+                    prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedPulse01, size: 18),
                   ),
                 )),
                 const SizedBox(width: 10),
@@ -3379,7 +3380,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                     labelText: 'Max HR (bpm)',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     isDense: true,
-                    prefixIcon: const Icon(Icons.favorite_rounded, size: 18),
+                    prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 18),
                   ),
                 )),
               ],
@@ -3393,7 +3394,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
               labelText: 'Notes (optional)',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               isDense: true,
-              prefixIcon: const Icon(Icons.edit_note_rounded, size: 20),
+              prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedNoteEdit, size: 20),
             ),
             maxLines: 2,
             minLines: 1,
@@ -3414,7 +3415,7 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
                 flex: 2,
                 child: FilledButton.icon(
                   onPressed: _save,
-                  icon: const Icon(Icons.check_rounded, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
                   label: const Text('Save'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 48),
@@ -3429,11 +3430,11 @@ class _ExerciseFormSheetState extends State<_ExerciseFormSheet> {
     );
   }
 
-  Widget _sectionLabel(String text, IconData icon) {
+  Widget _sectionLabel(String text, List<List<dynamic>> icon) {
     final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Icon(icon, size: 16, color: cs.primary),
+        HugeIcon(icon: icon, size: 16, color: cs.primary),
         const SizedBox(width: 6),
         Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
       ],
