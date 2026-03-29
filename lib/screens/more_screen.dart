@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import '../core/constants.dart';
 import '../providers/auth_provider.dart';
 import '../providers/social_provider.dart';
@@ -71,7 +72,7 @@ class MoreScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
+                        HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 24, color: cs.onSurfaceVariant),
                       ],
                     ),
                   ),
@@ -118,93 +119,93 @@ class MoreScreen extends ConsumerWidget {
   List<Widget> _buildItems(BuildContext context, int badgeCount) {
     return [
       _MoreItem(
-        icon: Icons.water_drop_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedDroplet, size: 24, color: const Color(0xFF3B82F6)),
         label: 'Hydration',
         color: const Color(0xFF3B82F6),
         onTap: () => context.push('/hydration'),
       ),
       _MoreItem(
-        icon: Icons.monitor_weight_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedBodyWeight, size: 24, color: const Color(0xFFF97316)),
         label: 'Weight',
         color: const Color(0xFFF97316),
         onTap: () => context.push('/health/weight'),
       ),
       _MoreItem(
-        icon: Icons.healing_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedBandage, size: 24, color: const Color(0xFFEF4444)),
         label: 'Eczema',
         color: const Color(0xFFEF4444),
         onTap: () => context.push('/eczema'),
       ),
       _MoreItem(
-        icon: Icons.science_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedTestTube01, size: 24, color: const Color(0xFFD32F2F)),
         label: 'Lab Results',
         color: const Color(0xFFD32F2F),
         onTap: () => context.push('/labs'),
       ),
       _MoreItem(
-        icon: Icons.insights_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedIdea01, size: 24, color: const Color(0xFF8B5CF6)),
         label: 'Insights',
         color: const Color(0xFF8B5CF6),
         onTap: () => context.push('/insights'),
       ),
       _MoreItem(
-        icon: Icons.people_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedUserGroup, size: 24, color: const Color(0xFF06B6D4)),
         label: 'Community',
         color: const Color(0xFF06B6D4),
         badge: badgeCount,
         onTap: () => context.push('/social'),
       ),
       _MoreItem(
-        icon: Icons.shopping_cart_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedShoppingCart01, size: 24, color: const Color(0xFF22C55E)),
         label: 'Grocery',
         color: const Color(0xFF22C55E),
         onTap: () => context.push('/grocery'),
       ),
       _MoreItem(
-        icon: Icons.qr_code_scanner_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedQrCode, size: 24, color: const Color(0xFF64748B)),
         label: 'Scanner',
         color: const Color(0xFF64748B),
         onTap: () => context.push('/scanner'),
       ),
       _MoreItem(
-        icon: Icons.camera_alt_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedCamera01, size: 24, color: const Color(0xFFEC4899)),
         label: 'Skin Photos',
         color: const Color(0xFFEC4899),
         onTap: () => context.push('/skin-photos'),
       ),
       _MoreItem(
-        icon: Icons.history_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 24, color: const Color(0xFF14B8A6)),
         label: 'History',
         color: const Color(0xFF14B8A6),
         onTap: () => context.push('/entries'),
       ),
       _MoreItem(
-        icon: Icons.notifications_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 24, color: const Color(0xFFF59E0B)),
         label: 'Alerts',
         color: const Color(0xFFF59E0B),
         onTap: () => context.push('/notifications'),
       ),
       // Finance hidden until enough user interest — re-enable later
       // _MoreItem(
-      //   icon: Icons.account_balance_rounded,
+      //   iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedWallet01, size: 24, color: const Color(0xFF6366F1)),
       //   label: 'Finance',
       //   color: const Color(0xFF6366F1),
       //   onTap: () => context.push('/finance'),
       // ),
       _MoreItem(
-        icon: Icons.psychology_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedBrain, size: 24, color: const Color(0xFF009688)),
         label: 'Health Twin',
         color: const Color(0xFF009688),
         onTap: () => context.push('/health-intelligence'),
       ),
       _MoreItem(
-        icon: Icons.watch_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedSmartWatch01, size: 24, color: const Color(0xFF0EA5E9)),
         label: 'Devices',
         color: const Color(0xFF0EA5E9),
         onTap: () => context.push('/connected-devices'),
       ),
       _MoreItem(
-        icon: Icons.timeline_rounded,
+        iconWidget: HugeIcon(icon: HugeIcons.strokeRoundedActivity01, size: 24, color: const Color(0xFF7C3AED)),
         label: 'Timeline',
         color: const Color(0xFF7C3AED),
         onTap: () => context.push('/health-timeline'),
@@ -214,14 +215,14 @@ class MoreScreen extends ConsumerWidget {
 }
 
 class _MoreItem extends StatelessWidget {
-  final IconData icon;
+  final Widget iconWidget;
   final String label;
   final Color color;
   final int badge;
   final VoidCallback onTap;
 
   const _MoreItem({
-    required this.icon,
+    required this.iconWidget,
     required this.label,
     required this.color,
     this.badge = 0,
@@ -246,7 +247,7 @@ class _MoreItem extends StatelessWidget {
                 color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: color, size: 26),
+              child: iconWidget,
             ),
           ),
           const SizedBox(height: 6),
