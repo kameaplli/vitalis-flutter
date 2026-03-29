@@ -1,0 +1,44 @@
+# metric_direction: higher_is_better (social module LOC)
+# goal: Build engaging social community — local cache, polls, group chats, infinite scroll
+iteration	commit	metric	delta	guard	status	description
+0	baseline	5254	0	pass	baseline	9 files: feed, discover, notifications, profiles, challenges, comments, feed_card, connection_button, models+providers
+1	-	5429	+175	pass	keep	local-first feed cache: SocialCacheService (SharedPreferences JSON), FeedNotifier loads from cache → renders instantly → background sync without double-refresh, toJson() on FeedEvent+ReactionSummary
+2	-	5680	+251	pass	keep	Poll models+provider: Poll, PollOption, PollAccess enums, pollsProvider, myPollsProvider, createPoll, votePoll, inviteToPoll
+3	-	5890	+210	pass	keep	Poll UI: PollCard with animated vote bars (AnimationController 600ms), percentage display, invite-only badge
+4	-	6120	+230	pass	keep	CreatePollSheet: question+options form, access control segmented button, duration picker, validation
+5	-	6450	+330	pass	keep	Group chat models+provider: GroupChat, ChatMessage, GroupMember, GroupChatAccess/Role enums, ChatNotifier with 5s polling, optimistic send
+6	-	6750	+300	pass	keep	GroupChatsScreen: group list, chat room with reverse ListView, message bubbles, input bar, create group sheet
+7	-	6991	+241	pass	keep	API constants: poll + group chat endpoints in constants.dart, infinite scroll cursor support in FeedNotifier.loadMore()
+8	-	7373	+382	pass	keep	Wire polls+groups into social hub: 4 tabs (Feed/Polls/Groups/Discover), _PollsTab, _GroupsTab, _CreateGroupInline
+9	-	7406	+33	pass	keep	Infinite scroll in Feed tab: ScrollController + loadMore trigger at 300px, loading spinner indicator, converted _FeedTab to StatefulWidget
+10	-	7402	-4	pass	keep	GoRouter routes for groups: /social/groups + /social/groups/:id, migrated all Navigator.push to context.push()
+11	-	7528	+126	pass	keep	PollsNotifier: optimistic voting (instant UI, server sync, auto-revert on fail), PollOption.copyWith, StateNotifier pattern for polls tab
+12	-	7571	+43	pass	keep	PollCard enhancements: creator avatar+name header, time-remaining display (Xd/Xh/Xm left), "Voted" badge in footer
+13	-	7676	+105	pass	keep	Chat room: members list bottom sheet with role badges (Owner/Admin), message timestamps (HH:MM), replaced TODO
+14	-	7743	+67	pass	keep	Chat date separators (Today/Yesterday/date), avatar collapse for consecutive same-sender messages
+15	-	7805	+62	pass	keep	Leave group: confirmation dialog, popup menu with invite (admin-only) + leave actions in chat room appbar
+16	-	7824	+19	pass	keep	Join button for non-member public groups in Groups tab, disabled tap for non-members
+17	-	7838	+14	pass	keep	Poll share button: share question+options text via share_plus
+18	-	7865	+27	pass	keep	Group description in list tiles, improved chat empty state with icon + subtitle
+19	-	7915	+50	pass	keep	Local-first poll caching: SharedPreferences → instant render → background sync, same pattern as feed
+20	-	8046	+181	pass	keep	GroupsNotifier with local-first cache, migrated all group screens to StateNotifier. All 3 tabs now cache-first
+21	4a12438	8529	+483	pass	keep	Report/block: ReportReason enum, BlockedUser model, 3-step report sheet (options→reason→details), block confirmation dialog, hide post, wired to feed card "..." menu
+22	3168c9e	8646	+117	pass	keep	Poll search & filter: search bar filters by question/creator, FilterChips for All/Active/Ended/Voted, empty state messages adapt to search context
+23	7e68065	8748	+102	pass	keep	Group search & filter: search bar filters by name/description, FilterChips for All/Joined/Public, converted to StatefulWidget
+24	d55fe82	8918	+170	pass	keep	Typing indicator: bouncing 3-dot animation, setTyping() API method, TypingUser model, StreamProvider with 3s polling, wired into chat room above input bar
+25	5e49a1b	9125	+207	pass	keep	Pinned messages: pin/unpin toggle (optimistic), pinned banner with sender+text+count, admin long-press menu (pin+copy), pin icon on messages, tinted bubble background
+26	3ba97b9	9263	+138	pass	keep	Trending stats: 3-card summary in Discover tab (active polls+votes, my groups, feed post count), _TrendCard widget with icon+value+subtitle
+27	11d2fec	9428	+165	pass	keep	Chat message reactions: MessageReaction model, 6 quick emoji picker in long-press menu, optimistic reactToMessage, reaction pills below bubbles with user-reacted highlight
+28	d2429f3	9648	+220	pass	keep	Community guidelines: 7 illustrated rules (kind, accurate, privacy, no hate, no diet shame, no spam, report), header card, violation warning, shield icon in social hub bar
+29	aa8ff72	9718	+70	pass	keep	Read receipts: ReadReceipt model, double-check mark icon, "Read by N" in long-press menu with names, markAsRead() on chat enter
+30	a9d5ab5	9892	+174	pass	keep	Blocked users screen: list with avatars+blocked-ago, unblock confirmation dialog, empty state, error retry
+31	4563190	10057	+165	pass	keep	@Mentions: autocomplete overlay from members list, insert on tap, highlighted mentions in message bubbles with RegExp
+32	0cce5c3	10115	+58	pass	keep	Mute group notifications: toggle in popup menu, muted icon in group list, snackbar confirmation
+33	cc739f6	10292	+177	pass	keep	Edit group: admin edit name/description bottom sheet, mute toggle refinement, muted indicator
+34	2956f75	10825	+533	pass	keep	Poll comments: PollComment model, discussion thread bottom sheet, comment count in poll footer, API endpoint + provider
+35	59acf98	10991	+166	pass	keep	Image sharing in chat: photo picker (gallery), image preview strip, image display in bubbles with CachedNetworkImage, fullscreen viewer with InteractiveViewer, multipart upload
+36	659eaa7	11337	+346	pass	keep	Profile badges: Badge model (4 tiers), BadgeCatalog (12 defs), BadgeShowcaseRow/BadgeCard/BadgeGrid widgets, badges provider, enriched profile badge grid with tap-to-detail dialog
+37	72961b4	11450	+113	pass	keep	Group notification preferences: GroupNotifPref enum (all/mentions_only/muted), picker bottom sheet in chat room popup menu, setGroupNotifPref API call
+38	7f5b3c6	11621	+171	pass	keep	Enhanced notifications: day grouping (Today/Yesterday/weekday), filter chips (All/Unread/Social/Polls/Groups), swipe-to-mark-read Dismissible, 7 new notification types
+39	1d316cb	11778	+157	pass	keep	User search in Discover: search bar with API query, search results with avatar/level/name, tap to profile, People filter chip
+40	2db5eae	12538	+760	pass	keep	Direct messages: DmConversation+DmMessage models, inbox screen with unread counts, chat room with bubbles+timestamps+read receipts, DmChatNotifier with 4s polling, Message button on connected profiles

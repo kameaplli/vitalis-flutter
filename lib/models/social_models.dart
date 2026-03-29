@@ -9,6 +9,8 @@ class SocialProfile {
   final int level;
   final String? streakBuddyId;
   final Map<String, dynamic> privacySettings;
+  final bool isOnline;
+  final DateTime? lastSeenAt;
   final DateTime? createdAt;
 
   SocialProfile({
@@ -20,8 +22,22 @@ class SocialProfile {
     this.level = 1,
     this.streakBuddyId,
     this.privacySettings = const <String, dynamic>{},
+    this.isOnline = false,
+    this.lastSeenAt,
     this.createdAt,
   });
+
+  /// Human-readable presence text.
+  String get presenceText {
+    if (isOnline) return 'Online';
+    if (lastSeenAt == null) return '';
+    final diff = DateTime.now().difference(lastSeenAt!);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${lastSeenAt!.month}/${lastSeenAt!.day}';
+  }
 
   factory SocialProfile.fromJson(Map<String, dynamic> json) {
     return SocialProfile(
@@ -38,6 +54,10 @@ class SocialProfile {
       privacySettings: (json['privacy_settings'] is Map)
               ? Map<String, dynamic>.from(json['privacy_settings'])
               : <String, dynamic>{},
+      isOnline: json['is_online'] == true,
+      lastSeenAt: json['last_seen_at'] != null
+          ? DateTime.tryParse(json['last_seen_at'])
+          : null,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'])
           : null,
@@ -121,6 +141,12 @@ class ReactionSummary {
       userReacted: json['user_reacted'] == true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'count': count,
+        'user_reacted': userReacted,
+      };
 }
 
 // ─── Feed Event ─────────────────────────────────────────────────────────────
@@ -193,6 +219,20 @@ class FeedEvent {
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'actor_id': actorId,
+        'actor_name': actorName,
+        'actor_avatar_url': actorAvatarUrl,
+        'event_type': eventType,
+        'content_type': contentType,
+        'content_snapshot': contentSnapshot,
+        'is_read': isRead,
+        'reactions': reactions.map((r) => r.toJson()).toList(),
+        'comment_count': commentCount,
+        'created_at': createdAt.toIso8601String(),
+      };
 
   // Helper getters
   bool get isAchievement => eventType == 'achievement';
@@ -403,6 +443,59 @@ class UserSearchResult {
   }
 }
 
+// ─── Report ────────────────────────────────────────────────────────────────
+
+enum ReportReason {
+  spam('spam', 'Spam or scam'),
+  harassment('harassment', 'Harassment or bullying'),
+  hateSpeech('hate_speech', 'Hate speech'),
+  misinformation('misinformation', 'Health misinformation'),
+  inappropriate('inappropriate', 'Inappropriate content'),
+  impersonation('impersonation', 'Impersonation'),
+  other('other', 'Other');
+
+  final String value;
+  final String label;
+  const ReportReason(this.value, this.label);
+}
+
+enum ReportTargetType {
+  feedEvent('feed_event'),
+  comment('comment'),
+  user('user'),
+  poll('poll'),
+  groupChat('group_chat'),
+  chatMessage('chat_message');
+
+  final String value;
+  const ReportTargetType(this.value);
+}
+
+// ─── Blocked User ──────────────────────────────────────────────────────────
+
+class BlockedUser {
+  final String userId;
+  final String name;
+  final String? avatarUrl;
+  final DateTime blockedAt;
+
+  BlockedUser({
+    required this.userId,
+    required this.name,
+    this.avatarUrl,
+    required this.blockedAt,
+  });
+
+  factory BlockedUser.fromJson(Map<String, dynamic> json) {
+    return BlockedUser(
+      userId: json['user_id'] ?? '',
+      name: json['name'] ?? '',
+      avatarUrl: json['avatar_url'],
+      blockedAt: DateTime.tryParse(json['blocked_at'] ?? '') ?? DateTime.now(),
+    );
+  }
+}
+
 // ─── Friend Streak ──────────────────────────────────────────────────────────
 
 class FriendStreak {
@@ -454,6 +547,100 @@ class CommunityPulse {
       unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+// ─── Badge ────────────────────────────────────────────────────────────────
+
+class Badge {
+  final String id;
+  final String name;
+  final String description;
+  final String icon; // emoji or icon name
+  final BadgeTier tier;
+  final DateTime? earnedAt;
+
+  Badge({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.icon,
+    this.tier = BadgeTier.bronze,
+    this.earnedAt,
+  });
+
+  factory Badge.fromJson(Map<String, dynamic> json) => Badge(
+        id: json['id'] ?? '',
+        name: json['name'] ?? '',
+        description: json['description'] ?? '',
+        icon: json['icon'] ?? '\u{1F3C6}',
+        tier: BadgeTier.fromString(json['tier'] ?? 'bronze'),
+        earnedAt: json['earned_at'] != null
+            ? DateTime.tryParse(json['earned_at'])
+            : null,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'icon': icon,
+        'tier': tier.value,
+        if (earnedAt != null) 'earned_at': earnedAt!.toIso8601String(),
+      };
+}
+
+enum BadgeTier {
+  bronze('bronze'),
+  silver('silver'),
+  gold('gold'),
+  platinum('platinum');
+
+  final String value;
+  const BadgeTier(this.value);
+
+  static BadgeTier fromString(String s) => switch (s) {
+        'silver' => BadgeTier.silver,
+        'gold' => BadgeTier.gold,
+        'platinum' => BadgeTier.platinum,
+        _ => BadgeTier.bronze,
+      };
+
+  String get label => switch (this) {
+        BadgeTier.bronze => 'Bronze',
+        BadgeTier.silver => 'Silver',
+        BadgeTier.gold => 'Gold',
+        BadgeTier.platinum => 'Platinum',
+      };
+}
+
+/// Well-known badge definitions for display when only IDs are available.
+class BadgeCatalog {
+  static const Map<String, _BadgeDef> _catalog = {
+    'first_post': _BadgeDef('\u{270D}\u{FE0F}', 'First Post', 'Shared your first post'),
+    'streak_7': _BadgeDef('\u{1F525}', '7-Day Streak', 'Logged 7 days in a row'),
+    'streak_30': _BadgeDef('\u{1F4AA}', '30-Day Streak', 'Logged 30 days in a row'),
+    'poll_creator': _BadgeDef('\u{1F4CA}', 'Pollster', 'Created your first poll'),
+    'helpful_10': _BadgeDef('\u{2B50}', 'Helper', 'Received 10 helpful reactions'),
+    'community_guide': _BadgeDef('\u{1F6E1}\u{FE0F}', 'Community Guide', 'Active and respectful member'),
+    'challenger': _BadgeDef('\u{1F3AF}', 'Challenger', 'Completed 5 wellness challenges'),
+    'connector': _BadgeDef('\u{1F91D}', 'Connector', 'Connected with 10 members'),
+    'early_adopter': _BadgeDef('\u{1F680}', 'Early Adopter', 'Joined during beta'),
+    'nutrition_pro': _BadgeDef('\u{1F96C}', 'Nutrition Pro', 'Logged 100 meals'),
+    'skin_tracker': _BadgeDef('\u{1FA7A}', 'Skin Tracker', 'Tracked skin 30 times'),
+    'group_leader': _BadgeDef('\u{1F451}', 'Group Leader', 'Created a community group'),
+  };
+
+  static String icon(String badgeId) => _catalog[badgeId]?.icon ?? '\u{1F3C6}';
+  static String name(String badgeId) => _catalog[badgeId]?.name ?? badgeId;
+  static String description(String badgeId) =>
+      _catalog[badgeId]?.description ?? '';
+}
+
+class _BadgeDef {
+  final String icon;
+  final String name;
+  final String description;
+  const _BadgeDef(this.icon, this.name, this.description);
 }
 
 // ─── Comment ──────────────────────────────────────────────────────────────

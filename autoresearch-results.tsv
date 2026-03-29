@@ -1,0 +1,14 @@
+# metric_direction: lower_is_better
+iteration	commit	metric	delta	guard	status	description
+0	baseline	74165	0.0	pass	baseline	initial state — 74165 LOC across Flutter app (post mood screen redesign)
+1	-	71221	-2944	pass	discard	remove dead finance module — user wants to keep it for future dev
+2	170f65c	73904	-261	pass	keep	remove dead _MoodTab from health_screen (moved to standalone mood_screen)
+3	-	73908	+4	pass	discard	dart fix --apply added const keywords, increased LOC
+4	30088f9	73226	-678	pass	keep	remove 7 dead files (678 LOC) — zero references in codebase
+5	3e068f8	73180	-46	pass	keep	remove duplicate nutrition_utils + unused prefetch methods
+6	0e894e3	73159	-21	pass	keep	extract shared lab tier helpers — deduplicate constants across 2 files
+7	f892782	73139	-20	pass	keep	replace mood emoji switch with const map lookup in dashboard_screen
+8	a1a1ce4	72599	-540	pass	keep	remove 2 dead social widgets (reaction_bar, community_pulse_section)
+9	abc32a7	70229	-2370	pass	keep	remove 10 dead files — nutrition, social, eczema, standalone screens
+10	a86dfb4	68635	-1594	pass	keep	remove 10 more dead files — cascade effect from prior removals
+11	-	68635	0	pass	plateau	no more dead files found — remaining gains are micro-optimizations (5-20 LOC each)

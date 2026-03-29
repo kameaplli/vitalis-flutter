@@ -5,7 +5,11 @@ import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
+import '../../widgets/social/badge_display.dart';
 import '../../widgets/social/connection_button.dart';
+import '../../providers/dm_provider.dart';
+import '../../widgets/social/online_indicator.dart';
+import 'dm_screen.dart';
 
 // ── Social Profile Screen ──────────────────────────────────────────────────────
 
@@ -207,6 +211,15 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
             style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
 
+          // Online presence
+          if (profile.presenceText.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            PresenceBadge(
+              isOnline: profile.isOnline,
+              presenceText: profile.presenceText,
+            ),
+          ],
+
           // Level badge
           const SizedBox(height: 4),
           Container(
@@ -278,7 +291,38 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
               },
             ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+
+          // Message button
+          if (_connectionStatus == ConnectionStatus.connected)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    final convo = await startConversation(widget.userId);
+                    if (mounted) {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => DmChatScreen(conversation: convo),
+                      ));
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to start conversation: $e')),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.chat_outlined, size: 18),
+                label: const Text('Message'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+              ),
+            ),
+
+          const SizedBox(height: 16),
 
           // Stats showcase
           _StatsSection(profile: profile, privacy: privacy),
@@ -436,26 +480,6 @@ class _BadgeGrid extends StatelessWidget {
   final List<String> badges;
   const _BadgeGrid({required this.badges});
 
-  static const _badgeIcons = <String, IconData>{
-    'streak_7': Icons.local_fire_department,
-    'streak_30': Icons.whatshot,
-    'first_meal': Icons.restaurant,
-    'hydration_star': Icons.water_drop,
-    'social_butterfly': Icons.people,
-    'challenge_winner': Icons.emoji_events,
-    'recipe_master': Icons.menu_book,
-  };
-
-  static const _badgeColors = <String, Color>{
-    'streak_7': Color(0xFFF97316),
-    'streak_30': Color(0xFFEF4444),
-    'first_meal': Color(0xFF22C55E),
-    'hydration_star': Color(0xFF3B82F6),
-    'social_butterfly': Color(0xFF8B5CF6),
-    'challenge_winner': Color(0xFFFBBF24),
-    'recipe_master': Color(0xFF10B981),
-  };
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -465,36 +489,65 @@ class _BadgeGrid extends StatelessWidget {
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
-        children: badges.map((badge) {
-          final icon = _badgeIcons[badge] ?? Icons.star;
-          final color = _badgeColors[badge] ?? cs.primary;
-          final label = badge.replaceAll('_', ' ');
+        children: badges.map((badgeId) {
+          final icon = BadgeCatalog.icon(badgeId);
+          final name = BadgeCatalog.name(badgeId);
+          final desc = BadgeCatalog.description(badgeId);
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.15),
-                  border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+          return GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Row(
+                    children: [
+                      Text(icon, style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(name)),
+                    ],
+                  ),
+                  content: Text(desc.isNotEmpty ? desc : 'A community badge.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              );
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: cs.primaryContainer.withValues(alpha: 0.3),
+                    border: Border.all(
+                        color: cs.primary.withValues(alpha: 0.3), width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(icon, style: const TextStyle(fontSize: 24)),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    name,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           );
         }).toList(),
       ),

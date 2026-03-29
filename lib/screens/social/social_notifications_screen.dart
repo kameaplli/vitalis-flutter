@@ -20,6 +20,47 @@ class SocialNotificationsScreen extends ConsumerStatefulWidget {
 class _SocialNotificationsScreenState
     extends ConsumerState<SocialNotificationsScreen> {
   bool _markingAllRead = false;
+  String _filterType = 'all'; // 'all', 'unread', 'social', 'polls', 'groups'
+
+  static const _filterOptions = [
+    ('all', 'All'),
+    ('unread', 'Unread'),
+    ('social', 'Social'),
+    ('polls', 'Polls'),
+    ('groups', 'Groups'),
+  ];
+
+  List<SocialNotification> _applyFilter(List<SocialNotification> all) {
+    switch (_filterType) {
+      case 'unread':
+        return all.where((n) => !n.isRead).toList();
+      case 'social':
+        return all
+            .where((n) => [
+                  'connection_request',
+                  'connection_accepted',
+                  'reaction',
+                  'comment',
+                  'badge_earned',
+                  'level_up',
+                ].contains(n.notificationType))
+            .toList();
+      case 'polls':
+        return all
+            .where((n) =>
+                n.notificationType == 'poll_vote' ||
+                n.notificationType == 'poll_comment')
+            .toList();
+      case 'groups':
+        return all
+            .where((n) =>
+                n.notificationType == 'group_invite' ||
+                n.notificationType == 'group_mention')
+            .toList();
+      default:
+        return all;
+    }
+  }
 
   Future<void> _markAllRead() async {
     setState(() => _markingAllRead = true);
@@ -47,6 +88,37 @@ class _SocialNotificationsScreenState
     } catch (_) {
       // silent
     }
+  }
+
+  List<_DaySection> _groupByDay(List<SocialNotification> notifications) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final Map<String, List<SocialNotification>> groups = {};
+    final Map<String, String> labels = {};
+
+    for (final n in notifications) {
+      final day = DateTime(n.createdAt.year, n.createdAt.month, n.createdAt.day);
+      final key = '${day.year}-${day.month}-${day.day}';
+      groups.putIfAbsent(key, () => []).add(n);
+      if (!labels.containsKey(key)) {
+        if (day == today) {
+          labels[key] = 'Today';
+        } else if (day == yesterday) {
+          labels[key] = 'Yesterday';
+        } else if (now.difference(day).inDays < 7) {
+          const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+          labels[key] = days[day.weekday - 1];
+        } else {
+          labels[key] = '${day.month}/${day.day}/${day.year}';
+        }
+      }
+    }
+
+    return groups.entries
+        .map((e) => _DaySection(label: labels[e.key]!, notifications: e.value))
+        .toList();
   }
 
   void _handleNotificationTap(SocialNotification notif) {
@@ -78,6 +150,24 @@ class _SocialNotificationsScreenState
         break;
       case 'streak_nudge':
         context.push('/social');
+        break;
+      case 'poll_vote':
+      case 'poll_comment':
+        final pollId = data['poll_id'] as String? ?? '';
+        if (pollId.isNotEmpty) {
+          context.push('/social'); // TODO: deep link to poll detail
+        }
+        break;
+      case 'group_invite':
+      case 'group_mention':
+        final groupId = data['group_id'] as String? ?? '';
+        if (groupId.isNotEmpty) {
+          context.push('/social/groups/$groupId');
+        }
+        break;
+      case 'badge_earned':
+      case 'level_up':
+        context.push('/social/profile/${data['user_id'] ?? ''}');
         break;
       default:
         break;
@@ -111,15 +201,46 @@ class _SocialNotificationsScreenState
             ),
         ],
       ),
-      body: RefreshIndicator(
-        color: cs.primary,
-        onRefresh: () async {
-          ref.invalidate(socialNotificationsProvider);
-          ref.invalidate(notificationBadgeProvider);
-          // Wait for refetch
-          await ref.read(socialNotificationsProvider.future);
-        },
-        child: notificationsAsync.when(
+      body: Column(
+        children: [
+          // Filter chips
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: _filterOptions.map((opt) {
+                final isSelected = _filterType == opt.$1;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(opt.$2),
+                    selected: isSelected,
+                    onSelected: (_) =>
+                        setState(() => _filterType = opt.$1),
+                    showCheckmark: false,
+                    labelStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? cs.onPrimary : cs.onSurface,
+                    ),
+                    backgroundColor:
+                        cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                    selectedColor: cs.primary,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              color: cs.primary,
+              onRefresh: () async {
+                ref.invalidate(socialNotificationsProvider);
+                ref.invalidate(notificationBadgeProvider);
+                await ref.read(socialNotificationsProvider.future);
+              },
+              child: notificationsAsync.when(
           loading: () =>
               const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(
@@ -139,7 +260,8 @@ class _SocialNotificationsScreenState
               ],
             ),
           ),
-          data: (notifications) {
+          data: (allNotifications) {
+            final notifications = _applyFilter(allNotifications);
             if (notifications.isEmpty) {
               return ListView(
                 children: [
@@ -167,27 +289,64 @@ class _SocialNotificationsScreenState
               );
             }
 
-            return ListView.separated(
+            // Group by day
+            final grouped = _groupByDay(notifications);
+            return ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: notifications.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                indent: 72,
-                color: cs.outlineVariant.withValues(alpha: 0.3),
-              ),
+              itemCount: grouped.length,
               itemBuilder: (_, i) {
-                final notif = notifications[i];
-                return _NotificationTile(
-                  notification: notif,
-                  onTap: () => _handleNotificationTap(notif),
+                final section = grouped[i];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Day header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                      child: Text(
+                        section.label,
+                        style: tt.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    ...section.notifications.map((notif) {
+                      return Column(
+                        children: [
+                          _NotificationTile(
+                            notification: notif,
+                            onTap: () => _handleNotificationTap(notif),
+                            onDismiss: () => _markOneRead(notif.id),
+                          ),
+                          Divider(
+                            height: 1,
+                            indent: 72,
+                            color: cs.outlineVariant.withValues(alpha: 0.3),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
                 );
               },
             );
           },
         ),
       ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+// ── Day Section ──────────────────────────────────────────────────────────────
+
+class _DaySection {
+  final String label;
+  final List<SocialNotification> notifications;
+  const _DaySection({required this.label, required this.notifications});
 }
 
 // ── Notification Tile ──────────────────────────────────────────────────────────
@@ -195,48 +354,42 @@ class _SocialNotificationsScreenState
 class _NotificationTile extends StatelessWidget {
   final SocialNotification notification;
   final VoidCallback onTap;
+  final VoidCallback? onDismiss;
 
   const _NotificationTile({
     required this.notification,
     required this.onTap,
+    this.onDismiss,
   });
 
-  IconData _iconForType(String type) {
-    switch (type) {
-      case 'connection_request':
-        return Icons.person_add_rounded;
-      case 'connection_accepted':
-        return Icons.how_to_reg_rounded;
-      case 'reaction':
-        return Icons.favorite_rounded;
-      case 'comment':
-        return Icons.chat_bubble_rounded;
-      case 'challenge_created':
-        return Icons.emoji_events_rounded;
-      case 'streak_nudge':
-        return Icons.notifications_active_rounded;
-      default:
-        return Icons.notifications_rounded;
-    }
-  }
+  IconData _iconForType(String type) => switch (type) {
+        'connection_request' => Icons.person_add_rounded,
+        'connection_accepted' => Icons.how_to_reg_rounded,
+        'reaction' => Icons.favorite_rounded,
+        'comment' => Icons.chat_bubble_rounded,
+        'challenge_created' => Icons.emoji_events_rounded,
+        'challenge_completed' => Icons.military_tech_rounded,
+        'streak_nudge' => Icons.notifications_active_rounded,
+        'poll_vote' => Icons.poll_rounded,
+        'poll_comment' => Icons.forum_rounded,
+        'group_invite' => Icons.group_add_rounded,
+        'group_mention' => Icons.alternate_email_rounded,
+        'badge_earned' => Icons.workspace_premium_rounded,
+        'level_up' => Icons.arrow_upward_rounded,
+        _ => Icons.notifications_rounded,
+      };
 
-  Color _colorForType(String type, ColorScheme cs) {
-    switch (type) {
-      case 'connection_request':
-      case 'connection_accepted':
-        return const Color(0xFF0D7377);
-      case 'reaction':
-        return Colors.redAccent;
-      case 'comment':
-        return cs.primary;
-      case 'challenge_created':
-        return Colors.amber.shade700;
-      case 'streak_nudge':
-        return Colors.orange;
-      default:
-        return cs.primary;
-    }
-  }
+  Color _colorForType(String type, ColorScheme cs) => switch (type) {
+        'connection_request' || 'connection_accepted' => const Color(0xFF0D7377),
+        'reaction' => Colors.redAccent,
+        'comment' || 'poll_comment' => cs.primary,
+        'challenge_created' || 'challenge_completed' => Colors.amber.shade700,
+        'streak_nudge' => Colors.orange,
+        'poll_vote' => const Color(0xFF8B5CF6),
+        'group_invite' || 'group_mention' => const Color(0xFF3B82F6),
+        'badge_earned' || 'level_up' => const Color(0xFFEAB308),
+        _ => cs.primary,
+      };
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
@@ -254,7 +407,7 @@ class _NotificationTile extends StatelessWidget {
     final type = notification.notificationType;
     final color = _colorForType(type, cs);
 
-    return InkWell(
+    Widget tile = InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
@@ -329,5 +482,23 @@ class _NotificationTile extends StatelessWidget {
         ),
       ),
     );
+
+    // Swipe to mark as read
+    if (!notification.isRead && onDismiss != null) {
+      tile = Dismissible(
+        key: ValueKey(notification.id),
+        direction: DismissDirection.endToStart,
+        onDismissed: (_) => onDismiss!(),
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          color: cs.primary.withValues(alpha: 0.1),
+          child: Icon(Icons.done_all_rounded, color: cs.primary),
+        ),
+        child: tile,
+      );
+    }
+
+    return tile;
   }
 }

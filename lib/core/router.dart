@@ -17,6 +17,7 @@ import '../screens/receipt_scan_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/insights_screen.dart';
 import '../screens/skin_photos_screen.dart';
+import '../screens/mood_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/interests_screen.dart';
 import '../screens/notification_preferences_screen.dart';
@@ -25,6 +26,8 @@ import '../screens/social/social_hub_screen.dart';
 import '../screens/social/social_profile_screen.dart';
 import '../screens/social/challenge_detail_screen.dart';
 import '../screens/social/social_notifications_screen.dart';
+import '../screens/social/group_chats_screen.dart';
+import '../models/group_chat_models.dart';
 import '../screens/health_intelligence_screen.dart';
 import '../screens/connected_devices_screen.dart';
 import '../screens/import_screen.dart';
@@ -122,7 +125,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/health/symptoms',    builder: (_, __) => const HealthSubScreen(category: 'symptoms')),
           GoRoute(path: '/health/medications', builder: (_, __) => const HealthSubScreen(category: 'medications')),
           GoRoute(path: '/health/supplements', builder: (_, __) => const HealthSubScreen(category: 'supplements')),
-          GoRoute(path: '/health/mood',        builder: (_, __) => const HealthSubScreen(category: 'mood')),
+          GoRoute(path: '/health/mood',        builder: (_, __) => const MoodScreen()),
           GoRoute(path: '/health/sleep',       builder: (_, __) => const HealthSubScreen(category: 'sleep')),
           GoRoute(path: '/health/exercise',    builder: (_, __) => const HealthSubScreen(category: 'exercise')),
           GoRoute(path: '/health/weight',      builder: (_, __) => const WeightScreen()),
@@ -144,6 +147,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/social/notifications', builder: (_, __) => const SocialNotificationsScreen()),
           GoRoute(path: '/social/profile/:id', builder: (_, state) => SocialProfileScreen(userId: state.pathParameters['id']!)),
           GoRoute(path: '/social/challenge/:id', builder: (_, state) => ChallengeDetailScreen(challengeId: state.pathParameters['id']!)),
+          GoRoute(path: '/social/groups', builder: (_, __) => const GroupChatsScreen()),
+          GoRoute(path: '/social/groups/:id', builder: (_, state) {
+            final group = state.extra as GroupChat;
+            return ChatRoomScreen(group: group);
+          }),
 
           // ── Blood Test Intelligence ──────────────────────────────────────
           GoRoute(path: '/health/labs', builder: (_, __) => const LabsDashboardScreen()),

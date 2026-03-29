@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/router.dart';
 import '../providers/interests_provider.dart';
@@ -264,7 +265,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                     duration: const Duration(milliseconds: 300),
                                     child: Column(
                                       children: [
-                                        Icon(Icons.keyboard_arrow_up,
+                                        HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01,
                                             color: Colors.white.withValues(alpha: 0.6), size: 20),
                                         Text('Swipe up to skip',
                                             style: TextStyle(
@@ -423,34 +424,67 @@ class _NavButtons extends StatelessWidget {
   }
 }
 
-class _GlassButton extends StatelessWidget {
+class _GlassButton extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
   final bool outlined;
   const _GlassButton({required this.label, required this.onTap, required this.outlined});
 
   @override
+  State<_GlassButton> createState() => _GlassButtonState();
+}
+
+class _GlassButtonState extends State<_GlassButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+    _scale = Tween(begin: 1.0, end: 0.94).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeIn, reverseCurve: Curves.elasticOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-        decoration: BoxDecoration(
-          color: outlined ? Colors.white.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: outlined ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1) : null,
-          boxShadow: outlined
-              ? null
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: outlined ? Colors.white : _pinkDark,
-            letterSpacing: 0.3,
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) { _ctrl.reverse(); widget.onTap(); },
+      onTapCancel: () => _ctrl.reverse(),
+      child: ScaleTransition(
+        scale: _scale,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+          decoration: BoxDecoration(
+            color: widget.outlined ? Colors.white.withValues(alpha: 0.1) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: widget.outlined ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1) : null,
+            boxShadow: widget.outlined
+                ? null
+                : [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: widget.outlined ? Colors.white : _pinkDark,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
       ),
@@ -545,60 +579,77 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Animated logo
-          AnimatedBuilder(
-            animation: orbCtrl,
-            builder: (context, child) {
-              final pulse = 1.0 + math.sin(orbCtrl.value * 2 * math.pi * 0.5) * 0.04;
-              return Transform.scale(scale: pulse, child: child);
-            },
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(color: _pink.withValues(alpha: 0.4), blurRadius: 40, spreadRadius: 8),
-                ],
-              ),
-              child: const Center(
-                child: Icon(Icons.favorite_rounded, size: 54, color: Colors.white),
-              ),
+          // Animated logo with radiating rings
+          SizedBox(
+            width: 180,
+            height: 180,
+            child: AnimatedBuilder(
+              animation: orbCtrl,
+              builder: (context, _) {
+                final t = orbCtrl.value;
+                return CustomPaint(
+                  painter: _RadiatingRingsPainter(t),
+                  child: Center(
+                    child: Transform.scale(
+                      scale: 1.0 + math.sin(t * 2 * math.pi * 0.5) * 0.04,
+                      child: Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(color: _pink.withValues(alpha: 0.5), blurRadius: 32, spreadRadius: 4),
+                          ],
+                        ),
+                        child: Center(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [Colors.white, Color(0xFFFFE0B2)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ).createShader(bounds),
+                            child: const Text('QH',
+                              style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900,
+                                color: Colors.white, letterSpacing: -2, height: 1)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 40),
-          const Text(
-            'QoreHealth',
-            style: TextStyle(
-              fontSize: 38, fontWeight: FontWeight.w700, color: Colors.white,
-              letterSpacing: -1,
+          const SizedBox(height: 32),
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFFFCDD2)],
+            ).createShader(bounds),
+            child: const Text(
+              'QoreHealth',
+              style: TextStyle(
+                fontSize: 40, fontWeight: FontWeight.w800, color: Colors.white,
+                letterSpacing: -1.5,
+              ),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Your personal health intelligence',
             style: TextStyle(
-              fontSize: 16, color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 16, color: Colors.white.withValues(alpha: 0.75),
               fontWeight: FontWeight.w300, letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 48),
-          const _GlassCard(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            child: Column(
-              children: [
-                _FeatureRow(icon: Icons.track_changes, text: 'Track triggers with precision'),
-                SizedBox(height: 14),
-                _FeatureRow(icon: Icons.insights, text: 'AI-powered health insights'),
-                SizedBox(height: 14),
-                _FeatureRow(icon: Icons.family_restroom, text: 'Family health dashboard'),
-              ],
-            ),
+          const SizedBox(height: 44),
+          _GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: _StaggeredFeatures(orbCtrl: orbCtrl),
           ),
         ],
       ),
@@ -606,8 +657,70 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
+/// Radiating concentric rings that pulse outward
+class _RadiatingRingsPainter extends CustomPainter {
+  final double t;
+  _RadiatingRingsPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    for (int i = 0; i < 3; i++) {
+      final phase = (t * 0.8 + i * 0.33) % 1.0;
+      final radius = 48.0 + phase * 42;
+      final alpha = (1.0 - phase) * 0.25;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0 - phase * 1.2
+        ..color = Colors.white.withValues(alpha: alpha);
+      canvas.drawCircle(center, radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RadiatingRingsPainter old) => true;
+}
+
+/// Staggered feature rows — each slides in with a delay
+class _StaggeredFeatures extends StatelessWidget {
+  final AnimationController orbCtrl;
+  const _StaggeredFeatures({required this.orbCtrl});
+
+  static final _features = [
+    (HugeIcons.strokeRoundedTarget02, 'Track triggers with precision'),
+    (HugeIcons.strokeRoundedIdea01, 'AI-powered health insights'),
+    (HugeIcons.strokeRoundedUserGroup, 'Family health dashboard'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(_features.length, (i) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: Duration(milliseconds: 600 + i * 150),
+          curve: Curves.easeOutCubic,
+          builder: (context, v, child) {
+            return Opacity(
+              opacity: v.clamp(0.0, 1.0),
+              child: Transform.translate(
+                offset: Offset(0, (1 - v) * 16),
+                child: child,
+              ),
+            );
+          },
+          child: Padding(
+            padding: EdgeInsets.only(bottom: i < 2 ? 14 : 0),
+            child: _FeatureRow(icon: _features[i].$1, text: _features[i].$2),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _FeatureRow extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String text;
   const _FeatureRow({required this.icon, required this.text});
 
@@ -616,17 +729,31 @@ class _FeatureRow extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 36, height: 36,
+          width: 40, height: 40,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
+            gradient: LinearGradient(
+              colors: [Colors.white.withValues(alpha: 0.25), Colors.white.withValues(alpha: 0.08)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: Colors.white.withValues(alpha: 0.06), blurRadius: 8),
+            ],
           ),
-          child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 18),
+          child: ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFFFFAB91)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ).createShader(bounds),
+            child: HugeIcon(icon: icon, color: Colors.white, size: 20),
+          ),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Text(text, style: TextStyle(
-            fontSize: 14, color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w500,
+            fontSize: 14, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500,
           )),
         ),
       ],
@@ -634,38 +761,118 @@ class _FeatureRow extends StatelessWidget {
   }
 }
 
-// ── Shared page header ───────────────────────────────────────────────────────
+// ── Shared page header with animated gradient icon ───────────────────────────
 class _PageHeader extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String subtitle;
   const _PageHeader({required this.icon, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 64, height: 64,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(20),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutBack,
+      builder: (context, v, child) {
+        return Opacity(
+          opacity: v.clamp(0.0, 1.0),
+          child: Transform.scale(scale: 0.6 + v * 0.4, child: child),
+        );
+      },
+      child: Column(
+        children: [
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white.withValues(alpha: 0.22), Colors.white.withValues(alpha: 0.06)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+              boxShadow: [
+                BoxShadow(color: Colors.white.withValues(alpha: 0.08), blurRadius: 20, spreadRadius: 2),
+              ],
+            ),
+            child: ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Colors.white, Color(0xFFFFCC80)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: HugeIcon(icon: icon, color: Colors.white, size: 34),
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 30),
-        ),
-        const SizedBox(height: 20),
-        Text(title, style: const TextStyle(
-          fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white,
-        ), textAlign: TextAlign.center),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(subtitle, style: TextStyle(
-            fontSize: 14, color: Colors.white.withValues(alpha: 0.65),
-            fontWeight: FontWeight.w400, height: 1.4,
+          const SizedBox(height: 20),
+          Text(title, style: const TextStyle(
+            fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white,
+            letterSpacing: -0.5,
           ), textAlign: TextAlign.center),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(subtitle, style: TextStyle(
+              fontSize: 14, color: Colors.white.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w400, height: 1.4,
+            ), textAlign: TextAlign.center),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bounce chip — tap-scale micro-interaction wrapper ─────────────────────────
+class _BounceChip extends StatefulWidget {
+  final VoidCallback onTap;
+  final Widget child;
+  const _BounceChip({required this.onTap, required this.child});
+
+  @override
+  State<_BounceChip> createState() => _BounceChipState();
+}
+
+class _BounceChipState extends State<_BounceChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+      reverseDuration: const Duration(milliseconds: 250),
+    );
+    _scale = Tween(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut,
+          reverseCurve: Curves.elasticOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) => _ctrl.forward();
+  void _onTapUp(TapUpDetails _) {
+    _ctrl.reverse();
+    widget.onTap();
+  }
+  void _onTapCancel() => _ctrl.reverse();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      child: ScaleTransition(scale: _scale, child: widget.child),
     );
   }
 }
@@ -677,11 +884,16 @@ class _ProblemAreasPage extends StatelessWidget {
   final void Function(String) onToggle;
   const _ProblemAreasPage({required this.areas, required this.selected, required this.onToggle});
 
-  static const _areaIcons = {
-    'Face': Icons.face, 'Neck': Icons.height, 'Arms': Icons.back_hand_outlined,
-    'Hands': Icons.pan_tool_outlined, 'Legs': Icons.directions_walk,
-    'Feet': Icons.do_not_step, 'Torso': Icons.accessibility_new,
-    'Back': Icons.airline_seat_flat, 'Scalp': Icons.self_improvement,
+  static final _areaIcons = {
+    'Face': HugeIcons.strokeRoundedSmileDizzy,
+    'Neck': HugeIcons.strokeRoundedRuler,
+    'Arms': HugeIcons.strokeRoundedHandPointingRight01,
+    'Hands': HugeIcons.strokeRoundedHandGrip,
+    'Legs': HugeIcons.strokeRoundedRunningShoes,
+    'Feet': HugeIcons.strokeRoundedRunningShoes,
+    'Torso': HugeIcons.strokeRoundedBodyPartMuscle,
+    'Back': HugeIcons.strokeRoundedYoga01,
+    'Scalp': HugeIcons.strokeRoundedBrain,
   };
 
   @override
@@ -692,7 +904,7 @@ class _ProblemAreasPage extends StatelessWidget {
         children: [
           const SizedBox(height: 24),
           const _PageHeader(
-            icon: Icons.accessibility_new,
+            icon: HugeIcons.strokeRoundedBodyPartMuscle,
             title: 'Problem areas',
             subtitle: 'Tap all areas where you experience symptoms',
           ),
@@ -702,28 +914,44 @@ class _ProblemAreasPage extends StatelessWidget {
             runSpacing: 10,
             children: areas.map((a) {
               final active = selected.contains(a);
-              return GestureDetector(
+              return _BounceChip(
                 onTap: () => onToggle(a),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: active ? Colors.white.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.08),
+                    gradient: active
+                        ? LinearGradient(colors: [
+                            Colors.white.withValues(alpha: 0.3),
+                            Colors.white.withValues(alpha: 0.15),
+                          ])
+                        : null,
+                    color: active ? null : Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: active ? Colors.white.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.12),
+                      color: active ? Colors.white.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.12),
                       width: 1.5,
                     ),
+                    boxShadow: active
+                        ? [BoxShadow(color: Colors.white.withValues(alpha: 0.12), blurRadius: 12, spreadRadius: 1)]
+                        : null,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_areaIcons[a] ?? Icons.circle, size: 18,
-                          color: active ? Colors.white : Colors.white.withValues(alpha: 0.5)),
+                      ShaderMask(
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: active
+                              ? [Colors.white, const Color(0xFFFFCC80)]
+                              : [Colors.white.withValues(alpha: 0.5), Colors.white.withValues(alpha: 0.3)],
+                        ).createShader(bounds),
+                        child: HugeIcon(icon: _areaIcons[a] ?? HugeIcons.strokeRoundedCircle, size: 18, color: Colors.white),
+                      ),
                       const SizedBox(width: 8),
                       Text(a, style: TextStyle(
                         color: active ? Colors.white : Colors.white.withValues(alpha: 0.6),
-                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w400,
                         fontSize: 14,
                       )),
                     ],
@@ -758,8 +986,8 @@ class _TriggersPage extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          const _PageHeader(
-            icon: Icons.restaurant,
+          _PageHeader(
+            icon: HugeIcons.strokeRoundedRestaurant01,
             title: 'Known food triggers',
             subtitle: "Select any you've noticed, or 'None / Unsure'",
           ),
@@ -769,27 +997,37 @@ class _TriggersPage extends StatelessWidget {
             runSpacing: 10,
             children: triggers.map((t) {
               final active = selected.contains(t);
-              return GestureDetector(
+              return _BounceChip(
                 onTap: () => onToggle(t),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: active ? Colors.white.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.08),
+                    gradient: active
+                        ? LinearGradient(colors: [
+                            Colors.white.withValues(alpha: 0.3),
+                            Colors.white.withValues(alpha: 0.15),
+                          ])
+                        : null,
+                    color: active ? null : Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: active ? Colors.white.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.12),
+                      color: active ? Colors.white.withValues(alpha: 0.55) : Colors.white.withValues(alpha: 0.12),
                       width: 1.5,
                     ),
+                    boxShadow: active
+                        ? [BoxShadow(color: Colors.white.withValues(alpha: 0.12), blurRadius: 12, spreadRadius: 1)]
+                        : null,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_triggerEmojis[t] ?? '?', style: const TextStyle(fontSize: 18)),
+                      Text(_triggerEmojis[t] ?? '?', style: const TextStyle(fontSize: 20)),
                       const SizedBox(width: 8),
                       Text(t, style: TextStyle(
                         color: active ? Colors.white : Colors.white.withValues(alpha: 0.6),
-                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w400,
                         fontSize: 14,
                       )),
                     ],
@@ -818,8 +1056,8 @@ class _LocationPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const _PageHeader(
-            icon: Icons.cloud,
+          _PageHeader(
+            icon: HugeIcons.strokeRoundedCloud,
             title: 'Weather tracking',
             subtitle: 'Automatically track weather, humidity and air quality alongside your logs',
           ),
@@ -830,7 +1068,7 @@ class _LocationPage extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.8), size: 22),
+                    HugeIcon(icon: HugeIcons.strokeRoundedLocation01, color: Colors.white.withValues(alpha: 0.8), size: 22),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -853,13 +1091,13 @@ class _LocationPage extends StatelessWidget {
                 ),
                 if (enabled) ...[
                   const SizedBox(height: 16),
-                  const Row(
+                  Row(
                     children: [
-                      _WeatherChip(icon: Icons.thermostat, label: 'Temperature'),
-                      SizedBox(width: 8),
-                      _WeatherChip(icon: Icons.water_drop, label: 'Humidity'),
-                      SizedBox(width: 8),
-                      _WeatherChip(icon: Icons.air, label: 'AQI'),
+                      _AnimatedWeatherChip(icon: HugeIcons.strokeRoundedThermometer, label: 'Temperature', delay: 0),
+                      const SizedBox(width: 8),
+                      _AnimatedWeatherChip(icon: HugeIcons.strokeRoundedDroplet, label: 'Humidity', delay: 100),
+                      const SizedBox(width: 8),
+                      _AnimatedWeatherChip(icon: HugeIcons.strokeRoundedFastWind, label: 'AQI', delay: 200),
                     ],
                   ),
                 ],
@@ -877,26 +1115,49 @@ class _LocationPage extends StatelessWidget {
   }
 }
 
-class _WeatherChip extends StatelessWidget {
-  final IconData icon;
+class _AnimatedWeatherChip extends StatelessWidget {
+  final List<List<dynamic>> icon;
   final String label;
-  const _WeatherChip({required this.icon, required this.label});
+  final int delay;
+  const _AnimatedWeatherChip({required this.icon, required this.label, required this.delay});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 18),
-            const SizedBox(height: 4),
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
-          ],
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: Duration(milliseconds: 500 + delay),
+        curve: Curves.easeOutBack,
+        builder: (context, v, child) {
+          return Opacity(
+            opacity: v.clamp(0.0, 1.0),
+            child: Transform.scale(scale: 0.5 + v * 0.5, child: child),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white.withValues(alpha: 0.15), Colors.white.withValues(alpha: 0.06)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Column(
+            children: [
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Colors.white, Color(0xFFFFCC80)],
+                ).createShader(bounds),
+                child: HugeIcon(icon: icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(height: 4),
+              Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w500)),
+            ],
+          ),
         ),
       ),
     );
@@ -924,8 +1185,8 @@ class _MealTimesPage extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          const _PageHeader(
-            icon: Icons.notifications_active,
+          _PageHeader(
+            icon: HugeIcons.strokeRoundedNotification01,
             title: 'Reminders',
             subtitle: "We'll nudge you at the right times. You can change these anytime.",
           ),
@@ -935,7 +1196,7 @@ class _MealTimesPage extends StatelessWidget {
             child: Column(
               children: [
                 _GlassToggle(
-                  icon: Icons.restaurant,
+                  icon: HugeIcons.strokeRoundedRestaurant01,
                   label: 'Meal reminders',
                   value: mealsEnabled,
                   onChanged: onMealsChanged,
@@ -965,7 +1226,7 @@ class _MealTimesPage extends StatelessWidget {
           _GlassCard(
             padding: const EdgeInsets.all(16),
             child: _GlassToggle(
-              icon: Icons.water_drop,
+              icon: HugeIcons.strokeRoundedDroplet,
               label: 'Hydration reminders',
               subtitle: 'Every 90 min during the day',
               value: hydrationEnabled,
@@ -980,7 +1241,7 @@ class _MealTimesPage extends StatelessWidget {
 }
 
 class _GlassToggle extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final String? subtitle;
   final bool value;
@@ -992,7 +1253,7 @@ class _GlassToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 22),
+        HugeIcon(icon: icon, color: Colors.white.withValues(alpha: 0.7), size: 22),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1122,28 +1383,12 @@ class _ConnectDevicesPageState extends State<_ConnectDevicesPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          const Icon(Icons.watch_rounded, size: 48, color: Colors.white),
-          const SizedBox(height: 16),
-          const Text(
-            'Connect Your Devices',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: -0.5,
-            ),
+          _PageHeader(
+            icon: HugeIcons.strokeRoundedSmartWatch01,
+            title: 'Connect Your Devices',
+            subtitle: 'Sync data from your wearables and health apps for a complete health picture.',
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Sync data from your wearables and health apps '
-            'for a complete health picture.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.8),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
           // Connect button or status
           Center(
@@ -1159,7 +1404,7 @@ class _ConnectDevicesPageState extends State<_ConnectDevicesPage> {
                             shape: BoxShape.circle,
                             color: Colors.white.withValues(alpha: 0.2),
                           ),
-                          child: const Icon(Icons.check_rounded,
+                          child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                               size: 32, color: Colors.white),
                         ),
                         const SizedBox(height: 12),
@@ -1192,10 +1437,10 @@ class _ConnectDevicesPageState extends State<_ConnectDevicesPage> {
                           shape: BoxShape.circle,
                           color: Colors.white.withValues(alpha: 0.15),
                         ),
-                        child: Icon(
-                          isSupported
-                              ? Icons.watch_rounded
-                              : Icons.phone_android_rounded,
+                        child: HugeIcon(
+                          icon: isSupported
+                              ? HugeIcons.strokeRoundedSmartWatch01
+                              : HugeIcons.strokeRoundedSmartPhone01,
                           size: 48,
                           color: Colors.white.withValues(alpha: 0.8),
                         ),
@@ -1263,29 +1508,33 @@ class _ConnectDevicesPageState extends State<_ConnectDevicesPage> {
 
                       const SizedBox(height: 20),
                       // Features list
-                      const _GlassCard(
-                        padding: EdgeInsets.all(16),
+                      _GlassCard(
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           children: [
-                            _DeviceFeatureRow(
-                              icon: Icons.favorite_rounded,
-                              text: 'Heart rate & HRV',
-                            ),
-                            SizedBox(height: 10),
-                            _DeviceFeatureRow(
-                              icon: Icons.directions_walk_rounded,
-                              text: 'Steps & distance',
-                            ),
-                            SizedBox(height: 10),
-                            _DeviceFeatureRow(
-                              icon: Icons.bedtime_rounded,
-                              text: 'Sleep tracking',
-                            ),
-                            SizedBox(height: 10),
-                            _DeviceFeatureRow(
-                              icon: Icons.fitness_center_rounded,
-                              text: 'Workouts & calories',
-                            ),
+                            ...[
+                              (HugeIcons.strokeRoundedFavourite, 'Heart rate & HRV', 0),
+                              (HugeIcons.strokeRoundedRunningShoes, 'Steps & distance', 1),
+                              (HugeIcons.strokeRoundedMoon02, 'Sleep tracking', 2),
+                              (HugeIcons.strokeRoundedDumbbell01, 'Workouts & calories', 3),
+                            ].map((item) => Padding(
+                              padding: EdgeInsets.only(bottom: item.$3 < 3 ? 10 : 0),
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.0, end: 1.0),
+                                duration: Duration(milliseconds: 500 + item.$3 * 120),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, v, child) {
+                                  return Opacity(
+                                    opacity: v.clamp(0.0, 1.0),
+                                    child: Transform.translate(
+                                      offset: Offset((1 - v) * 24, 0),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _DeviceFeatureRow(icon: item.$1, text: item.$2),
+                              ),
+                            )),
                           ],
                         ),
                       ),
@@ -1299,7 +1548,7 @@ class _ConnectDevicesPageState extends State<_ConnectDevicesPage> {
 }
 
 class _DeviceFeatureRow extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String text;
   const _DeviceFeatureRow({required this.icon, required this.text});
 
@@ -1307,13 +1556,27 @@ class _DeviceFeatureRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 18),
-        const SizedBox(width: 10),
+        Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white.withValues(alpha: 0.2), Colors.white.withValues(alpha: 0.06)],
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Colors.white, Color(0xFF4DB6AC)],
+            ).createShader(bounds),
+            child: HugeIcon(icon: icon, color: Colors.white, size: 17),
+          ),
+        ),
+        const SizedBox(width: 12),
         Text(
           text,
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.8),
+            color: Colors.white.withValues(alpha: 0.85),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -1335,46 +1598,81 @@ class _VoiceLocalePage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          const Icon(Icons.mic, size: 48, color: Colors.white),
-          const SizedBox(height: 16),
-          const Text('Voice Language',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900,
-                  color: Colors.white, letterSpacing: -0.5)),
-          const SizedBox(height: 8),
-          Text(
-            'Choose your preferred language for voice meal logging. '
-            'This helps the app understand your accent and food names better.',
-            style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8),
-                height: 1.5),
+          _PageHeader(
+            icon: HugeIcons.strokeRoundedMic01,
+            title: 'Voice Language',
+            subtitle: 'Choose your preferred language for voice meal logging. This helps the app understand your accent and food names better.',
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Expanded(
             child: ListView(
-              children: voiceLocaleOptions.entries.map((entry) {
+              children: voiceLocaleOptions.entries.toList().asMap().entries.map((indexed) {
+                final i = indexed.key;
+                final entry = indexed.value;
                 final isSelected = currentLocale == entry.key;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Material(
-                    color: isSelected
-                        ? Colors.white.withValues(alpha: 0.25)
-                        : Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(14),
-                    child: InkWell(
-                      onTap: () => ref.read(voiceLocaleProvider.notifier).setLocale(entry.key),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        child: Row(
-                          children: [
-                            Text(entry.value,
-                                style: TextStyle(
-                                  fontSize: 15, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                                  color: Colors.white,
-                                )),
-                            const Spacer(),
-                            if (isSelected)
-                              const Icon(Icons.check_circle, color: Colors.white, size: 22),
-                          ],
+                return TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: Duration(milliseconds: 400 + i * 60),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, v, child) {
+                    return Opacity(
+                      opacity: v.clamp(0.0, 1.0),
+                      child: Transform.translate(
+                        offset: Offset((1 - v) * 30, 0),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => ref.read(voiceLocaleProvider.notifier).setLocale(entry.key),
+                        borderRadius: BorderRadius.circular(14),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: isSelected
+                                ? LinearGradient(colors: [
+                                    Colors.white.withValues(alpha: 0.28),
+                                    Colors.white.withValues(alpha: 0.12),
+                                  ])
+                                : null,
+                            color: isSelected ? null : Colors.white.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.4)
+                                  : Colors.white.withValues(alpha: 0.08),
+                            ),
+                            boxShadow: isSelected
+                                ? [BoxShadow(color: Colors.white.withValues(alpha: 0.1), blurRadius: 12)]
+                                : null,
+                          ),
+                          child: Row(
+                            children: [
+                              Text(entry.value,
+                                  style: TextStyle(
+                                    fontSize: 15, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                                    color: Colors.white,
+                                  )),
+                              const Spacer(),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: isSelected
+                                    ? ShaderMask(
+                                        shaderCallback: (bounds) => const LinearGradient(
+                                          colors: [Colors.white, Color(0xFFFFCC80)],
+                                        ).createShader(bounds),
+                                        child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.white, size: 22),
+                                      )
+                                    : const SizedBox(width: 22, height: 22),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1401,63 +1699,131 @@ class _ReadyPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Animated checkmark
-          AnimatedBuilder(
-            animation: orbCtrl,
-            builder: (context, child) {
-              final pulse = 1.0 + math.sin(orbCtrl.value * 2 * math.pi * 0.8) * 0.05;
-              return Transform.scale(scale: pulse, child: child);
-            },
-            child: Container(
-              width: 100, height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(color: _pink.withValues(alpha: 0.4),
-                      blurRadius: 30, spreadRadius: 5),
-                ],
-              ),
-              child: const Icon(Icons.check_rounded, size: 50, color: Colors.white),
-            ),
-          ),
-          const SizedBox(height: 36),
-          const Text(
-            "You're all set!",
-            style: TextStyle(
-              fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Start logging to unlock personalized health insights.\nThe more data you provide, the smarter QoreHealth gets.',
-            style: TextStyle(
-              fontSize: 15, color: Colors.white.withValues(alpha: 0.65),
-              fontWeight: FontWeight.w400, height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 40),
-          _GlassCard(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              children: [
-                Icon(Icons.auto_awesome, color: Colors.amber.shade300, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Tip: Log meals, symptoms, and sleep daily for the best insights',
-                    style: TextStyle(
-                      fontSize: 13, color: Colors.white.withValues(alpha: 0.75),
-                      fontWeight: FontWeight.w400, height: 1.3,
+          // Confetti + animated checkmark
+          SizedBox(
+            width: 200, height: 200,
+            child: AnimatedBuilder(
+              animation: orbCtrl,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: _ConfettiPainter(orbCtrl.value),
+                  child: child,
+                );
+              },
+              child: Center(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 800),
+                  curve: Curves.elasticOut,
+                  builder: (context, v, child) {
+                    return Transform.scale(scale: v, child: child);
+                  },
+                  child: AnimatedBuilder(
+                    animation: orbCtrl,
+                    builder: (context, child) {
+                      final pulse = 1.0 + math.sin(orbCtrl.value * 2 * math.pi * 0.8) * 0.05;
+                      return Transform.scale(scale: pulse, child: child);
+                    },
+                    child: Container(
+                      width: 100, height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(color: _pink.withValues(alpha: 0.4),
+                              blurRadius: 30, spreadRadius: 5),
+                        ],
+                      ),
+                      child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 50, color: Colors.white),
                     ),
                   ),
                 ),
-              ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutCubic,
+            builder: (context, v, child) {
+              return Opacity(
+                opacity: v.clamp(0.0, 1.0),
+                child: Transform.translate(
+                  offset: Offset(0, (1 - v) * 20),
+                  child: child,
+                ),
+              );
+            },
+            child: ShaderMask(
+              shaderCallback: (bounds) => const LinearGradient(
+                colors: [Colors.white, Color(0xFFFFCDD2)],
+              ).createShader(bounds),
+              child: const Text(
+                "You're all set!",
+                style: TextStyle(
+                  fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            builder: (context, v, child) {
+              return Opacity(opacity: v.clamp(0.0, 1.0), child: child);
+            },
+            child: Text(
+              'Start logging to unlock personalized health insights.\nThe more data you provide, the smarter QoreHealth gets.',
+              style: TextStyle(
+                fontSize: 15, color: Colors.white.withValues(alpha: 0.65),
+                fontWeight: FontWeight.w400, height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 40),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutCubic,
+            builder: (context, v, child) {
+              return Opacity(
+                opacity: v.clamp(0.0, 1.0),
+                child: Transform.translate(
+                  offset: Offset(0, (1 - v) * 16),
+                  child: child,
+                ),
+              );
+            },
+            child: _GlassCard(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Color(0xFFFFD54F), Color(0xFFFF6D00)],
+                    ).createShader(bounds),
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedStars, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Tip: Log meals, symptoms, and sleep daily for the best insights',
+                      style: TextStyle(
+                        fontSize: 13, color: Colors.white.withValues(alpha: 0.75),
+                        fontWeight: FontWeight.w400, height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -1477,4 +1843,42 @@ class _ReadyPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Confetti particles that burst and float around the checkmark
+class _ConfettiPainter extends CustomPainter {
+  final double t;
+  _ConfettiPainter(this.t);
+
+  static final _rng = math.Random(42);
+  static final _particles = List.generate(24, (i) {
+    final angle = (i / 24) * 2 * math.pi + _rng.nextDouble() * 0.5;
+    final speed = 0.6 + _rng.nextDouble() * 0.8;
+    final size = 3.0 + _rng.nextDouble() * 4;
+    final colorIdx = i % 5;
+    return (angle, speed, size, colorIdx);
+  });
+
+  static const _colors = [
+    Color(0xFFE91E63), Color(0xFFFF6D00), Color(0xFF7B1FA2),
+    Color(0xFFFFD54F), Color(0xFF4DB6AC),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    for (final p in _particles) {
+      final phase = (t * p.$2 * 0.3 + p.$1 / (2 * math.pi)) % 1.0;
+      final radius = 50.0 + phase * 48;
+      final angle = p.$1 + t * p.$2 * 0.5;
+      final dx = center.dx + math.cos(angle) * radius;
+      final dy = center.dy + math.sin(angle) * radius + math.sin(phase * math.pi * 2) * 8;
+      final alpha = (1.0 - phase) * 0.7;
+      final paint = Paint()..color = _colors[p.$4].withValues(alpha: alpha);
+      canvas.drawCircle(Offset(dx, dy), p.$3 * (1.0 - phase * 0.5), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => true;
 }

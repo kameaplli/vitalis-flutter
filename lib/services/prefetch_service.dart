@@ -86,36 +86,6 @@ class PrefetchService {
     }
   }
 
-  /// Warm only the data for the Nutrition screen (entries + analytics).
-  static Future<void> warmNutrition(WidgetRef ref, String personId) async {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final sevenDaysAgo = DateTime.now()
-        .subtract(const Duration(days: 7))
-        .toIso8601String()
-        .substring(0, 10);
-
-    await Future.wait([
-      _safe(() => ref.read(nutritionEntriesProvider('${personId}_${sevenDaysAgo}_$today').future)),
-      _safe(() => ref.read(nutritionAnalyticsProvider('${personId}_30').future)),
-      _safe(() => ref.read(foodDatabaseProvider.future)),
-      _safe(() => ref.read(recentFrequentProvider(personId).future)),
-      _safe(() => ref.read(favoriteFoodsProvider.future)),
-    ]);
-  }
-
-  /// Warm health screen data (all tabs).
-  static Future<void> warmHealth(WidgetRef ref, String personId) async {
-    await Future.wait([
-      _safe(() => ref.read(symptomsProvider('${personId}_7').future)),
-      _safe(() => ref.read(medicationsProvider('${personId}_7').future)),
-      _safe(() => ref.read(supplementsProvider('${personId}_7').future)),
-      _safe(() => ref.read(vitalsProvider('${personId}_7').future)),
-      _safe(() => ref.read(sleepProvider('${personId}_7').future)),
-      _safe(() => ref.read(exerciseProvider('${personId}_7').future)),
-      _safe(() => ref.read(moodProvider('${personId}_7').future)),
-    ]);
-  }
-
   /// Swallow errors — prefetch failures should never affect the user.
   static Future<void> _safe(Future<void> Function() fn) async {
     try {

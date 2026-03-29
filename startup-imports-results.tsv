@@ -1,0 +1,7 @@
+# metric_direction: lower_is_better (APK size in bytes)
+# pivoted from import count (155 — hit wall) to APK size
+iteration	commit	metric	delta	guard	status	description
+0	baseline	45311039	0	pass	baseline	release APK 43.2MB (45311039 bytes)
+1	12f2618	43100283	-2210756	pass	keep	remove 5 unused assets (2.16 MB raw) — APK 41.1MB
+2	5cfb11d	43091665	-8618	pass	keep	remove 3 unused deps (gal, flutter_svg, cupertino_icons) — marginal gain
+3	-	-	-	-	plateau	APK dominated by native libs (30MB for 4 ABIs) + barcode ML (8MB) — need --split-per-abi for further reduction

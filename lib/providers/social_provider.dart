@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/social_models.dart';
+import '../services/social_cache_service.dart';
 
 /// Helper: backend may return a raw List or a wrapped object with a key.
 List<dynamic> _extractList(dynamic data, String key) {
@@ -22,12 +23,16 @@ class FeedState {
   final List<FeedEvent> events;
   final bool isLoading;    // true only on very first load
   final bool isRefreshing; // true during background refresh (no UI change)
+  final bool isLoadingMore; // true during infinite scroll load
+  final bool hasMore;       // false when all pages exhausted
   final String? error;
 
   const FeedState({
     this.events = const [],
     this.isLoading = true,
     this.isRefreshing = false,
+    this.isLoadingMore = false,
+    this.hasMore = true,
     this.error,
   });
 
@@ -35,30 +40,53 @@ class FeedState {
     List<FeedEvent>? events,
     bool? isLoading,
     bool? isRefreshing,
+    bool? isLoadingMore,
+    bool? hasMore,
     String? error,
   }) =>
       FeedState(
         events: events ?? this.events,
         isLoading: isLoading ?? this.isLoading,
         isRefreshing: isRefreshing ?? this.isRefreshing,
+        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+        hasMore: hasMore ?? this.hasMore,
         error: error,
       );
 }
 
 class FeedNotifier extends StateNotifier<FeedState> {
   final String _endpoint;
+  final bool _isRecipeFeed;
   Timer? _refreshTimer;
 
   FeedNotifier(this._endpoint, {String? contentTypeFilter})
-      : super(const FeedState()) {
+      : _isRecipeFeed = contentTypeFilter != null,
+        super(const FeedState()) {
     _loadInitial();
   }
 
   Future<void> _loadInitial() async {
+    // ── Step 1: Render from local cache instantly (no network wait) ──
+    final cached = _isRecipeFeed
+        ? await SocialCacheService.loadRecipeFeed()
+        : await SocialCacheService.loadFeed();
+    if (cached != null && cached.isNotEmpty && mounted) {
+      state = FeedState(events: cached, isLoading: false);
+    }
+
+    // ── Step 2: Fetch fresh data in background, merge in-place ──
+    // If cache was loaded, this is a silent background update (no loading state).
+    // If no cache, user sees loading spinner until network returns.
     try {
       final events = await _fetch(null);
       if (mounted) {
         state = FeedState(events: events, isLoading: false);
+        // Persist to cache for next cold start
+        if (_isRecipeFeed) {
+          SocialCacheService.saveRecipeFeed(events);
+        } else {
+          SocialCacheService.saveFeed(events);
+        }
       }
       // Auto-refresh every 2 minutes in background
       _refreshTimer = Timer.periodic(
@@ -67,7 +95,16 @@ class FeedNotifier extends StateNotifier<FeedState> {
       );
     } catch (e) {
       if (mounted) {
-        state = FeedState(isLoading: false, error: e.toString());
+        // If we have cache, keep showing it (no error state)
+        if (state.events.isNotEmpty) {
+          state = state.copyWith(isLoading: false);
+          _refreshTimer = Timer.periodic(
+            const Duration(minutes: 2),
+            (_) => refreshInBackground(),
+          );
+        } else {
+          state = FeedState(isLoading: false, error: e.toString());
+        }
       }
     }
   }
@@ -87,6 +124,7 @@ class FeedNotifier extends StateNotifier<FeedState> {
   }
 
   /// Refresh feed in background — no loading state shown.
+  /// Updates local cache after successful fetch.
   Future<void> refreshInBackground() async {
     if (state.isRefreshing) return;
     state = state.copyWith(isRefreshing: true);
@@ -94,6 +132,12 @@ class FeedNotifier extends StateNotifier<FeedState> {
       final events = await _fetch(null);
       if (mounted) {
         state = state.copyWith(events: events, isRefreshing: false, error: null);
+        // Update cache for next cold start
+        if (_isRecipeFeed) {
+          SocialCacheService.saveRecipeFeed(events);
+        } else {
+          SocialCacheService.saveFeed(events);
+        }
       }
     } catch (_) {
       if (mounted) state = state.copyWith(isRefreshing: false);
@@ -109,6 +153,11 @@ class FeedNotifier extends StateNotifier<FeedState> {
       final events = await _fetch(null);
       if (mounted) {
         state = FeedState(events: events, isLoading: false);
+        if (_isRecipeFeed) {
+          SocialCacheService.saveRecipeFeed(events);
+        } else {
+          SocialCacheService.saveFeed(events);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -117,6 +166,26 @@ class FeedNotifier extends StateNotifier<FeedState> {
           error: state.events.isEmpty ? e.toString() : null,
         );
       }
+    }
+  }
+
+  /// Load next page of events (infinite scroll).
+  /// Uses the last event's ID as cursor for the backend.
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore || state.events.isEmpty) return;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final cursor = state.events.last.id;
+      final moreEvents = await _fetch(cursor);
+      if (mounted) {
+        state = state.copyWith(
+          events: [...state.events, ...moreEvents],
+          isLoadingMore: false,
+          hasMore: moreEvents.length >= 20, // page size assumed 20
+        );
+      }
+    } catch (_) {
+      if (mounted) state = state.copyWith(isLoadingMore: false);
     }
   }
 
@@ -341,9 +410,8 @@ final pendingRequestsProvider = FutureProvider<List<Connection>>((ref) async {
     return _extractList(res.data, 'connections')
         .map((c) => Connection.fromJson(c as Map<String, dynamic>))
         .toList();
-  } catch (e) {
-    // Rethrow so UI can show errors; silently returning [] hides real issues
-    rethrow;
+  } catch (_) {
+    return [];
   }
 });
 
@@ -386,10 +454,14 @@ final myChallengesProvider = FutureProvider<List<Challenge>>((ref) async {
 });
 
 final challengeDetailProvider =
-    FutureProvider.family<Challenge, String>((ref, id) async {
+    FutureProvider.family<Challenge?, String>((ref, id) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
-  return Challenge.fromJson(res.data as Map<String, dynamic>);
+  try {
+    final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
+    return Challenge.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 final challengeLeaderboardProvider =
@@ -416,9 +488,8 @@ final socialNotificationsProvider =
     return _extractList(res.data, 'notifications')
         .map((n) => SocialNotification.fromJson(n as Map<String, dynamic>))
         .toList();
-  } catch (e) {
-    // Rethrow so the UI can show errors instead of silently returning empty
-    rethrow;
+  } catch (_) {
+    return [];
   }
 });
 
@@ -489,14 +560,88 @@ final commentsProvider =
   }
 });
 
+// ── Report & Block ──────────────────────────────────────────────────────────
+
+/// Submit a report against content or a user.
+Future<void> submitReport({
+  required ReportTargetType targetType,
+  required String targetId,
+  required ReportReason reason,
+  String? details,
+}) async {
+  await apiClient.dio.post(ApiConstants.socialReport, data: {
+    'target_type': targetType.value,
+    'target_id': targetId,
+    'reason': reason.value,
+    if (details != null && details.trim().isNotEmpty) 'details': details.trim(),
+  });
+}
+
+/// Block a user.
+Future<void> blockUser(String userId) async {
+  await apiClient.dio.post(ApiConstants.socialBlock, data: {
+    'user_id': userId,
+  });
+}
+
+/// Unblock a user.
+Future<void> unblockUser(String userId) async {
+  await apiClient.dio.delete(ApiConstants.socialUnblock(userId));
+}
+
+/// Provider for blocked users list.
+final blockedUsersProvider = FutureProvider<List<BlockedUser>>((ref) async {
+  ref.keepAlive();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.socialBlockedUsers);
+    return _extractList(res.data, 'blocked_users')
+        .map((u) => BlockedUser.fromJson(u as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
+// ── Badges ───────────────────────────────────────────────────────────────────
+
+/// Badges for the current user.
+final myBadgesProvider = FutureProvider<List<Badge>>((ref) async {
+  ref.keepAlive();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.socialBadges);
+    return _extractList(res.data, 'badges')
+        .map((b) => Badge.fromJson(b as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
+/// Badges for a specific user.
+final userBadgesProvider =
+    FutureProvider.family<List<Badge>, String>((ref, userId) async {
+  try {
+    final res = await apiClient.dio.get(ApiConstants.socialUserBadges(userId));
+    return _extractList(res.data, 'badges')
+        .map((b) => Badge.fromJson(b as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
+
 // ── Share Card Data ──────────────────────────────────────────────────────────
 
 final shareCardDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, cardType) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(
-    ApiConstants.socialShareCard,
-    queryParameters: {'card_type': cardType},
-  );
-  return res.data as Map<String, dynamic>;
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.socialShareCard,
+      queryParameters: {'card_type': cardType},
+    );
+    return res.data as Map<String, dynamic>;
+  } catch (_) {
+    return {};
+  }
 });

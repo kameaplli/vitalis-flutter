@@ -3,13 +3,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../models/social_models.dart';
+import '../../models/social_models.dart' hide Badge;
 import '../../providers/auth_provider.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../widgets/social/feed_card.dart';
 import '../../widgets/social/comment_sheet.dart';
+import '../../widgets/social/poll_card.dart';
+import '../../widgets/social/create_poll_sheet.dart';
+import '../../widgets/social/poll_comment_sheet.dart';
+import 'community_guidelines_screen.dart';
+import '../../models/poll_models.dart';
+import '../../providers/poll_provider.dart';
+import '../../providers/group_chat_provider.dart';
+import '../../models/group_chat_models.dart';
 
 // ── Social Hub Screen ──────────────────────────────────────────────────────────
 
@@ -30,7 +38,7 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -106,6 +114,17 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
                   _showUserSearch(context);
                 },
               ),
+              IconButton(
+                icon: Icon(Icons.shield_outlined,
+                    color: cs.onSurfaceVariant, size: 22),
+                tooltip: 'Community Guidelines',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CommunityGuidelinesScreen(),
+                  ),
+                ),
+              ),
               _NotificationBellButton(),
             ],
           ),
@@ -130,8 +149,12 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
             indicatorWeight: 3,
             indicatorColor: cs.primary,
             dividerColor: Colors.transparent,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: const [
               Tab(text: 'Feed'),
+              Tab(text: 'Polls'),
+              Tab(text: 'Groups'),
               Tab(text: 'Discover'),
             ],
           ),
@@ -149,69 +172,15 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
                       _showComposeSheet(context);
                     },
                   ),
+                  const _PollsTab(),
+                  const _GroupsTab(),
                   const _DiscoverTab(),
                 ],
               ),
             ),
           ],
         ),
-
-        // ── Gradient FAB ──
-        Positioned(
-          right: 20,
-          bottom: 20,
-          child: _GradientFab(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              _showComposeSheet(context);
-            },
-          ),
-        ),
       ],
-    );
-  }
-}
-
-// ── Gradient FAB with glow ──────────────────────────────────────────────────
-
-class _GradientFab extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _GradientFab({required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withValues(alpha: 0.4),
-            blurRadius: 16,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: FloatingActionButton(
-        heroTag: 'social_compose',
-        onPressed: onPressed,
-        elevation: 0,
-        shape: const CircleBorder(),
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [cs.primary, cs.tertiary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-        ),
-      ),
     );
   }
 }
@@ -266,12 +235,38 @@ class _ComposePromptBar extends StatelessWidget {
 
 // ── Feed Tab ────────────────────────────────────────────────────────────────────
 
-class _FeedTab extends ConsumerWidget {
+class _FeedTab extends ConsumerStatefulWidget {
   final List<FeedEvent> optimisticPosts;
   final VoidCallback? onCompose;
   const _FeedTab({this.optimisticPosts = const [], this.onCompose});
 
-  void _showCommentSheet(BuildContext context, WidgetRef ref, FeedEvent event) {
+  @override
+  ConsumerState<_FeedTab> createState() => _FeedTabState();
+}
+
+class _FeedTabState extends ConsumerState<_FeedTab> {
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 300) {
+      ref.read(socialFeedNotifierProvider.notifier).loadMore();
+    }
+  }
+
+  void _showCommentSheet(BuildContext context, FeedEvent event) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -279,7 +274,6 @@ class _FeedTab extends ConsumerWidget {
       builder: (_) => CommentSheet(
         event: event,
         onCommentAdded: () {
-          // Optimistic increment — no full refresh needed
           ref.read(socialFeedNotifierProvider.notifier)
               .incrementCommentCount(event.id);
         },
@@ -309,8 +303,7 @@ class _FeedTab extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Watch FeedState directly — never flickers through loading after first load
+  Widget build(BuildContext context) {
     final feedState = ref.watch(socialFeedNotifierProvider);
     final cs = Theme.of(context).colorScheme;
 
@@ -346,7 +339,7 @@ class _FeedTab extends ConsumerWidget {
     final events = feedState.events;
     final serverIds = events.map((e) => e.id).toSet();
     final allEvents = [
-      ...optimisticPosts.where((op) => !serverIds.contains(op.id)),
+      ...widget.optimisticPosts.where((op) => !serverIds.contains(op.id)),
       ...events,
     ];
 
@@ -361,10 +354,11 @@ class _FeedTab extends ConsumerWidget {
         ref.invalidate(connectionsProvider);
       },
       child: CustomScrollView(
+        controller: _scrollCtrl,
         slivers: [
           // Compose prompt bar
           SliverToBoxAdapter(
-            child: _ComposePromptBar(onTap: onCompose),
+            child: _ComposePromptBar(onTap: widget.onCompose),
           ),
           SliverToBoxAdapter(
             child: Container(height: 8, color: cs.surfaceContainerLow),
@@ -385,7 +379,7 @@ class _FeedTab extends ConsumerWidget {
                       reactionType: type,
                     );
                   },
-                  onComment: () => _showCommentSheet(context, ref, event),
+                  onComment: () => _showCommentSheet(context, event),
                   onShare: () => _sharePost(context, event),
                   onProfileTap: () {
                     context.push('/social/profile/${event.actorId}');
@@ -395,6 +389,14 @@ class _FeedTab extends ConsumerWidget {
               childCount: allEvents.length,
             ),
           ),
+          // Loading indicator for infinite scroll
+          if (feedState.isLoadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
@@ -495,6 +497,649 @@ class _NotificationBellButton extends ConsumerWidget {
   }
 }
 
+// ── Polls Tab ─────────────────────────────────────────────────────────────────
+
+class _PollsTab extends ConsumerStatefulWidget {
+  const _PollsTab();
+
+  @override
+  ConsumerState<_PollsTab> createState() => _PollsTabState();
+}
+
+enum _PollFilter { all, active, expired, mine }
+
+class _PollsTabState extends ConsumerState<_PollsTab> {
+  _PollFilter _filter = _PollFilter.all;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Poll> _applyFilters(List<Poll> polls) {
+    var filtered = polls;
+
+    // Text search
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((p) =>
+          p.question.toLowerCase().contains(q) ||
+          p.creatorName.toLowerCase().contains(q)).toList();
+    }
+
+    // Filter chips
+    switch (_filter) {
+      case _PollFilter.all:
+        break;
+      case _PollFilter.active:
+        filtered = filtered.where((p) => p.isActive).toList();
+      case _PollFilter.expired:
+        filtered = filtered.where((p) => !p.isActive).toList();
+      case _PollFilter.mine:
+        // Show polls the user voted on or created
+        filtered = filtered.where((p) => p.hasVoted).toList();
+    }
+
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final pollsState = ref.watch(pollsNotifierProvider);
+
+    if (pollsState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (pollsState.error != null && pollsState.polls.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.poll_outlined, size: 48, color: cs.outline),
+            const SizedBox(height: 12),
+            Text('Could not load polls', style: tt.bodyMedium),
+            TextButton(
+              onPressed: () =>
+                  ref.read(pollsNotifierProvider.notifier).refresh(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final filtered = _applyFilters(pollsState.polls);
+
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(pollsNotifierProvider.notifier).refresh(),
+      child: CustomScrollView(
+        slivers: [
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Search polls...',
+                  hintStyle: TextStyle(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter chips
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Wrap(
+                spacing: 8,
+                children: _PollFilter.values.map((f) {
+                  final selected = _filter == f;
+                  final label = switch (f) {
+                    _PollFilter.all => 'All',
+                    _PollFilter.active => 'Active',
+                    _PollFilter.expired => 'Ended',
+                    _PollFilter.mine => 'Voted',
+                  };
+                  return FilterChip(
+                    label: Text(label, style: TextStyle(fontSize: 12,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _filter = f),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
+          // Create poll button
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  HapticFeedback.lightImpact();
+                  final created = await showModalBottomSheet<bool>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: cs.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (_) => const CreatePollSheet(),
+                  );
+                  if (created == true) {
+                    ref.read(pollsNotifierProvider.notifier).refresh();
+                  }
+                },
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Create Poll'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+
+          if (filtered.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.poll_outlined, size: 56, color: cs.outline),
+                    const SizedBox(height: 12),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'No polls match "$_searchQuery"'
+                          : 'No polls yet',
+                      style: tt.titleSmall?.copyWith(color: cs.outline),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'Try a different search'
+                          : 'Be the first to create one!',
+                      style: tt.bodySmall?.copyWith(color: cs.outline),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) => PollCard(
+                  poll: filtered[i],
+                  onVote: (optionId) {
+                    ref
+                        .read(pollsNotifierProvider.notifier)
+                        .vote(filtered[i].id, optionId);
+                  },
+                  onComment: () {
+                    PollCommentSheet.show(ctx, ref, filtered[i]);
+                  },
+                ),
+                childCount: filtered.length,
+              ),
+            ),
+
+          const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Groups Tab ────────────────────────────────────────────────────────────────
+
+class _GroupsTab extends ConsumerStatefulWidget {
+  const _GroupsTab();
+
+  @override
+  ConsumerState<_GroupsTab> createState() => _GroupsTabState();
+}
+
+enum _GroupFilter { all, joined, public_ }
+
+class _GroupsTabState extends ConsumerState<_GroupsTab> {
+  _GroupFilter _filter = _GroupFilter.all;
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<GroupChat> _applyFilters(List<GroupChat> groups) {
+    var filtered = groups;
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((g) =>
+          g.name.toLowerCase().contains(q) ||
+          (g.description?.toLowerCase().contains(q) ?? false)).toList();
+    }
+    switch (_filter) {
+      case _GroupFilter.all:
+        break;
+      case _GroupFilter.joined:
+        filtered = filtered.where((g) => g.isMember).toList();
+      case _GroupFilter.public_:
+        filtered = filtered.where((g) => g.access == GroupChatAccess.public_).toList();
+    }
+    return filtered;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final groupsState = ref.watch(groupsNotifierProvider);
+
+    if (groupsState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (groupsState.error != null && groupsState.groups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.forum_outlined, size: 48, color: cs.outline),
+            const SizedBox(height: 12),
+            Text('Could not load groups', style: tt.bodyMedium),
+            TextButton(
+              onPressed: () =>
+                  ref.read(groupsNotifierProvider.notifier).refresh(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final filtered = _applyFilters(groupsState.groups);
+
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(groupsNotifierProvider.notifier).refresh(),
+      child: CustomScrollView(
+        slivers: [
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Search groups...',
+                  hintStyle: TextStyle(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(Icons.search_rounded, size: 20,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter chips
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Wrap(
+                spacing: 8,
+                children: _GroupFilter.values.map((f) {
+                  final selected = _filter == f;
+                  final label = switch (f) {
+                    _GroupFilter.all => 'All',
+                    _GroupFilter.joined => 'Joined',
+                    _GroupFilter.public_ => 'Public',
+                  };
+                  return FilterChip(
+                    label: Text(label, style: TextStyle(fontSize: 12,
+                        fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _filter = f),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
+          // Create group button
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: cs.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (_) => _CreateGroupInline(ref: ref),
+                  );
+                },
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Create Group'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ),
+
+          if (filtered.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.forum_outlined, size: 56, color: cs.outline),
+                    const SizedBox(height: 12),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'No groups match "$_searchQuery"'
+                          : 'No groups yet',
+                      style: tt.titleSmall?.copyWith(color: cs.outline),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _searchQuery.isNotEmpty
+                          ? 'Try a different search'
+                          : 'Start a conversation!',
+                      style: tt.bodySmall?.copyWith(color: cs.outline),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (_, i) {
+                  final g = filtered[i];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: cs.primaryContainer,
+                      child: Text(
+                        g.name.isNotEmpty ? g.name[0].toUpperCase() : '?',
+                        style: tt.titleSmall
+                            ?.copyWith(color: cs.onPrimaryContainer),
+                      ),
+                    ),
+                    title: Row(
+                      children: [
+                        Flexible(
+                          child: Text(g.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        if (g.access == GroupChatAccess.inviteOnly) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.lock_outline,
+                              size: 14, color: cs.outline),
+                        ],
+                        if (g.isMuted) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.notifications_off_outlined,
+                              size: 14, color: cs.outline),
+                        ],
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (g.description != null &&
+                            g.description!.isNotEmpty)
+                          Text(g.description!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tt.bodySmall
+                                  ?.copyWith(color: cs.outline)),
+                        Text(
+                          g.lastMessage != null
+                              ? '${g.lastMessage!.senderName}: ${g.lastMessage!.text}'
+                              : '${g.memberCount} members',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                              color: cs.outline,
+                              fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    trailing: !g.isMember &&
+                            g.access == GroupChatAccess.public_
+                        ? FilledButton.tonal(
+                            onPressed: () async {
+                              HapticFeedback.lightImpact();
+                              try {
+                                await joinGroupChat(g.id);
+                                ref.read(groupsNotifierProvider.notifier).refresh();
+                              } catch (_) {}
+                            },
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12),
+                              minimumSize: const Size(0, 32),
+                            ),
+                            child: const Text('Join'),
+                          )
+                        : g.unreadCount > 0
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: cs.primary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text('${g.unreadCount}',
+                                    style: tt.labelSmall
+                                        ?.copyWith(color: cs.onPrimary)),
+                              )
+                            : null,
+                    onTap: g.isMember
+                        ? () => context.push(
+                              '/social/groups/${g.id}',
+                              extra: g,
+                            )
+                        : null,
+                  );
+                },
+                childCount: filtered.length,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline create group sheet used from the Groups tab.
+class _CreateGroupInline extends StatefulWidget {
+  final WidgetRef ref;
+  const _CreateGroupInline({required this.ref});
+
+  @override
+  State<_CreateGroupInline> createState() => _CreateGroupInlineState();
+}
+
+class _CreateGroupInlineState extends State<_CreateGroupInline> {
+  final _nameCtrl = TextEditingController();
+  var _access = GroupChatAccess.public_;
+  var _creating = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    if (_nameCtrl.text.trim().isEmpty || _creating) return;
+    setState(() => _creating = true);
+    try {
+      await createGroupChat(
+        name: _nameCtrl.text.trim(),
+        access: _access,
+      );
+      widget.ref.read(groupsNotifierProvider.notifier).refresh();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed: $e')),
+        );
+        setState(() => _creating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Create Group',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameCtrl,
+            maxLength: 50,
+            decoration: InputDecoration(
+              labelText: 'Group name',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<GroupChatAccess>(
+            segments: const [
+              ButtonSegment(
+                value: GroupChatAccess.public_,
+                label: Text('Public'),
+                icon: Icon(Icons.public, size: 16),
+              ),
+              ButtonSegment(
+                value: GroupChatAccess.inviteOnly,
+                label: Text('Invite Only'),
+                icon: Icon(Icons.lock_outline, size: 16),
+              ),
+            ],
+            selected: {_access},
+            onSelectionChanged: (s) => setState(() => _access = s.first),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: _nameCtrl.text.trim().isNotEmpty && !_creating
+                ? _create
+                : null,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: _creating
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Create Group'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Discover Tab ────────────────────────────────────────────────────────────────
 
 class _DiscoverTab extends ConsumerStatefulWidget {
@@ -506,14 +1151,49 @@ class _DiscoverTab extends ConsumerStatefulWidget {
 
 class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
   String _selectedFilter = 'All';
+  final _searchCtrl = TextEditingController();
+  List<dynamic>? _searchResults;
+  bool _searching = false;
 
   static const _filters = [
     'All',
+    'People',
     'Recipes',
     'Challenges',
     'Streaks',
     'Achievements',
   ];
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (query.trim().length < 2) {
+      setState(() {
+        _searchResults = null;
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final res = await apiClient.dio.get(
+        ApiConstants.socialSearch,
+        queryParameters: {'q': query.trim()},
+      );
+      final list = res.data is List
+          ? res.data as List
+          : (res.data as Map)['users'] as List? ?? [];
+      if (mounted) setState(() => _searchResults = list);
+    } catch (_) {
+      if (mounted) setState(() => _searchResults = []);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -528,6 +1208,51 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
       },
       child: CustomScrollView(
         slivers: [
+          // Search bar
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: _searchUsers,
+                decoration: InputDecoration(
+                  hintText: 'Search people...',
+                  hintStyle: TextStyle(
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(Icons.search_rounded,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.close_rounded,
+                              size: 18, color: cs.onSurfaceVariant),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _searchUsers('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor:
+                      cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+
+          // Search results
+          if (_searchResults != null)
+            SliverToBoxAdapter(
+              child: _buildSearchResults(),
+            ),
+
           // Filter chips
           SliverToBoxAdapter(
             child: SizedBox(
@@ -561,6 +1286,20 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
             ),
           ),
 
+          // Trending section
+          if (_selectedFilter == 'All') ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: Text(
+                  'Trending Now',
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(child: _buildTrendingSection()),
+          ],
+
           // Challenges section
           if (_selectedFilter == 'All' || _selectedFilter == 'Challenges') ...[
             SliverToBoxAdapter(
@@ -590,6 +1329,135 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
           ],
 
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    if (_searching) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_searchResults == null || _searchResults!.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            _searchCtrl.text.length < 2
+                ? 'Type at least 2 characters'
+                : 'No users found',
+            style: TextStyle(
+                fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+          child: Text(
+            '${_searchResults!.length} result${_searchResults!.length == 1 ? '' : 's'}',
+            style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+        ..._searchResults!.take(10).map((user) {
+          final data = user is Map<String, dynamic> ? user : <String, dynamic>{};
+          final name = data['display_name'] ?? data['name'] ?? 'User';
+          final userId = data['user_id'] ?? data['id'] ?? '';
+          final avatarUrl = data['avatar_url'] as String?;
+          final level = (data['level'] as num?)?.toInt() ?? 1;
+
+          return ListTile(
+            leading: CircleAvatar(
+              radius: 20,
+              backgroundColor: cs.primaryContainer,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? NetworkImage(ApiConstants.resolveUrl(avatarUrl))
+                  : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: cs.onPrimaryContainer),
+                    )
+                  : null,
+            ),
+            title: Text(name,
+                style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+            subtitle: Text('Level $level',
+                style: tt.bodySmall?.copyWith(color: cs.outline)),
+            trailing: Icon(Icons.chevron_right_rounded,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+            onTap: () {
+              if (userId.isNotEmpty) {
+                context.push('/social/profile/$userId');
+              }
+            },
+          );
+        }),
+        const Divider(height: 1),
+      ],
+    );
+  }
+
+  Widget _buildTrendingSection() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Pull stats from existing providers
+    final pollsState = ref.watch(pollsNotifierProvider);
+    final groupsState = ref.watch(groupsNotifierProvider);
+    final feedState = ref.watch(socialFeedNotifierProvider);
+
+    final activePolls = pollsState.polls.where((p) => p.isActive).length;
+    final totalVotes = pollsState.polls.fold<int>(0, (s, p) => s + p.totalVotes);
+    final activeGroups = groupsState.groups.where((g) => g.isMember).length;
+    final recentPosts = feedState.events.length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _TrendCard(
+              icon: Icons.poll_rounded,
+              iconColor: const Color(0xFF6366F1),
+              label: 'Active Polls',
+              value: '$activePolls',
+              subtitle: '$totalVotes votes',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _TrendCard(
+              icon: Icons.forum_rounded,
+              iconColor: const Color(0xFF22C55E),
+              label: 'My Groups',
+              value: '$activeGroups',
+              subtitle: '${groupsState.groups.length} total',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _TrendCard(
+              icon: Icons.dynamic_feed_rounded,
+              iconColor: const Color(0xFFF97316),
+              label: 'Feed',
+              value: '$recentPosts',
+              subtitle: 'recent posts',
+            ),
+          ),
         ],
       ),
     );
@@ -871,6 +1739,78 @@ class _RecipeCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Trend Card ──────────────────────────────────────────────────────────────
+
+class _TrendCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final String subtitle;
+
+  const _TrendCard({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: cs.surface,
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11, fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 10,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
             ),
           ),
         ],

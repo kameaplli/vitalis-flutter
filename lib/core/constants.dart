@@ -208,6 +208,10 @@ class ApiConstants {
   static String socialConnectionRemove(String id) => '/api/social/connections/$id';
   static const String socialBlock = '/api/social/block';
   static String socialUnblock(String id) => '/api/social/block/$id';
+  static const String socialBlockedUsers = '/api/social/block/list';
+  static const String socialReport = '/api/social/report';
+  static const String socialBadges = '/api/social/badges';
+  static String socialUserBadges(String userId) => '/api/social/badges/$userId';
   static const String socialSearch = '/api/social/search';
   static const String socialFeed = '/api/social/feed';
   static const String socialFeedRecipes = '/api/social/feed/recipes';
@@ -234,6 +238,27 @@ class ApiConstants {
   static const String socialStreakBuddyNudge = '/api/social/streak-buddy/nudge';
   static const String socialCommunityPulse = '/api/social/pulse';
   static const String socialShareCard = '/api/social/share-card';
+
+  // Polls
+  static const String polls = '/api/social/polls';
+  static String pollDetail(String id) => '/api/social/polls/$id';
+  static String pollVote(String id) => '/api/social/polls/$id/vote';
+  static String pollInvite(String id) => '/api/social/polls/$id/invite';
+  static const String pollsMine = '/api/social/polls/mine';
+  static String pollComments(String id) => '/api/social/polls/$id/comments';
+
+  // Group Chats
+  static const String groupChats = '/api/social/groups';
+  static String groupChatDetail(String id) => '/api/social/groups/$id';
+  static String groupChatMessages(String id) => '/api/social/groups/$id/messages';
+  static String groupChatMembers(String id) => '/api/social/groups/$id/members';
+  static String groupChatJoin(String id) => '/api/social/groups/$id/join';
+  static String groupChatLeave(String id) => '/api/social/groups/$id/leave';
+  static String groupChatInvite(String id) => '/api/social/groups/$id/invite';
+
+  // Direct Messages
+  static const String dmConversations = '/api/social/dm';
+  static String dmMessages(String id) => '/api/social/dm/$id/messages';
 
   // Blood Test Intelligence (Labs)
   static const String labUpload     = '/api/labs/upload';

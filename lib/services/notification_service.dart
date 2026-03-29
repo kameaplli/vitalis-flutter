@@ -142,7 +142,7 @@ const _hydrationChannel = AndroidNotificationDetails(
   channelDescription: 'Reminders to drink water throughout the day',
   importance: Importance.defaultImportance,
   priority: Priority.defaultPriority,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
   actions: [
     AndroidNotificationAction('hydrate_50', '50ml', showsUserInterface: false),
     AndroidNotificationAction('hydrate_100', '100ml', showsUserInterface: false),
@@ -156,7 +156,7 @@ const _mealChannel = AndroidNotificationDetails(
   channelDescription: 'Reminders to log meals at your chosen times',
   importance: Importance.defaultImportance,
   priority: Priority.defaultPriority,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _eczemaChannel = AndroidNotificationDetails(
@@ -165,7 +165,7 @@ const _eczemaChannel = AndroidNotificationDetails(
   channelDescription: 'Alerts when weather conditions may trigger flare-ups',
   importance: Importance.high,
   priority: Priority.high,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _smartChannel = AndroidNotificationDetails(
@@ -174,7 +174,7 @@ const _smartChannel = AndroidNotificationDetails(
   channelDescription: 'Personalized logging suggestions based on your patterns',
   importance: Importance.low,
   priority: Priority.low,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _supplementChannel = AndroidNotificationDetails(
@@ -183,7 +183,7 @@ const _supplementChannel = AndroidNotificationDetails(
   channelDescription: 'Daily reminders to take your supplements',
   importance: Importance.defaultImportance,
   priority: Priority.defaultPriority,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _socialChannel = AndroidNotificationDetails(
@@ -192,7 +192,7 @@ const _socialChannel = AndroidNotificationDetails(
   channelDescription: 'Reactions, comments, and buddy requests',
   importance: Importance.high,
   priority: Priority.high,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 // Social notification ID range: 6000 – 6099
@@ -222,7 +222,7 @@ class NotificationService {
       debugPrint('[Notifications] timezone fallback to UTC: $e');
     }
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@drawable/ic_notification');
     const settings = InitializationSettings(android: android);
     await _plugin.initialize(
       settings,
@@ -286,6 +286,26 @@ class NotificationService {
       ),
     );
 
+    // Eczema & weather alerts channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_eczema',
+        'Eczema & Weather Alerts',
+        description: 'Alerts when weather conditions may trigger flare-ups',
+        importance: Importance.high,
+      ),
+    );
+
+    // Smart suggestions channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_smart',
+        'Smart Suggestions',
+        description: 'Personalized logging suggestions based on your patterns',
+        importance: Importance.low,
+      ),
+    );
+
     // Check exact alarm capability — on Android 14+ this requires explicit permission
     try {
       _canUseExactAlarms = await androidPlugin?.canScheduleExactNotifications() ?? false;
@@ -312,6 +332,10 @@ class NotificationService {
   /// Route to navigate to when user taps a notification.
   /// Set this from main.dart once the router is available.
   static void Function(String route)? onNavigate;
+
+  /// Callback fired when a hydration quick-log action is tapped in the foreground.
+  /// Set this from app_shell.dart so the dashboard refreshes immediately.
+  static void Function()? onHydrationLogged;
 
   static const _pendingActionsKey = 'pending_notification_actions';
 
@@ -351,6 +375,8 @@ class NotificationService {
 
     if (_hydrationAmounts.containsKey(actionId)) {
       _persistAction(jsonEncode({'type': 'hydrate', 'ml': _hydrationAmounts[actionId]}));
+      // Notify the app shell so it processes immediately + refreshes dashboard
+      onHydrationLogged?.call();
       return;
     }
 
@@ -445,6 +471,13 @@ class NotificationService {
   ];
 
   static Future<void> _scheduleHydration() async {
+    // Defensively cancel all hydration IDs (1000–1098) first.
+    // cancelAll() should handle this, but some Android OEMs don't properly
+    // cancel repeating AlarmManager entries — belt-and-suspenders.
+    for (int i = 1000; i < 1099; i++) {
+      await _plugin.cancel(i);
+    }
+
     final startStr = await NotificationPrefs.hydrationStart();
     final endStr   = await NotificationPrefs.hydrationEnd();
     final interval = await NotificationPrefs.hydrationInterval();
@@ -455,6 +488,8 @@ class NotificationService {
     final startMin = startH * 60 + startM;
     final endMin   = endH * 60 + endM;
     if (endMin <= startMin || interval <= 0) return;
+
+    debugPrint('[Notifications] hydration window: ${startH.toString().padLeft(2,'0')}:${startM.toString().padLeft(2,'0')} – ${endH.toString().padLeft(2,'0')}:${endM.toString().padLeft(2,'0')}, interval=${interval}min');
 
     int id = 1000;
     int msgIdx = 0;
@@ -731,7 +766,7 @@ class NotificationService {
           channelDescription: 'Lab report upload and analysis updates',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
       payload: '/health/labs',
@@ -754,7 +789,7 @@ class NotificationService {
           channelDescription: 'Lab report upload and analysis updates',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
       payload: '/health/labs',
@@ -776,7 +811,7 @@ class NotificationService {
           channelDescription: 'Health Connect sync updates',
           importance: Importance.low,
           priority: Priority.low,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
           ongoing: true,
           showProgress: true,
           indeterminate: true,
@@ -801,7 +836,7 @@ class NotificationService {
           channelDescription: 'Health Connect sync updates',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
       payload: '/dashboard',
@@ -821,7 +856,7 @@ class NotificationService {
           channelDescription: 'Health Connect sync updates',
           importance: Importance.low,
           priority: Priority.low,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
     );
