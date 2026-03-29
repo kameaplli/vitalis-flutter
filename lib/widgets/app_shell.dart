@@ -334,12 +334,12 @@ class _BottomNavWithGenie extends StatelessWidget {
         ),
         // Center voice button overlay (glowing + at same height as other nav icons)
         Positioned(
-          top: 6,
+          top: 2,
           child: GestureDetector(
             onTap: onGenieTap,
             child: Container(
-              width: 44,
-              height: 44,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -357,7 +357,7 @@ class _BottomNavWithGenie extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.add_rounded,
-                size: _iconSize,
+                size: 32,
                 color: Colors.white,
               ),
             ),

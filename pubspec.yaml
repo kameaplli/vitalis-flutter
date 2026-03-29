@@ -1,7 +1,7 @@
 name: qorhealth
 description: QoreHealth - Health & Nutrition Tracking App
 publish_to: "none"
-version: 5.9.0+7
+version: 6.0.0+8
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
