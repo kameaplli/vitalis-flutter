@@ -9,6 +9,7 @@ import '../../providers/selected_person_provider.dart';
 import '../../core/lab_tier_helpers.dart';
 import '../../widgets/friendly_error.dart';
 import '../../widgets/chart_style.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class BiomarkerDetailScreen extends ConsumerWidget {
   final String biomarkerCode;
@@ -182,12 +183,12 @@ class _DetailBody extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    latestTier == 'optimal'
-                        ? Icons.check_circle_rounded
+                  HugeIcon(
+                    icon: latestTier == 'optimal'
+                        ? HugeIcons.strokeRoundedCheckmarkCircle01
                         : latestTier == 'critical'
-                            ? Icons.warning_rounded
-                            : Icons.info_rounded,
+                            ? HugeIcons.strokeRoundedAlert02
+                            : HugeIcons.strokeRoundedInformationCircle,
                     color: tierColor,
                     size: 20,
                   ),
@@ -240,7 +241,7 @@ class _DetailBody extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.lightbulb_outline_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedBulb,
                               color: kSuboptimalColor, size: 18),
                           const SizedBox(width: 8),
                           Text('Action Points',
@@ -303,7 +304,7 @@ class _DetailBody extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline_rounded,
+                      HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle,
                           size: 16,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                       const SizedBox(width: 8),
@@ -458,23 +459,23 @@ class _TrendBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final IconData icon;
+    final List<List<dynamic>> icon;
     final Color color;
     final String label;
 
     switch (direction) {
       case 'rising':
-        icon = Icons.trending_up_rounded;
+        icon = HugeIcons.strokeRoundedChartIncrease;
         color = isImproving == true ? kOptimalColor : kCriticalColor;
         label = isImproving == true ? 'Improving' : 'Rising';
         break;
       case 'falling':
-        icon = Icons.trending_down_rounded;
+        icon = HugeIcons.strokeRoundedChartDecrease;
         color = isImproving == true ? kOptimalColor : kCriticalColor;
         label = isImproving == true ? 'Improving' : 'Declining';
         break;
       case 'stable':
-        icon = Icons.trending_flat_rounded;
+        icon = HugeIcons.strokeRoundedMinusSign;
         color = kSufficientColor;
         label = 'Stable';
         break;
@@ -492,7 +493,7 @@ class _TrendBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 16),
+          HugeIcon(icon: icon, color: color, size: 16),
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
@@ -535,7 +536,7 @@ class _TrendSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.show_chart_rounded, color: color, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, color: color, size: 20),
                 const SizedBox(width: 8),
                 Text('Trend Analysis',
                     style: TextStyle(
@@ -628,11 +629,11 @@ class _NutrientConnectionsCard extends StatelessWidget {
   final List<NutrientConnection> connections;
   const _NutrientConnectionsCard({required this.connections});
 
-  IconData _relationshipIcon(String rel) => switch (rel) {
-        'increases' => Icons.arrow_upward_rounded,
-        'decreases' => Icons.arrow_downward_rounded,
-        'supports' => Icons.favorite_rounded,
-        _ => Icons.link_rounded,
+  List<List<dynamic>> _relationshipIcon(String rel) => switch (rel) {
+        'increases' => HugeIcons.strokeRoundedArrowUp01,
+        'decreases' => HugeIcons.strokeRoundedArrowDown01,
+        'supports' => HugeIcons.strokeRoundedFavourite,
+        _ => HugeIcons.strokeRoundedLink01,
       };
 
   Color _strengthColor(String strength) => switch (strength) {
@@ -654,7 +655,7 @@ class _NutrientConnectionsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.eco_rounded, color: kOptimalColor, size: 18),
+                HugeIcon(icon: HugeIcons.strokeRoundedLeaf01, color: kOptimalColor, size: 18),
                 const SizedBox(width: 8),
                 Text('Nutrients that affect this biomarker',
                     style: TextStyle(
@@ -669,7 +670,7 @@ class _NutrientConnectionsCard extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    Icon(_relationshipIcon(conn.relationship),
+                    HugeIcon(icon: _relationshipIcon(conn.relationship),
                         color: _strengthColor(conn.strength), size: 16),
                     const SizedBox(width: 8),
                     Expanded(
@@ -733,7 +734,7 @@ class _RelatedBiomarkersCard extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.biotech_rounded, color: cs.primary, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedMicroscope, color: cs.primary, size: 16),
               const SizedBox(width: 6),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,7 +751,7 @@ class _RelatedBiomarkersCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded,
+              HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                   color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 16),
             ],
           ),
@@ -766,13 +767,13 @@ class _RecommendationCard extends StatelessWidget {
   final BiomarkerRecommendation rec;
   const _RecommendationCard({required this.rec});
 
-  IconData _categoryIcon(String category) => switch (category) {
-        'diet' => Icons.restaurant_rounded,
-        'supplement' => Icons.medication_rounded,
-        'lifestyle' => Icons.self_improvement_rounded,
-        'exercise' => Icons.fitness_center_rounded,
-        'medical' => Icons.local_hospital_rounded,
-        _ => Icons.lightbulb_rounded,
+  List<List<dynamic>> _categoryIcon(String category) => switch (category) {
+        'diet' => HugeIcons.strokeRoundedRestaurant01,
+        'supplement' => HugeIcons.strokeRoundedMedicine01,
+        'lifestyle' => HugeIcons.strokeRoundedYoga01,
+        'exercise' => HugeIcons.strokeRoundedDumbbell01,
+        'medical' => HugeIcons.strokeRoundedHospital01,
+        _ => HugeIcons.strokeRoundedBulb,
       };
 
   @override
@@ -794,7 +795,7 @@ class _RecommendationCard extends StatelessWidget {
                     color: cs.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(_categoryIcon(rec.category),
+                  child: HugeIcon(icon: _categoryIcon(rec.category),
                       color: cs.primary, size: 16),
                 ),
                 const SizedBox(width: 10),
@@ -1005,8 +1006,8 @@ class _PopulationComparison extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            isAbove ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                          HugeIcon(icon: 
+                            isAbove ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01,
                             color: tierColor,
                             size: 16,
                           ),

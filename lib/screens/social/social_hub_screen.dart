@@ -18,6 +18,7 @@ import '../../models/poll_models.dart';
 import '../../providers/poll_provider.dart';
 import '../../providers/group_chat_provider.dart';
 import '../../models/group_chat_models.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Social Hub Screen ──────────────────────────────────────────────────────────
 
@@ -108,14 +109,14 @@ class _SocialHubScreenState extends ConsumerState<SocialHubScreen>
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: cs.onSurfaceVariant),
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   _showUserSearch(context);
                 },
               ),
               IconButton(
-                icon: Icon(Icons.shield_outlined,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedShield01,
                     color: cs.onSurfaceVariant, size: 22),
                 tooltip: 'Community Guidelines',
                 onPressed: () => Navigator.push(
@@ -204,7 +205,7 @@ class _ComposePromptBar extends StatelessWidget {
             CircleAvatar(
               radius: 18,
               backgroundColor: cs.primaryContainer,
-              child: Icon(Icons.person_rounded,
+              child: HugeIcon(icon: HugeIcons.strokeRoundedUser,
                   size: 20, color: cs.onPrimaryContainer),
             ),
             const SizedBox(width: 12),
@@ -321,7 +322,7 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wifi_off_rounded, size: 48, color: cs.error),
+            HugeIcon(icon: HugeIcons.strokeRoundedWifiOff01, size: 48, color: cs.error),
             const SizedBox(height: 12),
             Text('Failed to load feed',
                 style: TextStyle(color: cs.onSurfaceVariant)),
@@ -462,7 +463,7 @@ class _EmptyFeedState extends StatelessWidget {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {},
-            icon: const Icon(Icons.person_add_rounded, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedUserAdd01, size: 18),
             label: const Text('Find Friends'),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -487,7 +488,7 @@ class _NotificationBellButton extends ConsumerWidget {
       icon: Badge(
         isLabelVisible: badgeCount > 0,
         label: Text('$badgeCount', style: const TextStyle(fontSize: 10)),
-        child: Icon(Icons.notifications_outlined, color: cs.onSurfaceVariant),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedNotification01, color: cs.onSurfaceVariant),
       ),
       onPressed: () {
         HapticFeedback.lightImpact();
@@ -561,7 +562,7 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.poll_outlined, size: 48, color: cs.outline),
+            HugeIcon(icon: HugeIcons.strokeRoundedChartColumn, size: 48, color: cs.outline),
             const SizedBox(height: 12),
             Text('Could not load polls', style: tt.bodyMedium),
             TextButton(
@@ -594,11 +595,11 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
                     color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                     fontSize: 14,
                   ),
-                  prefixIcon: Icon(Icons.search_rounded, size: 20,
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 20,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() => _searchQuery = '');
@@ -666,7 +667,7 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
                     ref.read(pollsNotifierProvider.notifier).refresh();
                   }
                 },
-                icon: const Icon(Icons.add_rounded, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                 label: const Text('Create Poll'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -684,7 +685,7 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.poll_outlined, size: 56, color: cs.outline),
+                    HugeIcon(icon: HugeIcons.strokeRoundedChartColumn, size: 56, color: cs.outline),
                     const SizedBox(height: 12),
                     Text(
                       _searchQuery.isNotEmpty
@@ -784,7 +785,7 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.forum_outlined, size: 48, color: cs.outline),
+            HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 48, color: cs.outline),
             const SizedBox(height: 12),
             Text('Could not load groups', style: tt.bodyMedium),
             TextButton(
@@ -817,11 +818,11 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
                     color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                     fontSize: 14,
                   ),
-                  prefixIcon: Icon(Icons.search_rounded, size: 20,
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 20,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() => _searchQuery = '');
@@ -885,7 +886,7 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
                     builder: (_) => _CreateGroupInline(ref: ref),
                   );
                 },
-                icon: const Icon(Icons.add_rounded, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                 label: const Text('Create Group'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -903,7 +904,7 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.forum_outlined, size: 56, color: cs.outline),
+                    HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 56, color: cs.outline),
                     const SizedBox(height: 12),
                     Text(
                       _searchQuery.isNotEmpty
@@ -945,12 +946,12 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
                         ),
                         if (g.access == GroupChatAccess.inviteOnly) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.lock_outline,
+                          HugeIcon(icon: HugeIcons.strokeRoundedLockPassword,
                               size: 14, color: cs.outline),
                         ],
                         if (g.isMuted) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.notifications_off_outlined,
+                          HugeIcon(icon: HugeIcons.strokeRoundedNotification01,
                               size: 14, color: cs.outline),
                         ],
                       ],
@@ -1107,12 +1108,12 @@ class _CreateGroupInlineState extends State<_CreateGroupInline> {
               ButtonSegment(
                 value: GroupChatAccess.public_,
                 label: Text('Public'),
-                icon: Icon(Icons.public, size: 16),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 16),
               ),
               ButtonSegment(
                 value: GroupChatAccess.inviteOnly,
                 label: Text('Invite Only'),
-                icon: Icon(Icons.lock_outline, size: 16),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 16),
               ),
             ],
             selected: {_access},
@@ -1221,11 +1222,11 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
                     color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                     fontSize: 14,
                   ),
-                  prefixIcon: Icon(Icons.search_rounded,
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.close_rounded,
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
                               size: 18, color: cs.onSurfaceVariant),
                           onPressed: () {
                             _searchCtrl.clear();
@@ -1397,7 +1398,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
                 style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
             subtitle: Text('Level $level',
                 style: tt.bodySmall?.copyWith(color: cs.outline)),
-            trailing: Icon(Icons.chevron_right_rounded,
+            trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
             onTap: () {
               if (userId.isNotEmpty) {
@@ -1431,7 +1432,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
         children: [
           Expanded(
             child: _TrendCard(
-              icon: Icons.poll_rounded,
+              icon: HugeIcons.strokeRoundedChartColumn,
               iconColor: const Color(0xFF6366F1),
               label: 'Active Polls',
               value: '$activePolls',
@@ -1441,7 +1442,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
           const SizedBox(width: 10),
           Expanded(
             child: _TrendCard(
-              icon: Icons.forum_rounded,
+              icon: HugeIcons.strokeRoundedComment01,
               iconColor: const Color(0xFF22C55E),
               label: 'My Groups',
               value: '$activeGroups',
@@ -1451,7 +1452,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
           const SizedBox(width: 10),
           Expanded(
             child: _TrendCard(
-              icon: Icons.dynamic_feed_rounded,
+              icon: HugeIcons.strokeRoundedMenu01,
               iconColor: const Color(0xFFF97316),
               label: 'Feed',
               value: '$recentPosts',
@@ -1750,7 +1751,7 @@ class _RecipeCard extends StatelessWidget {
 // ── Trend Card ──────────────────────────────────────────────────────────────
 
 class _TrendCard extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color iconColor;
   final String label;
   final String value;
@@ -1788,7 +1789,7 @@ class _TrendCard extends StatelessWidget {
               color: iconColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 18, color: iconColor),
+            child: HugeIcon(icon: icon, size: 18, color: iconColor),
           ),
           const SizedBox(height: 8),
           Text(
@@ -2076,13 +2077,13 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
                     children: [
                       _AudienceSegment(
                         label: 'Friends',
-                        icon: Icons.people_outline,
+                        icon: HugeIcons.strokeRoundedUserGroup,
                         selected: _audience == 'buddies',
                         onTap: () => setState(() => _audience = 'buddies'),
                       ),
                       _AudienceSegment(
                         label: 'Everyone',
-                        icon: Icons.public,
+                        icon: HugeIcons.strokeRoundedGlobe02,
                         selected: _audience == 'public',
                         onTap: () => setState(() => _audience = 'public'),
                       ),
@@ -2118,7 +2119,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.send_rounded,
+                              HugeIcon(icon: HugeIcons.strokeRoundedSent,
                                   color: Colors.white, size: 18),
                               SizedBox(width: 8),
                               Text(
@@ -2145,7 +2146,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
 /// Audience segmented button item
 class _AudienceSegment extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -2181,8 +2182,8 @@ class _AudienceSegment extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
+              HugeIcon(
+                icon: icon,
                 size: 14,
                 color: selected ? cs.primary : cs.onSurfaceVariant,
               ),
@@ -2274,7 +2275,7 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
               onChanged: (v) => setState(() => _query = v.trim()),
               decoration: InputDecoration(
                 hintText: 'Search by name...',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

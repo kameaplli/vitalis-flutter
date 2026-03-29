@@ -10,6 +10,7 @@ import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import '../../models/group_chat_models.dart';
 import '../../providers/group_chat_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class GroupChatsScreen extends ConsumerWidget {
   const GroupChatsScreen({super.key});
@@ -25,7 +26,7 @@ class GroupChatsScreen extends ConsumerWidget {
         title: const Text('Group Chats'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_rounded),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
             onPressed: () => _showCreateSheet(context, ref),
           ),
         ],
@@ -39,7 +40,7 @@ class GroupChatsScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.wifi_off_rounded, size: 48, color: cs.outline),
+                HugeIcon(icon: HugeIcons.strokeRoundedWifiOff01, size: 48, color: cs.outline),
                 const SizedBox(height: 12),
                 Text('Could not load groups', style: tt.bodyMedium),
                 const SizedBox(height: 8),
@@ -60,14 +61,14 @@ class GroupChatsScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.forum_outlined, size: 56, color: cs.outline),
+                HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 56, color: cs.outline),
                 const SizedBox(height: 12),
                 Text('No group chats yet',
                     style: tt.titleSmall?.copyWith(color: cs.outline)),
                 const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: () => _showCreateSheet(context, ref),
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                   label: const Text('Create Group'),
                 ),
               ],
@@ -131,7 +132,7 @@ class _GroupChatTile extends StatelessWidget {
           ),
           if (group.access == GroupChatAccess.inviteOnly) ...[
             const SizedBox(width: 6),
-            Icon(Icons.lock_outline, size: 14, color: cs.outline),
+            HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 14, color: cs.outline),
           ],
         ],
       ),
@@ -370,9 +371,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             const Divider(height: 1),
             if (widget.group.isAdmin)
               ListTile(
-                leading: Icon(
-                  msg.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
+                leading: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMapPin,
                   color: cs.primary,
+                  size: 24,
                 ),
                 title: Text(msg.isPinned ? 'Unpin Message' : 'Pin Message'),
                 onTap: () {
@@ -384,7 +386,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 },
               ),
             ListTile(
-              leading: Icon(Icons.copy_rounded, color: cs.onSurfaceVariant),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, color: cs.onSurfaceVariant),
               title: const Text('Copy Text'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -400,7 +402,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             ),
             if (msg.readByCount > 0)
               ListTile(
-                leading: Icon(Icons.done_all_rounded, color: cs.primary),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: cs.primary),
                 title: Text('Read by ${msg.readByCount}'),
                 subtitle: msg.readReceipts.isNotEmpty
                     ? Text(
@@ -477,11 +479,11 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
             ...GroupNotifPref.values.map((pref) {
               final isSelected = widget.group.notifPref == pref;
               return ListTile(
-                leading: Icon(pref.icon,
+                leading: HugeIcon(icon: pref.icon,
                     color: isSelected ? cs.primary : cs.onSurfaceVariant),
                 title: Text(pref.label),
                 trailing: isSelected
-                    ? Icon(Icons.check_circle_rounded, color: cs.primary)
+                    ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: cs.primary)
                     : null,
                 selected: isSelected,
                 onTap: () async {
@@ -704,7 +706,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.group_outlined),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedUserGroup),
             onPressed: () => _showMembersSheet(context),
           ),
           PopupMenuButton<String>(
@@ -719,7 +721,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 const PopupMenuItem(
                   value: 'edit',
                   child: ListTile(
-                    leading: Icon(Icons.edit_outlined),
+                    leading: HugeIcon(icon: HugeIcons.strokeRoundedEdit01),
                     title: Text('Edit Group'),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -728,9 +730,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               PopupMenuItem(
                 value: 'mute',
                 child: ListTile(
-                  leading: Icon(widget.group.isMuted
-                      ? Icons.notifications_active_outlined
-                      : Icons.notifications_off_outlined),
+                  leading: HugeIcon(icon: widget.group.isMuted
+                      ? HugeIcons.strokeRoundedNotification01
+                      : HugeIcons.strokeRoundedNotification01, size: 20),
                   title: Text(widget.group.isMuted
                       ? 'Unmute Notifications'
                       : 'Mute Notifications'),
@@ -741,7 +743,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               PopupMenuItem(
                 value: 'notif_pref',
                 child: ListTile(
-                  leading: Icon(widget.group.notifPref.icon),
+                  leading: HugeIcon(icon: widget.group.notifPref.icon, size: 20),
                   title: const Text('Notification Preference'),
                   subtitle: Text(widget.group.notifPref.label,
                       style: TextStyle(fontSize: 11, color: cs.outline)),
@@ -754,7 +756,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 const PopupMenuItem(
                   value: 'invite',
                   child: ListTile(
-                    leading: Icon(Icons.person_add_outlined),
+                    leading: HugeIcon(icon: HugeIcons.strokeRoundedUserAdd01),
                     title: Text('Invite Members'),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -763,7 +765,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
               const PopupMenuItem(
                 value: 'leave',
                 child: ListTile(
-                  leading: Icon(Icons.exit_to_app, color: Colors.red),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedLogout01, color: Colors.red),
                   title: Text('Leave Group',
                       style: TextStyle(color: Colors.red)),
                   dense: true,
@@ -791,7 +793,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.chat_bubble_outline_rounded,
+                            HugeIcon(icon: HugeIcons.strokeRoundedComment01,
                                 size: 48, color: cs.outline),
                             const SizedBox(height: 12),
                             Text('No messages yet',
@@ -919,7 +921,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                           fontSize: 13, color: cs.onSurfaceVariant)),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.close_rounded,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
                         size: 18, color: cs.error),
                     onPressed: () =>
                         setState(() => _pendingImage = null),
@@ -944,7 +946,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 children: [
                   IconButton(
                     onPressed: _pickImage,
-                    icon: Icon(Icons.photo_outlined,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01,
                         size: 22, color: cs.onSurfaceVariant),
                     visualDensity: VisualDensity.compact,
                   ),
@@ -975,7 +977,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                   IconButton.filled(
                     onPressed:
                         _pendingImage != null ? _sendImage : _send,
-                    icon: const Icon(Icons.send_rounded, size: 20),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedSent, size: 20),
                   ),
                 ],
               ),
@@ -1059,7 +1061,7 @@ class _PinnedBanner extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.push_pin, size: 16, color: cs.primary),
+          HugeIcon(icon: HugeIcons.strokeRoundedMapPin, size: 16, color: cs.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -1100,7 +1102,7 @@ class _PinnedBanner extends ConsumerWidget {
             ),
           if (isAdmin)
             IconButton(
-              icon: Icon(Icons.close, size: 16, color: cs.outline),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 16, color: cs.outline),
               onPressed: () {
                 ref
                     .read(chatNotifierProvider(groupId).notifier)
@@ -1346,12 +1348,12 @@ class _MessageBubble extends StatelessWidget {
                         ),
                         if (message.isPinned) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.push_pin, size: 12,
+                          HugeIcon(icon: HugeIcons.strokeRoundedMapPin, size: 12,
                               color: cs.primary.withValues(alpha: 0.7)),
                         ],
                         if (message.readByCount > 0) ...[
                           const SizedBox(width: 6),
-                          Icon(Icons.done_all_rounded, size: 14,
+                          HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 14,
                               color: cs.primary.withValues(alpha: 0.6)),
                         ],
                       ],
@@ -1399,7 +1401,7 @@ class _MessageBubble extends StatelessWidget {
                                   width: 200,
                                   height: 80,
                                   color: cs.errorContainer,
-                                  child: Icon(Icons.broken_image_rounded,
+                                  child: HugeIcon(icon: HugeIcons.strokeRoundedImage01,
                                       color: cs.onErrorContainer),
                                 ),
                               ),
@@ -1594,12 +1596,12 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
               ButtonSegment(
                 value: GroupChatAccess.public_,
                 label: const Text('Public'),
-                icon: const Icon(Icons.public, size: 16),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedGlobe02, size: 16),
               ),
               ButtonSegment(
                 value: GroupChatAccess.inviteOnly,
                 label: const Text('Invite Only'),
-                icon: const Icon(Icons.lock_outline, size: 16),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 16),
               ),
             ],
             selected: {_access},

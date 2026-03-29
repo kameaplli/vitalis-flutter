@@ -10,6 +10,7 @@ import '../providers/selected_person_provider.dart';
 import '../providers/sync_provider.dart';
 import '../services/health_sync_service.dart';
 import '../services/oauth_service.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class ConnectedDevicesScreen extends ConsumerStatefulWidget {
   const ConnectedDevicesScreen({super.key});
@@ -78,7 +79,7 @@ class _ConnectedDevicesScreenState
         final install = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            icon: Icon(Icons.health_and_safety_rounded,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedShield01,
                 size: 40, color: Theme.of(context).colorScheme.primary),
             title: const Text('Health Connect Required'),
             content: const Text(
@@ -124,8 +125,8 @@ class _ConnectedDevicesScreenState
       final openSettings = await showDialog<bool>(
         context: context,
         builder: (dialogCtx) => AlertDialog(
-          icon: Icon(
-            Icons.health_and_safety_rounded,
+          icon: HugeIcon(icon: 
+            HugeIcons.strokeRoundedShield01,
             size: 40,
             color: Theme.of(context).colorScheme.primary,
           ),
@@ -292,7 +293,7 @@ class _ConnectedDevicesScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.info_outline_rounded,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle,
             size: 40, color: Theme.of(context).colorScheme.primary),
         title: const Text('No Health Data Found'),
         content: SingleChildScrollView(
@@ -473,7 +474,7 @@ class _ConnectedDevicesScreenState
           const _SectionHeader(label: 'IMPORT DATA'),
           const SizedBox(height: 8),
           const _ComingSoonCard(
-            icon: Icons.upload_file_rounded,
+            icon: HugeIcons.strokeRoundedUpload01,
             name: 'Import from other apps',
             description:
                 'Import from MyFitnessPal, Cronometer, Apple Health export',
@@ -524,7 +525,7 @@ class _ConnectedDevicesScreenState
                   subtitle:
                       const Text('Re-download last 30 days of health data'),
                   trailing:
-                      Icon(Icons.refresh_rounded, color: cs.onSurfaceVariant),
+                      HugeIcon(icon: HugeIcons.strokeRoundedRefresh, color: cs.onSurfaceVariant),
                   onTap: () {
                     if (!_platformConnected) {
                       _connectPlatform();
@@ -586,35 +587,35 @@ class _ConnectedDevicesScreenState
         sourceId: 'fitbit',
         name: 'Fitbit',
         description: 'Sync activity, sleep & heart rate',
-        icon: Icons.watch_rounded,
+        icon: HugeIcons.strokeRoundedSmartWatch01,
         color: const Color(0xFF00B0B9),
       ),
       _CloudPlatform(
         sourceId: 'garmin',
         name: 'Garmin',
         description: 'Sync workouts, body battery & stress',
-        icon: Icons.watch_rounded,
+        icon: HugeIcons.strokeRoundedSmartWatch01,
         color: const Color(0xFF007CC3),
       ),
       _CloudPlatform(
         sourceId: 'withings',
         name: 'Withings',
         description: 'Sync weight, blood pressure & sleep',
-        icon: Icons.scale_rounded,
+        icon: HugeIcons.strokeRoundedBodyWeight,
         color: const Color(0xFF00C9B7),
       ),
       _CloudPlatform(
         sourceId: 'oura',
         name: 'Oura',
         description: 'Sync readiness, sleep & activity',
-        icon: Icons.ring_volume_rounded,
+        icon: HugeIcons.strokeRoundedNotification01,
         color: const Color(0xFFD4AF37),
       ),
       _CloudPlatform(
         sourceId: 'whoop',
         name: 'WHOOP',
         description: 'Sync strain, recovery & sleep',
-        icon: Icons.fitness_center_rounded,
+        icon: HugeIcons.strokeRoundedDumbbell01,
         color: const Color(0xFF1A1A1A),
       ),
     ];
@@ -844,7 +845,7 @@ class _PlatformHealthCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isIOS = Platform.isIOS;
     final platformName = isIOS ? 'Apple Health' : 'Health Connect';
-    final platformIcon = isIOS ? Icons.favorite_rounded : Icons.monitor_heart_rounded;
+    final platformIcon = isIOS ? HugeIcons.strokeRoundedFavourite : HugeIcons.strokeRoundedFavourite;
     final platformColor = isIOS ? const Color(0xFFFF2D55) : const Color(0xFF4285F4);
     final isSupported = HealthSyncService.isAvailable;
 
@@ -866,7 +867,7 @@ class _PlatformHealthCard extends StatelessWidget {
                     color: platformColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(platformIcon, color: platformColor, size: 24),
+                  child: HugeIcon(icon: platformIcon, color: platformColor, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -914,7 +915,7 @@ class _PlatformHealthCard extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle, size: 14, color: Color(0xFF22C55E)),
+                        HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 14, color: Color(0xFF22C55E)),
                         SizedBox(width: 4),
                         Text(
                           'Connected',
@@ -937,7 +938,7 @@ class _PlatformHealthCard extends StatelessWidget {
               if (lastSyncTime != null) ...[
                 Row(
                   children: [
-                    Icon(Icons.schedule, size: 14, color: cs.onSurfaceVariant),
+                    HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 14, color: cs.onSurfaceVariant),
                     const SizedBox(width: 6),
                     Text(
                       'Last sync: $lastSyncTime',
@@ -956,13 +957,13 @@ class _PlatformHealthCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _DataTypeBadge(label: 'Steps', icon: Icons.directions_walk),
-                  _DataTypeBadge(label: 'Heart Rate', icon: Icons.favorite),
-                  _DataTypeBadge(label: 'Sleep', icon: Icons.bedtime),
-                  _DataTypeBadge(label: 'Weight', icon: Icons.monitor_weight),
-                  _DataTypeBadge(label: 'Workouts', icon: Icons.fitness_center),
-                  _DataTypeBadge(label: 'Blood O2', icon: Icons.air),
-                  _DataTypeBadge(label: 'Water', icon: Icons.water_drop),
+                  _DataTypeBadge(label: 'Steps', icon: HugeIcons.strokeRoundedRunningShoes),
+                  _DataTypeBadge(label: 'Heart Rate', icon: HugeIcons.strokeRoundedFavourite),
+                  _DataTypeBadge(label: 'Sleep', icon: HugeIcons.strokeRoundedBed),
+                  _DataTypeBadge(label: 'Weight', icon: HugeIcons.strokeRoundedBodyWeight),
+                  _DataTypeBadge(label: 'Workouts', icon: HugeIcons.strokeRoundedDumbbell01),
+                  _DataTypeBadge(label: 'Blood O2', icon: HugeIcons.strokeRoundedFastWind),
+                  _DataTypeBadge(label: 'Water', icon: HugeIcons.strokeRoundedDroplet),
                 ],
               ),
               const SizedBox(height: 14),
@@ -978,12 +979,12 @@ class _PlatformHealthCard extends StatelessWidget {
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Icon(Icons.sync, size: 18),
+                            : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                         label: Text(isSyncing ? 'Syncing...' : 'Sync Now'),
                       )
                     : FilledButton.icon(
                         onPressed: onConnect,
-                        icon: const Icon(Icons.sync, size: 18),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18),
                         label: const Text('Connect & Sync Now'),
                       ),
               ),
@@ -1007,7 +1008,7 @@ class _PlatformHealthCard extends StatelessWidget {
 
 class _DataTypeBadge extends StatelessWidget {
   final String label;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   const _DataTypeBadge({required this.label, required this.icon});
 
   @override
@@ -1022,7 +1023,7 @@ class _DataTypeBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: cs.primary),
+          HugeIcon(icon: icon, size: 12, color: cs.primary),
           const SizedBox(width: 4),
           Text(
             label,
@@ -1044,7 +1045,7 @@ class _CloudPlatform {
   final String sourceId;
   final String name;
   final String description;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
 
   const _CloudPlatform({
@@ -1098,8 +1099,8 @@ class _CloudServiceCard extends StatelessWidget {
                     color: platform.color.withValues(alpha: isConnected ? 0.12 : 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    platform.icon,
+                  child: HugeIcon(
+                    icon: platform.icon,
                     color: platform.color.withValues(alpha: isConnected ? 1.0 : 0.5),
                     size: 22,
                   ),
@@ -1167,7 +1168,7 @@ class _CloudServiceCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, size: 14, color: cs.error),
+                    HugeIcon(icon: HugeIcons.strokeRoundedAlert02, size: 14, color: cs.error),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -1193,7 +1194,7 @@ class _CloudServiceCard extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: onResync,
-                        icon: const Icon(Icons.sync, size: 14),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 14),
                         label: const Text('Resync', style: TextStyle(fontSize: 12)),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1267,7 +1268,7 @@ class _StatusBadge extends StatelessWidget {
 // ── Coming soon card (kept for Import section) ──────────────────────────────
 
 class _ComingSoonCard extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String name;
   final String description;
   final Color color;
@@ -1297,7 +1298,7 @@ class _ComingSoonCard extends StatelessWidget {
                 color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: color.withValues(alpha: 0.5), size: 22),
+              child: HugeIcon(icon: icon, color: color.withValues(alpha: 0.5), size: 22),
             ),
             const SizedBox(width: 12),
             Expanded(

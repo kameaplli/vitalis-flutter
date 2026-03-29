@@ -5,6 +5,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/product_data.dart';
 import '../widgets/friendly_error.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ class _ProductsListTab extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
+                HugeIcon(icon: HugeIcons.strokeRoundedPackage, size: 48, color: Colors.grey),
                 SizedBox(height: 12),
                 Text('No products logged yet', style: TextStyle(color: Colors.grey)),
                 SizedBox(height: 4),
@@ -154,7 +155,7 @@ class _ProductCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(_typeIcon(product.productType), size: 20, color: cs.primary),
+                HugeIcon(icon: _typeIcon(product.productType), size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -177,7 +178,7 @@ class _ProductCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(score >= 80 ? Icons.check_circle : Icons.warning,
+                      HugeIcon(icon: score >= 80 ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedAlert02,
                           size: 14, color: scoreColor),
                       const SizedBox(width: 4),
                       Text('${score.toInt()}% $scoreLabel',
@@ -212,14 +213,14 @@ class _ProductCard extends StatelessWidget {
     );
   }
 
-  IconData _typeIcon(String? type) {
+  List<List<dynamic>> _typeIcon(String? type) {
     switch (type) {
-      case 'moisturizer': return Icons.water_drop;
-      case 'cleanser': return Icons.cleaning_services;
-      case 'detergent': return Icons.local_laundry_service;
-      case 'shampoo': return Icons.shower;
-      case 'sunscreen': return Icons.wb_sunny;
-      default: return Icons.inventory_2;
+      case 'moisturizer': return HugeIcons.strokeRoundedDroplet;
+      case 'cleanser': return HugeIcons.strokeRoundedClean;
+      case 'detergent': return HugeIcons.strokeRoundedClean;
+      case 'shampoo': return HugeIcons.strokeRoundedDroplet;
+      case 'sunscreen': return HugeIcons.strokeRoundedSun01;
+      default: return HugeIcons.strokeRoundedPackage;
     }
   }
 }
@@ -401,7 +402,7 @@ class _ScanTabState extends State<_ScanTab> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           OutlinedButton.icon(
-            icon: const Icon(Icons.qr_code_scanner),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedQrCode),
             label: const Text('Scan Product Barcode'),
             onPressed: _startScan,
           ),
@@ -476,7 +477,7 @@ class _ScanResultCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.shield, color: color, size: 24),
+                HugeIcon(icon: HugeIcons.strokeRoundedShield01, color: color, size: 24),
                 const SizedBox(width: 8),
                 Text('Safety Score: ${score.toInt()}%',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
@@ -494,7 +495,7 @@ class _ScanResultCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.warning, size: 14, color: c),
+                      HugeIcon(icon: HugeIcons.strokeRoundedAlert02, size: 14, color: c),
                       const SizedBox(width: 6),
                       Expanded(child: Text('${fl['ingredient']} (${fl['category']})',
                           style: TextStyle(fontSize: 12, color: c))),
@@ -542,10 +543,11 @@ class _AnalysisTab extends ConsumerWidget {
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  leading: Icon(
-                    c.verdict == 'worsened' ? Icons.trending_up
-                        : (c.verdict == 'improved' ? Icons.trending_down : Icons.trending_flat),
+                  leading: HugeIcon(
+                    icon: c.verdict == 'worsened' ? HugeIcons.strokeRoundedChartIncrease
+                        : (c.verdict == 'improved' ? HugeIcons.strokeRoundedChartDecrease : HugeIcons.strokeRoundedMinusSign),
                     color: color,
+                    size: 24,
                   ),
                   title: Text(c.productName, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(

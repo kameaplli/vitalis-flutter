@@ -10,6 +10,7 @@ import '../../models/lab_result.dart';
 import '../../providers/lab_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import '../../services/notification_service.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── 3-tick state per file ────────────────────────────────────────────────────
 
@@ -115,8 +116,8 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(icon: Icon(Icons.upload_file_rounded), text: 'Upload'),
-            Tab(icon: Icon(Icons.edit_rounded), text: 'Manual'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01), text: 'Upload'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01), text: 'Manual'),
           ],
         ),
       ),
@@ -188,10 +189,9 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                                   ],
                                 ),
                               ),
-                              child: Icon(
-                                hasFiles
-                                    ? Icons.add_circle_outline_rounded
-                                    : Icons.cloud_upload_rounded,
+                              child: HugeIcon(icon: 
+                                hasFiles ? HugeIcons.strokeRoundedAdd01
+                                    : HugeIcons.strokeRoundedUpload01,
                                 size: 26,
                                 color: cs.primary,
                               ),
@@ -228,7 +228,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                       padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
                       child: Row(
                         children: [
-                          Icon(Icons.attach_file_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedAttachment01,
                               size: 18, color: cs.primary),
                           const SizedBox(width: 6),
                           Text(
@@ -247,7 +247,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                           if (_files.any((f) => f.isIdle))
                             TextButton.icon(
                               onPressed: _anyProcessing ? null : _startAll,
-                              icon: Icon(Icons.play_arrow_rounded,
+                              icon: HugeIcon(icon: HugeIcons.strokeRoundedPlay,
                                   size: 18, color: cs.primary),
                               label: Text('Start All',
                                   style: TextStyle(
@@ -263,7 +263,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                             TextButton.icon(
                               onPressed: () =>
                                   setState(() => _files.clear()),
-                              icon: Icon(Icons.clear_all_rounded,
+                              icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
                                   size: 18, color: cs.error),
                               label: Text('Clear',
                                   style: TextStyle(
@@ -341,7 +341,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.science_rounded,
+                            HugeIcon(icon: HugeIcons.strokeRoundedTestTube01,
                                 size: 44,
                                 color: cs.onSurfaceVariant
                                     .withValues(alpha: 0.15)),
@@ -387,7 +387,7 @@ class _LabUploadScreenState extends ConsumerState<LabUploadScreen>
                     ref.invalidate(labReportsProvider(person));
                     context.pop();
                   },
-                  icon: const Icon(Icons.dashboard_rounded, size: 20),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDashboardBrowsing, size: 20),
                   label: Text(
                     _allTerminal
                         ? 'View Dashboard'
@@ -843,10 +843,9 @@ class _FileTickCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        isPdf
-                            ? Icons.picture_as_pdf_rounded
-                            : Icons.image_rounded,
+                      HugeIcon(icon: 
+                        isPdf ? HugeIcons.strokeRoundedFile01
+                            : HugeIcons.strokeRoundedImage01,
                         color: (isPdf
                                 ? const Color(0xFFEF4444)
                                 : const Color(0xFF8B5CF6))
@@ -964,7 +963,7 @@ class _FileTickCard extends StatelessWidget {
     if (state.processing) {
       return IconButton(
         onPressed: onCancel,
-        icon: Icon(Icons.cancel_rounded,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
             color: cs.error.withValues(alpha: 0.7), size: 24),
         visualDensity: VisualDensity.compact,
         padding: EdgeInsets.zero,
@@ -980,7 +979,7 @@ class _FileTickCard extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onRetry,
-            icon: Icon(Icons.refresh_rounded,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh,
                 color: cs.primary, size: 22),
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
@@ -989,7 +988,7 @@ class _FileTickCard extends StatelessWidget {
           ),
           IconButton(
             onPressed: onRemove,
-            icon: Icon(Icons.remove_circle_rounded,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRemove01,
                 color: cs.error.withValues(alpha: 0.5), size: 20),
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
@@ -1004,7 +1003,7 @@ class _FileTickCard extends StatelessWidget {
     if (state.isDone || state.isSkipped) {
       return IconButton(
         onPressed: onRemove,
-        icon: Icon(Icons.remove_circle_rounded,
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedRemove01,
             color: cs.onSurfaceVariant.withValues(alpha: 0.3), size: 20),
         visualDensity: VisualDensity.compact,
         padding: EdgeInsets.zero,
@@ -1019,7 +1018,7 @@ class _FileTickCard extends StatelessWidget {
       children: [
         IconButton(
           onPressed: onStart,
-          icon: Icon(Icons.play_circle_rounded,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedPlay,
               color: cs.primary, size: 28),
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
@@ -1028,7 +1027,7 @@ class _FileTickCard extends StatelessWidget {
         ),
         IconButton(
           onPressed: onSkip,
-          icon: Icon(Icons.skip_next_rounded,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedNext,
               color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 22),
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
@@ -1037,7 +1036,7 @@ class _FileTickCard extends StatelessWidget {
         ),
         IconButton(
           onPressed: onRemove,
-          icon: Icon(Icons.remove_circle_rounded,
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedRemove01,
               color: cs.error.withValues(alpha: 0.5), size: 20),
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
@@ -1147,8 +1146,8 @@ class _TickIndicator extends StatelessWidget {
             shape: BoxShape.circle,
             color: color,
           ),
-          child: const Icon(
-            Icons.check_rounded,
+          child: HugeIcon(icon: 
+            HugeIcons.strokeRoundedCheckmarkCircle01,
             size: 16,
             color: Colors.white,
           ),
@@ -1161,8 +1160,8 @@ class _TickIndicator extends StatelessWidget {
             shape: BoxShape.circle,
             color: cs.error,
           ),
-          child: const Icon(
-            Icons.close_rounded,
+          child: HugeIcon(icon: 
+            HugeIcons.strokeRoundedCancel01,
             size: 16,
             color: Colors.white,
           ),
@@ -1175,8 +1174,8 @@ class _TickIndicator extends StatelessWidget {
             shape: BoxShape.circle,
             color: cs.onSurfaceVariant.withValues(alpha: 0.15),
           ),
-          child: Icon(
-            Icons.remove_rounded,
+          child: HugeIcon(icon: 
+            HugeIcons.strokeRoundedRemove01,
             size: 16,
             color: cs.onSurfaceVariant.withValues(alpha: 0.4),
           ),
@@ -1218,7 +1217,7 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
             decoration: const InputDecoration(
               labelText: 'Test Date',
               hintText: 'YYYY-MM-DD',
-              prefixIcon: Icon(Icons.calendar_today_rounded),
+              prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01),
               border: OutlineInputBorder(),
               isDense: true,
             ),
@@ -1232,7 +1231,7 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
             error: (e, st) => Text('Error loading biomarkers: $e'),
             data: (catalog) => OutlinedButton.icon(
               onPressed: () => _addBiomarker(catalog),
-              icon: const Icon(Icons.add_rounded),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
               label: const Text('Add Biomarker'),
             ),
           ),
@@ -1266,7 +1265,7 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
                     ),
                   ),
                   leading: IconButton(
-                    icon: Icon(Icons.remove_circle_outline,
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedRemove01,
                         color: cs.error),
                     onPressed: () =>
                         setState(() => _entries.removeAt(i)),
@@ -1290,7 +1289,7 @@ class _ManualEntryTabState extends ConsumerState<_ManualEntryTab> {
                       height: 16,
                       child:
                           CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.save_rounded),
+                  : HugeIcon(icon: HugeIcons.strokeRoundedFloppyDisk),
               label: Text('Save ${_entries.length} Results'),
             ),
           ),
@@ -1381,13 +1380,13 @@ class _BiomarkerSearchDelegate
   @override
   List<Widget> buildActions(BuildContext context) => [
         IconButton(
-            icon: const Icon(Icons.clear),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
             onPressed: () => query = ''),
       ];
 
   @override
   Widget buildLeading(BuildContext context) => IconButton(
-      icon: const Icon(Icons.arrow_back),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01),
       onPressed: () => close(context, null));
 
   @override

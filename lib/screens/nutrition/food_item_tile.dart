@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../providers/nutrition_provider.dart';
 import '../../widgets/nutrient_card.dart';
 import 'allergen_badge.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Food item tile with grams input ─────────────────────────────────────────
 
@@ -107,7 +108,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                           if (food.hasBrand && !_showBrand)
                             Padding(
                               padding: const EdgeInsets.only(left: 4),
-                              child: Icon(Icons.storefront,
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedStore01,
                                   size: 12,
                                   color: Colors.grey.shade400),
                             ),
@@ -175,7 +176,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
                       padding: const EdgeInsets.all(2),
-                      child: Icon(Icons.remove,
+                      child: HugeIcon(icon: HugeIcons.strokeRoundedRemove01,
                           size: 16,
                           color: _servings > 1
                               ? Theme.of(context).colorScheme.primary
@@ -196,7 +197,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                     borderRadius: BorderRadius.circular(4),
                     child: Padding(
                       padding: const EdgeInsets.all(2),
-                      child: Icon(Icons.add,
+                      child: HugeIcon(icon: HugeIcons.strokeRoundedAdd01,
                           size: 16,
                           color: Theme.of(context).colorScheme.primary),
                     ),
@@ -236,7 +237,7 @@ class _FoodItemTileState extends State<FoodItemTile> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                 color: Colors.grey,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),

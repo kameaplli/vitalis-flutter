@@ -6,6 +6,7 @@ import '../../core/constants.dart';
 import '../../models/dm_models.dart';
 import '../../providers/dm_provider.dart';
 import '../../widgets/social/online_indicator.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── DM Inbox ──────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ class DmInboxScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, size: 48, color: cs.error),
+                HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 48, color: cs.error),
                 const SizedBox(height: 12),
                 Text('Failed to load messages',
                     style: tt.bodyMedium?.copyWith(color: cs.error)),
@@ -48,7 +49,7 @@ class DmInboxScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.chat_outlined,
+                HugeIcon(icon: HugeIcons.strokeRoundedComment01,
                     size: 64,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
                 const SizedBox(height: 16),
@@ -324,7 +325,7 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
                   const SizedBox(width: 8),
                   IconButton.filled(
                     onPressed: _send,
-                    icon: const Icon(Icons.send_rounded, size: 20),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedSent, size: 20),
                   ),
                 ],
               ),
@@ -397,7 +398,7 @@ class _DmBubble extends StatelessWidget {
                 ),
                 if (isMe && message.isRead) ...[
                   const SizedBox(width: 4),
-                  Icon(Icons.done_all_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                       size: 12,
                       color: cs.primary.withValues(alpha: 0.7)),
                 ],

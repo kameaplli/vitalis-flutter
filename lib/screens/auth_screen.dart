@@ -6,6 +6,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../core/secure_storage.dart';
 import '../services/biometric_service.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Brand colors (app icon: pink → orange → purple gradient) ─────────────────
 const _kPink = Color(0xFFE91E63);
@@ -186,7 +187,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
               const SizedBox(height: 16),
               TextFormField(
                 controller: emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01)),
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) => (v?.isEmpty ?? true) ? 'Email required' : null,
               ),
@@ -340,7 +341,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
             _glassField(
               controller: _loginEmail,
               label: 'Email',
-              icon: Icons.email_outlined,
+              icon: HugeIcons.strokeRoundedMail01,
               keyboardType: TextInputType.emailAddress,
               validator: (v) => (v?.isEmpty ?? true) ? 'Email required' : null,
             ),
@@ -348,7 +349,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
             _glassField(
               controller: _loginPassword,
               label: 'Password',
-              icon: Icons.lock_outline,
+              icon: HugeIcons.strokeRoundedLockPassword,
               obscure: _obscureLogin,
               suffixIcon: IconButton(
                 icon: Icon(_obscureLogin ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -388,14 +389,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
             _glassField(
               controller: _regName,
               label: 'Full Name',
-              icon: Icons.person_outline,
+              icon: HugeIcons.strokeRoundedUser,
               validator: (v) => (v?.isEmpty ?? true) ? 'Name required' : null,
             ),
             const SizedBox(height: 14),
             _glassField(
               controller: _regEmail,
               label: 'Email',
-              icon: Icons.email_outlined,
+              icon: HugeIcons.strokeRoundedMail01,
               keyboardType: TextInputType.emailAddress,
               validator: (v) => (v?.isEmpty ?? true) ? 'Email required' : null,
             ),
@@ -403,7 +404,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
             _glassField(
               controller: _regPassword,
               label: 'Password',
-              icon: Icons.lock_outline,
+              icon: HugeIcons.strokeRoundedLockPassword,
               obscure: _obscureReg,
               suffixIcon: IconButton(
                 icon: Icon(_obscureReg ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -429,7 +430,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
   Widget _glassField({
     required TextEditingController controller,
     required String label,
-    required IconData icon,
+    required List<List<dynamic>> icon,
     bool obscure = false,
     Widget? suffixIcon,
     TextInputType? keyboardType,
@@ -447,7 +448,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
-        prefixIcon: Icon(icon, color: Colors.white70, size: 20),
+        prefixIcon: HugeIcon(icon: icon, color: Colors.white70, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
@@ -523,7 +524,7 @@ class _AnimatedLogo extends StatelessWidget {
           ],
         ),
         child: const Center(
-          child: Icon(Icons.favorite_rounded, size: 42, color: Colors.white),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, size: 42, color: Colors.white),
         ),
       ),
     );
@@ -669,7 +670,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                                   BoxShadow(color: _kPink.withValues(alpha: 0.3), blurRadius: 30, spreadRadius: 5),
                                 ],
                               ),
-                              child: const Icon(Icons.fingerprint, size: 56, color: Colors.white),
+                              child: HugeIcon(icon: HugeIcons.strokeRoundedFingerAccess, size: 56, color: Colors.white),
                             ),
                           ),
                         ),
@@ -680,7 +681,7 @@ class _BiometricLoginViewState extends State<_BiometricLoginView>
                       height: 50,
                       child: ElevatedButton.icon(
                         onPressed: widget.loading ? null : widget.onBiometric,
-                        icon: const Icon(Icons.fingerprint),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedFingerAccess),
                         label: const Text('Unlock with Biometrics', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white.withValues(alpha: 0.2),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Community guidelines screen — displays rules and expectations
 /// for participating in the social community.
@@ -7,7 +8,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
 
   static const _guidelines = [
     _Guideline(
-      icon: Icons.favorite_rounded,
+      icon: HugeIcons.strokeRoundedFavourite,
       title: 'Be Kind & Supportive',
       description:
           'This is a health & wellness community. Encourage others on their '
@@ -15,7 +16,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
       color: Color(0xFFE53935),
     ),
     _Guideline(
-      icon: Icons.verified_rounded,
+      icon: HugeIcons.strokeRoundedCheckmarkCircle01,
       title: 'Share Accurate Information',
       description:
           'Don\'t share medical advice or unverified health claims. If you\'re '
@@ -23,7 +24,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
       color: Color(0xFF1E88E5),
     ),
     _Guideline(
-      icon: Icons.shield_rounded,
+      icon: HugeIcons.strokeRoundedShield01,
       title: 'Respect Privacy',
       description:
           'Don\'t share others\' personal health data without their consent. '
@@ -31,7 +32,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
       color: Color(0xFF43A047),
     ),
     _Guideline(
-      icon: Icons.block_rounded,
+      icon: HugeIcons.strokeRoundedCancel01,
       title: 'No Harassment or Hate',
       description:
           'Zero tolerance for bullying, hate speech, discrimination, or '
@@ -39,7 +40,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
       color: Color(0xFFF4511E),
     ),
     _Guideline(
-      icon: Icons.no_food_rounded,
+      icon: HugeIcons.strokeRoundedRestaurant01,
       title: 'No Diet Shaming',
       description:
           'Everyone\'s nutritional needs and choices are different. Don\'t '
@@ -47,7 +48,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
       color: Color(0xFF8E24AA),
     ),
     _Guideline(
-      icon: Icons.sell_outlined,
+      icon: HugeIcons.strokeRoundedTag01,
       title: 'No Spam or Promotion',
       description:
           'Don\'t promote products, services, or MLMs. Genuine recommendations '
@@ -55,7 +56,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
       color: Color(0xFFFF8F00),
     ),
     _Guideline(
-      icon: Icons.flag_rounded,
+      icon: HugeIcons.strokeRoundedFlag01,
       title: 'Report Concerns',
       description:
           'If you see content that violates these guidelines, use the report '
@@ -92,7 +93,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Icon(Icons.groups_rounded, size: 48, color: cs.primary),
+                HugeIcon(icon: HugeIcons.strokeRoundedUserGroup, size: 48, color: cs.primary),
                 const SizedBox(height: 12),
                 Text(
                   'Our Community Values',
@@ -129,7 +130,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
                       color: g.color.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(g.icon, size: 20, color: g.color),
+                    child: HugeIcon(icon: g.icon, size: 20, color: g.color),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -169,7 +170,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline_rounded, size: 20,
+                HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 20,
                     color: cs.error),
                 const SizedBox(width: 12),
                 Expanded(
@@ -194,7 +195,7 @@ class CommunityGuidelinesScreen extends StatelessWidget {
 }
 
 class _Guideline {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String description;
   final Color color;

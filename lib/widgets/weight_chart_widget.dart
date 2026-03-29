@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../models/weight_log.dart';
 import 'chart_style.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class WeightChartWidget extends StatelessWidget {
   final WeightHistory history;
@@ -23,7 +24,7 @@ class WeightChartWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.show_chart_rounded, size: 40, color: cs.outlineVariant),
+              HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, size: 40, color: cs.outlineVariant),
               const SizedBox(height: 8),
               Text('No weight entries yet',
                   style: TextStyle(color: cs.onSurfaceVariant)),

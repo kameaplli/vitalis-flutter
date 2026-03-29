@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/environment_data.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Displays current weather, air quality, and pollen conditions.
 class EnvironmentCard extends StatelessWidget {
@@ -20,7 +21,7 @@ class EnvironmentCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.cloud, color: cs.primary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedCloud, color: cs.primary, size: 20),
                 const SizedBox(width: 8),
                 Text('Environment', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                 const Spacer(),
@@ -33,25 +34,25 @@ class EnvironmentCard extends StatelessWidget {
             Row(
               children: [
                 _MetricChip(
-                  icon: Icons.thermostat,
+                  icon: HugeIcons.strokeRoundedThermometer,
                   label: '${data.temperatureC?.toStringAsFixed(0) ?? '--'}C',
                   color: _tempColor(data.temperatureC),
                 ),
                 const SizedBox(width: 8),
                 _MetricChip(
-                  icon: Icons.water_drop,
+                  icon: HugeIcons.strokeRoundedDroplet,
                   label: '${data.humidityPct?.toStringAsFixed(0) ?? '--'}%',
                   color: _humidityColor(data.humidityPct),
                 ),
                 const SizedBox(width: 8),
                 _MetricChip(
-                  icon: Icons.wb_sunny,
+                  icon: HugeIcons.strokeRoundedSun01,
                   label: 'UV ${data.uvIndex?.toStringAsFixed(0) ?? '--'}',
                   color: _uvColor(data.uvIndex),
                 ),
                 const SizedBox(width: 8),
                 _MetricChip(
-                  icon: Icons.air,
+                  icon: HugeIcons.strokeRoundedFastWind,
                   label: '${data.windSpeedKph?.toStringAsFixed(0) ?? '--'} kph',
                   color: Colors.blueGrey,
                 ),
@@ -62,13 +63,13 @@ class EnvironmentCard extends StatelessWidget {
             Row(
               children: [
                 _MetricChip(
-                  icon: Icons.blur_on,
+                  icon: HugeIcons.strokeRoundedCircle,
                   label: 'AQI ${data.aqi ?? '--'}',
                   color: _aqiColor(data.aqi),
                 ),
                 const SizedBox(width: 8),
                 _MetricChip(
-                  icon: Icons.grain,
+                  icon: HugeIcons.strokeRoundedCorn,
                   label: 'PM2.5: ${data.pm25?.toStringAsFixed(0) ?? '--'}',
                   color: _pm25Color(data.pm25),
                 ),
@@ -137,7 +138,7 @@ class EnvironmentCard extends StatelessWidget {
 }
 
 class _MetricChip extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   const _MetricChip({required this.icon, required this.label, required this.color});
@@ -154,7 +155,7 @@ class _MetricChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: color),
+            HugeIcon(icon: icon, size: 14, color: color),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
@@ -181,7 +182,7 @@ class _PollenBar extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.eco, size: 12, color: color),
+        HugeIcon(icon: HugeIcons.strokeRoundedLeaf01, size: 12, color: color),
         const SizedBox(width: 4),
         Text('$label: ', style: const TextStyle(fontSize: 11)),
         ...List.generate(5, (i) => Container(
@@ -223,7 +224,7 @@ class FlareRiskGauge extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.shield, color: color, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedShield01, color: color, size: 20),
                 const SizedBox(width: 8),
                 Text('Flare Risk', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -303,7 +304,7 @@ class EnvironmentCorrelationCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.analytics, color: cs.primary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, color: cs.primary, size: 20),
                 const SizedBox(width: 8),
                 Text('Environmental Triggers', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
               ],
@@ -324,7 +325,7 @@ class EnvironmentCorrelationCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber, size: 16, color: Colors.red),
+                    HugeIcon(icon: HugeIcons.strokeRoundedAlert02, size: 16, color: Colors.red),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

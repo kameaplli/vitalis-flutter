@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/nutrient_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Expandable nutrient & ingredients card for a food item.
 ///
@@ -49,7 +50,7 @@ class _NutrientCardState extends ConsumerState<NutrientCard> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  Icon(Icons.science_outlined, size: 18, color: cs.primary),
+                  HugeIcon(icon: HugeIcons.strokeRoundedTestTube01, size: 18, color: cs.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -65,8 +66,8 @@ class _NutrientCardState extends ConsumerState<NutrientCard> {
                       ],
                     ),
                   ),
-                  Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
+                  HugeIcon(icon:
+                    _expanded ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01,
                     size: 20,
                     color: cs.onSurfaceVariant,
                   ),
@@ -169,7 +170,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Vitamins
               if (data.vitamins.isNotEmpty) ...[
-                const _SectionHeader(title: 'Vitamins', icon: Icons.wb_sunny_outlined, color: Colors.orange),
+                const _SectionHeader(title: 'Vitamins', icon: HugeIcons.strokeRoundedSun01, color: Colors.orange),
                 const SizedBox(height: 4),
                 _NutrientGrid(nutrients: data.vitamins),
                 const SizedBox(height: 10),
@@ -177,7 +178,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Minerals
               if (data.minerals.isNotEmpty) ...[
-                const _SectionHeader(title: 'Minerals', icon: Icons.diamond_outlined, color: Colors.teal),
+                const _SectionHeader(title: 'Minerals', icon: HugeIcons.strokeRoundedDiamond01, color: Colors.teal),
                 const SizedBox(height: 4),
                 _NutrientGrid(nutrients: data.minerals),
                 const SizedBox(height: 10),
@@ -185,7 +186,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Other
               if (data.otherNutrients.isNotEmpty) ...[
-                const _SectionHeader(title: 'Other', icon: Icons.more_horiz, color: Colors.blueGrey),
+                const _SectionHeader(title: 'Other', icon: HugeIcons.strokeRoundedMoreHorizontal, color: Colors.blueGrey),
                 const SizedBox(height: 4),
                 _NutrientGrid(nutrients: data.otherNutrients),
                 const SizedBox(height: 10),
@@ -193,7 +194,7 @@ class _NutrientDetail extends ConsumerWidget {
 
               // Ingredients
               if (_hasIngredients(data)) ...[
-                _SectionHeader(title: 'Ingredients', icon: Icons.list_alt, color: cs.primary),
+                _SectionHeader(title: 'Ingredients', icon: HugeIcons.strokeRoundedMenu01, color: cs.primary),
                 const SizedBox(height: 4),
                 Container(
                   width: double.infinity,
@@ -214,7 +215,7 @@ class _NutrientDetail extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.info_outline, size: 12, color: Colors.grey.shade500),
+                    HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, size: 12, color: Colors.grey.shade500),
                     const SizedBox(width: 4),
                     Text(
                       'Source: ${_formatSource(data.source!)}',
@@ -315,7 +316,7 @@ class _MacroChip extends StatelessWidget {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   const _SectionHeader({required this.title, required this.icon, required this.color});
 
@@ -323,7 +324,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: color),
+        HugeIcon(icon: icon, size: 14, color: color),
         const SizedBox(width: 4),
         Text(title,
             style: TextStyle(

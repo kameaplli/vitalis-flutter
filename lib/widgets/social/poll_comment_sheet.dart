@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/poll_models.dart';
 import '../../providers/poll_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Bottom sheet for viewing and adding comments on a poll.
 class PollCommentSheet extends ConsumerStatefulWidget {
@@ -119,7 +120,7 @@ class _PollCommentSheetState extends ConsumerState<PollCommentSheet> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
             child: Row(
               children: [
-                Icon(Icons.chat_bubble_outline_rounded,
+                HugeIcon(icon: HugeIcons.strokeRoundedComment01,
                     size: 18, color: cs.primary),
                 const SizedBox(width: 8),
                 Text(
@@ -152,7 +153,7 @@ class _PollCommentSheetState extends ConsumerState<PollCommentSheet> {
                 ],
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.close_rounded,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
                       color: cs.onSurfaceVariant, size: 20),
                   onPressed: () => Navigator.pop(context),
                   visualDensity: VisualDensity.compact,
@@ -205,7 +206,7 @@ class _PollCommentSheetState extends ConsumerState<PollCommentSheet> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.error_outline_rounded,
+                      HugeIcon(icon: HugeIcons.strokeRoundedAlert01,
                           size: 40, color: cs.error),
                       const SizedBox(height: 12),
                       Text('Could not load comments',
@@ -227,8 +228,8 @@ class _PollCommentSheetState extends ConsumerState<PollCommentSheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.forum_outlined,
+                            HugeIcon(icon: 
+                              HugeIcons.strokeRoundedComment01,
                               size: 48,
                               color:
                                   cs.onSurfaceVariant.withValues(alpha: 0.3),
@@ -331,8 +332,8 @@ class _PollCommentSheetState extends ConsumerState<PollCommentSheet> {
                               colors: [cs.primary, cs.tertiary],
                             ),
                           ),
-                          child: const Icon(
-                            Icons.send_rounded,
+                          child: HugeIcon(icon: 
+                            HugeIcons.strokeRoundedSent,
                             color: Colors.white,
                             size: 16,
                           ),

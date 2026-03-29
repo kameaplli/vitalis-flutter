@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/social_models.dart';
 import 'report_block_sheet.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Premium feed card — Instagram/LinkedIn hybrid with rich animations.
 /// Performance: RepaintBoundary isolation, cached computations, optimistic UI.
@@ -396,8 +397,8 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                                     ),
                                     ScaleTransition(
                                       scale: _likeScale,
-                                      child: Icon(
-                                        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                      child: HugeIcon(icon: 
+                                        liked ? HugeIcons.strokeRoundedFavourite : HugeIcons.strokeRoundedFavourite,
                                         size: 20,
                                         color: liked
                                             ? const Color(0xFFE53935)
@@ -450,7 +451,7 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.chat_bubble_outline_rounded, size: 18,
+                                HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18,
                                     color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                                 const SizedBox(width: 5),
                                 Text(
@@ -475,7 +476,7 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                           },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-                            child: Icon(Icons.share_outlined, size: 18,
+                            child: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18,
                                 color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                           ),
                         ),
@@ -500,8 +501,8 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                         opacity: _doubleTapOpacity,
                         child: ScaleTransition(
                           scale: _doubleTapScale,
-                          child: const Icon(
-                            Icons.favorite_rounded,
+                          child: Icon(
+                            Icons.favorite,
                             size: 100,
                             color: Colors.white,
                             shadows: [
@@ -586,7 +587,7 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.more_horiz_rounded,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 20),
             onPressed: () => ReportBlockSheet.show(
               context,

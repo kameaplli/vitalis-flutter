@@ -11,6 +11,7 @@ import '../../providers/nutrition_provider.dart';
 import '../../providers/selected_person_provider.dart';
 import 'allergen_badge.dart';
 import 'recipe_creator_sheet.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ─── Food search bottom sheet (local typeahead + manual entry) ────────────────
 
@@ -175,7 +176,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionHeader('Copy Yesterday\'s Meals', Icons.content_copy),
+                _sectionHeader('Copy Yesterday\'s Meals', HugeIcons.strokeRoundedCopy01),
                 const SizedBox(height: 6),
                 SizedBox(
                   height: 68,
@@ -192,7 +193,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                           .take(3)
                           .join(', ');
                       return ActionChip(
-                        avatar: Icon(Icons.copy_rounded, size: 16, color: cs.primary),
+                        avatar: HugeIcon(icon: HugeIcons.strokeRoundedCopy01, size: 16, color: cs.primary),
                         label: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,7 +231,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionHeader('Favorites', Icons.star_rounded),
+                _sectionHeader('Favorites', HugeIcons.strokeRoundedStar),
                 const SizedBox(height: 6),
                 ...favs.take(5).map((food) => _FoodSearchTile(
                       food: food,
@@ -254,7 +255,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionHeader('Recent', Icons.history),
+                _sectionHeader('Recent', HugeIcons.strokeRoundedClock01),
                 const SizedBox(height: 6),
                 ...data.recent.take(5).map((food) {
                   final favIds = ref.watch(favoriteIdsProvider);
@@ -281,7 +282,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionHeader('Most Used', Icons.trending_up),
+                _sectionHeader('Most Used', HugeIcons.strokeRoundedChartIncrease),
                 const SizedBox(height: 6),
                 ...data.frequent.take(5).map((food) {
                   final favIds = ref.watch(favoriteIdsProvider);
@@ -309,7 +310,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
               Expanded(
                 child: FilledButton.tonalIcon(
                   onPressed: _showManualEntry,
-                  icon: const Icon(Icons.edit_note, size: 20),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 20),
                   label: const Text('Enter manually'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 48),
@@ -337,7 +338,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                       }
                     }
                   },
-                  icon: const Icon(Icons.restaurant_menu, size: 20),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, size: 20),
                   label: const Text('Create recipe'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 48),
@@ -353,12 +354,12 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     );
   }
 
-  Widget _sectionHeader(String title, IconData icon) {
+  Widget _sectionHeader(String title, List<List<dynamic>> icon) {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          HugeIcon(icon: icon, size: 16, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 6),
           Text(title,
               style: TextStyle(
@@ -417,7 +418,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
     final sections = <Widget>[];
 
     if (favMatches.isNotEmpty) {
-      sections.add(_sectionHeader('Favorites', Icons.star_rounded));
+      sections.add(_sectionHeader('Favorites', HugeIcons.strokeRoundedStar));
       sections.addAll(favMatches.map((f) => _FoodSearchTile(
             food: f, badges: f.uniqueAllergens, onAdd: _addFood,
             isFavorite: true, onToggleFavorite: () => _toggleFavorite(f),
@@ -425,7 +426,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
           )));
     }
     if (recentMatches.isNotEmpty) {
-      sections.add(_sectionHeader('Recent', Icons.history));
+      sections.add(_sectionHeader('Recent', HugeIcons.strokeRoundedClock01));
       sections.addAll(recentMatches.map((f) => _FoodSearchTile(
             food: f, badges: f.uniqueAllergens, onAdd: _addFood,
             isFavorite: false, onToggleFavorite: () => _toggleFavorite(f),
@@ -433,7 +434,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
           )));
     }
     if (otherMatches.isNotEmpty) {
-      sections.add(_sectionHeader('All Results', Icons.restaurant_menu));
+      sections.add(_sectionHeader('All Results', HugeIcons.strokeRoundedRestaurant01));
       sections.addAll(otherMatches.map((f) => _FoodSearchTile(
             food: f, badges: f.uniqueAllergens, onAdd: _addFood,
             isFavorite: favIds.contains(f.id),
@@ -448,7 +449,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
         child: Center(
           child: TextButton.icon(
             onPressed: _showManualEntry,
-            icon: const Icon(Icons.add, size: 16),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 16),
             label: const Text("Can't find it? Add manually"),
           ),
         ),
@@ -522,12 +523,12 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                 autofocus: true,
                 decoration: InputDecoration(
                   hintText: 'Search foods...',
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01),
                   isDense: true,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() => _query = '');
@@ -579,14 +580,14 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                                          HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 48, color: Colors.grey.shade400),
                                           const SizedBox(height: 8),
                                           Text('No foods match "$_query"',
                                               style: TextStyle(color: Colors.grey.shade500)),
                                           const SizedBox(height: 16),
                                           OutlinedButton.icon(
                                             onPressed: _showManualEntry,
-                                            icon: const Icon(Icons.add, size: 18),
+                                            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                                             label: const Text('Add manually'),
                                           ),
                                         ],
@@ -798,7 +799,7 @@ class _FoodInfoCard extends ConsumerWidget {
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                         ),
                         child: Row(children: [
-                          Icon(Icons.restaurant_menu, size: 14, color: Colors.green.shade700),
+                          HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, size: 14, color: Colors.green.shade700),
                           const SizedBox(width: 6),
                           Text('RECIPE INGREDIENTS (${detail.ingredients.length})',
                             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
@@ -861,7 +862,7 @@ class _FoodInfoCard extends ConsumerWidget {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.edit, size: 16),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 16),
                     label: const Text('Edit Recipe', style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -922,7 +923,7 @@ class _FoodInfoCard extends ConsumerWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: onLog,
-                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
                   label: const Text('Log this food', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -947,7 +948,7 @@ class _FoodInfoCard extends ConsumerWidget {
           if (highlight)
             const Padding(
               padding: EdgeInsets.only(right: 4),
-              child: Icon(Icons.star_rounded, size: 12, color: Colors.orange),
+              child: HugeIcon(icon: HugeIcons.strokeRoundedStar, size: 12, color: Colors.orange),
             ),
           Expanded(
             child: Text(label, style: TextStyle(
@@ -1147,7 +1148,7 @@ class _FoodSearchTileState extends State<_FoodSearchTile>
                     Expanded(child: Text(food.title,
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, letterSpacing: -0.2))),
                     if (food.hasBrand && !_showBrand)
-                      Icon(Icons.storefront, size: 14, color: Colors.grey.shade400),
+                      HugeIcon(icon: HugeIcons.strokeRoundedStore01, size: 14, color: Colors.grey.shade400),
                     if (food.sourceCount > 1)
                       Padding(
                         padding: const EdgeInsets.only(left: 4),
@@ -1212,22 +1213,22 @@ class _FoodSearchTileState extends State<_FoodSearchTile>
                   // Info button (Level 2)
                   GestureDetector(
                     onTap: widget.onInfoTap,
-                    child: Icon(Icons.info_outline_rounded,
+                    child: HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle,
                       size: 20, color: Colors.grey.shade400),
                   ),
                   const SizedBox(width: 2),
                   if (widget.onToggleFavorite != null)
                     GestureDetector(
                       onTap: widget.onToggleFavorite,
-                      child: Icon(
-                        widget.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                      child: HugeIcon(
+                        icon: widget.isFavorite ? HugeIcons.strokeRoundedStar : HugeIcons.strokeRoundedStar,
                         color: widget.isFavorite ? Colors.amber : Colors.grey.shade400,
                         size: 22,
                       ),
                     ),
                   const SizedBox(width: 2),
                   IconButton(
-                    icon: const Icon(Icons.add_circle, color: Colors.green, size: 28),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAddCircle, color: Colors.green, size: 28),
                     onPressed: () => widget.onAdd(food),
                   ),
                 ],

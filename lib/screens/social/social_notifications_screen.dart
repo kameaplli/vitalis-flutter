@@ -6,6 +6,7 @@ import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Screen displaying the user's social notifications (reactions, comments,
 /// connection requests, challenge invites, nudges, etc.).
@@ -247,7 +248,7 @@ class _SocialNotificationsScreenState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, size: 48, color: cs.error),
+                HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 48, color: cs.error),
                 const SizedBox(height: 12),
                 Text('Failed to load notifications',
                     style: tt.bodyMedium?.copyWith(color: cs.error)),
@@ -269,7 +270,7 @@ class _SocialNotificationsScreenState
                   Center(
                     child: Column(
                       children: [
-                        Icon(Icons.notifications_none_rounded,
+                        HugeIcon(icon: HugeIcons.strokeRoundedNotification01,
                             size: 64, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
                         const SizedBox(height: 16),
                         Text('No notifications yet',
@@ -362,21 +363,21 @@ class _NotificationTile extends StatelessWidget {
     this.onDismiss,
   });
 
-  IconData _iconForType(String type) => switch (type) {
-        'connection_request' => Icons.person_add_rounded,
-        'connection_accepted' => Icons.how_to_reg_rounded,
-        'reaction' => Icons.favorite_rounded,
-        'comment' => Icons.chat_bubble_rounded,
-        'challenge_created' => Icons.emoji_events_rounded,
-        'challenge_completed' => Icons.military_tech_rounded,
-        'streak_nudge' => Icons.notifications_active_rounded,
-        'poll_vote' => Icons.poll_rounded,
-        'poll_comment' => Icons.forum_rounded,
-        'group_invite' => Icons.group_add_rounded,
-        'group_mention' => Icons.alternate_email_rounded,
-        'badge_earned' => Icons.workspace_premium_rounded,
-        'level_up' => Icons.arrow_upward_rounded,
-        _ => Icons.notifications_rounded,
+  List<List<dynamic>> _iconForType(String type) => switch (type) {
+        'connection_request' => HugeIcons.strokeRoundedUserAdd01,
+        'connection_accepted' => HugeIcons.strokeRoundedUserCheck01,
+        'reaction' => HugeIcons.strokeRoundedFavourite,
+        'comment' => HugeIcons.strokeRoundedComment01,
+        'challenge_created' => HugeIcons.strokeRoundedAward01,
+        'challenge_completed' => HugeIcons.strokeRoundedAward01,
+        'streak_nudge' => HugeIcons.strokeRoundedNotification01,
+        'poll_vote' => HugeIcons.strokeRoundedChartColumn,
+        'poll_comment' => HugeIcons.strokeRoundedComment01,
+        'group_invite' => HugeIcons.strokeRoundedUserAdd01,
+        'group_mention' => HugeIcons.strokeRoundedMail01,
+        'badge_earned' => HugeIcons.strokeRoundedAward01,
+        'level_up' => HugeIcons.strokeRoundedArrowUp01,
+        _ => HugeIcons.strokeRoundedNotification01,
       };
 
   Color _colorForType(String type, ColorScheme cs) => switch (type) {
@@ -428,7 +429,7 @@ class _NotificationTile extends StatelessWidget {
                 color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(_iconForType(type), color: color, size: 22),
+              child: HugeIcon(icon: _iconForType(type), color: color, size: 22),
             ),
             const SizedBox(width: 12),
             // Content
@@ -493,7 +494,7 @@ class _NotificationTile extends StatelessWidget {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
           color: cs.primary.withValues(alpha: 0.1),
-          child: Icon(Icons.done_all_rounded, color: cs.primary),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: cs.primary),
         ),
         child: tile,
       );
