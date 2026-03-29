@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
@@ -13,17 +14,17 @@ import '../../core/lab_tier_helpers.dart';
 import '../../widgets/friendly_error.dart';
 import '../../widgets/radial_spoke_chart.dart';
 
-IconData _pillarIcon(String pillar) => switch (pillar.toLowerCase()) {
-      'cardiovascular' => Icons.favorite_rounded,
-      'metabolism' => Icons.local_fire_department_rounded,
-      'fitness' => Icons.fitness_center_rounded,
-      'nutrients' => Icons.eco_rounded,
-      'inflammation' => Icons.whatshot_rounded,
-      'hormones' => Icons.psychology_rounded,
-      'liver' => Icons.science_rounded,
-      'kidney' => Icons.water_drop_rounded,
-      'immunity' => Icons.shield_rounded,
-      _ => Icons.biotech_rounded,
+List<List<dynamic>> _pillarIcon(String pillar) => switch (pillar.toLowerCase()) {
+      'cardiovascular' => HugeIcons.strokeRoundedFavourite,
+      'metabolism' => HugeIcons.strokeRoundedFire,
+      'fitness' => HugeIcons.strokeRoundedDumbbell01,
+      'nutrients' => HugeIcons.strokeRoundedLeaf01,
+      'inflammation' => HugeIcons.strokeRoundedFire,
+      'hormones' => HugeIcons.strokeRoundedAiBrain01,
+      'liver' => HugeIcons.strokeRoundedTestTube01,
+      'kidney' => HugeIcons.strokeRoundedDroplet,
+      'immunity' => HugeIcons.strokeRoundedShield01,
+      _ => HugeIcons.strokeRoundedMicroscope,
     };
 
 // ── Main Screen ──────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ SliverAppBar _buildSliverAppBar(BuildContext context, {List<Widget>? actions}) {
             padding: const EdgeInsets.only(right: 4),
             child: FilledButton.icon(
               onPressed: () => context.push('/health/labs/upload'),
-              icon: const Icon(Icons.add_rounded, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18, color: Theme.of(context).colorScheme.onPrimary),
               label: const Text('Upload'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -85,18 +86,18 @@ class _LabsMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded),
+      icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreVertical, size: 24, color: Theme.of(context).colorScheme.onSurface),
       onSelected: (value) async {
         if (value == 'reprocess') {
           _reprocessData(context, ref);
         }
       },
       itemBuilder: (_) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'reprocess',
           child: ListTile(
             dense: true,
-            leading: Icon(Icons.refresh_rounded),
+            leading: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 24, color: Theme.of(context).colorScheme.onSurface),
             title: Text('Fix & Reprocess Data'),
             subtitle: Text('Re-classify all biomarkers', style: TextStyle(fontSize: 11)),
           ),
@@ -243,10 +244,10 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
               },
               decoration: InputDecoration(
                 hintText: 'Search biomarkers...',
-                prefixIcon: const Icon(Icons.search, size: 22),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 22, color: cs.onSurfaceVariant),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close, size: 20),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 20, color: cs.onSurfaceVariant),
                         onPressed: () {
                           _searchCtrl.clear();
                           setState(() => _searchQuery = '');
@@ -301,7 +302,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
             child: _HorizontalResultCards(
               results: widget.dash.attentionNeeded,
               accentColor: kCriticalColor,
-              icon: Icons.warning_amber_rounded,
+              icon: HugeIcons.strokeRoundedAlert02,
             ),
           ),
         ],
@@ -314,7 +315,7 @@ class _DashboardBodyState extends ConsumerState<_DashboardBody> {
             child: _HorizontalResultCards(
               results: widget.dash.improvements,
               accentColor: kOptimalColor,
-              icon: Icons.trending_up_rounded,
+              icon: HugeIcons.strokeRoundedChartIncrease,
             ),
           ),
         ],
@@ -435,7 +436,7 @@ class _PanicBanner extends StatelessWidget {
             _AlertCard(
               alert: alert,
               borderColor: kCriticalColor,
-              icon: Icons.emergency_rounded,
+              icon: HugeIcons.strokeRoundedAmbulance,
               iconColor: kCriticalColor,
               label: 'EMERGENCY',
             ),
@@ -443,7 +444,7 @@ class _PanicBanner extends StatelessWidget {
             _AlertCard(
               alert: alert,
               borderColor: kSuboptimalColor,
-              icon: Icons.local_hospital_rounded,
+              icon: HugeIcons.strokeRoundedHospital01,
               iconColor: kSuboptimalColor,
               label: 'SEE DOCTOR',
             ),
@@ -456,7 +457,7 @@ class _PanicBanner extends StatelessWidget {
 class _AlertCard extends StatelessWidget {
   final PanicAlert alert;
   final Color borderColor;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color iconColor;
   final String label;
 
@@ -498,7 +499,7 @@ class _AlertCard extends StatelessWidget {
               color: iconColor.withValues(alpha: 0.18),
               border: Border.all(color: iconColor.withValues(alpha: 0.3), width: 1),
             ),
-            child: Icon(icon, color: iconColor, size: 20),
+            child: HugeIcon(icon: icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -603,7 +604,7 @@ class _SectionHeader extends StatelessWidget {
 class _HorizontalResultCards extends StatelessWidget {
   final List<LabResult> results;
   final Color accentColor;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   const _HorizontalResultCards({
     required this.results,
     required this.accentColor,
@@ -641,7 +642,7 @@ class _HorizontalResultCards extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(icon, color: accentColor, size: 16),
+                      HugeIcon(icon: icon, color: accentColor, size: 16),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(r.biomarkerName ?? r.biomarkerCode ?? '',
@@ -699,27 +700,27 @@ class _TrendArrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final IconData icon;
+    final List<List<dynamic>> icon;
     final Color color;
 
     switch (direction) {
       case 'rising':
-        icon = Icons.trending_up_rounded;
+        icon = HugeIcons.strokeRoundedChartIncrease;
         color = isImproving == true ? kOptimalColor : kCriticalColor;
         break;
       case 'falling':
-        icon = Icons.trending_down_rounded;
+        icon = HugeIcons.strokeRoundedChartDecrease;
         color = isImproving == true ? kOptimalColor : kCriticalColor;
         break;
       case 'stable':
-        icon = Icons.trending_flat_rounded;
+        icon = HugeIcons.strokeRoundedMinusSign;
         color = kSufficientColor;
         break;
       default:
         return const SizedBox.shrink();
     }
 
-    return Icon(icon, color: color, size: size);
+    return HugeIcon(icon: icon, color: color, size: size);
   }
 }
 
@@ -757,11 +758,11 @@ class _InsightCard extends StatelessWidget {
         _ => kUnknownTierColor,
       };
 
-  IconData _severityIcon() => switch (insight.severity) {
-        'critical' => Icons.error_rounded,
-        'warning' => Icons.warning_amber_rounded,
-        'info' => Icons.lightbulb_rounded,
-        _ => Icons.info_rounded,
+  List<List<dynamic>> _severityIcon() => switch (insight.severity) {
+        'critical' => HugeIcons.strokeRoundedAlert01,
+        'warning' => HugeIcons.strokeRoundedAlert02,
+        'info' => HugeIcons.strokeRoundedBulb,
+        _ => HugeIcons.strokeRoundedInformationCircle,
       };
 
   @override
@@ -782,7 +783,7 @@ class _InsightCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(_severityIcon(), color: color, size: 18),
+              HugeIcon(icon: _severityIcon(), color: color, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(insight.title,
@@ -812,7 +813,7 @@ class _InsightCard extends StatelessWidget {
                   final person = ref.read(selectedPersonProvider);
                   ref.invalidate(labInsightsProvider(person));
                 },
-                child: Icon(Icons.close_rounded,
+                child: HugeIcon(icon: HugeIcons.strokeRoundedCancel01,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 18),
               ),
             ],
@@ -858,13 +859,13 @@ class _RecommendationsSection extends StatelessWidget {
   final List<BiomarkerRecommendation> recommendations;
   const _RecommendationsSection({required this.recommendations});
 
-  IconData _categoryIcon(String category) => switch (category) {
-        'diet' => Icons.restaurant_rounded,
-        'supplement' => Icons.medication_rounded,
-        'lifestyle' => Icons.self_improvement_rounded,
-        'exercise' => Icons.fitness_center_rounded,
-        'medical' => Icons.local_hospital_rounded,
-        _ => Icons.lightbulb_rounded,
+  List<List<dynamic>> _categoryIcon(String category) => switch (category) {
+        'diet' => HugeIcons.strokeRoundedRestaurant01,
+        'supplement' => HugeIcons.strokeRoundedMedicine01,
+        'lifestyle' => HugeIcons.strokeRoundedWellness,
+        'exercise' => HugeIcons.strokeRoundedDumbbell01,
+        'medical' => HugeIcons.strokeRoundedHospital01,
+        _ => HugeIcons.strokeRoundedBulb,
       };
 
   @override
@@ -895,7 +896,7 @@ class _RecommendationsSection extends StatelessWidget {
                       color: cs.primaryContainer.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(_categoryIcon(rec.category),
+                    child: HugeIcon(icon: _categoryIcon(rec.category),
                         color: cs.primary, size: 18),
                   ),
                   const SizedBox(width: 12),
@@ -1086,16 +1087,16 @@ class _ReportTile extends StatelessWidget {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Delete',
+            const Text('Delete',
                 style: TextStyle(
                     color: kCriticalColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 14)),
-            SizedBox(width: 8),
-            Icon(Icons.delete_rounded, color: kCriticalColor, size: 22),
+            const SizedBox(width: 8),
+            HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: kCriticalColor, size: 22),
           ],
         ),
       ),
@@ -1110,7 +1111,7 @@ class _ReportTile extends StatelessWidget {
               color: cs.primaryContainer,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.description_rounded,
+            child: HugeIcon(icon: HugeIcons.strokeRoundedFile01,
                 color: cs.onPrimaryContainer, size: 20),
           ),
           title: Text(report.labProvider ?? 'Report',
@@ -1306,13 +1307,13 @@ class _OptimalTrendChip extends StatelessWidget {
 
     final isUp = pctChange > 0;
     final color = isUp ? kOptimalColor : kCriticalColor;
-    final icon = isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+    final icon = isUp ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01;
     final displayPct = pctChange.abs().round().clamp(0, 999); // cap display at 999%
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 14),
+        HugeIcon(icon: icon, color: color, size: 14),
         Text('$displayPct% vs previous',
             style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
       ],
@@ -1435,7 +1436,7 @@ class _PillarCard extends StatelessWidget {
                     color: tierColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(9),
                   ),
-                  child: Icon(_pillarIcon(pillar), color: tierColor, size: 18),
+                  child: HugeIcon(icon: _pillarIcon(pillar), color: tierColor, size: 18),
                 ),
                 if (score != null) ...[
                   const Spacer(),
@@ -1502,7 +1503,7 @@ class _PillarHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Row(
         children: [
-          Icon(_pillarIcon(pillar), color: tierColor, size: 22),
+          HugeIcon(icon: _pillarIcon(pillar), color: tierColor, size: 22),
           const SizedBox(width: 10),
           Text(pillar,
               style: TextStyle(
@@ -1634,7 +1635,7 @@ class _BiomarkerCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 6),
-                Icon(Icons.chevron_right_rounded,
+                HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.5), size: 20),
               ],
             ),
@@ -1675,8 +1676,8 @@ class _PreviousValueChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+          HugeIcon(
+            icon: isUp ? HugeIcons.strokeRoundedArrowUp01 : HugeIcons.strokeRoundedArrowDown01,
             color: color,
             size: 10,
           ),
@@ -1872,7 +1873,7 @@ class _EmptyState extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.biotech_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedMicroscope,
                       size: 64, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
                   const SizedBox(height: 20),
                   Text('No Results Yet',
@@ -1893,7 +1894,7 @@ class _EmptyState extends StatelessWidget {
                   const SizedBox(height: 28),
                   FilledButton.icon(
                     onPressed: () => context.push('/health/labs/upload'),
-                    icon: const Icon(Icons.upload_file_rounded),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 20),
                     label: const Text('Upload Report'),
                   ),
                 ],
