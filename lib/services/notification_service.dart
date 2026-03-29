@@ -286,6 +286,26 @@ class NotificationService {
       ),
     );
 
+    // Eczema & weather alerts channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_eczema',
+        'Eczema & Weather Alerts',
+        description: 'Alerts when weather conditions may trigger flare-ups',
+        importance: Importance.high,
+      ),
+    );
+
+    // Smart suggestions channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_smart',
+        'Smart Suggestions',
+        description: 'Personalized logging suggestions based on your patterns',
+        importance: Importance.low,
+      ),
+    );
+
     // Check exact alarm capability — on Android 14+ this requires explicit permission
     try {
       _canUseExactAlarms = await androidPlugin?.canScheduleExactNotifications() ?? false;
