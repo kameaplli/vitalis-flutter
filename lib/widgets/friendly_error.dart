@@ -116,6 +116,7 @@ class FriendlyError extends StatelessWidget {
 class EmptyState extends StatelessWidget {
   final String message;
   final IconData icon;
+  final Widget? iconWidget;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -123,6 +124,7 @@ class EmptyState extends StatelessWidget {
     super.key,
     required this.message,
     this.icon = Icons.inbox_rounded,
+    this.iconWidget,
     this.actionLabel,
     this.onAction,
   });
@@ -136,7 +138,7 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: cs.outline.withValues(alpha: 0.5)),
+            iconWidget ?? Icon(icon, size: 48, color: cs.outline.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               message,
