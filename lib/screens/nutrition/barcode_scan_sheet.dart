@@ -9,6 +9,7 @@ import '../../core/constants.dart';
 import '../../providers/food_provider.dart';
 import '../../models/food_item.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ─── Barcode scan bottom sheet ─────────────────────────────────────────────────
 
@@ -507,7 +508,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
               ),
             ),
           if (_processing)
-            const Expanded(child: Center(child: CircularProgressIndicator())),
+            const Expanded(child: const ThemedSpinner()),
         ],
       ),
     );

@@ -7,6 +7,7 @@ import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 /// Screen displaying the user's social notifications (reactions, comments,
 /// connection requests, challenge invites, nudges, etc.).
@@ -243,7 +244,7 @@ class _SocialNotificationsScreenState
               },
               child: notificationsAsync.when(
           loading: () =>
-              const Center(child: CircularProgressIndicator()),
+              const ThemedSpinner(),
           error: (err, _) => Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -19,6 +19,7 @@ import '../../providers/poll_provider.dart';
 import '../../providers/group_chat_provider.dart';
 import '../../models/group_chat_models.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ── Social Hub Screen ──────────────────────────────────────────────────────────
 
@@ -348,6 +349,8 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
       return const _EmptyFeedState();
     }
 
+    final hasCommunityPosts = allEvents.any((e) => e.isCommunity);
+
     return RefreshIndicator(
       color: cs.primary,
       onRefresh: () async {
@@ -364,6 +367,32 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
           SliverToBoxAdapter(
             child: Container(height: 8, color: cs.surfaceContainerLow),
           ),
+          // Community feed banner
+          if (hasCommunityPosts)
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                color: cs.primaryContainer.withValues(alpha: 0.4),
+                child: Row(
+                  children: [
+                    HugeIcon(
+                      icon: HugeIcons.strokeRoundedGlobe02,
+                      size: 18,
+                      color: cs.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Showing community posts \u2014 connect with people to personalise your feed!',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // Feed items
           SliverList(
             delegate: SliverChildBuilderDelegate(
@@ -554,7 +583,7 @@ class _PollsTabState extends ConsumerState<_PollsTab> {
     final pollsState = ref.watch(pollsNotifierProvider);
 
     if (pollsState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ThemedSpinner();
     }
 
     if (pollsState.error != null && pollsState.polls.isEmpty) {
@@ -777,7 +806,7 @@ class _GroupsTabState extends ConsumerState<_GroupsTab> {
     final groupsState = ref.watch(groupsNotifierProvider);
 
     if (groupsState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ThemedSpinner();
     }
 
     if (groupsState.error != null && groupsState.groups.isEmpty) {
@@ -1342,7 +1371,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
     if (_searching) {
       return const Padding(
         padding: EdgeInsets.all(24),
-        child: Center(child: CircularProgressIndicator()),
+        child: const ThemedSpinner(),
       );
     }
 
@@ -1472,7 +1501,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
       skipLoadingOnReload: true,
       loading: () => const SizedBox(
         height: 140,
-        child: Center(child: CircularProgressIndicator()),
+        child: const ThemedSpinner(),
       ),
       error: (_, __) => const SizedBox.shrink(),
       data: (challenges) {
@@ -1513,7 +1542,7 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
       skipLoadingOnReload: true,
       loading: () => const SizedBox(
         height: 200,
-        child: Center(child: CircularProgressIndicator()),
+        child: const ThemedSpinner(),
       ),
       error: (_, __) => const SizedBox.shrink(),
       data: (recipes) {
@@ -2100,7 +2129,7 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
             width: double.infinity,
             height: 50,
             child: _posting
-                ? const Center(child: CircularProgressIndicator())
+                ? const ThemedSpinner()
                 : Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),

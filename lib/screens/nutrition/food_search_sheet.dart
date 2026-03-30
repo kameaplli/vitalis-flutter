@@ -12,6 +12,7 @@ import '../../providers/selected_person_provider.dart';
 import 'allergen_badge.dart';
 import 'recipe_creator_sheet.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ─── Food search bottom sheet (local typeahead + manual entry) ────────────────
 
@@ -574,7 +575,7 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                             return _buildGroupedResults(merged, scrollCtrl);
                           }
                           if (_serverSearching) {
-                            return const Center(child: CircularProgressIndicator());
+                            return const ThemedSpinner();
                           }
                           return Center(
                                       child: Column(
@@ -652,7 +653,7 @@ class _FoodInfoCard extends ConsumerWidget {
       expand: false,
       builder: (_, scrollCtrl) {
         return detailAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const ThemedSpinner(),
           error: (e, _) => const Center(child: Text('Failed to load details')),
           data: (detail) => ListView(
             controller: scrollCtrl,

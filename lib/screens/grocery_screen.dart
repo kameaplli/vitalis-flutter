@@ -12,6 +12,7 @@ import '../models/insight_data.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Grocery AI Insights provider ─────────────────────────────────────────────
 // key = period (month|quarter|year) — maps to backend param
@@ -181,7 +182,7 @@ class _ReceiptsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(groceryReceiptsProvider(person));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'grocery receipts'),
       data: (receipts) {
         if (receipts.isEmpty) {
@@ -527,7 +528,7 @@ class _ReceiptDetailSheet extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(child: Text('Could not load receipt: $e')),
         data: (receipt) => _ReceiptDetailContent(
           receipt: receipt,
@@ -1270,7 +1271,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           spendAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'grocery spending'),
             data: (spending) => spending.byCategory.isEmpty
                 ? const _EmptyAnalytics()
@@ -1305,7 +1306,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           nutriAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'grocery nutrition'),
             data: (spectrum) => spectrum.byCategory.isEmpty
                 ? const _EmptyAnalytics()
@@ -1689,7 +1690,7 @@ class _CategoryItemsSheet extends ConsumerWidget {
           ),
           Expanded(
             child: async.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ThemedSpinner(),
               error: (e, _) => FriendlyError(error: e, context: 'grocery items'),
               data: (data) {
                 if (data.items.isEmpty) {

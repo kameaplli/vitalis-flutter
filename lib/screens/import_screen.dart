@@ -9,6 +9,7 @@ import '../models/sync_models.dart';
 import '../providers/sync_provider.dart';
 import '../services/health_import_service.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
@@ -418,7 +419,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Widget _buildHistory(ColorScheme cs, TextTheme tt) {
     final jobsAsync = ref.watch(importJobsProvider);
     return jobsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(20),

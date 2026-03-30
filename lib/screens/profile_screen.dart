@@ -21,6 +21,7 @@ import '../core/icon_theme.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/achievement_badges.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/themed_spinner.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -100,7 +101,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (user == null) return const Scaffold(body: const ThemedSpinner());
 
     final avatarUrl = user.avatarUrl != null
         ? ApiConstants.resolveUrl(user.avatarUrl)
@@ -826,7 +827,7 @@ class _AchievementsSection extends ConsumerWidget {
         Text('Achievements', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         asyncData.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const ThemedSpinner(),
           error: (e, _) => Text('Could not load achievements', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           data: (data) => AchievementBadgesWidget(
             badges: data.badges,

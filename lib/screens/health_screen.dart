@@ -13,6 +13,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../services/notification_service.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/themed_spinner.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/days_slider.dart';
@@ -1114,7 +1115,7 @@ class _SupplementsTabState extends ConsumerState<_SupplementsTab> {
       ),
       body: logsAsync.when(
         skipLoadingOnReload: true,
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => FriendlyError(error: e, context: 'supplements'),
         data: (entries) {
           if (entries.isEmpty) {
@@ -2213,7 +2214,7 @@ class _SupplementBarcodeScannerState extends ConsumerState<_SupplementBarcodeSca
         ),
         Expanded(
           child: _processing
-              ? const Center(child: CircularProgressIndicator())
+              ? const ThemedSpinner()
               : ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: MobileScanner(

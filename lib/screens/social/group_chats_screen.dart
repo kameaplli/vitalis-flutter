@@ -11,6 +11,7 @@ import '../../core/constants.dart';
 import '../../models/group_chat_models.dart';
 import '../../providers/group_chat_provider.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 class GroupChatsScreen extends ConsumerWidget {
   const GroupChatsScreen({super.key});
@@ -33,7 +34,7 @@ class GroupChatsScreen extends ConsumerWidget {
       ),
       body: Builder(builder: (_) {
         if (groupsState.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const ThemedSpinner();
         }
         if (groupsState.error != null && groupsState.groups.isEmpty) {
           return Center(
@@ -787,7 +788,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
           // Messages
           Expanded(
             child: chatState.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const ThemedSpinner()
                 : chatState.messages.isEmpty
                     ? Center(
                         child: Column(

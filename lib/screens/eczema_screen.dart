@@ -30,6 +30,7 @@ import 'eczema/eczema_heatmap_tab.dart';
 import 'eczema/eczema_report_tab.dart';
 import 'eczema/eczema_pdf_export.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -815,7 +816,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
     final logsAsync = ref.watch(eczemaProvider('${person}_90'));
     return logsAsync.when(
       skipLoadingOnReload: true,
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'eczema comparison'),
       data: (logs) {
         if (logs.length < 2) {
@@ -975,7 +976,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         Expanded(
           child: heatAsync.when(
             skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'eczema heatmap'),
             data: (data) {
               if (data.regionIntensity.isEmpty) {
@@ -1050,12 +1051,12 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
         Expanded(
           child: heatAsync.when(
             skipLoadingOnReload: true,
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'eczema report'),
             data: (heatData) {
               return logsAsync.when(
                 skipLoadingOnReload: true,
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const ThemedSpinner(),
                 error: (e, _) => FriendlyError(error: e, context: 'eczema report'),
                 data: (logs) {
                   if (logs.isEmpty) {
@@ -1066,7 +1067,7 @@ class _EczemaScreenState extends ConsumerState<EczemaScreen>
                   }
                   return foodAsync.when(
                     skipLoadingOnReload: true,
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    loading: () => const ThemedSpinner(),
                     error: (e, _) {
                       return ReportContent(
                         heatData: heatData,

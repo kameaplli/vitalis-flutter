@@ -5,6 +5,7 @@ import '../models/health_twin_engine_data.dart';
 import '../providers/health_twin_engine_provider.dart';
 import '../providers/selected_person_provider.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Shared Empty State ──────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ class CorrelationsTab extends ConsumerWidget {
     final asyncCorr = ref.watch(crossDomainCorrelationsProvider(personId));
 
     return asyncCorr.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => Center(child: Text('Failed to load: $e')),
       data: (data) {
         if (data == null || data.correlations.isEmpty) {
@@ -441,7 +442,7 @@ class EngagementTab extends ConsumerWidget {
     final asyncAchievements = ref.watch(healthAchievementsProvider(personId));
 
     return asyncSummary.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => Center(child: Text('Failed to load: $e')),
       data: (summary) {
         if (summary == null) {
@@ -478,7 +479,7 @@ class EngagementTab extends ConsumerWidget {
               const SizedBox(height: 8),
               asyncAchievements.when(
                 loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                    const ThemedSpinner(),
                 error: (e, _) => Text('Failed to load achievements: $e'),
                 data: (achData) {
                   if (achData == null || achData.achievements.isEmpty) {
@@ -976,7 +977,7 @@ class PredictionsTab extends ConsumerWidget {
     final asyncLab = ref.watch(labFeedbackProvider(personId));
 
     return asyncPredictions.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => Center(child: Text('Failed to load: $e')),
       data: (predData) {
         if (predData == null) {
@@ -1684,7 +1685,7 @@ class FamilyOverviewTab extends ConsumerWidget {
     final asyncFamily = ref.watch(familyOverviewProvider);
 
     return asyncFamily.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => Center(child: Text('Failed to load: $e')),
       data: (data) {
         if (data == null || data.members.isEmpty) {

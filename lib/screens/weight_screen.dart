@@ -11,6 +11,7 @@ import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/days_slider.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 /// Standalone route screen — wraps WeightContent in a Scaffold.
 class WeightScreen extends ConsumerWidget {
@@ -130,7 +131,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   skipLoadingOnReload: true,
                   loading: () => const SizedBox(
                     height: 280,
-                    child: Center(child: CircularProgressIndicator()),
+                    child: const ThemedSpinner(),
                   ),
                   error: (e, _) => SizedBox(
                     height: 280,

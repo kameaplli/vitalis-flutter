@@ -160,6 +160,7 @@ class FeedEvent {
   final String? contentType;
   final Map<String, dynamic> contentSnapshot;
   final bool isRead;
+  final bool isCommunity;
   final List<ReactionSummary> reactions;
   final DateTime createdAt;
 
@@ -172,6 +173,7 @@ class FeedEvent {
     this.contentType,
     this.contentSnapshot = const {},
     this.isRead = false,
+    this.isCommunity = false,
     this.reactions = const [],
     this.commentCount = 0,
     required this.createdAt,
@@ -182,6 +184,7 @@ class FeedEvent {
   FeedEvent copyWith({
     List<ReactionSummary>? reactions,
     int? commentCount,
+    bool? isCommunity,
   }) {
     return FeedEvent(
       id: id,
@@ -192,6 +195,7 @@ class FeedEvent {
       contentType: contentType,
       contentSnapshot: contentSnapshot,
       isRead: isRead,
+      isCommunity: isCommunity ?? this.isCommunity,
       reactions: reactions ?? this.reactions,
       commentCount: commentCount ?? this.commentCount,
       createdAt: createdAt,
@@ -209,6 +213,7 @@ class FeedEvent {
       contentSnapshot:
           (json['content_snapshot'] as Map<String, dynamic>?) ?? const {},
       isRead: json['is_read'] == true,
+      isCommunity: json['is_community'] == true,
       reactions: (json['reactions'] as List<dynamic>?)
               ?.map((r) =>
                   ReactionSummary.fromJson(r as Map<String, dynamic>))
@@ -229,6 +234,7 @@ class FeedEvent {
         'content_type': contentType,
         'content_snapshot': contentSnapshot,
         'is_read': isRead,
+        'is_community': isCommunity,
         'reactions': reactions.map((r) => r.toJson()).toList(),
         'comment_count': commentCount,
         'created_at': createdAt.toIso8601String(),

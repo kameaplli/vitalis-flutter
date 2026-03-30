@@ -7,6 +7,7 @@ import '../../models/dm_models.dart';
 import '../../providers/dm_provider.dart';
 import '../../widgets/social/online_indicator.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ── DM Inbox ──────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ class DmInboxScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Messages')),
       body: Builder(builder: (_) {
         if (state.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const ThemedSpinner();
         }
         if (state.error != null && state.conversations.isEmpty) {
           return Center(
@@ -262,7 +263,7 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
           // Messages
           Expanded(
             child: chatState.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const ThemedSpinner()
                 : chatState.messages.isEmpty
                     ? Center(
                         child: Text(
