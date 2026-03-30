@@ -307,13 +307,13 @@ class _BottomNavWithGenie extends StatelessWidget {
           },
           destinations: [
             NavigationDestination(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, color: cs.onSurfaceVariant, size: _iconSize),
-              selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedHome01, color: cs.primary, size: _iconSize),
+              icon: Icon(Icons.home_outlined, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.home, color: cs.primary, size: _iconSize),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, color: cs.onSurfaceVariant, size: _iconSize),
-              selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, color: cs.primary, size: _iconSize),
+              icon: Icon(Icons.restaurant_outlined, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.restaurant, color: cs.primary, size: _iconSize),
               label: 'Nutrition',
             ),
             // Placeholder for center Genie button
@@ -322,13 +322,13 @@ class _BottomNavWithGenie extends StatelessWidget {
               label: '',
             ),
             NavigationDestination(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, color: cs.onSurfaceVariant, size: _iconSize),
-              selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedFavourite, color: cs.primary, size: _iconSize),
+              icon: Icon(Icons.favorite_border, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.favorite, color: cs.primary, size: _iconSize),
               label: 'Health',
             ),
             NavigationDestination(
-              icon: HugeIcon(icon: HugeIcons.strokeRoundedMenu01, color: cs.onSurfaceVariant, size: _iconSize),
-              selectedIcon: HugeIcon(icon: HugeIcons.strokeRoundedMenu01, color: cs.primary, size: _iconSize),
+              icon: Icon(Icons.grid_view_outlined, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.grid_view, color: cs.primary, size: _iconSize),
               label: 'More',
             ),
           ],

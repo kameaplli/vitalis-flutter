@@ -39,7 +39,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
 
   static const _minWeight = 20.0;
   static const _maxWeight = 250.0;
-  static const _step = 0.05; // 50 grams
+  static const _step = 0.050; // 50 grams (scoreboard tiles)
 
   double _weight = 70.0;
   bool _initialized = false;
@@ -270,7 +270,11 @@ class _WeightContentState extends ConsumerState<WeightContent> {
 
 // ─── Weight Slider Picker ─────────────────────────────────────────────────────
 
-class _WeightScrollPicker extends StatelessWidget {
+/// Cricket scoreboard-style weight picker with 5 scrolling tiles.
+/// First 3 tiles = kg digits (hundreds, tens, ones).
+/// Last 2 tiles = gram digits (hundreds, tens) — 50g increments.
+/// Example: [0][7][2] . [4][5] = 72.450 kg
+class _WeightScrollPicker extends StatefulWidget {
   final double weight;
   final double minWeight;
   final double maxWeight;
@@ -289,127 +293,246 @@ class _WeightScrollPicker extends StatelessWidget {
     required this.onChanged,
   });
 
-  void _adjust(double delta) {
-    final newW = (weight + delta).clamp(minWeight, maxWeight);
-    onChanged(double.parse(newW.toStringAsFixed(1)));
+  @override
+  State<_WeightScrollPicker> createState() => _WeightScrollPickerState();
+}
+
+class _WeightScrollPickerState extends State<_WeightScrollPicker> {
+  static const _tileHeight = 56.0;
+  // Gram tens tile only allows 0 and 5 (50g increments)
+  static const _gramTensValues = [0, 5];
+
+  late final FixedExtentScrollController _kgHundreds;
+  late final FixedExtentScrollController _kgTens;
+  late final FixedExtentScrollController _kgOnes;
+  late final FixedExtentScrollController _gramHundreds;
+  late final FixedExtentScrollController _gramTens;
+
+  bool _suppressing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers(widget.weight);
+  }
+
+  void _initControllers(double w) {
+    final kg = w.truncate();
+    final grams = ((w - kg) * 1000).round();
+    final d0 = (kg ~/ 100) % 10;
+    final d1 = (kg ~/ 10) % 10;
+    final d2 = kg % 10;
+    final g0 = (grams ~/ 100) % 10;
+    final g1raw = (grams ~/ 10) % 10;
+    // Snap to nearest valid gram tens value (0 or 5)
+    final g1idx = g1raw >= 3 ? 1 : 0;
+
+    _kgHundreds = FixedExtentScrollController(initialItem: d0);
+    _kgTens = FixedExtentScrollController(initialItem: d1);
+    _kgOnes = FixedExtentScrollController(initialItem: d2);
+    _gramHundreds = FixedExtentScrollController(initialItem: g0);
+    _gramTens = FixedExtentScrollController(initialItem: g1idx);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WeightScrollPicker old) {
+    super.didUpdateWidget(old);
+    if ((old.weight - widget.weight).abs() > 0.001 && !_suppressing) {
+      _suppressing = true;
+      final kg = widget.weight.truncate();
+      final grams = ((widget.weight - kg) * 1000).round();
+      _kgHundreds.jumpToItem((kg ~/ 100) % 10);
+      _kgTens.jumpToItem((kg ~/ 10) % 10);
+      _kgOnes.jumpToItem(kg % 10);
+      _gramHundreds.jumpToItem((grams ~/ 100) % 10);
+      final g1raw = (grams ~/ 10) % 10;
+      _gramTens.jumpToItem(g1raw >= 3 ? 1 : 0);
+      _suppressing = false;
+    }
+  }
+
+  void _onTileChanged() {
+    if (_suppressing) return;
+    _suppressing = true;
+    final kg = _kgHundreds.selectedItem * 100 +
+        _kgTens.selectedItem * 10 +
+        _kgOnes.selectedItem;
+    final grams = _gramHundreds.selectedItem * 100 +
+        _gramTensValues[_gramTens.selectedItem % _gramTensValues.length] * 10;
+    final w = (kg + grams / 1000.0).clamp(widget.minWeight, widget.maxWeight);
+    widget.onChanged(double.parse(w.toStringAsFixed(2)));
+    _suppressing = false;
+  }
+
+  @override
+  void dispose() {
+    _kgHundreds.dispose();
+    _kgTens.dispose();
+    _kgOnes.dispose();
+    _gramHundreds.dispose();
+    _gramTens.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Snap to 0.1 kg (100g) for clean display
-    final divisions = ((maxWeight - minWeight) * 10).round();
+    final cs = Theme.of(context).colorScheme;
+    // Show formatted weight above the tiles
+    final kg = widget.weight.truncate();
+    final grams = ((widget.weight - kg) * 1000).round();
+    final gramStr = grams.toString().padLeft(3, '0');
 
     return Column(
       children: [
-        // Current weight display
-        Text(
-          weight.toStringAsFixed(1),
-          style: TextStyle(
-            fontSize: 44,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.5,
-            color: primaryColor,
-          ),
-        ),
-        Text(
-          'kg',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: onSurfaceColor.withValues(alpha: 0.5),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Fine adjustment buttons: -0.1 / -1 / +1 / +0.1
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _AdjustButton(label: '-1', onTap: () => _adjust(-1)),
-            const SizedBox(width: 8),
-            _AdjustButton(label: '-0.1', onTap: () => _adjust(-0.1)),
-            const SizedBox(width: 24),
-            _AdjustButton(label: '+0.1', onTap: () => _adjust(0.1)),
-            const SizedBox(width: 8),
-            _AdjustButton(label: '+1', onTap: () => _adjust(1)),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Slider
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: primaryColor,
-            inactiveTrackColor: primaryColor.withValues(alpha: 0.15),
-            thumbColor: primaryColor,
-            overlayColor: primaryColor.withValues(alpha: 0.12),
-            trackHeight: 6,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-          ),
-          child: Slider(
-            value: weight.clamp(minWeight, maxWeight),
-            min: minWeight,
-            max: maxWeight,
-            divisions: divisions,
-            onChanged: (v) {
-              onChanged(double.parse(v.toStringAsFixed(1)));
-            },
-          ),
-        ),
-
-        // Min/Max labels
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Current weight readout
+        RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant,
+            ),
             children: [
-              Text(
-                '${minWeight.toInt()} kg',
+              TextSpan(
+                text: '$kg',
                 style: TextStyle(
-                  fontSize: 11,
-                  color: onSurfaceColor.withValues(alpha: 0.4),
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                  color: widget.primaryColor,
                 ),
               ),
-              Text(
-                '${maxWeight.toInt()} kg',
+              TextSpan(
+                text: '.',
                 style: TextStyle(
-                  fontSize: 11,
-                  color: onSurfaceColor.withValues(alpha: 0.4),
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: widget.primaryColor,
+                ),
+              ),
+              TextSpan(
+                text: gramStr,
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
+                  color: widget.primaryColor.withValues(alpha: 0.7),
+                ),
+              ),
+              const TextSpan(text: '  '),
+              TextSpan(
+                text: 'kg',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        // Scoreboard tiles
+        SizedBox(
+          height: _tileHeight * 3,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildTile(_kgHundreds, List.generate(3, (i) => i), cs), // 0-2 (max 250)
+              const SizedBox(width: 4),
+              _buildTile(_kgTens, List.generate(10, (i) => i), cs),
+              const SizedBox(width: 4),
+              _buildTile(_kgOnes, List.generate(10, (i) => i), cs),
+              // Decimal dot
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '.',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              _buildTile(_gramHundreds, List.generate(10, (i) => i), cs),
+              const SizedBox(width: 4),
+              _buildTile(_gramTens, _gramTensValues, cs),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 150,
+              child: Text(
+                'kilograms',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 20),
+            SizedBox(
+              width: 100,
+              child: Text(
+                'grams',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
-}
 
-class _AdjustButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _AdjustButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-            ),
-          ),
+  Widget _buildTile(
+    FixedExtentScrollController ctrl,
+    List<int> values,
+    ColorScheme cs,
+  ) {
+    return Container(
+      width: 44,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: ListWheelScrollView.useDelegate(
+        controller: ctrl,
+        itemExtent: _tileHeight,
+        physics: const FixedExtentScrollPhysics(),
+        diameterRatio: 1.5,
+        perspective: 0.003,
+        onSelectedItemChanged: (_) {
+          HapticFeedback.selectionClick();
+          _onTileChanged();
+        },
+        childDelegate: ListWheelChildLoopingListDelegate(
+          children: values
+              .map((v) => Center(
+                    child: Text(
+                      '$v',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'monospace',
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ))
+              .toList(),
         ),
       ),
     );
