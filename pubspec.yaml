@@ -102,7 +102,7 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/qorehealth_app_icon.png"
   adaptive_icon_foreground: "assets/qorehealth_app_icon_foreground.png"
-  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_background: "#1A0E2E"
 
 flutter:
   uses-material-design: true
