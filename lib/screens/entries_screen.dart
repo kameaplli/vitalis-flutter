@@ -73,6 +73,10 @@ class _NutritionHistoryContentState
                   Expanded(child: Text(e.value,
                       style: const TextStyle(fontSize: 12, color: Colors.red))),
                   TextButton(
+                    onPressed: () => ref.read(mealSyncProvider.notifier).retryMeal(e.key),
+                    child: const Text('Retry', style: TextStyle(fontSize: 11)),
+                  ),
+                  TextButton(
                     onPressed: () => ref.read(mealSyncProvider.notifier).dismissFailure(e.key),
                     child: const Text('Dismiss', style: TextStyle(fontSize: 11)),
                   ),
