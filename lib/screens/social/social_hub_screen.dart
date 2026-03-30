@@ -235,6 +235,177 @@ class _ComposePromptBar extends StatelessWidget {
   }
 }
 
+// ── Pending Requests Banner ──────────────────────────────────────────────────
+
+class _PendingRequestsBanner extends ConsumerStatefulWidget {
+  final List<Connection> requests;
+  const _PendingRequestsBanner({required this.requests});
+
+  @override
+  ConsumerState<_PendingRequestsBanner> createState() =>
+      _PendingRequestsBannerState();
+}
+
+class _PendingRequestsBannerState
+    extends ConsumerState<_PendingRequestsBanner> {
+  final Set<String> _processing = {};
+
+  Future<void> _accept(Connection conn) async {
+    setState(() => _processing.add(conn.id));
+    try {
+      await apiClient.dio
+          .put(ApiConstants.socialConnectionAccept(conn.id));
+      ref.invalidate(connectionsProvider);
+      ref.invalidate(pendingRequestsProvider);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to accept')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _processing.remove(conn.id));
+    }
+  }
+
+  Future<void> _decline(Connection conn) async {
+    setState(() => _processing.add(conn.id));
+    try {
+      await apiClient.dio
+          .put(ApiConstants.socialConnectionReject(conn.id));
+      ref.invalidate(pendingRequestsProvider);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to decline')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _processing.remove(conn.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final requests = widget.requests;
+
+    return Container(
+      color: cs.primaryContainer.withValues(alpha: 0.3),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              HugeIcon(
+                icon: HugeIcons.strokeRoundedUserAdd01,
+                size: 18,
+                color: cs.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Friend Requests (${requests.length})',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onPrimaryContainer,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...requests.map((conn) {
+            final isProcessing = _processing.contains(conn.id);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: conn.requesterAvatarUrl != null
+                        ? NetworkImage(conn.requesterAvatarUrl!)
+                        : null,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    child: conn.requesterAvatarUrl == null
+                        ? Text(
+                            (conn.requesterName ?? '?')[0].toUpperCase(),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  // Name
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          conn.requesterName ?? 'Unknown',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (conn.createdAt != null)
+                          Text(
+                            _timeAgo(conn.createdAt!),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Actions
+                  if (isProcessing)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else ...[
+                    FilledButton.tonal(
+                      onPressed: () => _accept(conn),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      child: const Text('Accept', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 6),
+                    OutlinedButton(
+                      onPressed: () => _decline(conn),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      child: const Text('Decline', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${(diff.inDays / 7).floor()}w ago';
+  }
+}
+
 // ── Feed Tab ────────────────────────────────────────────────────────────────────
 
 class _FeedTab extends ConsumerStatefulWidget {
@@ -351,11 +522,14 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
 
     final hasCommunityPosts = allEvents.any((e) => e.isCommunity);
 
+    final pendingAsync = ref.watch(pendingRequestsProvider);
+
     return RefreshIndicator(
       color: cs.primary,
       onRefresh: () async {
         await ref.read(socialFeedNotifierProvider.notifier).forceRefresh();
         ref.invalidate(connectionsProvider);
+        ref.invalidate(pendingRequestsProvider);
       },
       child: CustomScrollView(
         controller: _scrollCtrl,
@@ -363,6 +537,16 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
           // Compose prompt bar
           SliverToBoxAdapter(
             child: _ComposePromptBar(onTap: widget.onCompose),
+          ),
+          // Pending friend requests
+          pendingAsync.when(
+            loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+            error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+            data: (pending) => pending.isEmpty
+                ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                : SliverToBoxAdapter(
+                    child: _PendingRequestsBanner(requests: pending),
+                  ),
           ),
           SliverToBoxAdapter(
             child: Container(height: 8, color: cs.surfaceContainerLow),
