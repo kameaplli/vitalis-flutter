@@ -7,6 +7,7 @@ import '../providers/selected_person_provider.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -433,7 +434,7 @@ class _WeeklyTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(weeklyInsightProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'weekly insights'),
       data: (insight) {
         if (insight == null) {
@@ -523,7 +524,7 @@ class _FlareRiskTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(flareRiskPredictionProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'flare risk'),
       data: (risk) {
         if (risk == null) {

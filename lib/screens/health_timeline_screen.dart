@@ -8,6 +8,7 @@ import '../models/sync_models.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/source_badge.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Unified Health Timeline Screen ──────────────────────────────────────────
 // Shows ALL health data from ALL sources in a single chronological feed.
@@ -188,7 +189,7 @@ class _HealthTimelineScreenState extends ConsumerState<HealthTimelineScreen> {
           // Timeline
           Expanded(
             child: _initialLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const ThemedSpinner()
                 : _items.isEmpty
                     ? _EmptyState(category: _category)
                     : RefreshIndicator(

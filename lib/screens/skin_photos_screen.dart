@@ -10,6 +10,7 @@ import '../models/skin_analysis_data.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/friendly_error.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Models ───────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
             : HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
       ),
       body: photosAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => FriendlyError(error: e, context: 'skin photos'),
         data: (photos) {
           if (photos.isEmpty) {

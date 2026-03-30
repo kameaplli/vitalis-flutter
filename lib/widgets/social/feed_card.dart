@@ -397,8 +397,8 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                                     ),
                                     ScaleTransition(
                                       scale: _likeScale,
-                                      child: HugeIcon(icon: 
-                                        liked ? HugeIcons.strokeRoundedFavourite : HugeIcons.strokeRoundedFavourite,
+                                      child: HugeIcon(
+                                        icon: HugeIcons.strokeRoundedFavourite,
                                         size: 20,
                                         color: liked
                                             ? const Color(0xFFE53935)

@@ -6,6 +6,7 @@ import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 // ── Challenge Detail Screen ────────────────────────────────────────────────────
 
 class ChallengeDetailScreen extends ConsumerWidget {
@@ -20,7 +21,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return detailAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, __) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -221,7 +222,7 @@ class _ChallengeContent extends ConsumerWidget {
             skipLoadingOnReload: true,
             loading: () => const Padding(
               padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
+              child: const ThemedSpinner(),
             ),
             error: (_, __) => Padding(
               padding: const EdgeInsets.all(16),

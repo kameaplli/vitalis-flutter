@@ -17,6 +17,7 @@ import '../core/constants.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/friendly_error.dart';
 import 'health_twin_engine_tabs.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Health Intelligence Screen ──────────────────────────────────────────────
 
@@ -2500,7 +2501,7 @@ class _ScoreRingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox(
       height: 240,
-      child: Center(child: CircularProgressIndicator()),
+      child: const ThemedSpinner(),
     );
   }
 }
@@ -3520,7 +3521,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
         ],
       ),
       body: reportAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(
           child: FriendlyError(
             error: e,

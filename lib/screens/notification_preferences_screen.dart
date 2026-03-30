@@ -6,6 +6,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../services/notification_service.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -202,7 +203,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Notifications')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const ThemedSpinner(),
       );
     }
 

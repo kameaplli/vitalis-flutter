@@ -6,6 +6,7 @@ import '../core/constants.dart';
 import '../models/product_data.dart';
 import '../widgets/friendly_error.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -94,7 +95,7 @@ class _ProductsListTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
     return productsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'products'),
       data: (products) {
         if (products.isEmpty) {
@@ -523,7 +524,7 @@ class _AnalysisTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final corrAsync = ref.watch(productCorrelationProvider);
     return corrAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'product analysis'),
       data: (correlations) {
         if (correlations.isEmpty) {

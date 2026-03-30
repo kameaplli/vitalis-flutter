@@ -15,6 +15,7 @@ import '../core/constants.dart';
 import '../models/finance_models.dart';
 import '../providers/finance_provider.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Category colours ─────────────────────────────────────────────────────────
 
@@ -465,7 +466,7 @@ class _StatementsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(financeStatementsProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'financial statements'),
       data: (statements) {
         if (statements.isEmpty) {
@@ -928,7 +929,7 @@ class _StatementDetailSheet extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(child: Text('Could not load statement: $e')),
         data: (stmt) => _StatementDetailContent(
           statement: stmt,
@@ -1667,7 +1668,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           // Spending data
           spendAsync.when(
             loading: () =>
-                const Center(child: CircularProgressIndicator()),
+                const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'financial spending'),
             data: (spending) {
               if (spending.byCategory.isEmpty) {
@@ -1995,7 +1996,7 @@ class _BudgetTab extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return budgetAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'budget'),
       data: (budget) {
         if (budget.budget.isEmpty) {
@@ -2540,7 +2541,7 @@ class _CategoryDrillDownSheetState
           const SizedBox(height: 12),
           Divider(height: 1, color: cs.outlineVariant),
           if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
+            const Expanded(child: const ThemedSpinner())
           else if (_error != null)
             Expanded(child: Center(child: Text(friendlyErrorMessage(_error!, context: 'transactions'), textAlign: TextAlign.center)))
           else if (_transactions!.isEmpty)

@@ -11,6 +11,7 @@ import '../../providers/dm_provider.dart';
 import '../../widgets/social/online_indicator.dart';
 import 'dm_screen.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ── Social Profile Screen ──────────────────────────────────────────────────────
 
@@ -155,7 +156,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return profileAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, __) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
