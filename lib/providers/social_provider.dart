@@ -580,7 +580,7 @@ Future<void> submitReport({
 /// Block a user.
 Future<void> blockUser(String userId) async {
   await apiClient.dio.post(ApiConstants.socialBlock, data: {
-    'user_id': userId,
+    'blocked_id': userId,
   });
 }
 

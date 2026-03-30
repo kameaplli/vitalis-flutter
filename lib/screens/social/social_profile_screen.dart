@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,10 +90,20 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
         setState(() => _connectionStatus = ConnectionStatus.pendingSent);
       }
       ref.invalidate(connectionsProvider);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
+        String msg = 'Failed to send request';
+        if (e is DioException && e.response != null) {
+          final status = e.response!.statusCode;
+          final detail = e.response!.data is Map ? e.response!.data['detail'] : null;
+          if (status == 400 && detail != null) {
+            msg = detail.toString();
+          } else if (status == 404) {
+            msg = 'User not found';
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send request')),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
