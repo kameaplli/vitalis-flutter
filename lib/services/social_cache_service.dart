@@ -12,8 +12,8 @@ class SocialCacheService {
   static const _recipeFeedKey = 'social_recipe_feed_cache';
   static const _feedTimestampKey = 'social_feed_cache_ts';
   static const _recipeFeedTimestampKey = 'social_recipe_feed_cache_ts';
-  static const _maxCacheAge = Duration(hours: 6);
-  static const _maxCachedEvents = 100;
+  static const _maxCacheAge = Duration(hours: 24);
+  static const _maxCachedEvents = 15;
 
   static Future<SharedPreferences> _prefs() => SharedPreferences.getInstance();
 
