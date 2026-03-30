@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
+import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../screens/nutrition/daily_intake.dart';
 import '../services/health_sync_service.dart';
@@ -105,8 +106,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
   }
 
-  void _refresh(String person) {
+  Future<void> _refresh(String person) async {
     final today = DateTime.now().toIso8601String().substring(0, 10);
+    // Clear cache first so invalidation triggers a fresh network fetch
+    await AppCache.clearDashboard(person, date: today);
     ref.invalidate(dashboardProvider((person, today)));
     ref.invalidate(grocerySpendingProvider('${person}_month'));
     ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
@@ -180,7 +183,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
 class _PersonDashboardPage extends ConsumerStatefulWidget {
   final String personId;
-  final void Function(String) onRefresh;
+  final Future<void> Function(String) onRefresh;
 
   const _PersonDashboardPage({
     required this.personId,

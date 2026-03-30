@@ -35,6 +35,16 @@ class AppCache {
     return _secureLoadMap('dash_${personId}_$dateStr', stale ? null : _dashTtl);
   }
 
+  /// Clear dashboard cache for a specific person+date so next read fetches fresh.
+  static Future<void> clearDashboard(String personId, {String? date}) async {
+    try {
+      final dateStr = date ?? DateTime.now().toIso8601String().substring(0, 10);
+      final key = 'dash_${personId}_$dateStr';
+      await _secureStorage.delete(key: key);
+      await _secureStorage.delete(key: '${key}_ts');
+    } catch (_) {}
+  }
+
   // ── Analytics (encrypted — contains personal health analytics) ─────────────
 
   static Future<void> saveAnalytics(String key, Map<String, dynamic> json) =>
