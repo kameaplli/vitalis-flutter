@@ -19,6 +19,37 @@ import '../widgets/friendly_error.dart';
 import 'health_twin_engine_tabs.dart';
 import '../widgets/themed_spinner.dart';
 
+// ── Helpers: extract human-readable text from raw maps ──────────────────────
+
+/// Turn a correlation map into a friendly sentence.
+/// Backend sends: {factor_a, factor_b, relationship} or {description}.
+String _friendlyCorrelation(Map<String, dynamic> corr) {
+  if (corr['description'] != null) return corr['description'].toString();
+  final a = corr['factor_a']?.toString();
+  final b = corr['factor_b']?.toString();
+  final rel = corr['relationship']?.toString();
+  if (a != null && b != null && rel != null) return '$a and $b — $rel';
+  if (a != null && b != null) return '$a is linked to $b';
+  return corr.values.whereType<String>().join(' — ');
+}
+
+/// Turn a recommendation map into a friendly sentence.
+/// Backend sends: {action, priority, category} or {text} or {description}.
+String _friendlyRecommendation(Map<String, dynamic> rec) {
+  return rec['text']?.toString() ??
+      rec['description']?.toString() ??
+      rec['action']?.toString() ??
+      rec.values.whereType<String>().join(' — ');
+}
+
+/// Turn a food recommendation map into a name.
+String _friendlyFoodName(Map<String, dynamic> rec) {
+  return rec['food_name']?.toString() ??
+      rec['name']?.toString() ??
+      rec['food']?.toString() ??
+      rec.values.whereType<String>().first;
+}
+
 // ── Health Intelligence Screen ──────────────────────────────────────────────
 
 class HealthIntelligenceScreen extends ConsumerStatefulWidget {
@@ -228,6 +259,9 @@ class _DigitalTwinTab extends ConsumerWidget {
           children: [
             const SizedBox(height: 12),
             _CompletenessGauge(score: twin.completenessScore),
+            const SizedBox(height: 16),
+            // Actionable insight summary
+            _TwinInsightSummary(twin: twin),
             const SizedBox(height: 20),
             _MacroProgressSection(macros: twin.macros),
             const SizedBox(height: 20),
@@ -259,7 +293,15 @@ class _DigitalTwinTab extends ConsumerWidget {
               skipLoadingOnReload: true,
               loading: () => const ShimmerCard(height: 120),
               error: (_, __) => const SizedBox.shrink(),
-              data: (trend) => _TwinSparkline(entries: trend),
+              data: (trend) => Column(
+                children: [
+                  _TwinSparkline(entries: trend),
+                  if (trend.length >= 3) ...[
+                    const SizedBox(height: 12),
+                    _TrendProjection(entries: trend),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 40),
           ],
@@ -281,6 +323,220 @@ class _TwinLoadingSkeleton extends StatelessWidget {
         ShimmerCard(height: 80),
         ShimmerCard(height: 120),
       ]),
+    );
+  }
+}
+
+// ── Twin Insight Summary (plain-language, educational) ───────────────────────
+
+class _TwinInsightSummary extends StatelessWidget {
+  final DailyTwin twin;
+  const _TwinInsightSummary({required this.twin});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tips = <_InsightTip>[];
+
+    // Completeness
+    if (twin.completenessScore < 50) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedAlert02,
+        color: Colors.orange,
+        text:
+            'You\'ve only logged about half of what your body needs today. Try adding a balanced meal to fill the gaps.',
+      ));
+    } else if (twin.completenessScore >= 80) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        color: Colors.green,
+        text: 'Great job! You\'re covering most of your daily nutrition needs.',
+      ));
+    }
+
+    // Hydration
+    if (twin.hydrationPercent < 50) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedDroplet,
+        color: Colors.blue,
+        text:
+            'Your water intake is low. Staying hydrated helps energy, focus, and digestion.',
+      ));
+    }
+
+    // Top gaps — plain language
+    if (twin.topGaps.isNotEmpty) {
+      final gapNames =
+          twin.topGaps.take(3).map((g) => g.displayName).join(', ');
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedArrowDown01,
+        color: Colors.red.shade400,
+        text:
+            'You\'re running low on $gapNames. Adding leafy greens, nuts, or whole grains can help.',
+      ));
+    }
+
+    // Excessive nutrients
+    if (twin.topExcesses.isNotEmpty) {
+      final exNames =
+          twin.topExcesses.take(2).map((g) => g.displayName).join(', ');
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedArrowUp01,
+        color: Colors.amber.shade700,
+        text:
+            'You\'re getting more $exNames than recommended. Consider balancing your portions.',
+      ));
+    }
+
+    // Macros
+    for (final entry in twin.macros.entries) {
+      if (entry.value.percent > 150) {
+        final name = entry.key[0].toUpperCase() + entry.key.substring(1);
+        tips.add(_InsightTip(
+          icon: HugeIcons.strokeRoundedInformationCircle,
+          color: Colors.amber,
+          text:
+              '$name is well above your daily target. This may add up over time if it continues.',
+        ));
+        break; // Only show one macro warning
+      }
+    }
+
+    if (tips.isEmpty) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedThumbsUp,
+        color: cs.primary,
+        text: 'Everything looks balanced so far. Keep it up!',
+      ));
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: cs.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'What your body is telling you',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            ...tips.map((tip) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HugeIcon(icon: tip.icon, size: 18, color: tip.color),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          tip.text,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightTip {
+  final List<List<dynamic>> icon;
+  final Color color;
+  final String text;
+  const _InsightTip(
+      {required this.icon, required this.color, required this.text});
+}
+
+// ── Trend Projection (what happens if this continues) ────────────────────────
+
+class _TrendProjection extends StatelessWidget {
+  final List<TwinTrendEntry> entries;
+  const _TrendProjection({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // Calculate trend direction from recent entries
+    if (entries.length < 3) return const SizedBox.shrink();
+
+    final recent = entries.length > 7 ? entries.sublist(entries.length - 7) : entries;
+    final firstHalf = recent.sublist(0, recent.length ~/ 2);
+    final secondHalf = recent.sublist(recent.length ~/ 2);
+
+    final avgFirst =
+        firstHalf.fold(0.0, (s, e) => s + e.healthScore) / firstHalf.length;
+    final avgSecond =
+        secondHalf.fold(0.0, (s, e) => s + e.healthScore) / secondHalf.length;
+    final delta = avgSecond - avgFirst;
+
+    String message;
+    Color color;
+    List<List<dynamic>> icon;
+
+    if (delta > 3) {
+      message =
+          'Your health score is trending up. If you keep this pace, you\'ll see meaningful improvements within a week.';
+      color = Colors.green;
+      icon = HugeIcons.strokeRoundedArrowUp01;
+    } else if (delta < -3) {
+      message =
+          'Your health score has been dipping lately. Small changes like adding a serving of vegetables or an extra glass of water can turn this around.';
+      color = Colors.red.shade400;
+      icon = HugeIcons.strokeRoundedArrowDown01;
+    } else {
+      message =
+          'Your health score has been steady. To push it higher, try adding variety to your meals or increasing your water intake.';
+      color = Colors.grey;
+      icon = HugeIcons.strokeRoundedArrowRight01;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: color.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            HugeIcon(icon: icon, size: 20, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'If this trend continues...',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -800,7 +1056,7 @@ class _FoodRecommendationsCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            rec['food_name']?.toString() ?? rec.toString(),
+                            _friendlyFoodName(rec),
                             style: text.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600),
                           ),
@@ -1247,7 +1503,7 @@ class _GoalCardState extends State<_GoalCard> {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              rec['text']?.toString() ?? rec.toString(),
+                              _friendlyRecommendation(rec),
                               style: text.bodySmall,
                             ),
                           ),
@@ -1956,8 +2212,7 @@ class _WeeklySummaryBody extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              corr['description']?.toString() ??
-                                  corr.toString(),
+                              _friendlyCorrelation(corr),
                               style: text.bodySmall,
                             ),
                           ),
@@ -2250,9 +2505,7 @@ class _RecommendationTile extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  rec['text']?.toString() ??
-                      rec['description']?.toString() ??
-                      rec.toString(),
+                  _friendlyRecommendation(rec),
                   style: text.bodySmall,
                 ),
               ),

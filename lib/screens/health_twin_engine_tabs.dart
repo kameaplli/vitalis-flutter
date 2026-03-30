@@ -1464,7 +1464,7 @@ class _LabFeedbackSection extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        imp['description'] as String? ?? imp.toString(),
+                        imp['description'] as String? ?? imp['text'] as String? ?? imp['action'] as String? ?? (imp is Map ? imp.values.whereType<String>().join(' — ') : '$imp'),
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -1495,7 +1495,8 @@ class _LabFeedbackSection extends StatelessWidget {
                     child: Text(
                       item['description'] as String? ??
                           item['action'] as String? ??
-                          item.toString(),
+                          item['text'] as String? ??
+                          (item is Map ? item.values.whereType<String>().join(' — ') : '$item'),
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
@@ -1790,7 +1791,7 @@ class FamilyOverviewTab extends ConsumerWidget {
                       children: commonGaps.map((g) {
                         final gap = g is Map<String, dynamic> ? g : {};
                         final nutrient =
-                            gap['nutrient'] as String? ?? g.toString();
+                            gap['nutrient'] as String? ?? gap['name'] as String? ?? (g is Map ? g.values.whereType<String>().join(' — ') : '$g');
                         final suggestion = gap['suggestion'] as String?;
 
                         return Padding(
