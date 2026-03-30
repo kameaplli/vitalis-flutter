@@ -216,6 +216,8 @@ class ApiConstants {
   static const String socialFeed = '/api/social/feed';
   static const String socialFeedRecipes = '/api/social/feed/recipes';
   static String socialFeedRead(String id) => '/api/social/feed/$id/read';
+  static String socialFeedDelete(String id) => '/api/social/feed/$id';
+  static String socialFeedEdit(String id) => '/api/social/feed/$id';
   static const String socialFeedReadAll = '/api/social/feed/read-all';
   static const String socialFeedUnreadCount = '/api/social/feed/unread-count';
   static const String socialShare = '/api/social/share';

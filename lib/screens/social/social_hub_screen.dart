@@ -582,9 +582,12 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
             delegate: SliverChildBuilderDelegate(
               (_, i) {
                 final event = allEvents[i];
+                final authState = ref.read(authProvider);
+                final isOwn = event.actorId == (authState.user?.id ?? '');
                 return FeedCard(
                   key: ValueKey(event.id),
                   event: event,
+                  isOwnPost: isOwn,
                   onReact: (type) {
                     HapticFeedback.lightImpact();
                     optimisticReaction(
@@ -598,6 +601,18 @@ class _FeedTabState extends ConsumerState<_FeedTab> {
                   onProfileTap: () {
                     context.push('/social/profile/${event.actorId}');
                   },
+                  onDelete: isOwn ? () {
+                    ref.read(socialFeedNotifierProvider.notifier)
+                        .optimisticDelete(event.id);
+                    ref.read(recipeFeedNotifierProvider.notifier)
+                        .optimisticDelete(event.id);
+                  } : null,
+                  onEdit: isOwn ? (newText) {
+                    ref.read(socialFeedNotifierProvider.notifier)
+                        .optimisticEdit(event.id, newText);
+                    ref.read(recipeFeedNotifierProvider.notifier)
+                        .optimisticEdit(event.id, newText);
+                  } : null,
                 );
               },
               childCount: allEvents.length,
@@ -1519,9 +1534,33 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                child: Text(
-                  'Challenges',
-                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                child: Row(
+                  children: [
+                    Text(
+                      'Challenges',
+                      style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => _CreateChallengeSheet(
+                          onCreated: () {
+                            ref.invalidate(challengesProvider);
+                            ref.invalidate(myChallengesProvider);
+                          },
+                        ),
+                      ),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, color: cs.primary, size: 16),
+                      label: Text('Create', style: TextStyle(fontSize: 13, color: cs.primary)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -2050,6 +2089,8 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   String _postType = 'note'; // note, share_nutrition, share_streak
   String _audience = 'buddies';
   final bool _posting = false;
+  List<Connection> _mentionSuggestions = [];
+  bool _showMentions = false;
 
   final apiClient = ApiClient();
 
@@ -2064,9 +2105,64 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _textCtrl.addListener(_checkForMention);
+  }
+
+  @override
   void dispose() {
+    _textCtrl.removeListener(_checkForMention);
     _textCtrl.dispose();
     super.dispose();
+  }
+
+  void _checkForMention() {
+    final text = _textCtrl.text;
+    final cursor = _textCtrl.selection.baseOffset;
+    if (cursor <= 0 || cursor > text.length) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+    final before = text.substring(0, cursor);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx == -1 || (atIdx > 0 && before[atIdx - 1] != ' ' && before[atIdx - 1] != '\n')) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+    final query = before.substring(atIdx + 1).toLowerCase();
+    if (query.contains(' ') || query.length > 20) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+    final connsAsync = ref.read(connectionsProvider);
+    connsAsync.whenData((conns) {
+      final filtered = conns.where((c) {
+        final name = (c.requesterName ?? c.addresseeName ?? '').toLowerCase();
+        return query.isEmpty || name.contains(query);
+      }).take(5).toList();
+      setState(() {
+        _mentionSuggestions = filtered;
+        _showMentions = filtered.isNotEmpty;
+      });
+    });
+  }
+
+  void _insertMention(Connection conn) {
+    final name = conn.requesterName ?? conn.addresseeName ?? 'user';
+    final text = _textCtrl.text;
+    final cursor = _textCtrl.selection.baseOffset;
+    final before = text.substring(0, cursor);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx == -1) return;
+    final after = text.substring(cursor);
+    final mention = '@$name ';
+    final newText = text.substring(0, atIdx) + mention + after;
+    _textCtrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: atIdx + mention.length),
+    );
+    setState(() => _showMentions = false);
   }
 
   Future<void> _post() async {
@@ -2243,6 +2339,37 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
           ),
           const SizedBox(height: 20),
 
+          // Mention suggestions
+          if (_showMentions && _mentionSuggestions.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 160),
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.1), blurRadius: 8)],
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _mentionSuggestions.length,
+                itemBuilder: (_, i) {
+                  final c = _mentionSuggestions[i];
+                  final name = c.requesterName ?? c.addresseeName ?? 'User';
+                  return ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: cs.primaryContainer,
+                      child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                    ),
+                    title: Text(name, style: const TextStyle(fontSize: 14)),
+                    onTap: () => _insertMention(c),
+                  );
+                },
+              ),
+            ),
+
           // Text input (larger area)
           TextField(
             controller: _textCtrl,
@@ -2251,8 +2378,8 @@ class _ComposeSheetState extends ConsumerState<_ComposeSheet> {
             style: const TextStyle(fontSize: 16, height: 1.5),
             decoration: InputDecoration(
               hintText: _postType == 'note'
-                  ? "What's on your mind?"
-                  : 'Add a note (optional)...',
+                  ? "What's on your mind? Use @ to mention friends"
+                  : 'Add a note (optional)... Use @ to mention',
               hintStyle: TextStyle(
                 color: cs.onSurfaceVariant.withValues(alpha: 0.5),
                 fontSize: 16,
@@ -2571,6 +2698,322 @@ class _UserSearchSheetState extends ConsumerState<_UserSearchSheet> {
                           },
                         );
                       },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Create Challenge Sheet ───────────────────────────────────────────────────
+
+class _CreateChallengeSheet extends ConsumerStatefulWidget {
+  final VoidCallback onCreated;
+  const _CreateChallengeSheet({required this.onCreated});
+
+  @override
+  ConsumerState<_CreateChallengeSheet> createState() =>
+      _CreateChallengeSheetState();
+}
+
+class _CreateChallengeSheetState extends ConsumerState<_CreateChallengeSheet> {
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _targetCtrl = TextEditingController(text: '10');
+  String _challengeType = 'wellness';
+  String _targetMetric = 'days_logged';
+  int _durationDays = 7;
+  bool _creating = false;
+
+  static const _types = [
+    {'key': 'wellness', 'label': 'Wellness', 'icon': '\uD83C\uDF1F'},
+    {'key': 'nutrition', 'label': 'Nutrition', 'icon': '\uD83E\uDD57'},
+    {'key': 'fitness', 'label': 'Fitness', 'icon': '\uD83C\uDFCB\uFE0F'},
+    {'key': 'hydration', 'label': 'Hydration', 'icon': '\uD83D\uDCA7'},
+    {'key': 'mindfulness', 'label': 'Mindfulness', 'icon': '\uD83E\uDDD8'},
+  ];
+
+  static const _metrics = [
+    {'key': 'days_logged', 'label': 'Days logged'},
+    {'key': 'meals_logged', 'label': 'Meals logged'},
+    {'key': 'calories_target', 'label': 'Hit calorie target'},
+    {'key': 'water_glasses', 'label': 'Glasses of water'},
+    {'key': 'steps', 'label': 'Steps walked'},
+    {'key': 'streak_days', 'label': 'Streak days'},
+  ];
+
+  static const _durations = [3, 7, 14, 21, 30];
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    _targetCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) return;
+    final target = double.tryParse(_targetCtrl.text.trim()) ?? 10;
+
+    setState(() => _creating = true);
+    try {
+      await createChallenge(
+        title: title,
+        description: _descCtrl.text.trim(),
+        challengeType: _challengeType,
+        targetMetric: _targetMetric,
+        targetValue: target,
+        targetDays: _durationDays,
+        durationDays: _durationDays,
+        startDate: DateTime.now(),
+      );
+      widget.onCreated();
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Challenge created!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create challenge')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Create Challenge',
+                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 20),
+
+            // Title
+            TextField(
+              controller: _titleCtrl,
+              maxLength: 60,
+              decoration: InputDecoration(
+                hintText: 'Challenge title',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                contentPadding: const EdgeInsets.all(14),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Description
+            TextField(
+              controller: _descCtrl,
+              maxLines: 3,
+              maxLength: 200,
+              decoration: InputDecoration(
+                hintText: 'Describe the challenge...',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none),
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                contentPadding: const EdgeInsets.all(14),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Challenge type chips
+            Text('Type', style: tt.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _types.map((t) {
+                final selected = _challengeType == t['key'];
+                return GestureDetector(
+                  onTap: () => setState(() => _challengeType = t['key'] as String),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: selected
+                          ? cs.primary.withValues(alpha: 0.12)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: selected
+                          ? Border.all(color: cs.primary.withValues(alpha: 0.3), width: 1.5)
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(t['icon'] as String, style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Text(t['label'] as String, style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected ? cs.primary : cs.onSurfaceVariant,
+                        )),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Target metric dropdown
+            Text('Goal', style: tt.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _targetMetric,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none),
+                      filled: true,
+                      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      isDense: true,
+                    ),
+                    items: _metrics.map((m) => DropdownMenuItem(
+                      value: m['key'],
+                      child: Text(m['label']!, style: const TextStyle(fontSize: 13)),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _targetMetric = v!),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: _targetCtrl,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      hintText: 'Target',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none),
+                      filled: true,
+                      fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Duration
+            Text('Duration', style: tt.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _durations.map((d) {
+                final selected = _durationDays == d;
+                return GestureDetector(
+                  onTap: () => setState(() => _durationDays = d),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: selected
+                          ? cs.primary.withValues(alpha: 0.12)
+                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: selected
+                          ? Border.all(color: cs.primary.withValues(alpha: 0.3), width: 1.5)
+                          : null,
+                    ),
+                    child: Text('${d}d', style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? cs.primary : cs.onSurfaceVariant,
+                    )),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+
+            // Create button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: _creating
+                  ? const Center(child: CircularProgressIndicator())
+                  : Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: LinearGradient(
+                          colors: [cs.primary, cs.tertiary],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: _create,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                HugeIcon(icon: HugeIcons.strokeRoundedFlag01,
+                                    color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                const Text('Create Challenge',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
             ),
           ],

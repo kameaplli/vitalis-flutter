@@ -185,6 +185,7 @@ class FeedEvent {
     List<ReactionSummary>? reactions,
     int? commentCount,
     bool? isCommunity,
+    Map<String, dynamic>? contentSnapshot,
   }) {
     return FeedEvent(
       id: id,
@@ -193,7 +194,7 @@ class FeedEvent {
       actorAvatarUrl: actorAvatarUrl,
       eventType: eventType,
       contentType: contentType,
-      contentSnapshot: contentSnapshot,
+      contentSnapshot: contentSnapshot ?? this.contentSnapshot,
       isRead: isRead,
       isCommunity: isCommunity ?? this.isCommunity,
       reactions: reactions ?? this.reactions,

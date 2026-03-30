@@ -30,19 +30,71 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
   List<Comment> _localComments = [];
   bool _loaded = false;
   String? _error;
+  List<Connection> _mentionSuggestions = [];
+  bool _showMentions = false;
 
   @override
   void initState() {
     super.initState();
+    _textCtrl.addListener(_checkForMention);
     _loadComments();
   }
 
   @override
   void dispose() {
+    _textCtrl.removeListener(_checkForMention);
     _textCtrl.dispose();
     _focusNode.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _checkForMention() {
+    final text = _textCtrl.text;
+    final cursor = _textCtrl.selection.baseOffset;
+    if (cursor <= 0 || cursor > text.length) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+    final before = text.substring(0, cursor);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx == -1 || (atIdx > 0 && before[atIdx - 1] != ' ' && before[atIdx - 1] != '\n')) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+    final query = before.substring(atIdx + 1).toLowerCase();
+    if (query.contains(' ') || query.length > 20) {
+      if (_showMentions) setState(() => _showMentions = false);
+      return;
+    }
+    final connsAsync = ref.read(connectionsProvider);
+    connsAsync.whenData((conns) {
+      final filtered = conns.where((c) {
+        final name = (c.requesterName ?? c.addresseeName ?? '').toLowerCase();
+        return query.isEmpty || name.contains(query);
+      }).take(5).toList();
+      setState(() {
+        _mentionSuggestions = filtered;
+        _showMentions = filtered.isNotEmpty;
+      });
+    });
+  }
+
+  void _insertMention(Connection conn) {
+    final name = conn.requesterName ?? conn.addresseeName ?? 'user';
+    final text = _textCtrl.text;
+    final cursor = _textCtrl.selection.baseOffset;
+    final before = text.substring(0, cursor);
+    final atIdx = before.lastIndexOf('@');
+    if (atIdx == -1) return;
+    final after = text.substring(cursor);
+    final mention = '@$name ';
+    final newText = text.substring(0, atIdx) + mention + after;
+    _textCtrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: atIdx + mention.length),
+    );
+    setState(() => _showMentions = false);
   }
 
   Future<void> _loadComments() async {
@@ -313,6 +365,36 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                           ),
           ),
 
+          // Mention suggestions
+          if (_showMentions && _mentionSuggestions.isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 150),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2))),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _mentionSuggestions.length,
+                itemBuilder: (_, i) {
+                  final c = _mentionSuggestions[i];
+                  final name = c.requesterName ?? c.addresseeName ?? 'User';
+                  return ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: CircleAvatar(
+                      radius: 12,
+                      backgroundColor: cs.primaryContainer,
+                      child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: TextStyle(fontSize: 11, color: cs.onPrimaryContainer)),
+                    ),
+                    title: Text(name, style: const TextStyle(fontSize: 13)),
+                    onTap: () => _insertMention(c),
+                  );
+                },
+              ),
+            ),
+
           // Input area
           Divider(
             height: 1,
@@ -334,7 +416,7 @@ class _CommentSheetState extends ConsumerState<CommentSheet> {
                     onSubmitted: (_) => _postComment(),
                     style: const TextStyle(fontSize: 14.5),
                     decoration: InputDecoration(
-                      hintText: 'Write a comment...',
+                      hintText: 'Write a comment... @ to mention',
                       hintStyle: TextStyle(
                         color: cs.onSurfaceVariant.withValues(alpha: 0.4),
                         fontSize: 14.5,
