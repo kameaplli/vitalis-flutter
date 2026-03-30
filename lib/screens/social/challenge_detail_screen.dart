@@ -270,7 +270,7 @@ class _ChallengeContent extends ConsumerWidget {
                       onPressed: () async {
                         HapticFeedback.lightImpact();
                         try {
-                          await apiClient.dio.post(
+                          await apiClient.dio.delete(
                             ApiConstants.challengeLeave(challenge.id),
                           );
                           ref.invalidate(
