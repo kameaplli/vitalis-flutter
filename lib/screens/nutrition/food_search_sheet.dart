@@ -585,11 +585,33 @@ class _FoodSearchSheetState extends ConsumerState<FoodSearchSheet> {
                                           const SizedBox(height: 8),
                                           Text('No foods match "$_query"',
                                               style: TextStyle(color: Colors.grey.shade500)),
+                                          const SizedBox(height: 4),
+                                          Text('Try a different name, or create your own',
+                                              style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
                                           const SizedBox(height: 16),
-                                          OutlinedButton.icon(
-                                            onPressed: _showManualEntry,
-                                            icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
-                                            label: const Text('Add manually'),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              OutlinedButton.icon(
+                                                onPressed: _showManualEntry,
+                                                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 18),
+                                                label: const Text('Add food'),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              FilledButton.icon(
+                                                onPressed: () {
+                                                  Navigator.pop(context);
+                                                  showModalBottomSheet(
+                                                    context: context,
+                                                    isScrollControlled: true,
+                                                    backgroundColor: Colors.transparent,
+                                                    builder: (_) => const RecipeCreatorSheet(),
+                                                  );
+                                                },
+                                                icon: HugeIcon(icon: HugeIcons.strokeRoundedChefHat, size: 18),
+                                                label: const Text('Create recipe'),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),

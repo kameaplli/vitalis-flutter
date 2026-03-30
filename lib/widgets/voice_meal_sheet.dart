@@ -10,6 +10,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import 'help_tooltip.dart';
 import 'package:hugeicons/hugeicons.dart';
+import '../screens/nutrition/recipe_creator_sheet.dart';
 
 /// Voice meal logging bottom sheet.
 ///
@@ -834,6 +835,21 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         onPressed: _showTextInput,
         icon: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard),
         label: const Text('Type instead'),
+      ),
+      const SizedBox(height: 8),
+      TextButton.icon(
+        onPressed: () {
+          Navigator.pop(context);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const RecipeCreatorSheet(),
+          );
+        },
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedChefHat, size: 18, color: cs.primary),
+        label: Text('Create a recipe instead',
+          style: TextStyle(color: cs.primary)),
       ),
     ]);
   }
