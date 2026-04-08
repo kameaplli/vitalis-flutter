@@ -6,7 +6,6 @@ import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
-import '../../widgets/social/badge_display.dart';
 import '../../widgets/social/connection_button.dart';
 import '../../providers/dm_provider.dart';
 import '../../widgets/social/online_indicator.dart';

@@ -1464,7 +1464,7 @@ class _LabFeedbackSection extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        imp['description'] as String? ?? imp['text'] as String? ?? imp['action'] as String? ?? (imp is Map ? imp.values.whereType<String>().join(' — ') : '$imp'),
+                        imp['description'] as String? ?? imp['text'] as String? ?? imp['action'] as String? ?? imp.values.whereType<String>().join(' — '),
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
@@ -1496,7 +1496,7 @@ class _LabFeedbackSection extends StatelessWidget {
                       item['description'] as String? ??
                           item['action'] as String? ??
                           item['text'] as String? ??
-                          (item is Map ? item.values.whereType<String>().join(' — ') : '$item'),
+                          item.values.whereType<String>().join(' — '),
                       style: theme.textTheme.bodySmall,
                     ),
                   ),

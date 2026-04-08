@@ -1665,9 +1665,6 @@ class _DiscoverTabState extends ConsumerState<_DiscoverTab> {
   }
 
   Widget _buildTrendingSection() {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
     // Pull stats from existing providers
     final pollsState = ref.watch(pollsNotifierProvider);
     final groupsState = ref.watch(groupsNotifierProvider);

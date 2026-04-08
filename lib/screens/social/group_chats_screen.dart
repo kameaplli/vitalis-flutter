@@ -428,27 +428,6 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     );
   }
 
-  void _showFullImage(BuildContext context, String imageUrl) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            iconTheme: const IconThemeData(color: Colors.white),
-          ),
-          body: Center(
-            child: InteractiveViewer(
-              child: CachedNetworkImage(
-                imageUrl: ApiConstants.resolveUrl(imageUrl),
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   void _showNotifPrefPicker() {
     final cs = Theme.of(context).colorScheme;
@@ -600,8 +579,6 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   void _showMembersSheet(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final membersAsync = ref.read(groupChatMembersProvider(widget.group.id));
 
     showModalBottomSheet(
       context: context,

@@ -171,7 +171,6 @@ class StreakBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (streakDays <= 0) return const SizedBox.shrink();
-    final cs = Theme.of(context).colorScheme;
     final color = streakDays >= 30
         ? const Color(0xFFEF4444)
         : streakDays >= 7
