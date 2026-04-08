@@ -8,7 +8,6 @@ import '../models/analytics_data.dart';
 // key = "person_days" e.g. "self_7"
 final analyticsProvider =
     FutureProvider.family<NutritionAnalytics, String>((ref, key) async {
-  ref.keepAlive();
   final (person, days) = PK.personDays(key, 7);
 
   // 1. Fresh cache hit

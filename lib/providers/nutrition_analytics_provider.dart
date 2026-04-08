@@ -8,7 +8,6 @@ import '../models/nutrition_analytics.dart';
 // key = "person_days"  e.g. "self_30"
 final nutritionAnalyticsProvider =
     FutureProvider.family<NutritionAnalyticsData, String>((ref, key) async {
-  ref.keepAlive();
   final (person, daysInt) = PK.personDays(key);
   final days = daysInt.toString();
 

@@ -6,7 +6,6 @@ import '../models/smart_correlation_data.dart';
 /// Smart multi-factor food-eczema correlation (Phase 2).
 final smartCorrelationProvider = FutureProvider.family<SmartCorrelationResult?, ({int days, String person})>(
   (ref, params) async {
-    ref.keepAlive();
     try {
       final today = DateTime.now().toIso8601String().substring(0, 10);
       final res = await apiClient.dio.get(

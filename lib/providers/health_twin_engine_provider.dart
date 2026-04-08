@@ -9,7 +9,6 @@ import '../models/health_twin_engine_data.dart';
 final crossDomainCorrelationsProvider =
     FutureProvider.family<CrossDomainCorrelations?, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{'days': 30};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -27,7 +26,6 @@ final crossDomainCorrelationsProvider =
 
 final healthLevelProvider =
     FutureProvider.family<HealthLevel?, String>((ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -44,7 +42,6 @@ final healthLevelProvider =
 
 final healthStreaksProvider =
     FutureProvider.family<HealthStreaks?, String>((ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -62,7 +59,6 @@ final healthStreaksProvider =
 final healthAchievementsProvider =
     FutureProvider.family<AchievementsData?, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -81,7 +77,6 @@ final healthAchievementsProvider =
 final engagementSummaryProvider =
     FutureProvider.family<EngagementSummary?, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -100,7 +95,6 @@ final engagementSummaryProvider =
 final healthPredictionsProvider =
     FutureProvider.family<PredictionsData?, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -119,7 +113,6 @@ final healthPredictionsProvider =
 final whatIfScenariosProvider =
     FutureProvider.family<List<WhatIfScenario>, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -141,7 +134,6 @@ final whatIfScenariosProvider =
 final labFeedbackProvider =
     FutureProvider.family<LabFeedbackData?, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -159,7 +151,6 @@ final labFeedbackProvider =
 
 final familyOverviewProvider =
     FutureProvider<FamilyOverviewData?>((ref) async {
-  ref.keepAlive();
   final today = DateTime.now().toIso8601String().substring(0, 10);
   final resp = await apiClient.dio.get(
     ApiConstants.familyOverview,
