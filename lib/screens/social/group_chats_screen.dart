@@ -579,6 +579,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   void _showMembersSheet(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     showModalBottomSheet(
       context: context,
