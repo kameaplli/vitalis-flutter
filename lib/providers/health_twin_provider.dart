@@ -7,7 +7,6 @@ import '../models/health_twin_data.dart';
 /// Daily Digital Twin snapshot for a person.
 final dailyTwinProvider =
     FutureProvider.family<DailyTwin?, String>((ref, personId) async {
-  ref.keepAlive();
   final today = DateTime.now().toIso8601String().substring(0, 10);
   final params = <String, dynamic>{'date': today};
   if (personId != 'self') params['family_member_id'] = personId;
@@ -24,7 +23,6 @@ final dailyTwinProvider =
 /// 30-day trend data for sparkline charts.
 final twinTrendProvider =
     FutureProvider.family<List<TwinTrendEntry>, String>((ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{'days': 30};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -43,7 +41,6 @@ final twinTrendProvider =
 /// Active health goals for a person.
 final userGoalsProvider =
     FutureProvider.family<List<UserGoal>, String>((ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{'active_only': true};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -63,7 +60,6 @@ final userGoalsProvider =
 final goalInsightsProvider =
     FutureProvider.family<List<GoalInsightsResponse>, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -84,7 +80,6 @@ final goalInsightsProvider =
 /// Latest weekly summary for a person.
 final weeklySummaryProvider =
     FutureProvider.family<WeeklySummaryData?, String>((ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(
@@ -101,7 +96,6 @@ final weeklySummaryProvider =
 final weeklySummaryHistoryProvider =
     FutureProvider.family<List<WeeklySummaryData>, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final params = <String, dynamic>{'weeks': 8};
   if (personId != 'self') params['family_member_id'] = personId;
   final resp = await apiClient.dio.get(

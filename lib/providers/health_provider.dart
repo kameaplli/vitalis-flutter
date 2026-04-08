@@ -6,7 +6,6 @@ import '../core/provider_key.dart';
 typedef HealthMap = Map<String, dynamic>;
 
 final symptomsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive(); // keep cached between navigations
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.symptoms, queryParameters: {
     'person': person,
@@ -16,7 +15,6 @@ final symptomsProvider = FutureProvider.family<List<HealthMap>, String>((ref, ke
 });
 
 final medicationsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive();
   final (person, _) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.medications, queryParameters: {
     'person': person,
@@ -25,7 +23,6 @@ final medicationsProvider = FutureProvider.family<List<HealthMap>, String>((ref,
 });
 
 final supplementsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive();
   final (person, _) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.supplements, queryParameters: {
     'person': person,
@@ -43,7 +40,6 @@ final supplementsCatalogProvider = FutureProvider<List<HealthMap>>((ref) async {
 });
 
 final vitalsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive();
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.vitals, queryParameters: {
     'person': person,
@@ -53,7 +49,6 @@ final vitalsProvider = FutureProvider.family<List<HealthMap>, String>((ref, key)
 });
 
 final sleepProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive();
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.sleep, queryParameters: {
     'person': person,
@@ -63,7 +58,6 @@ final sleepProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) 
 });
 
 final exerciseProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive();
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.exercise, queryParameters: {
     'person': person,
@@ -73,7 +67,6 @@ final exerciseProvider = FutureProvider.family<List<HealthMap>, String>((ref, ke
 });
 
 final moodProvider = FutureProvider.family<List<HealthMap>, String>((ref, key) async {
-  ref.keepAlive();
   final (person, days) = PK.personDays(key);
   final res = await apiClient.dio.get(ApiConstants.mood, queryParameters: {
     'person': person,

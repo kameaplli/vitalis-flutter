@@ -21,7 +21,7 @@ class PrefetchService {
   static bool _secondaryPrefetching = false;
 
   /// Warm critical data immediately after login/app open.
-  /// This covers the screens the user is most likely to visit first.
+  /// Phase 1: Only the 4 most critical calls (nutrition, hydration, food DB, presets).
   /// Safe to call multiple times — guards against concurrent runs.
   static Future<void> warmAll(WidgetRef ref, String personId) async {
     if (_prefetching) return;
@@ -34,20 +34,12 @@ class PrefetchService {
           .toIso8601String()
           .substring(0, 10);
 
-      // Phase 1: Critical data (dashboard + most-visited screens)
+      // Phase 1: Critical data only (4 calls — was 8)
       await Future.wait([
         // Nutrition entries (last 7 days — used by Nutrition History tab)
         _safe(() => ref.read(nutritionEntriesProvider('${personId}_${sevenDaysAgo}_$today').future)),
-        // Nutrition analytics (30-day breakdown — used by Nutrition Analytics tab)
-        _safe(() => ref.read(nutritionAnalyticsProvider('${personId}_30').future)),
-        // General analytics (7-day — used by Dashboard analytics section)
-        _safe(() => ref.read(analyticsProvider('${personId}_7').future)),
         // Hydration history (used by Dashboard hydration card)
         _safe(() => ref.read(hydrationHistoryProvider('${personId}_7_$today').future)),
-        // Grocery spending (used by Grocery tab)
-        _safe(() => ref.read(grocerySpendingProvider('${personId}_month').future)),
-        // Weight history (30-day default — used by Weight screen)
-        _safe(() => ref.read(weightHistoryProvider('${personId}_30').future)),
         // Food database (large, cached 24h — instant food search)
         _safe(() => ref.read(foodDatabaseProvider.future)),
         // Beverage presets (static data — instant hydration logging)
@@ -62,6 +54,7 @@ class PrefetchService {
   }
 
   /// Phase 2: Warm less-visited screens in background (non-blocking).
+  /// Moved grocery, weight, analytics, and health providers here.
   static Future<void> _warmSecondary(WidgetRef ref, String personId) async {
     if (_secondaryPrefetching) return;
     _secondaryPrefetching = true;
@@ -72,6 +65,11 @@ class PrefetchService {
       _safe(() async => ref.read(socialFeedNotifierProvider));
 
       await Future.wait([
+        // Previously in Phase 1 — deferred to reduce startup API pressure
+        _safe(() => ref.read(nutritionAnalyticsProvider('${personId}_30').future)),
+        _safe(() => ref.read(analyticsProvider('${personId}_7').future)),
+        _safe(() => ref.read(grocerySpendingProvider('${personId}_month').future)),
+        _safe(() => ref.read(weightHistoryProvider('${personId}_30').future)),
         // Health providers (7-day windows — used by Health screen tabs)
         _safe(() => ref.read(symptomsProvider('${personId}_7').future)),
         _safe(() => ref.read(moodProvider('${personId}_7').future)),

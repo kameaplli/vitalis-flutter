@@ -7,7 +7,6 @@ import '../models/finance_models.dart';
 // ── Statements list ──────────────────────────────────────────────────────────
 final financeStatementsProvider =
     FutureProvider.autoDispose<List<BankStatement>>((ref) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(ApiConstants.financeStatements);
   final list = res.data['statements'] as List;
   return list
@@ -18,7 +17,6 @@ final financeStatementsProvider =
 // ── Single statement with transactions ───────────────────────────────────────
 final financeStatementDetailProvider =
     FutureProvider.autoDispose.family<BankStatement, String>((ref, id) async {
-  ref.keepAlive();
   final res =
       await apiClient.dio.get('${ApiConstants.financeStatements}/$id');
   return BankStatement.fromJson(res.data as Map<String, dynamic>);
@@ -29,7 +27,6 @@ final financeStatementDetailProvider =
 final financeSpendingProvider =
     FutureProvider.autoDispose.family<FinanceSpending, String>(
         (ref, period) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.financeSpending,
     queryParameters: {'period': period},
@@ -40,7 +37,6 @@ final financeSpendingProvider =
 // ── Budget ───────────────────────────────────────────────────────────────────
 final financeBudgetProvider =
     FutureProvider.autoDispose<FinanceBudget>((ref) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(ApiConstants.financeBudget);
   return FinanceBudget.fromJson(res.data as Map<String, dynamic>);
 });
@@ -49,7 +45,6 @@ final financeBudgetProvider =
 final financeTrendsProvider =
     FutureProvider.autoDispose.family<Map<String, dynamic>, int>(
         (ref, months) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.financeTrends,
     queryParameters: {'months': months},

@@ -539,11 +539,8 @@ class _AvatarBar extends ConsumerWidget {
     for (final p in otherPersons) {
       allDash[p['id']!] = const AsyncValue.loading();
     }
-    if (allDash[currentPid] is AsyncData) {
-      for (final p in otherPersons) {
-        ref.read(dashboardProvider((p['id']!, today)));
-      }
-    }
+    // Lazy loading: only prefetch other person dashboards when user swipes to them
+    // The family snapshot endpoint already provides lightweight data for the avatar bar
 
     void goTo(int index) {
       if (persons.isEmpty) return;

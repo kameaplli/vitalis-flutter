@@ -42,9 +42,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   static bool _welcomeShownThisSession = false;
   bool _showWelcome = !_welcomeShownThisSession;
 
-  // Swipe-up dismiss animation
+  // Swipe-up dismiss animation — ValueNotifier avoids rebuilding entire tree
   late final AnimationController _dismissCtrl;
-  double _dragOffset = 0;
+  final ValueNotifier<double> _dragOffset = ValueNotifier(0);
 
   @override
   void initState() {
@@ -82,26 +82,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void dispose() {
     _dismissCtrl.dispose();
+    _dragOffset.dispose();
     super.dispose();
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails d) {
     if (d.delta.dy < 0) {
-      // Swiping up
-      setState(() {
-        _dragOffset += d.delta.dy;
-        _dragOffset = _dragOffset.clamp(-400.0, 0.0);
-      });
+      // Swiping up — only updates the ValueNotifier, no setState
+      _dragOffset.value = (_dragOffset.value + d.delta.dy).clamp(-400.0, 0.0);
     }
   }
 
   void _onVerticalDragEnd(DragEndDetails d) {
     // If dragged up >120px or fast fling velocity, dismiss
-    if (_dragOffset < -120 || d.velocity.pixelsPerSecond.dy < -500) {
+    if (_dragOffset.value < -120 || d.velocity.pixelsPerSecond.dy < -500) {
       _dismissCtrl.forward();
     } else {
       // Snap back
-      setState(() => _dragOffset = 0);
+      _dragOffset.value = 0;
     }
   }
 
@@ -139,33 +137,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               child: GestureDetector(
                 onVerticalDragUpdate: _onVerticalDragUpdate,
                 onVerticalDragEnd: _onVerticalDragEnd,
-                child: AnimatedBuilder(
-                  animation: _dismissCtrl,
-                  builder: (_, __) {
-                    final screenH = MediaQuery.of(context).size.height;
-                    final dismissProgress = _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
-                        ? _dismissCtrl.value
-                        : (_dragOffset / -400).clamp(0.0, 1.0);
-                    final scale = 1.0 - dismissProgress * 0.12;
-                    final opacity = (1.0 - dismissProgress).clamp(0.0, 1.0);
-                    final radius = dismissProgress * 32;
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _dragOffset,
+                  builder: (context, dragVal, child) {
+                    return AnimatedBuilder(
+                      animation: _dismissCtrl,
+                      builder: (_, __) {
+                        final screenH = MediaQuery.of(context).size.height;
+                        final dismissProgress = _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
+                            ? _dismissCtrl.value
+                            : (dragVal / -400).clamp(0.0, 1.0);
+                        final scale = 1.0 - dismissProgress * 0.12;
+                        final opacity = (1.0 - dismissProgress).clamp(0.0, 1.0);
+                        final radius = dismissProgress * 32;
 
-                    return Transform.translate(
-                      offset: Offset(0, _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
-                          ? -screenH * _dismissCtrl.value
-                          : _dragOffset),
-                      child: Transform.scale(
-                        scale: scale,
-                        child: Opacity(
-                          opacity: opacity,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(radius),
-                            child: _WelcomeScreen(personId: person),
+                        return Transform.translate(
+                          offset: Offset(0, _dismissCtrl.isAnimating || _dismissCtrl.isCompleted
+                              ? -screenH * _dismissCtrl.value
+                              : dragVal),
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Opacity(
+                              opacity: opacity,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(radius),
+                                child: child!,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
+                  child: _WelcomeScreen(personId: person),
                 ),
               ),
             ),

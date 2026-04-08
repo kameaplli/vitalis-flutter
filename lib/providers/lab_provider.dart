@@ -9,7 +9,6 @@ import '../models/lab_result.dart';
 
 final labDashboardProvider =
     FutureProvider.family<LabDashboard, String>((ref, personId) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.labDashboard,
     queryParameters: {
@@ -23,7 +22,6 @@ final labDashboardProvider =
 
 final labReportsProvider =
     FutureProvider.family<List<LabReport>, String>((ref, personId) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.labReports,
     queryParameters: {
@@ -40,7 +38,6 @@ final labReportsProvider =
 
 final labReportDetailProvider =
     FutureProvider.family<LabReport, String>((ref, reportId) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(ApiConstants.labReport(reportId));
   return LabReport.fromJson(res.data as Map<String, dynamic>);
 });
@@ -52,7 +49,6 @@ typedef BiomarkerHistoryKey = ({String code, String person});
 final biomarkerHistoryProvider =
     FutureProvider.family<BiomarkerHistory, BiomarkerHistoryKey>(
         (ref, key) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.biomarkerHistory(key.code),
     queryParameters: {
@@ -78,7 +74,6 @@ final biomarkerCatalogProvider =
 final labInsightsProvider =
     FutureProvider.family<List<BiomarkerInsightModel>, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.labInsights,
     queryParameters: {
@@ -96,7 +91,6 @@ typedef HealthScoreData = ({HealthScoreSummary? latest, List<HealthScoreSummary>
 
 final labScoreProvider =
     FutureProvider.family<HealthScoreData, String>((ref, personId) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.labScore,
     queryParameters: {
@@ -119,7 +113,6 @@ final labScoreProvider =
 final labRecommendationsProvider =
     FutureProvider.family<List<BiomarkerRecommendation>, String>(
         (ref, personId) async {
-  ref.keepAlive();
   final res = await apiClient.dio.get(
     ApiConstants.labRecommendations,
     queryParameters: {
