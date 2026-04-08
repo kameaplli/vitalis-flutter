@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,7 @@ import '../models/insight_data.dart';
 import '../providers/grocery_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Grocery AI Insights provider ─────────────────────────────────────────────
 // key = period (month|quarter|year) — maps to backend param
@@ -146,9 +148,9 @@ class _GroceryScreenState extends ConsumerState<GroceryScreen>
         title: null,
         bottom: TabBar(
           controller: _tabs,
-          tabs: const [
-            Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Receipts'),
-            Tab(icon: Icon(Icons.bar_chart_outlined),    text: 'Analytics'),
+          tabs: [
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedInvoice01, size: 24.0), text: 'Receipts'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedAnalytics01, size: 24.0), text: 'Analytics'),
           ],
         ),
       ),
@@ -161,7 +163,7 @@ class _GroceryScreenState extends ConsumerState<GroceryScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/grocery/scan'),
-        icon: const Icon(Icons.add_a_photo_outlined),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedCameraAdd01, size: 24.0),
         label: const Text('Scan Receipt'),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
@@ -180,7 +182,7 @@ class _ReceiptsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(groceryReceiptsProvider(person));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'grocery receipts'),
       data: (receipts) {
         if (receipts.isEmpty) {
@@ -188,7 +190,7 @@ class _ReceiptsTab extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.receipt_long_outlined,
+                HugeIcon(icon: HugeIcons.strokeRoundedInvoice01,
                     size: 64, color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 16),
                 const Text('No receipts yet'),
@@ -239,12 +241,12 @@ class _DismissibleReceiptCard extends ConsumerWidget {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_outline, color: Colors.white, size: 24),
-            SizedBox(height: 4),
-            Text('Delete', style: TextStyle(color: Colors.white, fontSize: 11)),
+            HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Colors.white, size: 24),
+            const SizedBox(height: 4),
+            const Text('Delete', style: TextStyle(color: Colors.white, fontSize: 11)),
           ],
         ),
       ),
@@ -329,8 +331,8 @@ class _ReceiptCard extends StatelessWidget {
                           : cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(
-                      isDone ? Icons.receipt_long : Icons.receipt_long_outlined,
+                    child: HugeIcon(
+                      icon: HugeIcons.strokeRoundedInvoice01,
                       size: 20,
                       color: isDone ? cs.primary : cs.outline,
                     ),
@@ -384,13 +386,13 @@ class _ReceiptCard extends StatelessWidget {
                 Row(
                   children: [
                     _InfoChip(
-                      icon: Icons.shopping_cart_outlined,
+                      icon: HugeIcons.strokeRoundedShoppingCart01,
                       label: '${receipt.itemCount} items',
                       color: cs.primary,
                     ),
                     const SizedBox(width: 8),
                     _InfoChip(
-                      icon: Icons.restaurant_outlined,
+                      icon: HugeIcons.strokeRoundedRestaurant01,
                       label: '${receipt.foodItemCount} food',
                       color: Colors.green,
                     ),
@@ -400,7 +402,7 @@ class _ReceiptCard extends StatelessWidget {
                       style: TextStyle(fontSize: 11, color: cs.outline),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.chevron_right,
+                    HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                         size: 16, color: cs.outline),
                   ],
                 ),
@@ -453,12 +455,12 @@ class _StatusBadge extends StatelessWidget {
             color: Colors.green.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle, size: 12, color: Colors.green),
-              SizedBox(width: 3),
-              Text('Done', style: TextStyle(fontSize: 11, color: Colors.green,
+              HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 12, color: Colors.green),
+              const SizedBox(width: 3),
+              const Text('Done', style: TextStyle(fontSize: 11, color: Colors.green,
                   fontWeight: FontWeight.w600)),
             ],
           ),
@@ -473,7 +475,7 @@ class _StatusBadge extends StatelessWidget {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 12, color: Colors.red),
+              HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 12, color: Colors.red),
               SizedBox(width: 3),
               Text('Failed', style: TextStyle(fontSize: 11, color: Colors.red,
                   fontWeight: FontWeight.w600)),
@@ -490,7 +492,7 @@ class _StatusBadge extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   const _InfoChip({required this.icon, required this.label, required this.color});
@@ -499,7 +501,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 12, color: color.withValues(alpha: 0.8)),
+      HugeIcon(icon: icon, size: 12, color: color.withValues(alpha: 0.8)),
       const SizedBox(width: 3),
       Text(label, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8),
           fontWeight: FontWeight.w500)),
@@ -526,7 +528,7 @@ class _ReceiptDetailSheet extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(child: Text('Could not load receipt: $e')),
         data: (receipt) => _ReceiptDetailContent(
           receipt: receipt,
@@ -676,7 +678,7 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
                     child: _SummaryTile(
                       label: 'Food',
                       value: fmt.format(foodSpend),
-                      icon: Icons.restaurant_outlined,
+                      icon: HugeIcons.strokeRoundedRestaurant01,
                       color: Colors.green,
                     ),
                   ),
@@ -685,7 +687,7 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
                     child: _SummaryTile(
                       label: 'Non-food',
                       value: fmt.format(nonFoodSpend),
-                      icon: Icons.home_outlined,
+                      icon: HugeIcons.strokeRoundedHome01,
                       color: Colors.blueGrey,
                     ),
                   ),
@@ -694,7 +696,7 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
                     child: _SummaryTile(
                       label: 'Items',
                       value: '${items.length}',
-                      icon: Icons.shopping_cart_outlined,
+                      icon: HugeIcons.strokeRoundedShoppingCart01,
                       color: cs.primary,
                     ),
                   ),
@@ -737,7 +739,7 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
                             color: _catColor(cat).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Icon(_catIcon(cat),
+                          child: HugeIcon(icon: _catIcon(cat),
                               size: 15, color: _catColor(cat)),
                         ),
                         const SizedBox(width: 10),
@@ -778,7 +780,7 @@ class _ReceiptDetailContentState extends ConsumerState<_ReceiptDetailContent> {
 
 class _SummaryTile extends StatelessWidget {
   final String label, value;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   const _SummaryTile(
       {required this.label, required this.value, required this.icon,
@@ -796,7 +798,7 @@ class _SummaryTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: color),
+          HugeIcon(icon: icon, size: 16, color: color),
           const SizedBox(height: 4),
           Text(value,
               style: TextStyle(
@@ -876,7 +878,7 @@ class _ItemRow extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(_catIcon(c), size: 10, color: _catColor(c)),
+                            HugeIcon(icon: _catIcon(c), size: 10, color: _catColor(c)),
                             const SizedBox(width: 3),
                             Text(
                               _catLabel(c),
@@ -935,7 +937,7 @@ class _ItemRow extends StatelessWidget {
             SizedBox(
               width: 32, height: 32,
               child: IconButton(
-                icon: Icon(Icons.edit_outlined, size: 16,
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 16,
                     color: cs.onSurfaceVariant),
                 onPressed: onEdit,
                 padding: EdgeInsets.zero,
@@ -949,39 +951,39 @@ class _ItemRow extends StatelessWidget {
   }
 }
 
-IconData _catIcon(String cat) => switch (cat) {
-  'fruits'        => Icons.local_grocery_store,
-  'vegetables'    => Icons.eco,
-  'leafy_greens'  => Icons.grass,
-  'herbs'         => Icons.spa,
-  'nuts_seeds'    => Icons.grain,
-  'meat'          => Icons.restaurant,
-  'poultry'       => Icons.egg_alt,
-  'seafood'       => Icons.set_meal,
-  'eggs'          => Icons.egg,
-  'dairy'         => Icons.water_drop,
-  'plant_based'   => Icons.energy_savings_leaf,
-  'bakery'        => Icons.bakery_dining,
-  'grains_pasta'  => Icons.ramen_dining,
-  'cereals'       => Icons.breakfast_dining,
-  'pantry'        => Icons.kitchen,
-  'canned_goods'  => Icons.inventory_2,
-  'condiments'    => Icons.local_dining,
-  'spices'        => Icons.local_fire_department,
-  'oils_vinegar'  => Icons.opacity,
-  'frozen'        => Icons.ac_unit,
-  'deli'          => Icons.content_cut,
-  'beverages'     => Icons.local_drink,
-  'juice'         => Icons.local_bar,
-  'alcohol'       => Icons.wine_bar,
-  'snacks'        => Icons.cookie,
-  'confectionery' => Icons.cake,
-  'household'     => Icons.cleaning_services,
-  'personal_care' => Icons.face,
-  'baby'          => Icons.child_care,
-  'pet'           => Icons.pets,
-  'produce'       => Icons.eco,
-  _               => Icons.category,
+List<List<dynamic>> _catIcon(String cat) => switch (cat) {
+  'fruits'        => HugeIcons.strokeRoundedShoppingCart01,
+  'vegetables'    => HugeIcons.strokeRoundedLeaf01,
+  'leafy_greens'  => HugeIcons.strokeRoundedLeaf02,
+  'herbs'         => HugeIcons.strokeRoundedYoga01,
+  'nuts_seeds'    => HugeIcons.strokeRoundedCorn,
+  'meat'          => HugeIcons.strokeRoundedRestaurant01,
+  'poultry'       => HugeIcons.strokeRoundedEggs,
+  'seafood'       => HugeIcons.strokeRoundedRestaurant01,
+  'eggs'          => HugeIcons.strokeRoundedEggs,
+  'dairy'         => HugeIcons.strokeRoundedDroplet,
+  'plant_based'   => HugeIcons.strokeRoundedLeaf01,
+  'bakery'        => HugeIcons.strokeRoundedBread01,
+  'grains_pasta'  => HugeIcons.strokeRoundedNoodles,
+  'cereals'       => HugeIcons.strokeRoundedCoffee01,
+  'pantry'        => HugeIcons.strokeRoundedRefrigerator,
+  'canned_goods'  => HugeIcons.strokeRoundedPackage,
+  'condiments'    => HugeIcons.strokeRoundedRestaurant01,
+  'spices'        => HugeIcons.strokeRoundedFire,
+  'oils_vinegar'  => HugeIcons.strokeRoundedDroplet,
+  'frozen'        => HugeIcons.strokeRoundedTemperature,
+  'deli'          => HugeIcons.strokeRoundedScissor01,
+  'beverages'     => HugeIcons.strokeRoundedDrink,
+  'juice'         => HugeIcons.strokeRoundedDrink,
+  'alcohol'       => HugeIcons.strokeRoundedDrink,
+  'snacks'        => HugeIcons.strokeRoundedCookie,
+  'confectionery' => HugeIcons.strokeRoundedBirthdayCake,
+  'household'     => HugeIcons.strokeRoundedClean,
+  'personal_care' => HugeIcons.strokeRoundedHappy,
+  'baby'          => HugeIcons.strokeRoundedBabyBed01,
+  'pet'           => HugeIcons.strokeRoundedBone01,
+  'produce'       => HugeIcons.strokeRoundedLeaf01,
+  _               => HugeIcons.strokeRoundedMenu01,
 };
 
 // ── Edit grocery item sheet ───────────────────────────────────────────────────
@@ -1117,7 +1119,7 @@ class _EditItemSheetState extends State<_EditItemSheet> {
                     final selected = _selectedCategories.contains(c);
                     return FilterChip(
                       label: Text(_catLabel(c), style: const TextStyle(fontSize: 12)),
-                      avatar: Icon(_catIcon(c), size: 16,
+                      avatar: HugeIcon(icon: _catIcon(c), size: 16,
                           color: selected ? Colors.white : _catColor(c)),
                       selected: selected,
                       selectedColor: _catColor(c),
@@ -1269,7 +1271,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           spendAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'grocery spending'),
             data: (spending) => spending.byCategory.isEmpty
                 ? const _EmptyAnalytics()
@@ -1304,7 +1306,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           nutriAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'grocery nutrition'),
             data: (spectrum) => spectrum.byCategory.isEmpty
                 ? const _EmptyAnalytics()
@@ -1342,7 +1344,7 @@ class _GroceryInsightsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              Icon(isAi ? Icons.auto_awesome : Icons.bar_chart,
+              HugeIcon(icon: isAi ? HugeIcons.strokeRoundedStars : HugeIcons.strokeRoundedChartColumn,
                   size: 16, color: isAi ? Colors.purple : Colors.teal),
               const SizedBox(width: 6),
               Text(isAi ? 'AI Grocery Insights' : 'Grocery Analysis',
@@ -1357,7 +1359,7 @@ class _GroceryInsightsCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.insights, size: 16, color: cs.primary),
+                  HugeIcon(icon: HugeIcons.strokeRoundedIdea01, size: 16, color: cs.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -1381,7 +1383,7 @@ class _GroceryInsightsCard extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(children: [
-                    Icon(Icons.lightbulb_outline, size: 14, color: color),
+                    HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 14, color: color),
                     const SizedBox(width: 6),
                     Expanded(child: Text(r.action,
                         style: const TextStyle(fontSize: 12))),
@@ -1688,7 +1690,7 @@ class _CategoryItemsSheet extends ConsumerWidget {
           ),
           Expanded(
             child: async.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ThemedSpinner(),
               error: (e, _) => FriendlyError(error: e, context: 'grocery items'),
               data: (data) {
                 if (data.items.isEmpty) {

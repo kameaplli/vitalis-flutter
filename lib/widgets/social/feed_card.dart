@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/social_models.dart';
 import 'report_block_sheet.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Premium feed card — Instagram/LinkedIn hybrid with rich animations.
 /// Performance: RepaintBoundary isolation, cached computations, optimistic UI.
@@ -14,6 +15,9 @@ class FeedCard extends StatefulWidget {
   final VoidCallback? onComment;
   final VoidCallback? onShare;
   final VoidCallback? onProfileTap;
+  final VoidCallback? onDelete;
+  final ValueChanged<String>? onEdit;
+  final bool isOwnPost;
 
   const FeedCard({
     super.key,
@@ -22,6 +26,9 @@ class FeedCard extends StatefulWidget {
     this.onComment,
     this.onShare,
     this.onProfileTap,
+    this.onDelete,
+    this.onEdit,
+    this.isOwnPost = false,
   });
 
   static const _typeGradients = <String, List<Color>>{
@@ -123,6 +130,127 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
     _burstCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 450),
+    );
+  }
+
+  void _showOwnPostMenu(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isNote = event.contentType == 'note';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 4),
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            if (isNote)
+              ListTile(
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedEdit01,
+                    color: cs.onSurface, size: 22),
+                title: const Text('Edit post'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showEditDialog(context);
+                },
+              ),
+            ListTile(
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedDelete02,
+                  color: cs.error, size: 22),
+              title: Text('Delete post',
+                  style: TextStyle(color: cs.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(context);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = event.contentSnapshot['note']?.toString() ??
+        event.contentSnapshot['text']?.toString() ?? '';
+    final ctrl = TextEditingController(text: text);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit post'),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 5,
+          maxLength: 280,
+          autofocus: true,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none),
+            filled: true,
+            fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newText = ctrl.text.trim();
+              if (newText.isNotEmpty && newText != text) {
+                widget.onEdit?.call(newText);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    // Dispose controller when dialog is dismissed
+    // (AlertDialog rebuilds, so controller persists until dialog closes)
+  }
+
+  void _confirmDelete(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete post?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onDelete?.call();
+            },
+            style: FilledButton.styleFrom(backgroundColor: cs.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -396,8 +524,8 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                                     ),
                                     ScaleTransition(
                                       scale: _likeScale,
-                                      child: Icon(
-                                        liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                      child: HugeIcon(
+                                        icon: HugeIcons.strokeRoundedFavourite,
                                         size: 20,
                                         color: liked
                                             ? const Color(0xFFE53935)
@@ -450,7 +578,7 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.chat_bubble_outline_rounded, size: 18,
+                                HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18,
                                     color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                                 const SizedBox(width: 5),
                                 Text(
@@ -475,7 +603,7 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                           },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-                            child: Icon(Icons.share_outlined, size: 18,
+                            child: HugeIcon(icon: HugeIcons.strokeRoundedShare01, size: 18,
                                 color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
                           ),
                         ),
@@ -500,8 +628,8 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
                         opacity: _doubleTapOpacity,
                         child: ScaleTransition(
                           scale: _doubleTapScale,
-                          child: const Icon(
-                            Icons.favorite_rounded,
+                          child: Icon(
+                            Icons.favorite,
                             size: 100,
                             color: Colors.white,
                             shadows: [
@@ -586,15 +714,21 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.more_horiz_rounded,
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedMoreHorizontal,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 20),
-            onPressed: () => ReportBlockSheet.show(
-              context,
-              targetId: event.id,
-              targetType: ReportTargetType.feedEvent,
-              targetUserId: event.actorId,
-              targetUserName: event.actorName,
-            ),
+            onPressed: () {
+              if (widget.isOwnPost) {
+                _showOwnPostMenu(context);
+              } else {
+                ReportBlockSheet.show(
+                  context,
+                  targetId: event.id,
+                  targetType: ReportTargetType.feedEvent,
+                  targetUserId: event.actorId,
+                  targetUserName: event.actorName,
+                );
+              }
+            },
             visualDensity: VisualDensity.compact,
           ),
         ],
@@ -611,9 +745,25 @@ class _FeedCardState extends State<FeedCard> with TickerProviderStateMixin {
             style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant, fontStyle: FontStyle.italic)),
       );
     }
+    final isEdited = event.contentSnapshot['edited'] == true;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      child: Text(text, style: TextStyle(fontSize: 15, height: 1.5, color: cs.onSurface)),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(text: text, style: TextStyle(fontSize: 15, height: 1.5, color: cs.onSurface)),
+            if (isEdited)
+              TextSpan(
+                text: '  (edited)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

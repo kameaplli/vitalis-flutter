@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Bottom sheet for reporting content or blocking a user.
 /// Handles both report flow (reason selection → optional details → submit)
@@ -177,7 +178,7 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
         ),
         const SizedBox(height: 16),
         _OptionTile(
-          icon: Icons.flag_outlined,
+          icon: HugeIcons.strokeRoundedFlag01,
           label: 'Report',
           color: cs.error,
           onTap: () {
@@ -187,7 +188,7 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
         ),
         if (widget.targetUserId != null)
           _OptionTile(
-            icon: Icons.block_outlined,
+            icon: HugeIcons.strokeRoundedCancel01,
             label: 'Block ${widget.targetUserName ?? 'User'}',
             color: cs.error,
             onTap: () {
@@ -196,7 +197,7 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
             },
           ),
         _OptionTile(
-          icon: Icons.visibility_off_outlined,
+          icon: HugeIcons.strokeRoundedView,
           label: 'Hide this post',
           color: cs.onSurfaceVariant,
           onTap: () {
@@ -233,7 +234,7 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
             children: [
               GestureDetector(
                 onTap: () => setState(() => _step = _SheetStep.options),
-                child: Icon(Icons.arrow_back_rounded, color: cs.onSurface),
+                child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: cs.onSurface),
               ),
               const SizedBox(width: 12),
               Text('Why are you reporting this?',
@@ -245,11 +246,11 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
           ),
         ),
         ...ReportReason.values.map((reason) => _OptionTile(
-              icon: Icons.circle_outlined,
+              icon: HugeIcons.strokeRoundedCircle,
               label: reason.label,
               color: cs.onSurfaceVariant,
               trailing: _selectedReason == reason
-                  ? Icon(Icons.check_circle, color: cs.primary, size: 20)
+                  ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: cs.primary, size: 20)
                   : null,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -286,7 +287,7 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
               children: [
                 GestureDetector(
                   onTap: () => setState(() => _step = _SheetStep.reportReason),
-                  child: Icon(Icons.arrow_back_rounded, color: cs.onSurface),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, color: cs.onSurface),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -351,7 +352,7 @@ class _ReportBlockSheetState extends State<ReportBlockSheet> {
 enum _SheetStep { options, reportReason, reportDetails }
 
 class _OptionTile extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
@@ -368,7 +369,7 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: color, size: 22),
+      leading: HugeIcon(icon: icon, color: color, size: 22),
       title: Text(label, style: TextStyle(
         color: color, fontWeight: FontWeight.w500, fontSize: 15,
       )),

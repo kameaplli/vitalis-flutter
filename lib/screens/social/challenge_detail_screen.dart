@@ -5,6 +5,8 @@ import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 // ── Challenge Detail Screen ────────────────────────────────────────────────────
 
 class ChallengeDetailScreen extends ConsumerWidget {
@@ -19,12 +21,12 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return detailAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, __) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: cs.error),
+            HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 48, color: cs.error),
             const SizedBox(height: 12),
             Text('Failed to load challenge',
                 style: TextStyle(color: cs.onSurfaceVariant)),
@@ -37,10 +39,14 @@ class ChallengeDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-      data: (challenge) => _ChallengeContent(
-        challenge: challenge,
-        boardAsync: boardAsync,
-      ),
+      data: (challenge) => challenge == null
+          ? Center(
+              child: Text('Challenge not found',
+                  style: TextStyle(color: cs.onSurfaceVariant)))
+          : _ChallengeContent(
+              challenge: challenge,
+              boardAsync: boardAsync,
+            ),
     );
   }
 }
@@ -94,8 +100,8 @@ class _ChallengeContent extends ConsumerWidget {
                           color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
-                          _typeIcon(challenge.challengeType),
+                        child: HugeIcon(
+                          icon: _typeIcon(challenge.challengeType),
                           color: Colors.white,
                           size: 22,
                         ),
@@ -139,7 +145,7 @@ class _ChallengeContent extends ConsumerWidget {
                   // Date range
                   Row(
                     children: [
-                      Icon(Icons.calendar_today,
+                      HugeIcon(icon: HugeIcons.strokeRoundedCalendar01,
                           size: 14, color: Colors.white.withValues(alpha: 0.7)),
                       const SizedBox(width: 6),
                       Text(
@@ -216,7 +222,7 @@ class _ChallengeContent extends ConsumerWidget {
             skipLoadingOnReload: true,
             loading: () => const Padding(
               padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
+              child: const ThemedSpinner(),
             ),
             error: (_, __) => Padding(
               padding: const EdgeInsets.all(16),
@@ -264,7 +270,7 @@ class _ChallengeContent extends ConsumerWidget {
                       onPressed: () async {
                         HapticFeedback.lightImpact();
                         try {
-                          await apiClient.dio.post(
+                          await apiClient.dio.delete(
                             ApiConstants.challengeLeave(challenge.id),
                           );
                           ref.invalidate(
@@ -333,20 +339,20 @@ class _ChallengeContent extends ConsumerWidget {
     );
   }
 
-  IconData _typeIcon(String type) {
+  List<List<dynamic>> _typeIcon(String type) {
     switch (type) {
       case 'hydration':
-        return Icons.water_drop;
+        return HugeIcons.strokeRoundedDroplet;
       case 'nutrition':
-        return Icons.restaurant;
+        return HugeIcons.strokeRoundedRestaurant01;
       case 'exercise':
-        return Icons.fitness_center;
+        return HugeIcons.strokeRoundedDumbbell01;
       case 'streak':
-        return Icons.local_fire_department;
+        return HugeIcons.strokeRoundedFire;
       case 'weight':
-        return Icons.monitor_weight;
+        return HugeIcons.strokeRoundedBodyWeight;
       default:
-        return Icons.flag;
+        return HugeIcons.strokeRoundedFlag01;
     }
   }
 
@@ -402,7 +408,7 @@ class _ProgressRing extends StatelessWidget {
           ],
         ),
         child: completed
-            ? Icon(Icons.check_circle, color: color, size: 48)
+            ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: color, size: 48)
             : Text(
                 '${completionPct.round()}%',
                 style: TextStyle(
@@ -495,7 +501,7 @@ class _CompletionBoardItem extends StatelessWidget {
 
           // Status icon
           if (member.completed)
-            const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 22)
+            HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Color(0xFF22C55E), size: 22)
           else
             Text(
               '${member.completionPct.round()}%',

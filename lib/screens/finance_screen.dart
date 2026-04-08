@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
@@ -14,6 +15,7 @@ import '../core/constants.dart';
 import '../models/finance_models.dart';
 import '../providers/finance_provider.dart';
 import '../widgets/friendly_error.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Category colours ─────────────────────────────────────────────────────────
 
@@ -110,76 +112,76 @@ Color _catColor(String cat) =>
 
 // ── Category icons ───────────────────────────────────────────────────────────
 
-IconData _catIcon(String cat) => switch (cat) {
-      'groceries' => Icons.shopping_cart,
-      'dining' => Icons.restaurant,
-      'fast_food' => Icons.fastfood,
-      'coffee' => Icons.coffee,
-      'transport' => Icons.directions_bus,
-      'fuel' => Icons.local_gas_station,
-      'parking' => Icons.local_parking,
-      'tolls' => Icons.toll,
-      'rideshare' => Icons.local_taxi,
-      'rent' => Icons.home,
-      'mortgage' => Icons.home,
-      'utilities' => Icons.bolt,
-      'home_improvement' => Icons.hardware,
-      'repairs' => Icons.build,
-      'maintenance' => Icons.handyman,
-      'insurance' => Icons.shield,
-      'interest' => Icons.trending_up,
-      'fees' => Icons.receipt,
-      'bank_charges' => Icons.receipt,
-      'tax' => Icons.account_balance,
-      'medical' => Icons.local_hospital,
-      'pharmacy' => Icons.medication,
-      'fitness' => Icons.fitness_center,
-      'personal_care' => Icons.face,
-      'apparel' => Icons.checkroom,
-      'electronics' => Icons.devices,
-      'furniture' => Icons.chair,
-      'toys' => Icons.toys,
-      'online_shopping' => Icons.shopping_bag,
-      'education' => Icons.school,
-      'school_fees' => Icons.school,
-      'childcare' => Icons.child_care,
-      'baby' => Icons.child_friendly,
-      'entertainment' => Icons.movie,
-      'streaming' => Icons.live_tv,
-      'subscriptions' => Icons.subscriptions,
-      'travel' => Icons.flight,
-      'hotels' => Icons.hotel,
-      'flights' => Icons.flight,
-      'gifts' => Icons.card_giftcard,
-      'donations' => Icons.volunteer_activism,
-      'charity' => Icons.favorite,
-      'alcohol' => Icons.wine_bar,
-      'tobacco' => Icons.smoking_rooms,
-      'salary' => Icons.payments,
-      'income' => Icons.account_balance_wallet,
-      'freelance' => Icons.work_outline,
-      'refund' => Icons.replay,
-      'cashback' => Icons.money,
-      'rewards' => Icons.star,
-      'transfer' => Icons.swap_horiz,
-      'atm' => Icons.atm,
-      'cash' => Icons.money,
-      'investment' => Icons.trending_up,
-      'savings' => Icons.savings,
-      'loan_repayment' => Icons.credit_card,
-      'credit_card_payment' => Icons.payment,
-      'hand_loan' => Icons.handshake,
-      'council_rates' => Icons.account_balance,
-      'cricket' => Icons.sports_cricket,
-      'karate' => Icons.sports_martial_arts,
-      'swimming' => Icons.pool,
-      'calisthenics' => Icons.fitness_center,
-      'sports' => Icons.sports,
-      'tutoring' => Icons.school,
-      'professional_services' => Icons.business_center,
-      'pet' => Icons.pets,
-      'lottery' => Icons.casino,
-      _ => Icons.category,
+List<List<dynamic>> _catIcon(String cat) => switch (cat) {
+      'groceries' => HugeIcons.strokeRoundedShoppingCart01,
+      'dining' => HugeIcons.strokeRoundedRestaurant01,
+      'fast_food' => HugeIcons.strokeRoundedRestaurant01,
+      'coffee' => HugeIcons.strokeRoundedCoffee01,
+      'transport' => HugeIcons.strokeRoundedBus01,
+      'fuel' => HugeIcons.strokeRoundedFuel,
+      'parking' => HugeIcons.strokeRoundedParkingAreaCircle,
+      'tolls' => HugeIcons.strokeRoundedRoad,
+      'rideshare' => HugeIcons.strokeRoundedTaxi,
+      'rent' => HugeIcons.strokeRoundedHome01,
+      'mortgage' => HugeIcons.strokeRoundedHome01,
+      'utilities' => HugeIcons.strokeRoundedFlash,
+      'home_improvement' => HugeIcons.strokeRoundedHome01,
+      'repairs' => HugeIcons.strokeRoundedHome01,
+      'maintenance' => HugeIcons.strokeRoundedHome01,
+      'insurance' => HugeIcons.strokeRoundedShield01,
+      'interest' => HugeIcons.strokeRoundedChartIncrease,
+      'fees' => HugeIcons.strokeRoundedReceiptDollar,
+      'bank_charges' => HugeIcons.strokeRoundedReceiptDollar,
+      'tax' => HugeIcons.strokeRoundedBank,
+      'medical' => HugeIcons.strokeRoundedHospital01,
+      'pharmacy' => HugeIcons.strokeRoundedMedicine01,
+      'fitness' => HugeIcons.strokeRoundedDumbbell01,
+      'personal_care' => HugeIcons.strokeRoundedHappy,
+      'apparel' => HugeIcons.strokeRoundedClothes,
+      'electronics' => HugeIcons.strokeRoundedComputer,
+      'furniture' => HugeIcons.strokeRoundedChair01,
+      'toys' => HugeIcons.strokeRoundedGameController01,
+      'online_shopping' => HugeIcons.strokeRoundedShoppingBag01,
+      'education' => HugeIcons.strokeRoundedMortarboard01,
+      'school_fees' => HugeIcons.strokeRoundedMortarboard01,
+      'childcare' => HugeIcons.strokeRoundedBabyBed01,
+      'baby' => HugeIcons.strokeRoundedBabyBed01,
+      'entertainment' => HugeIcons.strokeRoundedFilm01,
+      'streaming' => HugeIcons.strokeRoundedTv01,
+      'subscriptions' => HugeIcons.strokeRoundedRepeat,
+      'travel' => HugeIcons.strokeRoundedAirplane01,
+      'hotels' => HugeIcons.strokeRoundedBed,
+      'flights' => HugeIcons.strokeRoundedAirplane01,
+      'gifts' => HugeIcons.strokeRoundedGift,
+      'donations' => HugeIcons.strokeRoundedFavourite,
+      'charity' => HugeIcons.strokeRoundedFavourite,
+      'alcohol' => HugeIcons.strokeRoundedDrink,
+      'tobacco' => HugeIcons.strokeRoundedDrink,
+      'salary' => HugeIcons.strokeRoundedMoney01,
+      'income' => HugeIcons.strokeRoundedWallet01,
+      'freelance' => HugeIcons.strokeRoundedBriefcase01,
+      'refund' => HugeIcons.strokeRoundedReplay,
+      'cashback' => HugeIcons.strokeRoundedMoney01,
+      'rewards' => HugeIcons.strokeRoundedStar,
+      'transfer' => HugeIcons.strokeRoundedExchange01,
+      'atm' => HugeIcons.strokeRoundedAtm01,
+      'cash' => HugeIcons.strokeRoundedMoney01,
+      'investment' => HugeIcons.strokeRoundedChartIncrease,
+      'savings' => HugeIcons.strokeRoundedMoney01,
+      'loan_repayment' => HugeIcons.strokeRoundedCreditCard,
+      'credit_card_payment' => HugeIcons.strokeRoundedCreditCard,
+      'hand_loan' => HugeIcons.strokeRoundedAgreement01,
+      'council_rates' => HugeIcons.strokeRoundedBank,
+      'cricket' => HugeIcons.strokeRoundedCricketBat,
+      'karate' => HugeIcons.strokeRoundedBoxingGlove,
+      'swimming' => HugeIcons.strokeRoundedSwimming,
+      'calisthenics' => HugeIcons.strokeRoundedDumbbell01,
+      'sports' => HugeIcons.strokeRoundedDumbbell01,
+      'tutoring' => HugeIcons.strokeRoundedMortarboard01,
+      'professional_services' => HugeIcons.strokeRoundedBriefcase01,
+      'pet' => HugeIcons.strokeRoundedBone01,
+      'lottery' => HugeIcons.strokeRoundedDice,
+      _ => HugeIcons.strokeRoundedMenu01,
     };
 
 // ── Category labels ──────────────────────────────────────────────────────────
@@ -420,17 +422,17 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
         title: const Text('Finance Intelligence'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 24, color: Theme.of(context).colorScheme.onSurface),
             tooltip: 'Reprocess all statements',
             onPressed: _reprocessAll,
           ),
         ],
         bottom: TabBar(
           controller: _tabs,
-          tabs: const [
-            Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Statements'),
-            Tab(icon: Icon(Icons.pie_chart_outline), text: 'Analytics'),
-            Tab(icon: Icon(Icons.account_balance_wallet_outlined), text: 'Budget'),
+          tabs: [
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedReceiptDollar, size: 24, color: cs.onSurface), text: 'Statements'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedPieChart, size: 24, color: cs.onSurface), text: 'Analytics'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedWallet01, size: 24, color: cs.onSurface), text: 'Budget'),
           ],
         ),
       ),
@@ -444,7 +446,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pickAndUpload,
-        icon: const Icon(Icons.upload_file_outlined),
+        icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 24, color: cs.onPrimary),
         label: const Text('Upload Statement'),
         backgroundColor: cs.primary,
         foregroundColor: cs.onPrimary,
@@ -464,7 +466,7 @@ class _StatementsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(financeStatementsProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'financial statements'),
       data: (statements) {
         if (statements.isEmpty) {
@@ -472,7 +474,7 @@ class _StatementsTab extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.account_balance_outlined,
+                HugeIcon(icon: HugeIcons.strokeRoundedBank,
                     size: 64, color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 16),
                 const Text('No statements yet'),
@@ -578,7 +580,7 @@ class _StatementCard extends ConsumerWidget {
           color: Colors.red,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 24, color: Colors.white),
       ),
       child: Card(
         margin: const EdgeInsets.only(bottom: 10),
@@ -602,8 +604,8 @@ class _StatementCard extends ConsumerWidget {
                             : cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(
-                        Icons.account_balance,
+                      child: HugeIcon(
+                        icon: HugeIcons.strokeRoundedBank,
                         size: 20,
                         color: isDone ? cs.primary : cs.outline,
                       ),
@@ -649,26 +651,26 @@ class _StatementCard extends ConsumerWidget {
                   Row(
                     children: [
                       _InfoChip(
-                        icon: Icons.receipt_outlined,
+                        icon: HugeIcons.strokeRoundedReceiptDollar,
                         label: '${statement.transactionCount} txns',
                         color: cs.primary,
                       ),
                       const SizedBox(width: 10),
                       if (statement.totalDebits != null)
                         _InfoChip(
-                          icon: Icons.arrow_downward,
+                          icon: HugeIcons.strokeRoundedArrowDown01,
                           label: fmt.format(statement.totalDebits),
                           color: Colors.red,
                         ),
                       const SizedBox(width: 10),
                       if (statement.totalCredits != null)
                         _InfoChip(
-                          icon: Icons.arrow_upward,
+                          icon: HugeIcons.strokeRoundedArrowUp01,
                           label: fmt.format(statement.totalCredits),
                           color: Colors.green,
                         ),
                       const Spacer(),
-                      Icon(Icons.chevron_right, size: 16, color: cs.outline),
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16, color: cs.outline),
                     ],
                   ),
                 ],
@@ -773,7 +775,7 @@ class _PollButtonState extends ConsumerState<_PollButton> {
                 height: 12,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(Icons.refresh, size: 14),
+            : HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 14, color: Theme.of(context).colorScheme.primary),
         label: Text(
           _polling ? 'Checking...' : 'Check',
           style: const TextStyle(fontSize: 11),
@@ -803,12 +805,12 @@ class _StatusBadge extends StatelessWidget {
             color: Colors.green.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle, size: 12, color: Colors.green),
-              SizedBox(width: 3),
-              Text('Done',
+              HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 12, color: Colors.green),
+              const SizedBox(width: 3),
+              const Text('Done',
                   style: TextStyle(
                       fontSize: 11,
                       color: Colors.green,
@@ -823,12 +825,12 @@ class _StatusBadge extends StatelessWidget {
             color: Colors.red.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 12, color: Colors.red),
-              SizedBox(width: 3),
-              Text('Failed',
+              HugeIcon(icon: HugeIcons.strokeRoundedAlertCircle, size: 12, color: Colors.red),
+              const SizedBox(width: 3),
+              const Text('Failed',
                   style: TextStyle(
                       fontSize: 11,
                       color: Colors.red,
@@ -867,12 +869,12 @@ class _StatusBadge extends StatelessWidget {
             color: Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.hourglass_top, size: 12, color: Colors.orange),
-              SizedBox(width: 3),
-              Text('Pending',
+              HugeIcon(icon: HugeIcons.strokeRoundedHourglass, size: 12, color: Colors.orange),
+              const SizedBox(width: 3),
+              const Text('Pending',
                   style: TextStyle(
                       fontSize: 11,
                       color: Colors.orange,
@@ -887,7 +889,7 @@ class _StatusBadge extends StatelessWidget {
 // ── Info chip ─────────────────────────────────────────────────────────────────
 
 class _InfoChip extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   const _InfoChip(
@@ -897,7 +899,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: color.withValues(alpha: 0.8)),
+          HugeIcon(icon: icon, size: 12, color: color.withValues(alpha: 0.8)),
           const SizedBox(width: 3),
           Text(label,
               style: TextStyle(
@@ -927,7 +929,7 @@ class _StatementDetailSheet extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(child: Text('Could not load statement: $e')),
         data: (stmt) => _StatementDetailContent(
           statement: stmt,
@@ -1061,7 +1063,7 @@ class _StatementDetailContentState
                     child: _SummaryTile(
                       label: 'Debits',
                       value: fmt.format(stmt.totalDebits ?? 0),
-                      icon: Icons.arrow_downward,
+                      icon: HugeIcons.strokeRoundedArrowDown01,
                       color: Colors.red,
                     ),
                   ),
@@ -1070,7 +1072,7 @@ class _StatementDetailContentState
                     child: _SummaryTile(
                       label: 'Credits',
                       value: fmt.format(stmt.totalCredits ?? 0),
-                      icon: Icons.arrow_upward,
+                      icon: HugeIcons.strokeRoundedArrowUp01,
                       color: Colors.green,
                     ),
                   ),
@@ -1079,7 +1081,7 @@ class _StatementDetailContentState
                     child: _SummaryTile(
                       label: 'Categories',
                       value: '${categories.length}',
-                      icon: Icons.category_outlined,
+                      icon: HugeIcons.strokeRoundedMenu01,
                       color: cs.primary,
                     ),
                   ),
@@ -1120,7 +1122,7 @@ class _StatementDetailContentState
                             color: _catColor(cat).withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Icon(_catIcon(cat),
+                          child: HugeIcon(icon: _catIcon(cat),
                               size: 15, color: _catColor(cat)),
                         ),
                         const SizedBox(width: 10),
@@ -1244,7 +1246,7 @@ class _TransactionRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.edit_outlined, size: 14, color: cs.outline),
+            HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 14, color: cs.outline),
           ],
         ),
       ),
@@ -1388,7 +1390,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                 isDense: true,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.store, size: 20),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedStore01, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
             const SizedBox(height: 14),
@@ -1417,7 +1419,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                 isDense: true,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: const Icon(Icons.notes, size: 20),
+                prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedNote01, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
             const SizedBox(height: 18),
@@ -1471,7 +1473,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                     return FilterChip(
                       label: Text(_catLabel(c),
                           style: const TextStyle(fontSize: 12)),
-                      avatar: Icon(_catIcon(c),
+                      avatar: HugeIcon(icon: _catIcon(c),
                           size: 16,
                           color: selected ? Colors.white : _catColor(c)),
                       selected: selected,
@@ -1526,7 +1528,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
 
 class _SummaryTile extends StatelessWidget {
   final String label, value;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   const _SummaryTile(
       {required this.label,
@@ -1546,7 +1548,7 @@ class _SummaryTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: color),
+          HugeIcon(icon: icon, size: 16, color: color),
           const SizedBox(height: 4),
           Text(value,
               style: TextStyle(
@@ -1656,7 +1658,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
                     ? const SizedBox(
                         width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.download_outlined),
+                    : HugeIcon(icon: HugeIcons.strokeRoundedDownload01, size: 24, color: Theme.of(context).colorScheme.onSurface),
                 tooltip: 'Download Report',
               ),
             ],
@@ -1666,7 +1668,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
           // Spending data
           spendAsync.when(
             loading: () =>
-                const Center(child: CircularProgressIndicator()),
+                const ThemedSpinner(),
             error: (e, _) => FriendlyError(error: e, context: 'financial spending'),
             data: (spending) {
               if (spending.byCategory.isEmpty) {
@@ -1676,7 +1678,7 @@ class _AnalyticsTabState extends ConsumerState<_AnalyticsTab> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.pie_chart_outline,
+                        HugeIcon(icon: HugeIcons.strokeRoundedPieChart,
                             size: 64, color: cs.outline),
                         const SizedBox(height: 16),
                         const Text('No spending data yet'),
@@ -1748,7 +1750,7 @@ class _EssentialDiscretionaryRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.shield_outlined,
+                      HugeIcon(icon: HugeIcons.strokeRoundedShield01,
                           size: 18, color: Colors.blue.shade700),
                       const SizedBox(width: 6),
                       Text('Essential',
@@ -1789,7 +1791,7 @@ class _EssentialDiscretionaryRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.shopping_bag_outlined,
+                      HugeIcon(icon: HugeIcons.strokeRoundedShoppingBag01,
                           size: 18, color: Colors.orange.shade700),
                       const SizedBox(width: 6),
                       Text('Discretionary',
@@ -1935,7 +1937,7 @@ class _CategoryListItem extends StatelessWidget {
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(_catIcon(cat.category), size: 18, color: color),
+                  child: HugeIcon(icon: _catIcon(cat.category), size: 18, color: color),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1971,7 +1973,7 @@ class _CategoryListItem extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 16, color: cs.outline),
+                HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 16, color: cs.outline),
               ],
             ),
           ),
@@ -1994,7 +1996,7 @@ class _BudgetTab extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return budgetAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'budget'),
       data: (budget) {
         if (budget.budget.isEmpty) {
@@ -2002,7 +2004,7 @@ class _BudgetTab extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.account_balance_wallet_outlined,
+                HugeIcon(icon: HugeIcons.strokeRoundedWallet01,
                     size: 64, color: cs.outline),
                 const SizedBox(height: 16),
                 const Text('No budget data yet'),
@@ -2044,7 +2046,7 @@ class _BudgetTab extends ConsumerWidget {
               if (essentialItems.isNotEmpty) ...[
                 _SectionHeader(
                   title: 'Essential',
-                  icon: Icons.shield_outlined,
+                  icon: HugeIcons.strokeRoundedShield01,
                   color: Colors.blue,
                   subtitle: fmt.format(budget.essentialMonthly),
                 ),
@@ -2058,7 +2060,7 @@ class _BudgetTab extends ConsumerWidget {
               if (discretionaryItems.isNotEmpty) ...[
                 _SectionHeader(
                   title: 'Discretionary',
-                  icon: Icons.shopping_bag_outlined,
+                  icon: HugeIcons.strokeRoundedShoppingBag01,
                   color: Colors.orange,
                   subtitle: fmt.format(budget.discretionaryMonthly),
                 ),
@@ -2094,7 +2096,7 @@ class _IncomeExpensesSummary extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.account_balance,
+                HugeIcon(icon: HugeIcons.strokeRoundedBank,
                     size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Text('Monthly Summary',
@@ -2110,7 +2112,7 @@ class _IncomeExpensesSummary extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      Icon(Icons.arrow_upward,
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01,
                           size: 24, color: Colors.green.shade600),
                       const SizedBox(height: 4),
                       Text('Income',
@@ -2135,7 +2137,7 @@ class _IncomeExpensesSummary extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      Icon(Icons.arrow_downward,
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowDown01,
                           size: 24, color: Colors.red.shade600),
                       const SizedBox(height: 4),
                       Text('Expenses',
@@ -2160,10 +2162,10 @@ class _IncomeExpensesSummary extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      Icon(
-                        isSurplus
-                            ? Icons.trending_up
-                            : Icons.trending_down,
+                      HugeIcon(
+                        icon: isSurplus
+                            ? HugeIcons.strokeRoundedChartIncrease
+                            : HugeIcons.strokeRoundedChartDecrease,
                         size: 24,
                         color: isSurplus
                             ? Colors.green.shade600
@@ -2205,23 +2207,23 @@ class _RecommendationBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color;
-    final IconData icon;
+    final List<List<dynamic>> icon;
     final String label;
 
     switch (recommendation) {
       case 'surplus':
         color = Colors.green;
-        icon = Icons.check_circle_outline;
+        icon = HugeIcons.strokeRoundedCheckmarkCircle01;
         label = 'You have a healthy surplus. Consider saving or investing the extra.';
       case 'deficit':
         color = Colors.red;
-        icon = Icons.warning_amber_outlined;
+        icon = HugeIcons.strokeRoundedAlert02;
         label =
             'You are spending more than you earn. Review discretionary expenses.';
       case 'tight':
       default:
         color = Colors.orange;
-        icon = Icons.info_outline;
+        icon = HugeIcons.strokeRoundedInformationCircle;
         label =
             'Your budget is tight. Small changes in discretionary spending can help.';
     }
@@ -2235,7 +2237,7 @@ class _RecommendationBadge extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 22),
+          HugeIcon(icon: icon, color: color, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2274,7 +2276,7 @@ class _IncomeNeededCard extends StatelessWidget {
                 color: Colors.indigo.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.calculate_outlined,
+              child: HugeIcon(icon: HugeIcons.strokeRoundedCalculate,
                   color: Colors.indigo, size: 22),
             ),
             const SizedBox(width: 14),
@@ -2315,7 +2317,7 @@ class _IncomeNeededCard extends StatelessWidget {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   final String subtitle;
   const _SectionHeader(
@@ -2328,7 +2330,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: color),
+        HugeIcon(icon: icon, size: 18, color: color),
         const SizedBox(width: 6),
         Text(title,
             style: TextStyle(
@@ -2373,7 +2375,7 @@ class _BudgetItemCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child:
-                    Icon(_catIcon(item.category), size: 18, color: color),
+                    HugeIcon(icon: _catIcon(item.category), size: 18, color: color),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2509,7 +2511,7 @@ class _CategoryDrillDownSheetState
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(_catIcon(widget.category), color: color, size: 20),
+                  child: HugeIcon(icon: _catIcon(widget.category), color: color, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2539,7 +2541,7 @@ class _CategoryDrillDownSheetState
           const SizedBox(height: 12),
           Divider(height: 1, color: cs.outlineVariant),
           if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
+            const Expanded(child: const ThemedSpinner())
           else if (_error != null)
             Expanded(child: Center(child: Text(friendlyErrorMessage(_error!, context: 'transactions'), textAlign: TextAlign.center)))
           else if (_transactions!.isEmpty)

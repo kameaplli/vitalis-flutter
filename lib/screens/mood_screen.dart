@@ -12,6 +12,7 @@ import '../widgets/days_slider.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/medical_disclaimer.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Mood data ────────────────────────────────────────────────────────────────
 
@@ -496,7 +497,7 @@ class _MoodEntryCard extends StatelessWidget {
         alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 20),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(color: Colors.red.shade400, borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.delete_outline, color: Colors.white)),
+        child: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, color: Colors.white)),
       confirmDismiss: (_) async => await showDialog<bool>(context: context,
         builder: (ctx) => AlertDialog(title: const Text('Delete entry?'), actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -532,7 +533,7 @@ class _MoodEntryCard extends StatelessWidget {
               Text(dateDisplay, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500)),
               if (energy != null && energy.toString().isNotEmpty) ...[const SizedBox(height: 4),
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.bolt, size: 12, color: Colors.amber.shade600),
+                  HugeIcon(icon: HugeIcons.strokeRoundedFlash, size: 12, color: Colors.amber.shade600),
                   Text('$energy', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amber.shade700)),
                 ])],
             ]),
@@ -631,7 +632,7 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
               Wrap(spacing: 6, runSpacing: 6, children: _selected.map((m) {
                 final option = _findMood(m);
                 return Chip(label: Text(option.display, style: const TextStyle(fontSize: 12)),
-                  deleteIcon: const Icon(Icons.close, size: 16),
+                  deleteIcon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 16),
                   onDeleted: _selected.length > 1 ? () => setState(() => _selected.remove(m)) : null,
                   backgroundColor: option.color.withValues(alpha: 0.15),
                   side: BorderSide(color: option.color.withValues(alpha: 0.3)),
@@ -669,7 +670,7 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
               decoration: BoxDecoration(color: cs.surfaceContainerLow, borderRadius: BorderRadius.circular(20)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Icon(Icons.bolt, color: Colors.amber.shade600, size: 20), const SizedBox(width: 6),
+                  HugeIcon(icon: HugeIcons.strokeRoundedFlash, color: Colors.amber.shade600, size: 20), const SizedBox(width: 6),
                   Text('Energy Level: $_energy', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface)),
                 ]),
                 const SizedBox(height: 8),
@@ -683,7 +684,7 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
                         color: isActive ? Colors.amber.shade400.withValues(alpha: 0.3 + (level / 10) * 0.7)
                           : cs.outlineVariant.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6)),
-                      child: Center(child: isActive ? Icon(Icons.bolt, size: 14, color: Colors.amber.shade700) : null))));
+                      child: Center(child: isActive ? HugeIcon(icon: HugeIcons.strokeRoundedFlash, size: 14, color: Colors.amber.shade700) : null))));
                 })),
               ]),
             ),
@@ -696,7 +697,7 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
                 contentPadding: const EdgeInsets.all(16))),
             const SizedBox(height: 20),
             FilledButton.icon(onPressed: _selected.isEmpty ? null : _save,
-              icon: Icon(_isEdit ? Icons.check : Icons.add),
+              icon: HugeIcon(icon: _isEdit ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedAdd01, size: 20),
               label: Text(_isEdit ? 'Update' : 'Log Mood'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -736,7 +737,7 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
               Text(mood.label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? mood.color : cs.onSurfaceVariant), textAlign: TextAlign.center),
               if (isSelected) Padding(padding: const EdgeInsets.only(top: 2),
-                child: Icon(Icons.check_circle, size: 14, color: mood.color)),
+                child: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 14, color: mood.color)),
             ]),
           ),
         );

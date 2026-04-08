@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../services/notification_service.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -201,7 +203,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     if (_loading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Notifications')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const ThemedSpinner(),
       );
     }
 
@@ -216,7 +218,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
         padding: const EdgeInsets.all(16),
         children: [
           // ── Hydration ──────────────────────────────────────────────────────
-          const _SectionHeader(icon: Icons.water_drop, title: 'Hydration Reminders', color: Colors.blue),
+          const _SectionHeader(icon: HugeIcons.strokeRoundedDroplet, title: 'Hydration Reminders', color: Colors.blue),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable hydration reminders'),
@@ -244,7 +246,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
               },
             ),
             ListTile(
-              leading: const Icon(Icons.timer_outlined),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedClock01),
               title: const Text('Reminder interval'),
               trailing: DropdownButton<int>(
                 value: _hydrationInterval,
@@ -276,7 +278,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Meals ──────────────────────────────────────────────────────────
-          const _SectionHeader(icon: Icons.restaurant, title: 'Meal Reminders', color: Colors.orange),
+          const _SectionHeader(icon: HugeIcons.strokeRoundedRestaurant01, title: 'Meal Reminders', color: Colors.orange),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable meal reminders'),
@@ -342,7 +344,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Supplement Reminders ───────────────────────────────────────────
-          _SectionHeader(icon: Icons.spa, title: 'Supplement Reminders', color: Colors.amber.shade700),
+          _SectionHeader(icon: HugeIcons.strokeRoundedYoga01, title: 'Supplement Reminders', color: Colors.amber.shade700),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable supplement reminders'),
@@ -360,14 +362,14 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
               final time = r['time'] as String? ?? '09:00';
               final endDate = r['end_date'] as String?;
               return ListTile(
-                leading: Icon(Icons.spa_outlined, color: Colors.amber.shade600),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedYoga01, color: Colors.amber.shade600),
                 title: Text(name),
                 subtitle: Text([
                   'Daily at $time',
                   if (endDate != null) 'Until $endDate',
                 ].join(' · ')),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 20, color: Colors.red),
                   onPressed: () {
                     setState(() => _supplementReminders.removeAt(i));
                   },
@@ -391,7 +393,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Eczema Alerts ──────────────────────────────────────────────────
-          const _SectionHeader(icon: Icons.warning_amber, title: 'Eczema & Weather Alerts', color: Colors.red),
+          const _SectionHeader(icon: HugeIcons.strokeRoundedAlert02, title: 'Eczema & Weather Alerts', color: Colors.red),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable flare-risk alerts'),
@@ -401,7 +403,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           ),
           if (_eczemaEnabled) ...[
             ListTile(
-              leading: const Icon(Icons.tune),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedPreferenceHorizontal),
               title: const Text('Alert sensitivity'),
               subtitle: Text(_eczemaThreshold <= 0.5
                   ? 'High (alert more often)'
@@ -439,7 +441,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Smart Suggestions ──────────────────────────────────────────────
-          _SectionHeader(icon: Icons.auto_awesome, title: 'Smart Suggestions', color: cs.tertiary),
+          _SectionHeader(icon: HugeIcons.strokeRoundedStars, title: 'Smart Suggestions', color: cs.tertiary),
           const SizedBox(height: 8),
           SwitchListTile(
             title: const Text('Enable smart suggestions'),
@@ -457,7 +459,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Health Reports ──────────────────────────────────────────────
-          const _SectionHeader(icon: Icons.picture_as_pdf, title: 'Health Reports', color: Colors.deepPurple),
+          const _SectionHeader(icon: HugeIcons.strokeRoundedFile01, title: 'Health Reports', color: Colors.deepPurple),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -484,7 +486,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           ),
           if (_weeklyReportEnabled || _monthlyReportEnabled) ...[
             ListTile(
-              leading: const Icon(Icons.calendar_today),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01),
               title: Text(_weeklyReportEnabled ? 'Send on' : 'Day of month'),
               trailing: DropdownButton<int>(
                 value: _reportPreferredDay.clamp(1, _weeklyReportEnabled ? 7 : 28),
@@ -510,7 +512,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                 icon: _reportSending
                     ? const SizedBox(width: 16, height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.send),
+                    : HugeIcon(icon: HugeIcons.strokeRoundedSent),
                 label: Text(_reportSending ? 'Sending...' : 'Send a test report now'),
               ),
             ),
@@ -519,7 +521,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const Divider(height: 32),
 
           // ── Diagnostics ──────────────────────────────────────────────
-          const _SectionHeader(icon: Icons.bug_report, title: 'Diagnostics', color: Colors.grey),
+          const _SectionHeader(icon: HugeIcons.strokeRoundedBug01, title: 'Diagnostics', color: Colors.grey),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -544,7 +546,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                                 final n = pending[i];
                                 return ListTile(
                                   dense: true,
-                                  leading: const Icon(Icons.notifications_active, size: 20),
+                                  leading: HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 20),
                                   title: Text(n.title ?? 'No title', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                                   subtitle: Text(n.body ?? '', style: const TextStyle(fontSize: 12)),
                                   trailing: Text('ID: ${n.id}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
@@ -558,7 +560,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                   ),
                 );
               },
-              icon: const Icon(Icons.schedule, size: 18),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
               label: const Text('Show pending notifications'),
             ),
           ),
@@ -566,7 +568,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _save,
-            icon: const Icon(Icons.check),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
             label: const Text('Save Preferences'),
           ),
           const SizedBox(height: 16),
@@ -577,7 +579,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
 }
 
 class _SectionHeader extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final Color color;
   const _SectionHeader({required this.icon, required this.title, required this.color});
@@ -585,7 +587,7 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Icon(icon, color: color, size: 22),
+      HugeIcon(icon: icon, color: color, size: 22),
       const SizedBox(width: 8),
       Text(title, style: TextStyle(
         fontSize: 16, fontWeight: FontWeight.bold, color: color,
@@ -602,7 +604,7 @@ class _TimeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-    leading: const Icon(Icons.schedule),
+    leading: HugeIcon(icon: HugeIcons.strokeRoundedClock01),
     title: Text(label),
     trailing: TextButton(
       onPressed: onTap,
@@ -649,7 +651,7 @@ class _TestNotificationButtonState extends State<_TestNotificationButton> {
                   if (mounted) setState(() => _sent = false);
                 });
               },
-        icon: Icon(_sent ? Icons.check : Icons.notifications_active, size: 18),
+        icon: HugeIcon(icon: _sent ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedNotification01, size: 18),
         label: Text(_sent ? 'Sent!' : widget.label, style: const TextStyle(fontSize: 12)),
       ),
     );

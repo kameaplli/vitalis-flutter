@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
+import '../core/app_cache.dart';
 import '../core/constants.dart';
 import 'notification_service.dart';
 
@@ -44,6 +45,8 @@ class BackgroundService {
         'time': time,
         'date': date,
       });
+      // Clear cached dashboard so invalidation fetches fresh data
+      await AppCache.clearDashboard('self', date: date);
     } catch (_) {}
   }
 

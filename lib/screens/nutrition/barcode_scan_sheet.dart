@@ -8,6 +8,8 @@ import '../../core/app_cache.dart';
 import '../../core/constants.dart';
 import '../../providers/food_provider.dart';
 import '../../models/food_item.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ─── Barcode scan bottom sheet ─────────────────────────────────────────────────
 
@@ -129,7 +131,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
               Navigator.pop(ctx);
               _showManualNutritionEntry(barcode);
             },
-            icon: const Icon(Icons.edit, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 18),
             label: const Text('Enter Manually'),
           ),
           FilledButton.icon(
@@ -137,7 +139,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
               Navigator.pop(ctx);
               _showSupplementWebLookup(barcode);
             },
-            icon: const Icon(Icons.search, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 18),
             label: const Text('Search Online'),
           ),
         ],
@@ -272,7 +274,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
                 barcode: barcode,
               );
             },
-            icon: const Icon(Icons.search, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedSearch01, size: 18),
             label: const Text('Search'),
           ),
         ],
@@ -394,7 +396,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
               Navigator.pop(ctx);
               await _saveSupplementToDb(data, barcode);
             },
-            icon: const Icon(Icons.check, size: 18),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 18),
             label: const Text('Save & Add'),
           ),
         ],
@@ -506,7 +508,7 @@ class _BarcodeScanSheetState extends ConsumerState<BarcodeScanSheet> {
               ),
             ),
           if (_processing)
-            const Expanded(child: Center(child: CircularProgressIndicator())),
+            const Expanded(child: const ThemedSpinner()),
         ],
       ),
     );

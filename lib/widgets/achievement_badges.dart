@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class AchievementBadge {
   final String id;
@@ -25,18 +26,18 @@ class AchievementBadge {
     );
   }
 
-  IconData get iconData {
+  List<List<dynamic>> get iconData {
     const map = {
-      'star': Icons.star,
-      'local_fire_department': Icons.local_fire_department,
-      'emoji_events': Icons.emoji_events,
-      'auto_awesome': Icons.auto_awesome,
-      'camera_alt': Icons.camera_alt,
-      'qr_code_scanner': Icons.qr_code_scanner,
-      'wb_sunny': Icons.wb_sunny,
-      'psychology': Icons.psychology,
+      'star': HugeIcons.strokeRoundedStar,
+      'local_fire_department': HugeIcons.strokeRoundedFire,
+      'emoji_events': HugeIcons.strokeRoundedAward01,
+      'auto_awesome': HugeIcons.strokeRoundedStars,
+      'camera_alt': HugeIcons.strokeRoundedCamera01,
+      'qr_code_scanner': HugeIcons.strokeRoundedQrCode,
+      'wb_sunny': HugeIcons.strokeRoundedSun01,
+      'psychology': HugeIcons.strokeRoundedBrain,
     };
-    return map[icon] ?? Icons.star;
+    return map[icon] ?? HugeIcons.strokeRoundedStar;
   }
 }
 
@@ -94,19 +95,19 @@ class AchievementBadgesWidget extends StatelessWidget {
         Row(
           children: [
             _StatChip(
-              icon: Icons.local_fire_department,
+              icon: HugeIcons.strokeRoundedFire,
               label: '${stats.currentStreak}d streak',
               color: stats.currentStreak > 0 ? Colors.orange : Colors.grey,
             ),
             const SizedBox(width: 8),
             _StatChip(
-              icon: Icons.emoji_events,
+              icon: HugeIcons.strokeRoundedAward01,
               label: 'Best: ${stats.longestStreak}d',
               color: Colors.amber,
             ),
             const SizedBox(width: 8),
             _StatChip(
-              icon: Icons.auto_awesome,
+              icon: HugeIcons.strokeRoundedStars,
               label: '${stats.totalEntries} logs',
               color: cs.primary,
             ),
@@ -126,7 +127,7 @@ class AchievementBadgesWidget extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
 
@@ -143,7 +144,7 @@ class _StatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          HugeIcon(icon: icon, size: 14, color: color),
           const SizedBox(width: 4),
           Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
         ],
@@ -178,8 +179,8 @@ class _BadgeItem extends StatelessWidget {
                   ? [BoxShadow(color: Colors.amber.withValues(alpha: 0.3), blurRadius: 8)]
                   : null,
             ),
-            child: Icon(
-              badge.iconData,
+            child: HugeIcon(
+              icon: badge.iconData,
               size: 24,
               color: earned ? Colors.amber.shade800 : Colors.grey.shade400,
             ),

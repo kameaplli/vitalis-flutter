@@ -1,7 +1,7 @@
 name: qorhealth
 description: QoreHealth - Health & Nutrition Tracking App
 publish_to: "none"
-version: 5.9.0+7
+version: 6.0.0+8
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -102,7 +102,7 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/qorehealth_app_icon.png"
   adaptive_icon_foreground: "assets/qorehealth_app_icon_foreground.png"
-  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_background: "#1A0E2E"
 
 flutter:
   uses-material-design: true

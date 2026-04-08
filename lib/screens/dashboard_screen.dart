@@ -1,11 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client.dart';
+import '../core/app_cache.dart';
 import '../core/constants.dart';
 import '../screens/nutrition/daily_intake.dart';
 import '../services/health_sync_service.dart';
@@ -21,7 +23,6 @@ import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
-import '../widgets/qorehealth_icon.dart';
 import '../widgets/wearable_summary_card.dart';
 import '../widgets/dashboard_customize_sheet.dart';
 import '../providers/dashboard_card_config_provider.dart';
@@ -102,8 +103,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
   }
 
-  void _refresh(String person) {
+  Future<void> _refresh(String person) async {
     final today = DateTime.now().toIso8601String().substring(0, 10);
+    // Clear cache first so invalidation triggers a fresh network fetch
+    await AppCache.clearDashboard(person, date: today);
     ref.invalidate(dashboardProvider((person, today)));
     ref.invalidate(grocerySpendingProvider('${person}_month'));
     ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
@@ -183,7 +186,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
 class _PersonDashboardPage extends ConsumerStatefulWidget {
   final String personId;
-  final void Function(String) onRefresh;
+  final Future<void> Function(String) onRefresh;
 
   const _PersonDashboardPage({
     required this.personId,
@@ -315,7 +318,7 @@ class _DateNavigationBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            icon: const Icon(Icons.chevron_left, size: 22),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 22),
             onPressed: onPrevious,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -335,8 +338,8 @@ class _DateNavigationBar extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: Icon(
-              Icons.chevron_right,
+            icon: HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowRight01,
               size: 22,
               color: isToday
                   ? theme.disabledColor
@@ -423,7 +426,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
             child: Center(
               child: TextButton.icon(
                 onPressed: () => DashboardCustomizeSheet.show(context),
-                icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedDashboardBrowsing, size: 18),
                 label: const Text('Customize Dashboard'),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
@@ -487,7 +490,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
   ) {
     return switch (type) {
       DashboardCardType.calories => _StatCard(
-        label: 'Calories', icon: Icons.local_fire_department,
+        label: 'Calories', icon: HugeIcons.strokeRoundedFire,
         color: Colors.orange,
         todayValue: data.todayCalories.toStringAsFixed(0), todayUnit: 'kcal',
         weekAvg: '${data.weekAvgCalories.toStringAsFixed(0)} kcal',
@@ -495,7 +498,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         up: data.weekAvgCalories >= data.prevWeekAvgCalories,
       ),
       DashboardCardType.weight => _StatCard(
-        label: 'Weight', icon: Icons.monitor_weight_outlined,
+        label: 'Weight', icon: HugeIcons.strokeRoundedWeightScale,
         color: Colors.purple,
         todayValue: data.currentWeight != null
             ? data.currentWeight!.toStringAsFixed(1) : '—',
@@ -509,7 +512,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         showTrend: data.weightChange != null,
       ),
       DashboardCardType.meals => _StatCard(
-        label: widget.isToday ? 'Meals Today' : 'Meals', icon: Icons.restaurant,
+        label: widget.isToday ? 'Meals Today' : 'Meals', icon: HugeIcons.strokeRoundedRestaurant01,
         color: Colors.green,
         todayValue: '${data.mealsCount}', todayUnit: 'meals',
         weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
@@ -522,7 +525,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         prevAvg: data.prevWeekAvgWater,
       ),
       DashboardCardType.steps => _StatCard(
-        label: 'Steps', icon: Icons.directions_walk_rounded,
+        label: 'Steps', icon: HugeIcons.strokeRoundedDumbbell01,
         color: const Color(0xFF22C55E),
         todayValue: data.todaySteps != null ? _formatNumber(data.todaySteps!) : '—',
         todayUnit: '',
@@ -533,7 +536,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         showTrend: false,
       ),
       DashboardCardType.sleep => _StatCard(
-        label: 'Sleep', icon: Icons.bedtime_rounded,
+        label: 'Sleep', icon: HugeIcons.strokeRoundedBed,
         color: const Color(0xFF6366F1),
         todayValue: data.todaySleepMins != null
             ? _formatSleepHours(data.todaySleepMins!) : '—',
@@ -542,7 +545,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         showTrend: false,
       ),
       DashboardCardType.heartRate => _StatCard(
-        label: 'Heart Rate', icon: Icons.favorite_rounded,
+        label: 'Heart Rate', icon: HugeIcons.strokeRoundedFavourite,
         color: Colors.red,
         todayValue: data.todayHeartRate != null
             ? data.todayHeartRate!.toStringAsFixed(0) : '—',
@@ -551,7 +554,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         showTrend: false,
       ),
       DashboardCardType.spo2 => _StatCard(
-        label: 'SpO2', icon: Icons.bloodtype_rounded,
+        label: 'SpO2', icon: HugeIcons.strokeRoundedBlood,
         color: const Color(0xFF0EA5E9),
         todayValue: data.todaySpo2 != null
             ? data.todaySpo2!.toStringAsFixed(0) : '—',
@@ -560,7 +563,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         showTrend: false,
       ),
       DashboardCardType.exercise => _StatCard(
-        label: 'Exercise', icon: Icons.fitness_center_rounded,
+        label: 'Exercise', icon: HugeIcons.strokeRoundedDumbbell01,
         color: const Color(0xFFF59E0B),
         todayValue: data.todayActiveCalories != null
             ? data.todayActiveCalories!.toStringAsFixed(0) : '—',
@@ -569,7 +572,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         showTrend: false,
       ),
       DashboardCardType.distance => _StatCard(
-        label: 'Distance', icon: Icons.straighten_rounded,
+        label: 'Distance', icon: HugeIcons.strokeRoundedRuler,
         color: const Color(0xFF8B5CF6),
         todayValue: data.todayDistance != null
             ? (data.todayDistance! >= 1000
@@ -654,19 +657,19 @@ class _QuickActionsBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
-          _action(context, Icons.restaurant, 'Log Meal', cs.primary, () {
+          _action(context, HugeIcons.strokeRoundedRestaurant01, 'Log Meal', cs.primary, () {
             context.go('/nutrition');
           }),
           const SizedBox(width: 10),
-          _action(context, Icons.water_drop, 'Add Water', Colors.blue, () {
+          _action(context, HugeIcons.strokeRoundedDroplet, 'Add Water', Colors.blue, () {
             context.go('/hydration');
           }),
           const SizedBox(width: 10),
-          _action(context, Icons.monitor_weight, 'Log Weight', Colors.orange, () {
+          _action(context, HugeIcons.strokeRoundedBodyWeight, 'Log Weight', Colors.orange, () {
             context.go('/health/weight');
           }),
           const SizedBox(width: 10),
-          _action(context, Icons.sentiment_satisfied, 'Log Mood', Colors.amber, () {
+          _action(context, HugeIcons.strokeRoundedSmileDizzy, 'Log Mood', Colors.amber, () {
             context.go('/health');
           }),
         ],
@@ -674,7 +677,7 @@ class _QuickActionsBar extends StatelessWidget {
     );
   }
 
-  Widget _action(BuildContext context, IconData icon, String label,
+  Widget _action(BuildContext context, List<List<dynamic>> icon, String label,
       Color color, VoidCallback onTap) {
     final cs = Theme.of(context).colorScheme;
     return Expanded(
@@ -692,7 +695,7 @@ class _QuickActionsBar extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ExcludeSemantics(child: QoreHealthIcon(icon: icon, color: color, size: QoreHealthIconSize.small)),
+                  ExcludeSemantics(child: HugeIcon(icon: icon, color: color, size: 20)),
                   const SizedBox(height: 6),
                   ExcludeSemantics(child: Text(label, style: TextStyle(
                       fontSize: 11, fontWeight: FontWeight.w600,
@@ -728,7 +731,7 @@ class _HydrationStatCard extends StatelessWidget {
     );
     return _StatCard(
       label: 'Water',
-      icon: Icons.water_drop,
+      icon: HugeIcons.strokeRoundedDroplet,
       color: Colors.blue,
       todayValue: todayL,
       todayUnit: 'L',
@@ -842,7 +845,7 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
           children: [
             Row(
               children: [
-                Icon(Icons.water_drop, size: 16, color: Colors.blue.shade600),
+                HugeIcon(icon: HugeIcons.strokeRoundedDroplet, size: 16, color: Colors.blue.shade600),
                 const SizedBox(width: 6),
                 Text('Quick Hydration',
                     style: Theme.of(context).textTheme.titleSmall),
@@ -970,7 +973,7 @@ class _GrocerySnapshot extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.shopping_cart_outlined, size: 16),
+                    HugeIcon(icon: HugeIcons.strokeRoundedShoppingCart01, size: 16),
                     const SizedBox(width: 6),
                     Text('Grocery This Month',
                         style: Theme.of(context).textTheme.titleSmall),
@@ -1011,7 +1014,7 @@ class _GrocerySnapshot extends StatelessWidget {
                                 fontSize: 12, color: cs.primary,
                                 fontWeight: FontWeight.w600)),
                         const SizedBox(width: 4),
-                        ExcludeSemantics(child: Icon(Icons.arrow_forward_ios, size: 10, color: cs.primary)),
+                        ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 10, color: cs.primary)),
                       ],
                     ),
                   ),
@@ -1250,7 +1253,7 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.keyboard_arrow_up_rounded,
+                        HugeIcon(icon: HugeIcons.strokeRoundedArrowUp01,
                           size: 28,
                           color: Colors.white.withValues(alpha: 0.5),
                         ),
@@ -1518,14 +1521,14 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
             position: _cardSlide,
             child: FadeTransition(
               opacity: _cardFade,
-              child: const _WelcomeGlassCard(
+              child: _WelcomeGlassCard(
                 child: Column(
                   children: [
-                    _WelcomeFeatureRow(icon: Icons.restaurant_menu_rounded, text: 'Log meals & track nutrition'),
-                    SizedBox(height: 14),
-                    _WelcomeFeatureRow(icon: Icons.insights_rounded, text: 'AI-powered health insights'),
-                    SizedBox(height: 14),
-                    _WelcomeFeatureRow(icon: Icons.family_restroom_rounded, text: 'Family health dashboard'),
+                    _WelcomeFeatureRow(icon: HugeIcons.strokeRoundedMenuRestaurant, text: 'Log meals & track nutrition'),
+                    const SizedBox(height: 14),
+                    _WelcomeFeatureRow(icon: HugeIcons.strokeRoundedChartLineData01, text: 'AI-powered health insights'),
+                    const SizedBox(height: 14),
+                    _WelcomeFeatureRow(icon: HugeIcons.strokeRoundedUserGroup, text: 'Family health dashboard'),
                   ],
                 ),
               ),
@@ -1573,7 +1576,7 @@ class _WelcomeGlassCard extends StatelessWidget {
 // ── Feature row (matching onboarding) ───────────────────────────────────────
 
 class _WelcomeFeatureRow extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String text;
   const _WelcomeFeatureRow({required this.icon, required this.text});
 
@@ -1587,7 +1590,7 @@ class _WelcomeFeatureRow extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 18),
+          child: Center(child: HugeIcon(icon: icon, color: Colors.white.withValues(alpha: 0.9), size: 18)),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1730,7 +1733,7 @@ class _HomeError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
+            HugeIcon(icon: HugeIcons.strokeRoundedCloud,
                 size: 48, color: Theme.of(context).colorScheme.outline),
             const SizedBox(height: 16),
             Text('Couldn\'t load dashboard',
@@ -1744,7 +1747,7 @@ class _HomeError extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('Retry'),
             ),
           ],
@@ -1759,7 +1762,7 @@ class _HomeError extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label, todayValue, todayUnit, weekAvg, prevAvg;
   final bool up, showTrend;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
 
   const _StatCard({
@@ -1781,7 +1784,7 @@ class _StatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  QoreHealthIcon(icon: icon, color: color, size: QoreHealthIconSize.small),
+                  HugeIcon(icon: icon, color: color, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(label.toUpperCase(),
@@ -1814,7 +1817,7 @@ class _StatCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 if (showTrend)
                   Row(children: [
-                    Icon(up ? Icons.trending_up : Icons.trending_down,
+                    HugeIcon(icon: up ? HugeIcons.strokeRoundedChartIncrease : HugeIcons.strokeRoundedChartDecrease,
                         size: 14, color: up ? Colors.green : Colors.red),
                     const SizedBox(width: 4),
                     Expanded(
@@ -1853,7 +1856,7 @@ class _MealDistributionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.pie_chart_outline, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedPieChart, size: 16),
               const SizedBox(width: 6),
               Text('Meal Distribution (7 days)',
                   style: Theme.of(context).textTheme.titleSmall),
@@ -1901,11 +1904,11 @@ class _HealthScoreCard extends StatelessWidget {
     final delta    = score.total - prev.total;
     final deltaStr = '${delta >= 0 ? "+" : ""}${delta.toStringAsFixed(1)} vs prev week';
     final components = [
-      ('Nutrition', score.nutrition, Icons.restaurant,     Colors.green),
-      ('Hydration', score.hydration, Icons.water_drop,     Colors.blue),
-      ('Exercise',  score.exercise,  Icons.fitness_center, Colors.orange),
-      ('Sleep',     score.sleep,     Icons.bedtime,        Colors.indigo),
-      ('Mood',      score.mood,      Icons.mood,           Colors.pink),
+      ('Nutrition', score.nutrition, HugeIcons.strokeRoundedRestaurant01,  Colors.green),
+      ('Hydration', score.hydration, HugeIcons.strokeRoundedDroplet,      Colors.blue),
+      ('Exercise',  score.exercise,  HugeIcons.strokeRoundedDumbbell01,   Colors.orange),
+      ('Sleep',     score.sleep,     HugeIcons.strokeRoundedBed,          Colors.indigo),
+      ('Mood',      score.mood,      HugeIcons.strokeRoundedSmileDizzy,   Colors.pink),
     ];
     return Card(
       child: Padding(
@@ -1914,7 +1917,7 @@ class _HealthScoreCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.health_and_safety_outlined, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedHealth, size: 16),
               const SizedBox(width: 6),
               Text('Health Score (7 days)',
                   style: Theme.of(context).textTheme.titleSmall),
@@ -1944,7 +1947,7 @@ class _HealthScoreCard extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(children: [
-                  Icon(c.$3, size: 14, color: c.$4),
+                  HugeIcon(icon: c.$3, size: 14, color: c.$4),
                   const SizedBox(width: 6),
                   SizedBox(width: 68, child: Text(c.$1, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
                   Expanded(
@@ -2007,7 +2010,7 @@ class _TopFoodsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.emoji_food_beverage_outlined, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedCoffee02, size: 16),
               const SizedBox(width: 6),
               Text('Top Calorie Sources (7 days)',
                   style: Theme.of(context).textTheme.titleSmall),
@@ -2058,7 +2061,7 @@ class _InsightsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber),
+              HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 16, color: Colors.amber),
               const SizedBox(width: 6),
               Text('Personalised Insights',
                   style: Theme.of(context).textTheme.titleSmall),
@@ -2088,17 +2091,17 @@ class _InsightTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, color) = switch (insight.type) {
-      'positive' => (Icons.check_circle_outline,       Colors.green),
-      'warning'  => (Icons.warning_amber_outlined,     Colors.orange),
-      'tip'      => (Icons.tips_and_updates_outlined,  Colors.blue),
-      _          => (Icons.info_outline,               Colors.grey),
+      'positive' => (HugeIcons.strokeRoundedCheckmarkCircle01,       Colors.green),
+      'warning'  => (HugeIcons.strokeRoundedAlert02,     Colors.orange),
+      'tip'      => (HugeIcons.strokeRoundedBulb,  Colors.blue),
+      _          => (HugeIcons.strokeRoundedInformationCircle,               Colors.grey),
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: color),
+          HugeIcon(icon: icon, size: 16, color: color),
           const SizedBox(width: 8),
           Expanded(child: Text(insight.message, style: const TextStyle(fontSize: 13))),
         ],
@@ -2131,7 +2134,7 @@ class _MacrosCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.egg_outlined, size: 16),
+              HugeIcon(icon: HugeIcons.strokeRoundedEggs, size: 16),
               const SizedBox(width: 6),
               Text("$dayLabel Macros",
                   style: Theme.of(context).textTheme.titleSmall),
@@ -2251,7 +2254,7 @@ class _FlareRiskSnapshot extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.shield_outlined,
+                                HugeIcon(icon: HugeIcons.strokeRoundedShield01,
                                     size: 14, color: color),
                                 const SizedBox(width: 4),
                                 Text('Flare Risk: $label',
@@ -2271,7 +2274,7 @@ class _FlareRiskSnapshot extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios,
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                           size: 12,
                           color: Theme.of(context)
                               .colorScheme

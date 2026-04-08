@@ -16,6 +16,7 @@ import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/prefetch_service.dart';
 import 'voice_meal_sheet.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Ring design constants ──────────────────────────────────────────────────────
 const _kAvatarRadius = 22.0;
@@ -123,8 +124,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       // Refresh dashboard + hydration data so notification-logged water shows up
       final person = ref.read(selectedPersonProvider);
       final today = DateTime.now().toIso8601String().substring(0, 10);
+      ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
       ref.invalidate(todayHydrationProvider(person));
       ref.invalidate(dashboardProvider((person, today)));
+      ref.invalidate(familySnapshotProvider);
     }
     BackgroundService.checkFlareRisk();
     BackgroundService.checkSocialNotifications();
@@ -139,8 +142,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (hydrationLogged && mounted) {
       final person = ref.read(selectedPersonProvider);
       final today = DateTime.now().toIso8601String().substring(0, 10);
+      ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
       ref.invalidate(todayHydrationProvider(person));
       ref.invalidate(dashboardProvider((person, today)));
+      ref.invalidate(familySnapshotProvider);
     }
   }
 
@@ -321,25 +326,25 @@ class _BottomNavWithGenie extends StatelessWidget {
               label: '',
             ),
             NavigationDestination(
-              icon: Icon(Icons.favorite_outline, color: cs.onSurfaceVariant, size: _iconSize),
+              icon: Icon(Icons.favorite_border, color: cs.onSurfaceVariant, size: _iconSize),
               selectedIcon: Icon(Icons.favorite, color: cs.primary, size: _iconSize),
               label: 'Health',
             ),
             NavigationDestination(
-              icon: Icon(Icons.grid_view_rounded, color: cs.onSurfaceVariant, size: _iconSize),
-              selectedIcon: Icon(Icons.grid_view_rounded, color: cs.primary, size: _iconSize),
+              icon: Icon(Icons.grid_view_outlined, color: cs.onSurfaceVariant, size: _iconSize),
+              selectedIcon: Icon(Icons.grid_view, color: cs.primary, size: _iconSize),
               label: 'More',
             ),
           ],
         ),
         // Center voice button overlay (glowing + at same height as other nav icons)
         Positioned(
-          top: 6,
+          top: 2,
           child: GestureDetector(
             onTap: onGenieTap,
             child: Container(
-              width: 44,
-              height: 44,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -355,9 +360,9 @@ class _BottomNavWithGenie extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.add_rounded,
-                size: _iconSize,
+              child: HugeIcon(icon: 
+                HugeIcons.strokeRoundedAdd01,
+                size: 32,
                 color: Colors.white,
               ),
             ),
@@ -368,7 +373,7 @@ class _BottomNavWithGenie extends StatelessWidget {
   }
 }
 
-// _GenieBowlPainter removed — replaced with Icons.auto_awesome
+// _GenieBowlPainter removed — replaced with HugeIcons.strokeRoundedStars
 
 // _AppDrawer removed — replaced by MoreScreen (full-page route)
 
@@ -386,7 +391,7 @@ class _BiometricLockScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lock_outline, size: 64, color: cs.primary),
+            HugeIcon(icon: HugeIcons.strokeRoundedLockPassword, size: 64, color: cs.primary),
             const SizedBox(height: 16),
             Text('QoreHealth is locked',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: cs.onSurface)),
@@ -396,7 +401,7 @@ class _BiometricLockScreen extends StatelessWidget {
             const SizedBox(height: 32),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.fingerprint),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedFingerAccess),
               label: const Text('Unlock'),
             ),
           ],
@@ -421,7 +426,7 @@ class _OfflineBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
-            Icon(Icons.wifi_off, size: 16, color: cs.onErrorContainer),
+            HugeIcon(icon: HugeIcons.strokeRoundedWifiOff01, size: 16, color: cs.onErrorContainer),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -431,7 +436,7 @@ class _OfflineBanner extends StatelessWidget {
             ),
             GestureDetector(
               onTap: onRetry,
-              child: Icon(Icons.refresh, size: 18, color: cs.onErrorContainer),
+              child: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 18, color: cs.onErrorContainer),
             ),
           ],
         ),
@@ -626,8 +631,8 @@ class _AvatarBar extends ConsumerWidget {
                               width: _kSmallRingBox,
                               height: _kSmallRingBox,
                               child: IconButton(
-                                icon: Icon(
-                                  Icons.person_add_alt_1_outlined,
+                                icon: HugeIcon(icon: 
+                                  HugeIcons.strokeRoundedUserAdd01,
                                   size: 18,
                                   color: colorScheme.primary,
                                 ),
@@ -737,13 +742,13 @@ class _PersonCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 if (data != null) ...[
-                  _RingStat(Icons.local_fire_department,
+                  _RingStat(HugeIcons.strokeRoundedFire,
                       '${data.todayCalories.round()}', 'kcal',
                       calPct, _kCalColor),
-                  _RingStat(Icons.water_drop,
+                  _RingStat(HugeIcons.strokeRoundedDroplet,
                       (data.todayWater / 1000).toStringAsFixed(1), 'L',
                       waterPct, _kWaterColor),
-                  _RingStat(Icons.mood,
+                  _RingStat(HugeIcons.strokeRoundedSmileDizzy,
                       '${(data.healthScore.mood / 2).round()}', '/10',
                       moodPct, _kMoodColor),
                 ] else
@@ -932,7 +937,7 @@ class _BioOfferDialog extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.fingerprint, size: 64, color: cs.primary),
+          HugeIcon(icon: HugeIcons.strokeRoundedFingerAccess, size: 64, color: cs.primary),
           const SizedBox(height: 12),
           const Text(
             'Use your fingerprint or face to sign in next time. '
@@ -958,7 +963,7 @@ class _BioOfferDialog extends StatelessWidget {
 // ── Compact stat row with mini progress bar ────────────────────────────────────
 
 class _RingStat extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String value;
   final String unit;
   final double pct;
@@ -972,7 +977,7 @@ class _RingStat extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 3),
       child: Row(
         children: [
-          Icon(icon, size: 10, color: color),
+          HugeIcon(icon: icon, size: 10, color: color),
           const SizedBox(width: 3),
           Text(
             '$value $unit',

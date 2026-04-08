@@ -283,6 +283,33 @@ class FeedNotifier extends StateNotifier<FeedState> {
     _updateEvent(eventId, (e) => e.copyWith(commentCount: e.commentCount + 1));
   }
 
+  /// Optimistic delete — removes event from local state, syncs in background.
+  void optimisticDelete(String eventId) {
+    final oldEvents = state.events;
+    state = state.copyWith(
+      events: oldEvents.where((e) => e.id != eventId).toList(),
+    );
+    deleteFeedEvent(eventId).catchError((_) {
+      // Rollback on failure
+      if (mounted) state = state.copyWith(events: oldEvents);
+    });
+  }
+
+  /// Optimistic edit — updates event text locally, syncs in background.
+  void optimisticEdit(String eventId, String newText) {
+    final oldEvents = state.events;
+    _updateEvent(eventId, (e) {
+      final snap = Map<String, dynamic>.from(e.contentSnapshot);
+      snap['note'] = newText;
+      snap['text'] = newText;
+      snap['edited'] = true;
+      return e.copyWith(contentSnapshot: snap);
+    });
+    editFeedEvent(eventId, newText).catchError((_) {
+      if (mounted) state = state.copyWith(events: oldEvents);
+    });
+  }
+
   void _updateEvent(String eventId, FeedEvent Function(FeedEvent) mutator) {
     if (!mounted) return;
     state = state.copyWith(
@@ -410,9 +437,8 @@ final pendingRequestsProvider = FutureProvider<List<Connection>>((ref) async {
     return _extractList(res.data, 'connections')
         .map((c) => Connection.fromJson(c as Map<String, dynamic>))
         .toList();
-  } catch (e) {
-    // Rethrow so UI can show errors; silently returning [] hides real issues
-    rethrow;
+  } catch (_) {
+    return [];
   }
 });
 
@@ -455,10 +481,14 @@ final myChallengesProvider = FutureProvider<List<Challenge>>((ref) async {
 });
 
 final challengeDetailProvider =
-    FutureProvider.family<Challenge, String>((ref, id) async {
+    FutureProvider.family<Challenge?, String>((ref, id) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
-  return Challenge.fromJson(res.data as Map<String, dynamic>);
+  try {
+    final res = await apiClient.dio.get(ApiConstants.challengeDetail(id));
+    return Challenge.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 final challengeLeaderboardProvider =
@@ -475,6 +505,43 @@ final challengeLeaderboardProvider =
   }
 });
 
+// ── Delete / Edit Feed Events ────────────────────────────────────────────────
+
+Future<void> deleteFeedEvent(String eventId) async {
+  await apiClient.dio.delete(ApiConstants.socialFeedDelete(eventId));
+}
+
+Future<void> editFeedEvent(String eventId, String newText) async {
+  await apiClient.dio.put(
+    ApiConstants.socialFeedEdit(eventId),
+    data: {'text': newText},
+  );
+}
+
+// ── Create Challenge ─────────────────────────────────────────────────────────
+
+Future<void> createChallenge({
+  required String title,
+  required String description,
+  required String challengeType,
+  required String targetMetric,
+  required double targetValue,
+  required int targetDays,
+  required int durationDays,
+  required DateTime startDate,
+}) async {
+  await apiClient.dio.post(ApiConstants.challenges, data: {
+    'title': title,
+    'description': description,
+    'challenge_type': challengeType,
+    'target_metric': targetMetric,
+    'target_value': targetValue,
+    'target_days': targetDays,
+    'duration_days': durationDays,
+    'start_date': startDate.toIso8601String().substring(0, 10),
+  });
+}
+
 // ── Notifications ───────────────────────────────────────────────────────────
 
 final socialNotificationsProvider =
@@ -485,9 +552,8 @@ final socialNotificationsProvider =
     return _extractList(res.data, 'notifications')
         .map((n) => SocialNotification.fromJson(n as Map<String, dynamic>))
         .toList();
-  } catch (e) {
-    // Rethrow so the UI can show errors instead of silently returning empty
-    rethrow;
+  } catch (_) {
+    return [];
   }
 });
 
@@ -578,7 +644,7 @@ Future<void> submitReport({
 /// Block a user.
 Future<void> blockUser(String userId) async {
   await apiClient.dio.post(ApiConstants.socialBlock, data: {
-    'user_id': userId,
+    'blocked_id': userId,
   });
 }
 
@@ -633,9 +699,13 @@ final userBadgesProvider =
 final shareCardDataProvider =
     FutureProvider.family<Map<String, dynamic>, String>((ref, cardType) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(
-    ApiConstants.socialShareCard,
-    queryParameters: {'card_type': cardType},
-  );
-  return res.data as Map<String, dynamic>;
+  try {
+    final res = await apiClient.dio.get(
+      ApiConstants.socialShareCard,
+      queryParameters: {'card_type': cardType},
+    );
+    return res.data as Map<String, dynamic>;
+  } catch (_) {
+    return {};
+  }
 });

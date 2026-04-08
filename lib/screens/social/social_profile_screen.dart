@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,11 +6,12 @@ import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
 import '../../core/api_client.dart';
 import '../../core/constants.dart';
-import '../../widgets/social/badge_display.dart';
 import '../../widgets/social/connection_button.dart';
 import '../../providers/dm_provider.dart';
 import '../../widgets/social/online_indicator.dart';
 import 'dm_screen.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ── Social Profile Screen ──────────────────────────────────────────────────────
 
@@ -87,10 +89,20 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
         setState(() => _connectionStatus = ConnectionStatus.pendingSent);
       }
       ref.invalidate(connectionsProvider);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
+        String msg = 'Failed to send request';
+        if (e is DioException && e.response != null) {
+          final status = e.response!.statusCode;
+          final detail = e.response!.data is Map ? e.response!.data['detail'] : null;
+          if (status == 400 && detail != null) {
+            msg = detail.toString();
+          } else if (status == 404) {
+            msg = 'User not found';
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send request')),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
@@ -154,12 +166,12 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return profileAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, __) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: cs.error),
+            HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 48, color: cs.error),
             const SizedBox(height: 12),
             Text('Failed to load profile',
                 style: TextStyle(color: cs.onSurfaceVariant)),
@@ -294,7 +306,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
           const SizedBox(height: 12),
 
           // Message button
-          if (_connectionStatus == ConnectionStatus.accepted)
+          if (_connectionStatus == ConnectionStatus.connected)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: OutlinedButton.icon(
@@ -314,7 +326,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
                     }
                   }
                 },
-                icon: const Icon(Icons.chat_outlined, size: 18),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedComment01, size: 18),
                 label: const Text('Message'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 40),
@@ -369,7 +381,7 @@ class _SocialProfileScreenState extends ConsumerState<SocialProfileScreen> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.flag, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedFlag01, size: 18),
                   label: const Text('Invite to Challenge'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -414,20 +426,20 @@ class _StatsSection extends StatelessWidget {
         children: [
           if (showXp)
             _StatItem(
-              icon: Icons.bolt,
+              icon: HugeIcons.strokeRoundedFlash,
               value: '${profile.xpTotal}',
               label: 'XP',
               color: const Color(0xFFF97316),
             ),
           if (showStreak)
             _StatItem(
-              icon: Icons.local_fire_department,
+              icon: HugeIcons.strokeRoundedFire,
               value: '${profile.level}',
               label: 'Level',
               color: const Color(0xFFEAB308),
             ),
           _StatItem(
-            icon: Icons.emoji_events,
+            icon: HugeIcons.strokeRoundedAward01,
             value: '${profile.badgeShowcase.length}',
             label: 'Badges',
             color: const Color(0xFF8B5CF6),
@@ -439,7 +451,7 @@ class _StatsSection extends StatelessWidget {
 }
 
 class _StatItem extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String value;
   final String label;
   final Color color;
@@ -459,7 +471,7 @@ class _StatItem extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 24),
+        HugeIcon(icon: icon, color: color, size: 24),
         const SizedBox(height: 4),
         Text(
           value,

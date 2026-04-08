@@ -82,32 +82,44 @@ final groupsNotifierProvider =
 /// All visible group chats (public + user's private groups).
 final groupChatsProvider = FutureProvider<List<GroupChat>>((ref) async {
   ref.keepAlive();
-  final res = await apiClient.dio.get(ApiConstants.groupChats);
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['groups'] as List? ?? [];
-  return list
-      .map((e) => GroupChat.fromJson(e as Map<String, dynamic>))
-      .toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.groupChats);
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['groups'] as List? ?? [];
+    return list
+        .map((e) => GroupChat.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 /// Single group chat detail.
 final groupChatDetailProvider =
-    FutureProvider.family<GroupChat, String>((ref, groupId) async {
-  final res = await apiClient.dio.get(ApiConstants.groupChatDetail(groupId));
-  return GroupChat.fromJson(res.data as Map<String, dynamic>);
+    FutureProvider.family<GroupChat?, String>((ref, groupId) async {
+  try {
+    final res = await apiClient.dio.get(ApiConstants.groupChatDetail(groupId));
+    return GroupChat.fromJson(res.data as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
 });
 
 /// Members of a group chat.
 final groupChatMembersProvider =
     FutureProvider.family<List<GroupMember>, String>((ref, groupId) async {
-  final res = await apiClient.dio.get(ApiConstants.groupChatMembers(groupId));
-  final list = res.data is List
-      ? res.data as List
-      : (res.data as Map)['members'] as List? ?? [];
-  return list
-      .map((e) => GroupMember.fromJson(e as Map<String, dynamic>))
-      .toList();
+  try {
+    final res = await apiClient.dio.get(ApiConstants.groupChatMembers(groupId));
+    final list = res.data is List
+        ? res.data as List
+        : (res.data as Map)['members'] as List? ?? [];
+    return list
+        .map((e) => GroupMember.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (_) {
+    return [];
+  }
 });
 
 // ── Chat Messages (StateNotifier for real-time feel) ────────────────────────
@@ -270,11 +282,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     updated[idx] = msg.copyWith(reactions: newReactions);
     state = state.copyWith(messages: updated);
 
-    // Background API call
-    apiClient.dio.post(
+    // Background API call — fire and forget with revert on failure
+    unawaited(apiClient.dio.post(
       '${ApiConstants.groupChatMessages(_groupId)}/$messageId/react',
       data: {'emoji': emoji},
-    ).catchError((_) {
+    ).then((_) {}, onError: (_) {
       // Revert on failure
       if (mounted) {
         final revertIdx = state.messages.indexWhere((m) => m.id == messageId);
@@ -284,7 +296,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           state = state.copyWith(messages: reverted);
         }
       }
-    });
+    }));
   }
 
   /// Pin or unpin a message (admin-only).

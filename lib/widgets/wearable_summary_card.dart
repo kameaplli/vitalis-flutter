@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/sync_models.dart';
 import '../providers/selected_person_provider.dart';
 import '../providers/sync_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Dashboard card showing today's key wearable health metrics at a glance.
 ///
@@ -43,18 +44,18 @@ class _WearableCard extends StatelessWidget {
 
     // Build metric tiles for available data
     final tiles = <Widget>[];
-    _addMetricTile(tiles, metrics, 'heart_rate', Icons.favorite_rounded,
+    _addMetricTile(tiles, metrics, 'heart_rate', HugeIcons.strokeRoundedFavourite,
         const Color(0xFFEF4444), 'bpm', _getAvg);
-    _addMetricTile(tiles, metrics, 'steps', Icons.directions_walk_rounded,
+    _addMetricTile(tiles, metrics, 'steps', HugeIcons.strokeRoundedRunningShoes,
         const Color(0xFF22C55E), '', _getSum);
     _addMetricTile(tiles, metrics, 'active_calories',
-        Icons.local_fire_department_rounded, const Color(0xFFF97316), 'kcal',
+        HugeIcons.strokeRoundedFire, const Color(0xFFF97316), 'kcal',
         _getSum);
-    _addMetricTile(tiles, metrics, 'sleep_session', Icons.bedtime_rounded,
+    _addMetricTile(tiles, metrics, 'sleep_session', HugeIcons.strokeRoundedBed,
         const Color(0xFF6366F1), 'hrs', _getSleepHours);
-    _addMetricTile(tiles, metrics, 'weight', Icons.monitor_weight_rounded,
+    _addMetricTile(tiles, metrics, 'weight', HugeIcons.strokeRoundedBodyWeight,
         const Color(0xFF8B5CF6), 'kg', _getLatest);
-    _addMetricTile(tiles, metrics, 'distance', Icons.straighten_rounded,
+    _addMetricTile(tiles, metrics, 'distance', HugeIcons.strokeRoundedRuler,
         const Color(0xFF06B6D4), 'km', _getDistanceKm);
 
     if (tiles.isEmpty) return const SizedBox.shrink();
@@ -78,7 +79,7 @@ class _WearableCard extends StatelessWidget {
             // Header
             Row(
               children: [
-                Icon(Icons.watch_rounded, size: 18, color: cs.primary),
+                HugeIcon(icon: HugeIcons.strokeRoundedSmartWatch01, size: 18, color: cs.primary),
                 const SizedBox(width: 6),
                 Text(
                   "Today's Health Snapshot",
@@ -120,7 +121,7 @@ class _WearableCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.link_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedLink01,
                       size: 12, color: cs.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Expanded(
@@ -146,7 +147,7 @@ class _WearableCard extends StatelessWidget {
     List<Widget> tiles,
     Map<String, HealthMetric> metrics,
     String key,
-    IconData icon,
+    List<List<dynamic>> icon,
     Color color,
     String unit,
     String? Function(HealthMetric) formatter,
@@ -200,7 +201,7 @@ class _WearableCard extends StatelessWidget {
 // ── Individual metric tile ──────────────────────────────────────────────────
 
 class _MetricTile extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   final String value;
   final String unit;
@@ -232,7 +233,7 @@ class _MetricTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 16, color: color),
+            HugeIcon(icon: icon, size: 16, color: color),
             const SizedBox(height: 4),
             RichText(
               text: TextSpan(

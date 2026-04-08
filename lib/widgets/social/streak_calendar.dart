@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// GitHub-style activity heatmap showing streak days.
 /// Each cell = one day, color intensity = activity level.
@@ -34,7 +35,7 @@ class StreakCalendar extends StatelessWidget {
           // Header
           Row(
             children: [
-              Icon(Icons.local_fire_department_rounded,
+              HugeIcon(icon: HugeIcons.strokeRoundedFire,
                   color: _streakColor(currentStreak), size: 22),
               const SizedBox(width: 6),
               Text(
@@ -170,7 +171,6 @@ class StreakBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (streakDays <= 0) return const SizedBox.shrink();
-    final cs = Theme.of(context).colorScheme;
     final color = streakDays >= 30
         ? const Color(0xFFEF4444)
         : streakDays >= 7
@@ -187,7 +187,7 @@ class StreakBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.local_fire_department_rounded,
+          HugeIcon(icon: HugeIcons.strokeRoundedFire,
               size: 14, color: color),
           const SizedBox(width: 3),
           Text(

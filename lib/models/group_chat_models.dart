@@ -1,3 +1,5 @@
+import 'package:hugeicons/hugeicons.dart';
+
 class GroupChat {
   final String id;
   final String name;
@@ -258,10 +260,10 @@ enum GroupNotifPref {
         _ => GroupNotifPref.all,
       };
 
-  IconData get icon => switch (this) {
-        GroupNotifPref.all => Icons.notifications_rounded,
-        GroupNotifPref.mentionsOnly => Icons.alternate_email_rounded,
-        GroupNotifPref.muted => Icons.notifications_off_rounded,
+  List<List<dynamic>> get icon => switch (this) {
+        GroupNotifPref.all => HugeIcons.strokeRoundedNotification01,
+        GroupNotifPref.mentionsOnly => HugeIcons.strokeRoundedMail01,
+        GroupNotifPref.muted => HugeIcons.strokeRoundedNotification01,
       };
 }
 

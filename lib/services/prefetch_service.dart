@@ -61,6 +61,7 @@ class PrefetchService {
 
     try {
       // Eagerly init the social feed — triggers cache load + background fetch
+      // so Community tab is instant when the user taps it
       _safe(() async => ref.read(socialFeedNotifierProvider));
 
       await Future.wait([

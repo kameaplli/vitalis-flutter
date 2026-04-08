@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/social_models.dart';
 import '../../providers/social_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 /// Screen to view and manage blocked users.
 class BlockedUsersScreen extends ConsumerWidget {
@@ -19,12 +21,12 @@ class BlockedUsersScreen extends ConsumerWidget {
         title: const Text('Blocked Users'),
       ),
       body: blockedAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
+              HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 48, color: cs.error),
               const SizedBox(height: 12),
               Text('Failed to load blocked users',
                   style: tt.bodyMedium),
@@ -42,7 +44,7 @@ class BlockedUsersScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.block_outlined, size: 56,
+                  HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 56,
                       color: cs.outline),
                   const SizedBox(height: 12),
                   Text('No blocked users',

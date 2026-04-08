@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/poll_models.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Displays a poll in the social feed with animated vote bars.
 class PollCard extends StatefulWidget {
@@ -164,7 +165,7 @@ class _PollCardState extends State<PollCard>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.chat_bubble_outline_rounded,
+                    HugeIcon(icon: HugeIcons.strokeRoundedComment01,
                         size: 14, color: cs.outline),
                     const SizedBox(width: 4),
                     Text(
@@ -176,7 +177,7 @@ class _PollCardState extends State<PollCard>
               ),
               const Spacer(),
               if (poll.hasVoted) ...[
-                Icon(Icons.check_circle_outline,
+                HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                     size: 14, color: cs.primary),
                 const SizedBox(width: 4),
                 Text('Voted',
@@ -192,7 +193,7 @@ class _PollCardState extends State<PollCard>
                     '📊 Poll: ${poll.question}\n$options\n\nVote on QoreHealth!',
                   );
                 },
-                child: Icon(Icons.share_outlined,
+                child: HugeIcon(icon: HugeIcons.strokeRoundedShare01,
                     size: 16, color: cs.outline),
               ),
             ],

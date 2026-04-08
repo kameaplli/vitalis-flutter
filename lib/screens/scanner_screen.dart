@@ -9,6 +9,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../providers/food_provider.dart';
 import '../widgets/friendly_error.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // On web, camera requires HTTPS or localhost (browser secure-context rule).
 bool get _webCameraBlocked {
@@ -93,6 +94,42 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     });
   }
 
+  /// Pick a barcode image from gallery and analyze it for barcodes.
+  Future<void> _pickBarcodeFromGallery() async {
+    final picker = ImagePicker();
+    final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+    if (!mounted) return;
+
+    // Use MobileScannerController to analyze the image for barcodes
+    try {
+      final result = await _cameraCtrl?.analyzeImage(file.path);
+      if (result != null && result.barcodes.isNotEmpty) {
+        final code = result.barcodes.first.rawValue;
+        if (code != null && mounted) {
+          setState(() {
+            _scanned = true;
+            _detectedBarcode = code;
+            _barcodeCtrl.text = code;
+          });
+          _lookupBarcode(code);
+          return;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No barcode found in image — try a clearer photo')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not analyze image for barcodes')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,7 +138,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         actions: [
           if (_mode == _ScanMode.barcode && !_webCameraBlocked)
             IconButton(
-              icon: Icon(_useCamera ? Icons.keyboard : Icons.qr_code_scanner),
+              icon: HugeIcon(icon: _useCamera ? HugeIcons.strokeRoundedKeyboard : HugeIcons.strokeRoundedQrCode, size: 24),
               onPressed: () => setState(() {
                 _useCamera = !_useCamera;
                 _scanned = false;
@@ -119,12 +156,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               segments: const [
                 ButtonSegment(
                   value: _ScanMode.barcode,
-                  icon: Icon(Icons.qr_code_scanner, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedQrCode, size: 18),
                   label: Text('Barcode'),
                 ),
                 ButtonSegment(
                   value: _ScanMode.label,
-                  icon: Icon(Icons.document_scanner_outlined, size: 18),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedAiScan, size: 18),
                   label: Text('Nutrition Label'),
                 ),
               ],
@@ -184,14 +221,25 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.qr_code_scanner, size: 36, color: Colors.grey),
+                HugeIcon(icon: HugeIcons.strokeRoundedQrCode, size: 36, color: Colors.grey),
                 const SizedBox(height: 8),
                 const Text('Point camera at barcode',
                     style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => setState(() => _useCamera = false),
-                  child: const Text('Enter manually instead'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _pickBarcodeFromGallery,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
+                      label: const Text('From Gallery'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => setState(() => _useCamera = false),
+                      child: const Text('Enter manually'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -219,7 +267,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 16),
-          Icon(Icons.document_scanner_outlined,
+          HugeIcon(icon: HugeIcons.strokeRoundedAiScan,
               size: 72, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
@@ -246,7 +294,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                Icon(Icons.error_outline, color: Colors.red.shade700),
+                HugeIcon(icon: HugeIcons.strokeRoundedAlert01, color: Colors.red.shade700),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(_labelError!,
@@ -265,7 +313,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       width: 18, height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.camera_alt),
+                  : HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
               label: Text(_labelScanning ? 'Scanning label…' : 'Take Photo'),
             ),
           ),
@@ -276,7 +324,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _labelScanning ? null : () => _pickLabelImage(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library_outlined),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01),
               label: const Text('Choose from Gallery'),
             ),
           ),
@@ -371,7 +419,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                Icon(Icons.check_circle, color: Colors.green.shade700),
+                HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.green.shade700),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text('"$_savedFoodName" saved!',
@@ -397,7 +445,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                Icon(Icons.document_scanner_outlined,
+                HugeIcon(icon: HugeIcons.strokeRoundedAiScan,
                     size: 18, color: Colors.blue.shade700),
                 const SizedBox(width: 8),
                 Expanded(
@@ -427,7 +475,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       ? const SizedBox(
                           width: 20, height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.check_circle, color: Colors.green),
+                      : HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.green),
                   const SizedBox(width: 8),
                   Expanded(
                       child: Text(_lookingUp
@@ -435,7 +483,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                           : 'Barcode: $barcode')),
                   if (!_lookingUp)
                     IconButton(
-                      icon: const Icon(Icons.refresh),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
                       onPressed: () => setState(() {
                         _scanned = false;
                         _detectedBarcode = null;
@@ -453,11 +501,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           const SizedBox(height: 12),
 
           if (barcode == null && !showLabelBadge) ...[
-            TextFormField(
-              controller: _barcodeCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Barcode (optional)',
-                  prefixIcon: Icon(Icons.qr_code)),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _barcodeCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Barcode (optional)',
+                        prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedQrCode)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Scan barcode from gallery image',
+                  onPressed: _pickBarcodeFromGallery,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 22),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
           ],
@@ -532,7 +592,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                       width: 18, height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save),
+                  : HugeIcon(icon: HugeIcons.strokeRoundedFloppyDisk),
               label: const Text('Save to Food Database'),
             ),
           ),
@@ -551,7 +611,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(children: [
-        Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
+        HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, color: Colors.amber.shade800, size: 20),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -718,7 +778,7 @@ class _CameraErrorView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 64, color: Colors.white54),
+              HugeIcon(icon: icon, size: 64, color: Colors.white54),
               const SizedBox(height: 16),
               Text(title,
                   style: const TextStyle(
@@ -733,7 +793,7 @@ class _CameraErrorView extends StatelessWidget {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: onManualEntry,
-                icon: const Icon(Icons.keyboard),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedKeyboard),
                 label: const Text('Enter manually instead'),
               ),
             ],
@@ -743,24 +803,24 @@ class _CameraErrorView extends StatelessWidget {
     );
   }
 
-  (IconData, String, String) _content() {
+  (List<List<dynamic>>, String, String) _content() {
     switch (error.errorCode) {
       case MobileScannerErrorCode.permissionDenied:
         return (
-          Icons.no_photography_outlined,
+          HugeIcons.strokeRoundedCamera01,
           'Camera permission denied',
           'Go to your browser or device settings and allow camera access for this app, then come back.',
         );
       case MobileScannerErrorCode.unsupported:
         return (
-          Icons.browser_not_supported_outlined,
+          HugeIcons.strokeRoundedAlert02,
           'Camera not supported',
           'Barcode scanning via camera is not supported in this browser. '
               'Try Chrome or Edge, or use manual entry.',
         );
       default:
         return (
-          Icons.camera_alt_outlined,
+          HugeIcons.strokeRoundedCamera01,
           'Camera unavailable',
           error.errorDetails?.message ??
               'Could not start the camera. Use manual entry or try again.',

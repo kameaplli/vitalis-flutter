@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Small inline badge showing the data source icon and name.
 ///
@@ -38,7 +39,7 @@ class SourceBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(info.icon, size: fontSize + 1, color: info.color),
+          HugeIcon(icon: info.icon, size: fontSize + 1, color: info.color),
           const SizedBox(width: 3),
           Text(
             displayName,
@@ -59,56 +60,56 @@ class SourceBadge extends StatelessWidget {
       case 'apple-health':
         return _SourceDisplayInfo(
           name: 'Apple Health',
-          icon: Icons.favorite_rounded,
+          icon: HugeIcons.strokeRoundedFavourite,
           color: const Color(0xFFFF2D55),
         );
       case 'health_connect':
       case 'health-connect':
         return _SourceDisplayInfo(
           name: 'Health Connect',
-          icon: Icons.monitor_heart_rounded,
+          icon: HugeIcons.strokeRoundedFavourite,
           color: const Color(0xFF4285F4),
         );
       case 'fitbit':
         return _SourceDisplayInfo(
           name: 'Fitbit',
-          icon: Icons.watch_rounded,
+          icon: HugeIcons.strokeRoundedSmartWatch01,
           color: const Color(0xFF00B0B9),
         );
       case 'garmin':
         return _SourceDisplayInfo(
           name: 'Garmin',
-          icon: Icons.watch_rounded,
+          icon: HugeIcons.strokeRoundedSmartWatch01,
           color: const Color(0xFF007CC3),
         );
       case 'withings':
         return _SourceDisplayInfo(
           name: 'Withings',
-          icon: Icons.scale_rounded,
+          icon: HugeIcons.strokeRoundedBodyWeight,
           color: const Color(0xFF00C9B7),
         );
       case 'oura':
         return _SourceDisplayInfo(
           name: 'Oura',
-          icon: Icons.ring_volume_rounded,
+          icon: HugeIcons.strokeRoundedNotification01,
           color: const Color(0xFFD4AF37),
         );
       case 'whoop':
         return _SourceDisplayInfo(
           name: 'WHOOP',
-          icon: Icons.fitness_center_rounded,
+          icon: HugeIcons.strokeRoundedDumbbell01,
           color: const Color(0xFF1A1A1A),
         );
       case 'manual':
         return _SourceDisplayInfo(
           name: 'Manual',
-          icon: Icons.edit_rounded,
+          icon: HugeIcons.strokeRoundedEdit01,
           color: const Color(0xFF6B7280),
         );
       default:
         return _SourceDisplayInfo(
           name: sourceId,
-          icon: Icons.devices_other_rounded,
+          icon: HugeIcons.strokeRoundedSmartPhone01,
           color: const Color(0xFF6B7280),
         );
     }
@@ -117,7 +118,7 @@ class SourceBadge extends StatelessWidget {
 
 class _SourceDisplayInfo {
   final String name;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
 
   const _SourceDisplayInfo({

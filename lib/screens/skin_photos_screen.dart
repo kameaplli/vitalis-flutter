@@ -9,6 +9,8 @@ import '../core/secure_storage.dart';
 import '../models/skin_analysis_data.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/friendly_error.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Models ───────────────────────────────────────────────────────────────────
 
@@ -142,7 +144,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
         title: const Text('Skin Intelligence'),
         actions: [
           IconButton(
-            icon: Icon(_columns == 3 ? Icons.grid_view : Icons.view_module),
+            icon: Icon(_columns == 3 ? Icons.grid_view : Icons.view_agenda_outlined),
             tooltip: _columns == 3 ? 'Medium tiles' : 'Small tiles',
             onPressed: () => setState(() => _columns = _columns == 3 ? 2 : 3),
           ),
@@ -153,10 +155,10 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
         child: _uploading
             ? const SizedBox(width: 20, height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Icon(Icons.add_a_photo),
+            : HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
       ),
       body: photosAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => FriendlyError(error: e, context: 'skin photos'),
         data: (photos) {
           if (photos.isEmpty) {
@@ -164,7 +166,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.photo_camera_outlined, size: 48, color: Colors.grey),
+                  HugeIcon(icon: HugeIcons.strokeRoundedCamera01, size: 48, color: Colors.grey),
                   SizedBox(height: 12),
                   Text('No skin photos yet', style: TextStyle(color: Colors.grey)),
                   SizedBox(height: 4),
@@ -283,7 +285,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 16, color: Theme.of(context).colorScheme.primary),
+                      HugeIcon(icon: HugeIcons.strokeRoundedStars, size: 16, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text('AI will automatically analyze the photo for severity scoring',
@@ -297,7 +299,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     ElevatedButton.icon(
-                      icon: const Icon(Icons.camera_alt),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
                       label: const Text('Camera'),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -305,7 +307,7 @@ class _SkinPhotosScreenState extends ConsumerState<SkinPhotosScreen> {
                       },
                     ),
                     OutlinedButton.icon(
-                      icon: const Icon(Icons.photo_library),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01),
                       label: const Text('Gallery'),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -366,7 +368,7 @@ class _PhotoTile extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: url, fit: BoxFit.cover,
               placeholder: (_, __) => Container(color: Colors.grey[200]),
-              errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
+              errorWidget: (_, __, ___) => HugeIcon(icon: HugeIcons.strokeRoundedImage01, color: Colors.grey),
             ),
             Positioned(
               bottom: 0, left: 0, right: 0,
@@ -396,7 +398,7 @@ class _PhotoTile extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
+                            HugeIcon(icon: HugeIcons.strokeRoundedStars, size: 10, color: Colors.white),
                             const SizedBox(width: 2),
                             Text(photo.analysis!.overallSeverity.toStringAsFixed(1),
                                 style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
@@ -425,7 +427,7 @@ class _PhotoTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.black38, borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Icon(Icons.auto_awesome, size: 12, color: Colors.white70),
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedStars, size: 12, color: Colors.white70),
                 ),
               ),
           ],
@@ -594,7 +596,7 @@ class _PhotoDetailSheetState extends ConsumerState<_PhotoDetailSheet> {
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => _analyzePhoto(force: true),
-              icon: const Icon(Icons.refresh),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('Re-analyze'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 40),
@@ -605,7 +607,7 @@ class _PhotoDetailSheetState extends ConsumerState<_PhotoDetailSheet> {
             // No analysis yet — show analyze button
             FilledButton.icon(
               onPressed: _analyzePhoto,
-              icon: const Icon(Icons.auto_awesome),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedStars),
               label: const Text('Analyze with AI'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
@@ -618,7 +620,7 @@ class _PhotoDetailSheetState extends ConsumerState<_PhotoDetailSheet> {
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => _showCompareDialog(),
-              icon: const Icon(Icons.compare_arrows),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedExchange01),
               label: const Text('Compare with another photo'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 44),
@@ -711,7 +713,7 @@ class _AnalysisResultCard extends StatelessWidget {
             // Header
             Row(
               children: [
-                Icon(Icons.auto_awesome, color: cs.primary, size: 20),
+                HugeIcon(icon: HugeIcons.strokeRoundedStars, color: cs.primary, size: 20),
                 const SizedBox(width: 8),
                 Text('AI Analysis', style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
@@ -877,7 +879,7 @@ class _ComparisonResult extends StatelessWidget {
     final improving = comparison.changeScore < -0.5;
     final worsening = comparison.changeScore > 0.5;
     final color = improving ? Colors.green : worsening ? Colors.redAccent : Colors.grey;
-    final icon = improving ? Icons.trending_down : worsening ? Icons.trending_up : Icons.trending_flat;
+    final icon = improving ? HugeIcons.strokeRoundedChartDecrease : worsening ? HugeIcons.strokeRoundedChartIncrease : HugeIcons.strokeRoundedMinusSign;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -891,11 +893,11 @@ class _ComparisonResult extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.compare_arrows, size: 16, color: color),
+              HugeIcon(icon: HugeIcons.strokeRoundedExchange01, size: 16, color: color),
               const SizedBox(width: 6),
               Text('Comparison', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
               const Spacer(),
-              Icon(icon, size: 20, color: color),
+              HugeIcon(icon: icon, size: 20, color: color),
               const SizedBox(width: 4),
               Text(comparison.changeLabel,
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),

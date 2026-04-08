@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 import '../../models/social_models.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Displays a row of badge icons from a badge showcase list (IDs).
 class BadgeShowcaseRow extends StatelessWidget {
@@ -171,7 +172,7 @@ class BadgeGrid extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.emoji_events_outlined,
+              HugeIcon(icon: HugeIcons.strokeRoundedAward01,
                   size: 48, color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
               const SizedBox(height: 12),
               Text(

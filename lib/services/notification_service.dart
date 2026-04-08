@@ -142,7 +142,7 @@ const _hydrationChannel = AndroidNotificationDetails(
   channelDescription: 'Reminders to drink water throughout the day',
   importance: Importance.defaultImportance,
   priority: Priority.defaultPriority,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
   actions: [
     AndroidNotificationAction('hydrate_50', '50ml', showsUserInterface: false),
     AndroidNotificationAction('hydrate_100', '100ml', showsUserInterface: false),
@@ -156,7 +156,7 @@ const _mealChannel = AndroidNotificationDetails(
   channelDescription: 'Reminders to log meals at your chosen times',
   importance: Importance.defaultImportance,
   priority: Priority.defaultPriority,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _eczemaChannel = AndroidNotificationDetails(
@@ -165,7 +165,7 @@ const _eczemaChannel = AndroidNotificationDetails(
   channelDescription: 'Alerts when weather conditions may trigger flare-ups',
   importance: Importance.high,
   priority: Priority.high,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _smartChannel = AndroidNotificationDetails(
@@ -174,7 +174,7 @@ const _smartChannel = AndroidNotificationDetails(
   channelDescription: 'Personalized logging suggestions based on your patterns',
   importance: Importance.low,
   priority: Priority.low,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _supplementChannel = AndroidNotificationDetails(
@@ -183,7 +183,7 @@ const _supplementChannel = AndroidNotificationDetails(
   channelDescription: 'Daily reminders to take your supplements',
   importance: Importance.defaultImportance,
   priority: Priority.defaultPriority,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 const _socialChannel = AndroidNotificationDetails(
@@ -192,7 +192,7 @@ const _socialChannel = AndroidNotificationDetails(
   channelDescription: 'Reactions, comments, and buddy requests',
   importance: Importance.high,
   priority: Priority.high,
-  icon: '@mipmap/ic_launcher',
+  icon: '@drawable/ic_notification',
 );
 
 // Social notification ID range: 6000 – 6099
@@ -222,7 +222,7 @@ class NotificationService {
       debugPrint('[Notifications] timezone fallback to UTC: $e');
     }
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@drawable/ic_notification');
     const settings = InitializationSettings(android: android);
     await _plugin.initialize(
       settings,
@@ -283,6 +283,26 @@ class NotificationService {
         'Lab Reports',
         description: 'Lab report upload and analysis updates',
         importance: Importance.high,
+      ),
+    );
+
+    // Eczema & weather alerts channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_eczema',
+        'Eczema & Weather Alerts',
+        description: 'Alerts when weather conditions may trigger flare-ups',
+        importance: Importance.high,
+      ),
+    );
+
+    // Smart suggestions channel
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'qorehealth_smart',
+        'Smart Suggestions',
+        description: 'Personalized logging suggestions based on your patterns',
+        importance: Importance.low,
       ),
     );
 
@@ -746,7 +766,7 @@ class NotificationService {
           channelDescription: 'Lab report upload and analysis updates',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
       payload: '/health/labs',
@@ -769,7 +789,7 @@ class NotificationService {
           channelDescription: 'Lab report upload and analysis updates',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
       payload: '/health/labs',
@@ -791,7 +811,7 @@ class NotificationService {
           channelDescription: 'Health Connect sync updates',
           importance: Importance.low,
           priority: Priority.low,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
           ongoing: true,
           showProgress: true,
           indeterminate: true,
@@ -816,7 +836,7 @@ class NotificationService {
           channelDescription: 'Health Connect sync updates',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
       payload: '/dashboard',
@@ -836,7 +856,7 @@ class NotificationService {
           channelDescription: 'Health Connect sync updates',
           importance: Importance.low,
           priority: Priority.low,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
     );

@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,8 @@ import '../../core/constants.dart';
 import '../../models/dm_models.dart';
 import '../../providers/dm_provider.dart';
 import '../../widgets/social/online_indicator.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../../widgets/themed_spinner.dart';
 
 // ── DM Inbox ──────────────────────────────────────────────────────────────────
 
@@ -22,14 +23,14 @@ class DmInboxScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Messages')),
       body: Builder(builder: (_) {
         if (state.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const ThemedSpinner();
         }
         if (state.error != null && state.conversations.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline, size: 48, color: cs.error),
+                HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 48, color: cs.error),
                 const SizedBox(height: 12),
                 Text('Failed to load messages',
                     style: tt.bodyMedium?.copyWith(color: cs.error)),
@@ -48,7 +49,7 @@ class DmInboxScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.chat_outlined,
+                HugeIcon(icon: HugeIcons.strokeRoundedComment01,
                     size: 64,
                     color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
                 const SizedBox(height: 16),
@@ -261,7 +262,7 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
           // Messages
           Expanded(
             child: chatState.isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const ThemedSpinner()
                 : chatState.messages.isEmpty
                     ? Center(
                         child: Text(
@@ -324,7 +325,7 @@ class _DmChatScreenState extends ConsumerState<DmChatScreen> {
                   const SizedBox(width: 8),
                   IconButton.filled(
                     onPressed: _send,
-                    icon: const Icon(Icons.send_rounded, size: 20),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedSent, size: 20),
                   ),
                 ],
               ),
@@ -397,7 +398,7 @@ class _DmBubble extends StatelessWidget {
                 ),
                 if (isMe && message.isRead) ...[
                   const SizedBox(width: 4),
-                  Icon(Icons.done_all_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                       size: 12,
                       color: cs.primary.withValues(alpha: 0.7)),
                 ],

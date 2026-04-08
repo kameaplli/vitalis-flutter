@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// A compact, stylish day-range slider that replaces fixed 7d/30d/90d buttons.
 /// Lets users pick any range from 1 to 365 days with logarithmic scaling
@@ -94,7 +95,7 @@ class _DaysSliderState extends State<DaysSlider> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.calendar_today_rounded, size: 14, color: cs.outline),
+        HugeIcon(icon: HugeIcons.strokeRoundedCalendar01, size: 14, color: cs.outline),
         const SizedBox(width: 4),
         SizedBox(
           width: 160,

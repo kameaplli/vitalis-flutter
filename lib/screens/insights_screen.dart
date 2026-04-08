@@ -6,6 +6,8 @@ import '../models/insight_data.dart';
 import '../providers/selected_person_provider.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
@@ -76,10 +78,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen>
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           tabs: const [
-            Tab(icon: Icon(Icons.analytics_rounded, size: 18), text: 'Report'),
-            Tab(icon: Icon(Icons.calendar_today, size: 18), text: 'Weekly'),
-            Tab(icon: Icon(Icons.warning_amber, size: 18), text: 'Flare Risk'),
-            Tab(icon: Icon(Icons.psychology, size: 18), text: 'Ask AI'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, size: 18), text: 'Report'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01, size: 18), text: 'Weekly'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedAlert02, size: 18), text: 'Flare Risk'),
+            Tab(icon: HugeIcon(icon: HugeIcons.strokeRoundedBrain, size: 18), text: 'Ask AI'),
           ],
         ),
       ),
@@ -155,7 +157,7 @@ class _HealthReportTab extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.analytics_outlined, size: 48, color: Colors.grey),
+                HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, size: 48, color: Colors.grey),
                 SizedBox(height: 16),
                 Text('Not enough data yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 SizedBox(height: 8),
@@ -186,7 +188,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Insights
               if (insights.isNotEmpty) ...[
-                const _SectionHeader(icon: Icons.lightbulb, title: 'Insights', color: Colors.amber),
+                const _SectionHeader(icon: HugeIcons.strokeRoundedBulb, title: 'Insights', color: Colors.amber),
                 ...insights.map((i) => _ReportCard(
                   title: (i as Map<String, dynamic>)['title'] ?? '',
                   body: i['body'] ?? '',
@@ -198,7 +200,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Correlations
               if (correlations.isNotEmpty) ...[
-                const _SectionHeader(icon: Icons.compare_arrows, title: 'Correlations', color: Colors.deepPurple),
+                const _SectionHeader(icon: HugeIcons.strokeRoundedExchange01, title: 'Correlations', color: Colors.deepPurple),
                 ...correlations.map((c) {
                   final m = c as Map<String, dynamic>;
                   final confidence = (m['confidence'] as num?)?.toInt() ?? 0;
@@ -224,7 +226,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Predictions
               if (predictions.isNotEmpty) ...[
-                const _SectionHeader(icon: Icons.auto_graph, title: 'Predictions', color: Colors.indigo),
+                const _SectionHeader(icon: HugeIcons.strokeRoundedChartLineData01, title: 'Predictions', color: Colors.indigo),
                 ...predictions.map((p) {
                   final m = p as Map<String, dynamic>;
                   return _ReportCard(
@@ -241,7 +243,7 @@ class _HealthReportTab extends ConsumerWidget {
 
               // Recommendations
               if (recommendations.isNotEmpty) ...[
-                const _SectionHeader(icon: Icons.tips_and_updates, title: 'Recommendations', color: Colors.teal),
+                const _SectionHeader(icon: HugeIcons.strokeRoundedBulb, title: 'Recommendations', color: Colors.teal),
                 ...recommendations.map((r) {
                   final m = r as Map<String, dynamic>;
                   final priority = m['priority'] ?? 'medium';
@@ -250,7 +252,7 @@ class _HealthReportTab extends ConsumerWidget {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 6),
                     child: ListTile(
-                      leading: Icon(Icons.check_circle_outline, color: pColor, size: 20),
+                      leading: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: pColor, size: 20),
                       title: Text(m['text'] ?? '', style: const TextStyle(fontSize: 13)),
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -296,7 +298,7 @@ class _SourceBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isAi ? Icons.auto_awesome : Icons.bar_chart, size: 14, color: color),
+            HugeIcon(icon: isAi ? HugeIcons.strokeRoundedStars : HugeIcons.strokeRoundedChartColumn, size: 14, color: color),
             const SizedBox(width: 4),
             Text(isAi ? 'AI-Powered Report' : 'Statistical Report',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
@@ -316,15 +318,15 @@ class _DataSummaryRow extends StatelessWidget {
     if (summary.isEmpty) return const SizedBox.shrink();
     final items = <_SummaryItem>[
       if ((summary['weight_entries'] ?? 0) > 0)
-        _SummaryItem(Icons.monitor_weight, '${summary['weight_entries']}', 'Weight'),
+        _SummaryItem(HugeIcons.strokeRoundedBodyWeight, '${summary['weight_entries']}', 'Weight'),
       if ((summary['symptom_entries'] ?? 0) > 0)
-        _SummaryItem(Icons.thermostat, '${summary['symptom_entries']}', 'Symptoms'),
+        _SummaryItem(HugeIcons.strokeRoundedThermometer, '${summary['symptom_entries']}', 'Symptoms'),
       if ((summary['nutrition_entries'] ?? 0) > 0)
-        _SummaryItem(Icons.restaurant, '${summary['nutrition_entries']}', 'Meals'),
+        _SummaryItem(HugeIcons.strokeRoundedRestaurant01, '${summary['nutrition_entries']}', 'Meals'),
       if ((summary['active_medications'] ?? 0) > 0)
-        _SummaryItem(Icons.medication, '${summary['active_medications']}', 'Meds'),
+        _SummaryItem(HugeIcons.strokeRoundedMedicine01, '${summary['active_medications']}', 'Meds'),
       if ((summary['active_supplements'] ?? 0) > 0)
-        _SummaryItem(Icons.science, '${summary['active_supplements']}', 'Supps'),
+        _SummaryItem(HugeIcons.strokeRoundedTestTube01, '${summary['active_supplements']}', 'Supps'),
     ];
     if (items.isEmpty) return const SizedBox.shrink();
 
@@ -348,7 +350,7 @@ class _DataSummaryRow extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(it.icon, size: 14, color: Colors.grey.shade600),
+                    HugeIcon(icon: it.icon, size: 14, color: Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(it.value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                   ],
@@ -364,14 +366,14 @@ class _DataSummaryRow extends StatelessWidget {
 }
 
 class _SummaryItem {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String value;
   final String label;
   const _SummaryItem(this.icon, this.value, this.label);
 }
 
 class _SectionHeader extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final Color color;
   const _SectionHeader({required this.icon, required this.title, required this.color});
@@ -381,7 +383,7 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(children: [
-        Icon(icon, size: 18, color: color),
+        HugeIcon(icon: icon, size: 18, color: color),
         const SizedBox(width: 6),
         Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
       ]),
@@ -432,7 +434,7 @@ class _WeeklyTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(weeklyInsightProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'weekly insights'),
       data: (insight) {
         if (insight == null) {
@@ -455,7 +457,7 @@ class _WeeklyTab extends ConsumerWidget {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 6),
                   child: ListTile(
-                    leading: Icon(Icons.lightbulb_outline, color: color, size: 20),
+                    leading: HugeIcon(icon: HugeIcons.strokeRoundedBulb, color: color, size: 20),
                     title: Text(r.action, style: const TextStyle(fontSize: 13)),
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -497,7 +499,7 @@ class _InsightCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.insights, size: 18, color: cs.primary),
+                HugeIcon(icon: HugeIcons.strokeRoundedIdea01, size: 18, color: cs.primary),
                 const SizedBox(width: 8),
                 Expanded(child: Text(item.title,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
@@ -522,7 +524,7 @@ class _FlareRiskTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(flareRiskPredictionProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => FriendlyError(error: e, context: 'flare risk'),
       data: (risk) {
         if (risk == null) {
@@ -585,7 +587,7 @@ class _FlareRiskTab extends ConsumerWidget {
               ...risk.recommendations.map((r) => Card(
                 margin: const EdgeInsets.only(bottom: 6),
                 child: ListTile(
-                  leading: const Icon(Icons.tips_and_updates, size: 20, color: Colors.amber),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 20, color: Colors.amber),
                   title: Text(r, style: const TextStyle(fontSize: 13)),
                 ),
               )),
@@ -636,7 +638,7 @@ class _AskAiTab extends StatelessWidget {
           icon: investigating
               ? const SizedBox(width: 16, height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.psychology),
+              : HugeIcon(icon: HugeIcons.strokeRoundedBrain),
           label: Text(investigating ? 'Analyzing...' : 'Investigate'),
           onPressed: investigating ? null : onInvestigate,
         ),
@@ -649,7 +651,7 @@ class _AskAiTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    Icon(result!.source == 'ai' ? Icons.auto_awesome : Icons.bar_chart,
+                    HugeIcon(icon: result!.source == 'ai' ? HugeIcons.strokeRoundedStars : HugeIcons.strokeRoundedChartColumn,
                         size: 16, color: Colors.purple),
                     const SizedBox(width: 6),
                     Text(result!.source == 'ai' ? 'AI Analysis' : 'Statistical Analysis',
@@ -680,7 +682,7 @@ class _AskAiTab extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(children: [
-                        const Icon(Icons.lightbulb, size: 16, color: Colors.blue),
+                        HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 16, color: Colors.blue),
                         const SizedBox(width: 8),
                         Expanded(child: Text(result!.recommendation!,
                             style: const TextStyle(fontSize: 12))),

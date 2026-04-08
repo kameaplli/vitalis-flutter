@@ -14,6 +14,7 @@ import '../core/api_client.dart';
 import '../core/constants.dart';
 import '../models/grocery_models.dart';
 import '../providers/grocery_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // ── Bulk item state ────────────────────────────────────────────────────────────
 
@@ -60,14 +61,24 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   Future<void> _pickImage(ImageSource source) async {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    final xFile = await _picker.pickImage(
-      source:    source,
-      imageQuality: 85,
-      maxWidth:  2400,
-      maxHeight: 3200,
-    );
+    XFile? xFile;
+    try {
+      xFile = await _picker.pickImage(
+        source:    source,
+        imageQuality: 85,
+        maxWidth:  2400,
+        maxHeight: 3200,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not access ${source == ImageSource.camera ? 'camera' : 'gallery'}: $e')),
+        );
+      }
+      return;
+    }
     if (xFile == null) return;
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     // Try to launch cropper for camera captures so user can trim to receipt
     // boundaries. If cropper fails (some devices), fall back to original image.
@@ -93,14 +104,23 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         if (cropped != null) {
           finalPath = cropped.path;
         }
-        // If cropped == null (user cancelled or cropper failed), use original
       } catch (_) {
         // Cropper failed — use original camera image as-is
       }
     }
+    if (!mounted) return;
+
+    // Verify file exists before using it
+    final file = File(finalPath);
+    if (!file.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image file not found — please try again')),
+      );
+      return;
+    }
 
     setState(() {
-      _image       = File(finalPath);
+      _image       = file;
       _pollStatus  = null;
       _doneReceipt = null;
     });
@@ -112,25 +132,31 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     if (_image == null) return;
     setState(() => _uploading = true);
     try {
+      // Read bytes into memory first — prevents file-deletion race conditions
+      final bytes = await _image!.readAsBytes();
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(_image!.path,
-            filename: 'receipt.jpg'),
+        'file': MultipartFile.fromBytes(bytes, filename: 'receipt.jpg'),
       });
       final res = await apiClient.dio.post(
         ApiConstants.groceryReceipts,
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 90),
+        ),
       );
       final id = res.data['receipt_id'] as String;
+      if (!mounted) return;
       setState(() {
         _pollStatus = 'pending';
         _uploading  = false;
       });
       _startPolling(id);
-    } on DioException catch (e) {
-      setState(() => _uploading = false);
+    } catch (e) {
       if (mounted) {
+        setState(() => _uploading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: ${e.message}')),
+          SnackBar(content: Text('Upload failed: ${e is DioException ? e.message : e}')),
         );
       }
     }
@@ -200,16 +226,27 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (!mounted) return;
       setState(() => _bulkItems[i].status = 'uploading');
       try {
+        final file = File(_bulkItems[i].path);
+        if (!file.existsSync()) throw Exception('File no longer exists');
+        final bytes = await file.readAsBytes();
         final formData = FormData.fromMap({
-          'file': await MultipartFile.fromFile(
-              _bulkItems[i].path, filename: 'receipt.jpg'),
+          'file': MultipartFile.fromBytes(bytes, filename: 'receipt_$i.jpg'),
         });
-        await apiClient.dio.post(ApiConstants.groceryReceipts, data: formData);
+        await apiClient.dio.post(
+          ApiConstants.groceryReceipts,
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 90),
+          ),
+        );
+        if (!mounted) return;
         setState(() {
           _bulkItems[i].status = 'done';
           _bulkDone++;
         });
       } catch (e) {
+        if (!mounted) return;
         setState(() {
           _bulkItems[i].status = 'failed';
           _bulkItems[i].error  = e.toString();
@@ -309,7 +346,7 @@ class _PickView extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.receipt_long_outlined, size: 80, color: cs.outline),
+                  HugeIcon(icon: HugeIcons.strokeRoundedReceiptDollar, size: 80, color: cs.outline),
                   const SizedBox(height: 24),
                   const Text('Take a photo of your grocery receipt',
                       textAlign: TextAlign.center,
@@ -320,7 +357,7 @@ class _PickView extends StatelessWidget {
                       Expanded(
                         child: FilledButton.icon(
                           onPressed: onCamera,
-                          icon: const Icon(Icons.camera_alt_outlined),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
                           label: const Text('Camera'),
                         ),
                       ),
@@ -328,7 +365,7 @@ class _PickView extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: onGallery,
-                          icon: const Icon(Icons.photo_library_outlined),
+                          icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01),
                           label: const Text('Gallery'),
                         ),
                       ),
@@ -339,7 +376,7 @@ class _PickView extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: onMultipleUpload,
-                      icon: const Icon(Icons.photo_library_outlined),
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01),
                       label: const Text('Upload Multiple Bills'),
                     ),
                   ),
@@ -358,7 +395,7 @@ class _PickView extends StatelessWidget {
               children: [
                 OutlinedButton.icon(
                   onPressed: uploading ? null : onGallery,
-                  icon: const Icon(Icons.swap_horiz),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedExchange01),
                   label: const Text('Change'),
                 ),
                 const SizedBox(width: 12),
@@ -370,7 +407,7 @@ class _PickView extends StatelessWidget {
                             width: 16, height: 16,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.cloud_upload_outlined),
+                        : HugeIcon(icon: HugeIcons.strokeRoundedUpload01),
                     label: Text(uploading ? 'Uploading…' : 'Upload Receipt'),
                   ),
                 ),
@@ -434,7 +471,7 @@ class _FailedView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            HugeIcon(icon: HugeIcons.strokeRoundedAlert01, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             const Text('Processing failed',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -452,7 +489,7 @@ class _FailedView extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh),
               label: const Text('Try Again'),
             ),
           ],
@@ -484,7 +521,7 @@ class _DoneView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              const Icon(Icons.check_circle, color: Colors.green),
+              HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.green),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -542,7 +579,7 @@ class _DoneView extends StatelessWidget {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: onConfirm,
-              icon: const Icon(Icons.check),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
               label: const Text('Done'),
             ),
           ),
@@ -622,10 +659,10 @@ class _BulkView extends StatelessWidget {
             itemBuilder: (ctx, i) {
               final item = items[i];
               Color badgeColor = Colors.grey;
-              IconData badgeIcon = Icons.hourglass_empty;
-              if (item.status == 'done')      { badgeColor = Colors.green;  badgeIcon = Icons.check_circle; }
-              if (item.status == 'failed')    { badgeColor = Colors.red;    badgeIcon = Icons.error; }
-              if (item.status == 'uploading') { badgeColor = cs.primary;    badgeIcon = Icons.upload; }
+              List<List<dynamic>> badgeIcon = HugeIcons.strokeRoundedHourglass;
+              if (item.status == 'done')      { badgeColor = Colors.green;  badgeIcon = HugeIcons.strokeRoundedCheckmarkCircle01; }
+              if (item.status == 'failed')    { badgeColor = Colors.red;    badgeIcon = HugeIcons.strokeRoundedAlert01; }
+              if (item.status == 'uploading') { badgeColor = cs.primary;    badgeIcon = HugeIcons.strokeRoundedUpload01; }
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -644,7 +681,7 @@ class _BulkView extends StatelessWidget {
                       padding: const EdgeInsets.all(2),
                       decoration: const BoxDecoration(
                           color: Colors.white, shape: BoxShape.circle),
-                      child: Icon(badgeIcon, size: 16, color: badgeColor),
+                      child: HugeIcon(icon: badgeIcon, size: 16, color: badgeColor),
                     ),
                   ),
                 ],
@@ -659,7 +696,7 @@ class _BulkView extends StatelessWidget {
             child: allDone
                 ? FilledButton.icon(
                     onPressed: onDone,
-                    icon: const Icon(Icons.check),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
                     label: const Text('Done'),
                   )
                 : FilledButton.icon(
@@ -669,7 +706,7 @@ class _BulkView extends StatelessWidget {
                             width: 16, height: 16,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.cloud_upload_outlined),
+                        : HugeIcon(icon: HugeIcons.strokeRoundedUpload01),
                     label: Text(uploading ? 'Uploading…' : 'Upload All'),
                   ),
           ),

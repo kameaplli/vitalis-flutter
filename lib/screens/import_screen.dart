@@ -8,6 +8,8 @@ import '../core/constants.dart';
 import '../models/sync_models.dart';
 import '../providers/sync_provider.dart';
 import '../services/health_import_service.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
@@ -42,7 +44,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         title: Text(_showHistory ? 'Import History' : 'Import Health Data'),
         actions: [
           IconButton(
-            icon: Icon(_showHistory ? Icons.add_rounded : Icons.history_rounded),
+            icon: HugeIcon(icon: _showHistory ? HugeIcons.strokeRoundedAdd01 : HugeIcons.strokeRoundedClock01, size: 24),
             tooltip: _showHistory ? 'New Import' : 'Import History',
             onPressed: () => setState(() {
               _showHistory = !_showHistory;
@@ -102,7 +104,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: _selectedFormat != null ? () => setState(() => _step = 1) : null,
-          icon: const Icon(Icons.arrow_forward_rounded),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01),
           label: const Text('Continue'),
         ),
       ],
@@ -126,10 +128,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         if (_filePath != null) ...[
           Card(
             child: ListTile(
-              leading: Icon(Icons.insert_drive_file_rounded, color: cs.primary),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedFile01, color: cs.primary),
               title: Text(_fileName ?? 'Selected file'),
               trailing: IconButton(
-                icon: const Icon(Icons.close_rounded),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01),
                 onPressed: () => setState(() {
                   _filePath = null;
                   _fileName = null;
@@ -141,7 +143,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         ],
         OutlinedButton.icon(
           onPressed: _pickFile,
-          icon: const Icon(Icons.upload_file_rounded),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedUpload01),
           label: Text(_filePath == null ? 'Choose File' : 'Change File'),
         ),
         const SizedBox(height: 24),
@@ -154,7 +156,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
             const Spacer(),
             FilledButton.icon(
               onPressed: _filePath != null ? _analyzeFile : null,
-              icon: const Icon(Icons.arrow_forward_rounded),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01),
               label: const Text('Analyze'),
             ),
           ],
@@ -206,7 +208,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: cs.onTertiaryContainer),
+                  HugeIcon(icon: HugeIcons.strokeRoundedInformationCircle, color: cs.onTertiaryContainer),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -231,7 +233,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
             const Spacer(),
             FilledButton.icon(
               onPressed: _startImport,
-              icon: const Icon(Icons.play_arrow_rounded),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedPlay),
               label: const Text('Start Import'),
             ),
           ],
@@ -311,7 +313,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         const SizedBox(height: 24),
         OutlinedButton.icon(
           onPressed: _cancelImport,
-          icon: const Icon(Icons.stop_rounded),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedStop),
           label: const Text('Cancel Import'),
           style: OutlinedButton.styleFrom(foregroundColor: cs.error),
         ),
@@ -329,12 +331,11 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       key: const ValueKey('step4'),
       padding: const EdgeInsets.all(20),
       children: [
-        Icon(
-          isSuccess
-              ? Icons.check_circle_rounded
+        HugeIcon(icon: 
+          isSuccess ? HugeIcons.strokeRoundedCheckmarkCircle01
               : _cancelled
-                  ? Icons.cancel_rounded
-                  : Icons.warning_rounded,
+                  ? HugeIcons.strokeRoundedCancel01
+                  : HugeIcons.strokeRoundedAlert02,
           size: 64,
           color: isSuccess
               ? cs.primary
@@ -398,7 +399,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         if (p != null && p.insertedCount > 0 && _jobId != null) ...[
           OutlinedButton.icon(
             onPressed: _rollback,
-            icon: const Icon(Icons.undo_rounded),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedUndo),
             label: const Text('Undo Import'),
             style: OutlinedButton.styleFrom(foregroundColor: cs.error),
           ),
@@ -406,7 +407,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         ],
         FilledButton.icon(
           onPressed: _resetState,
-          icon: const Icon(Icons.add_rounded),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
           label: const Text('Import More Data'),
         ),
       ],
@@ -418,7 +419,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Widget _buildHistory(ColorScheme cs, TextTheme tt) {
     final jobsAsync = ref.watch(importJobsProvider);
     return jobsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const ThemedSpinner(),
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -432,7 +433,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.cloud_upload_rounded, size: 64, color: cs.outline),
+                HugeIcon(icon: HugeIcons.strokeRoundedUpload01, size: 64, color: cs.outline),
                 const SizedBox(height: 12),
                 Text('No imports yet', style: tt.titleMedium),
                 const SizedBox(height: 8),
@@ -678,7 +679,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.lightbulb_outline_rounded, size: 20, color: cs.primary),
+            HugeIcon(icon: HugeIcons.strokeRoundedBulb, size: 20, color: cs.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(hints, style: tt.bodySmall),
@@ -729,7 +730,7 @@ class _StepIndicator extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: i < currentStep
-                  ? Icon(Icons.check_rounded, size: 16, color: cs.onPrimary)
+                  ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 16, color: cs.onPrimary)
                   : Text(
                       '${i + 1}',
                       style: tt.labelSmall?.copyWith(
@@ -767,19 +768,19 @@ class _SourceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (icon, subtitle) = switch (format) {
       ImportFormat.appleHealthXml => (
-          Icons.apple_rounded,
+          HugeIcons.strokeRoundedApple01,
           'XML/ZIP export from Apple Health app'
         ),
       ImportFormat.mfpCsv => (
-          Icons.restaurant_menu_rounded,
+          HugeIcons.strokeRoundedRestaurant01,
           'CSV export from MyFitnessPal'
         ),
       ImportFormat.cronometerCsv => (
-          Icons.science_rounded,
+          HugeIcons.strokeRoundedTestTube01,
           'CSV export with 80+ nutrient columns'
         ),
       ImportFormat.fitbitJson => (
-          Icons.watch_rounded,
+          HugeIcons.strokeRoundedSmartWatch01,
           'JSON archive from Fitbit data export'
         ),
     };
@@ -795,11 +796,11 @@ class _SourceCard extends StatelessWidget {
         ),
         color: isSelected ? cs.primaryContainer.withValues(alpha: 0.3) : null,
         child: ListTile(
-          leading: Icon(icon, color: isSelected ? cs.primary : cs.onSurfaceVariant),
+          leading: HugeIcon(icon: icon, color: isSelected ? cs.primary : cs.onSurfaceVariant),
           title: Text(format.displayName),
           subtitle: Text(subtitle, style: tt.bodySmall),
           trailing: isSelected
-              ? Icon(Icons.check_circle_rounded, color: cs.primary)
+              ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: cs.primary)
               : null,
           onTap: onTap,
           shape: RoundedRectangleBorder(
@@ -855,13 +856,13 @@ class _ImportJobCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('MMM d, y h:mm a');
     final (statusIcon, statusColor, statusLabel) = switch (job.status) {
-      'completed' => (Icons.check_circle_rounded, cs.primary, 'Completed'),
-      'running' => (Icons.sync_rounded, cs.tertiary, 'Running'),
-      'pending' => (Icons.schedule_rounded, cs.outline, 'Pending'),
-      'failed' => (Icons.error_rounded, cs.error, 'Failed'),
-      'cancelled' => (Icons.cancel_rounded, cs.outline, 'Cancelled'),
-      'rolled_back' => (Icons.undo_rounded, cs.outline, 'Rolled Back'),
-      _ => (Icons.help_rounded, cs.outline, job.status),
+      'completed' => (HugeIcons.strokeRoundedCheckmarkCircle01, cs.primary, 'Completed'),
+      'running' => (HugeIcons.strokeRoundedRefresh, cs.tertiary, 'Running'),
+      'pending' => (HugeIcons.strokeRoundedClock01, cs.outline, 'Pending'),
+      'failed' => (HugeIcons.strokeRoundedAlert01, cs.error, 'Failed'),
+      'cancelled' => (HugeIcons.strokeRoundedCancel01, cs.outline, 'Cancelled'),
+      'rolled_back' => (HugeIcons.strokeRoundedUndo, cs.outline, 'Rolled Back'),
+      _ => (HugeIcons.strokeRoundedHelpCircle, cs.outline, job.status),
     };
 
     final sourceLabel = switch (job.source) {
@@ -883,7 +884,7 @@ class _ImportJobCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(statusIcon, size: 20, color: statusColor),
+                HugeIcon(icon: statusIcon, size: 20, color: statusColor),
                 const SizedBox(width: 8),
                 Text(sourceLabel, style: tt.titleSmall),
                 const Spacer(),

@@ -10,6 +10,8 @@ import '../widgets/weight_chart_widget.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/days_slider.dart';
+import 'package:hugeicons/hugeicons.dart';
+import '../widgets/themed_spinner.dart';
 
 /// Standalone route screen — wraps WeightContent in a Scaffold.
 class WeightScreen extends ConsumerWidget {
@@ -35,12 +37,15 @@ class _WeightContentState extends ConsumerState<WeightContent> {
   final _notesCtrl = TextEditingController();
   bool _isSaving = false;
 
-  static const _minWeight = 20.0;
-  static const _maxWeight = 250.0;
-  static const _step = 0.05; // 50 grams
-
-  double _weight = 70.0;
+  // Always stored in kg internally
+  double _weightKg = 70.0;
+  bool _useLbs = false;
   bool _initialized = false;
+
+  // Ranges in kg
+  static const _minKg = 20.0;
+  static const _maxKg = 250.0;
+  static const _lbsPerKg = 2.20462262;
 
   @override
   void dispose() {
@@ -52,10 +57,13 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     if (_initialized || idealWeight == null) return;
     _initialized = true;
     setState(() {
-      _weight = (idealWeight / _step).round() * _step;
-      _weight = _weight.clamp(_minWeight, _maxWeight);
+      _weightKg = (idealWeight * 10).round() / 10.0;
+      _weightKg = _weightKg.clamp(_minKg, _maxKg);
     });
   }
+
+  double get _displayWeight => _useLbs ? _weightKg * _lbsPerKg : _weightKg;
+  String get _unitLabel => _useLbs ? 'lbs' : 'kg';
 
   Future<void> _logWeight() async {
     setState(() => _isSaving = true);
@@ -63,7 +71,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
       final person = ref.read(selectedPersonProvider);
       final famId = person == 'self' ? null : person;
       await apiClient.dio.post(ApiConstants.weightLog, data: {
-        'weight': _weight,
+        'weight': _weightKg, // always stored in kg
         'notes': _notesCtrl.text,
         if (famId != null) 'family_member_id': famId,
       });
@@ -92,6 +100,8 @@ class _WeightContentState extends ConsumerState<WeightContent> {
     final cs = Theme.of(context).colorScheme;
 
     _initToIdealWeight(histAsync.valueOrNull?.idealWeight);
+    final displayVal = _displayWeight;
+    final displayStr = displayVal.toStringAsFixed(1);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -129,7 +139,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   skipLoadingOnReload: true,
                   loading: () => const SizedBox(
                     height: 280,
-                    child: Center(child: CircularProgressIndicator()),
+                    child: const ThemedSpinner(),
                   ),
                   error: (e, _) => SizedBox(
                     height: 280,
@@ -192,7 +202,7 @@ class _WeightContentState extends ConsumerState<WeightContent> {
 
             const SizedBox(height: 20),
 
-            // ── Circular dial weight picker ──────────────────────────────────
+            // ── Wheel weight picker ────────────────────────────────────────
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -205,25 +215,54 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.monitor_weight_outlined, color: cs.primary, size: 20),
+                        HugeIcon(icon: HugeIcons.strokeRoundedBodyWeight, color: cs.primary, size: 20),
                         const SizedBox(width: 8),
                         Text('Log Weight', style: Theme.of(context).textTheme.titleSmall),
+                        const Spacer(),
+                        // Unit toggle
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('kg')),
+                            ButtonSegment(value: true, label: Text('lbs')),
+                          ],
+                          selected: {_useLbs},
+                          onSelectionChanged: (v) => setState(() => _useLbs = v.first),
+                          style: ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
 
-                    // Scroll weight picker
-                    _WeightScrollPicker(
-                      weight: _weight,
-                      minWeight: _minWeight,
-                      maxWeight: _maxWeight,
+                    // Weight display
+                    Text(
+                      '$displayStr $_unitLabel',
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                        color: cs.primary,
+                      ),
+                    ),
+                    if (_useLbs)
+                      Text(
+                        '${_weightKg.toStringAsFixed(1)} kg',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+
+                    const SizedBox(height: 4),
+
+                    // Wheel picker
+                    _WeightWheelPicker(
+                      weightKg: _weightKg,
+                      useLbs: _useLbs,
                       primaryColor: cs.primary,
-                      onSurfaceColor: cs.onSurface,
-                      outlineColor: cs.outlineVariant,
-                      onChanged: (w) {
-                        setState(() => _weight = w);
-                        HapticFeedback.selectionClick();
-                      },
+                      onChanged: (kg) => setState(() => _weightKg = kg),
                     ),
 
                     const SizedBox(height: 12),
@@ -245,8 +284,8 @@ class _WeightContentState extends ConsumerState<WeightContent> {
                           ? const SizedBox(
                               width: 18, height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check_rounded),
-                      label: Text('Log ${_weight.toStringAsFixed(1)} kg'),
+                          : HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
+                      label: Text('Log $displayStr $_unitLabel'),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(double.infinity, 52),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -266,149 +305,189 @@ class _WeightContentState extends ConsumerState<WeightContent> {
   }
 }
 
-// ─── Weight Slider Picker ─────────────────────────────────────────────────────
+// ─── Weight Wheel Picker ──────────────────────────────────────────────────────
 
-class _WeightScrollPicker extends StatelessWidget {
-  final double weight;
-  final double minWeight;
-  final double maxWeight;
+/// Two-wheel weight picker: whole units + decimal tenths.
+/// Supports kg and lbs — always converts to kg via onChanged.
+class _WeightWheelPicker extends StatefulWidget {
+  final double weightKg;
+  final bool useLbs;
   final Color primaryColor;
-  final Color onSurfaceColor;
-  final Color outlineColor;
   final ValueChanged<double> onChanged;
 
-  const _WeightScrollPicker({
-    required this.weight,
-    required this.minWeight,
-    required this.maxWeight,
+  const _WeightWheelPicker({
+    required this.weightKg,
+    required this.useLbs,
     required this.primaryColor,
-    required this.onSurfaceColor,
-    required this.outlineColor,
     required this.onChanged,
   });
 
-  void _adjust(double delta) {
-    final newW = (weight + delta).clamp(minWeight, maxWeight);
-    onChanged(double.parse(newW.toStringAsFixed(1)));
+  @override
+  State<_WeightWheelPicker> createState() => _WeightWheelPickerState();
+}
+
+class _WeightWheelPickerState extends State<_WeightWheelPicker> {
+  static const _itemExtent = 48.0;
+  static const _kgPerLb = 0.45359237;
+  static const _lbsPerKg = 2.20462262;
+
+  // kg range: 20.0 – 250.0, lbs range: 44.0 – 551.0
+  static const _minKg = 20;
+  static const _maxKg = 250;
+  static const _minLbs = 44;
+  static const _maxLbs = 551;
+
+  late FixedExtentScrollController _wholeCtrl;
+  late FixedExtentScrollController _decimalCtrl;
+  bool _suppressing = false;
+
+  int _wholeMin = _minKg;
+  int _wholeMax = _maxKg;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupControllers();
+  }
+
+  void _setupControllers() {
+    final display = widget.useLbs ? widget.weightKg * _lbsPerKg : widget.weightKg;
+    _wholeMin = widget.useLbs ? _minLbs : _minKg;
+    _wholeMax = widget.useLbs ? _maxLbs : _maxKg;
+    final whole = display.truncate().clamp(_wholeMin, _wholeMax);
+    final decimal = ((display - display.truncate()) * 10).round().clamp(0, 9);
+    _wholeCtrl = FixedExtentScrollController(initialItem: whole - _wholeMin);
+    _decimalCtrl = FixedExtentScrollController(initialItem: decimal);
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Snap to 0.1 kg (100g) for clean display
-    final divisions = ((maxWeight - minWeight) * 10).round();
-
-    return Column(
-      children: [
-        // Current weight display
-        Text(
-          weight.toStringAsFixed(1),
-          style: TextStyle(
-            fontSize: 44,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.5,
-            color: primaryColor,
-          ),
-        ),
-        Text(
-          'kg',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: onSurfaceColor.withValues(alpha: 0.5),
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Fine adjustment buttons: -0.1 / -1 / +1 / +0.1
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _AdjustButton(label: '-1', onTap: () => _adjust(-1)),
-            const SizedBox(width: 8),
-            _AdjustButton(label: '-0.1', onTap: () => _adjust(-0.1)),
-            const SizedBox(width: 24),
-            _AdjustButton(label: '+0.1', onTap: () => _adjust(0.1)),
-            const SizedBox(width: 8),
-            _AdjustButton(label: '+1', onTap: () => _adjust(1)),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        // Slider
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: primaryColor,
-            inactiveTrackColor: primaryColor.withValues(alpha: 0.15),
-            thumbColor: primaryColor,
-            overlayColor: primaryColor.withValues(alpha: 0.12),
-            trackHeight: 6,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-          ),
-          child: Slider(
-            value: weight.clamp(minWeight, maxWeight),
-            min: minWeight,
-            max: maxWeight,
-            divisions: divisions,
-            onChanged: (v) {
-              onChanged(double.parse(v.toStringAsFixed(1)));
-            },
-          ),
-        ),
-
-        // Min/Max labels
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${minWeight.toInt()} kg',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: onSurfaceColor.withValues(alpha: 0.4),
-                ),
-              ),
-              Text(
-                '${maxWeight.toInt()} kg',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: onSurfaceColor.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  void didUpdateWidget(covariant _WeightWheelPicker old) {
+    super.didUpdateWidget(old);
+    if (old.useLbs != widget.useLbs) {
+      _wholeCtrl.dispose();
+      _decimalCtrl.dispose();
+      _setupControllers();
+    }
   }
-}
 
-class _AdjustButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
+  void _onWheelChanged() {
+    if (_suppressing) return;
+    _suppressing = true;
+    final whole = _wholeCtrl.selectedItem + _wholeMin;
+    final decimal = _decimalCtrl.selectedItem % 10;
+    final displayVal = whole + decimal / 10.0;
+    final kg = widget.useLbs ? displayVal * _kgPerLb : displayVal;
+    final clamped = kg.clamp(20.0, 250.0);
+    widget.onChanged(double.parse(clamped.toStringAsFixed(1)));
+    HapticFeedback.selectionClick();
+    _suppressing = false;
+  }
 
-  const _AdjustButton({required this.label, required this.onTap});
+  @override
+  void dispose() {
+    _wholeCtrl.dispose();
+    _decimalCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
+    final wholeCount = _wholeMax - _wholeMin + 1;
+
+    return SizedBox(
+      height: _itemExtent * 5,
+      child: Stack(
+        children: [
+          // Selection highlight bar
+          Center(
+            child: Container(
+              height: _itemExtent,
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: widget.primaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: widget.primaryColor.withValues(alpha: 0.3)),
+              ),
             ),
           ),
-        ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Whole number wheel
+              SizedBox(
+                width: 80,
+                child: ListWheelScrollView.useDelegate(
+                  controller: _wholeCtrl,
+                  itemExtent: _itemExtent,
+                  physics: const FixedExtentScrollPhysics(),
+                  diameterRatio: 1.8,
+                  perspective: 0.003,
+                  onSelectedItemChanged: (_) => _onWheelChanged(),
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: wholeCount,
+                    builder: (ctx, i) {
+                      final val = i + _wholeMin;
+                      return Center(
+                        child: Text(
+                          '$val',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              // Decimal dot
+              Text(
+                '.',
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  color: cs.onSurface,
+                ),
+              ),
+              // Decimal wheel (0-9)
+              SizedBox(
+                width: 50,
+                child: ListWheelScrollView.useDelegate(
+                  controller: _decimalCtrl,
+                  itemExtent: _itemExtent,
+                  physics: const FixedExtentScrollPhysics(),
+                  diameterRatio: 1.8,
+                  perspective: 0.003,
+                  onSelectedItemChanged: (_) => _onWheelChanged(),
+                  childDelegate: ListWheelChildLoopingListDelegate(
+                    children: List.generate(10, (i) => Center(
+                      child: Text(
+                        '$i',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    )),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Unit label
+              Text(
+                widget.useLbs ? 'lbs' : 'kg',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

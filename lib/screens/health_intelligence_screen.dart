@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
 
 import '../models/health_intelligence.dart';
@@ -16,6 +17,38 @@ import '../core/constants.dart';
 import '../widgets/shimmer_placeholder.dart';
 import '../widgets/friendly_error.dart';
 import 'health_twin_engine_tabs.dart';
+import '../widgets/themed_spinner.dart';
+
+// ── Helpers: extract human-readable text from raw maps ──────────────────────
+
+/// Turn a correlation map into a friendly sentence.
+/// Backend sends: {factor_a, factor_b, relationship} or {description}.
+String _friendlyCorrelation(Map<String, dynamic> corr) {
+  if (corr['description'] != null) return corr['description'].toString();
+  final a = corr['factor_a']?.toString();
+  final b = corr['factor_b']?.toString();
+  final rel = corr['relationship']?.toString();
+  if (a != null && b != null && rel != null) return '$a and $b — $rel';
+  if (a != null && b != null) return '$a is linked to $b';
+  return corr.values.whereType<String>().join(' — ');
+}
+
+/// Turn a recommendation map into a friendly sentence.
+/// Backend sends: {action, priority, category} or {text} or {description}.
+String _friendlyRecommendation(Map<String, dynamic> rec) {
+  return rec['text']?.toString() ??
+      rec['description']?.toString() ??
+      rec['action']?.toString() ??
+      rec.values.whereType<String>().join(' — ');
+}
+
+/// Turn a food recommendation map into a name.
+String _friendlyFoodName(Map<String, dynamic> rec) {
+  return rec['food_name']?.toString() ??
+      rec['name']?.toString() ??
+      rec['food']?.toString() ??
+      rec.values.whereType<String>().first;
+}
 
 // ── Health Intelligence Screen ──────────────────────────────────────────────
 
@@ -79,12 +112,12 @@ class _HealthIntelligenceScreenState
         title: Text('Health Intelligence',
             style: theme.textTheme.titleLarge),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 24.0, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedRefresh, size: 24.0, color: theme.colorScheme.onSurface),
             tooltip: 'Refresh',
             onPressed: _refresh,
           ),
@@ -215,10 +248,10 @@ class _DigitalTwinTab extends ConsumerWidget {
       ),
       data: (twin) {
         if (twin == null) {
-          return const EmptyState(
+          return EmptyState(
             message:
                 'No data available for today.\nLog some meals or hydration to see your Digital Twin.',
-            icon: Icons.person_search_rounded,
+            icon: HugeIcons.strokeRoundedUserSearch01,
           );
         }
         return ListView(
@@ -226,6 +259,9 @@ class _DigitalTwinTab extends ConsumerWidget {
           children: [
             const SizedBox(height: 12),
             _CompletenessGauge(score: twin.completenessScore),
+            const SizedBox(height: 16),
+            // Actionable insight summary
+            _TwinInsightSummary(twin: twin),
             const SizedBox(height: 20),
             _MacroProgressSection(macros: twin.macros),
             const SizedBox(height: 20),
@@ -257,7 +293,15 @@ class _DigitalTwinTab extends ConsumerWidget {
               skipLoadingOnReload: true,
               loading: () => const ShimmerCard(height: 120),
               error: (_, __) => const SizedBox.shrink(),
-              data: (trend) => _TwinSparkline(entries: trend),
+              data: (trend) => Column(
+                children: [
+                  _TwinSparkline(entries: trend),
+                  if (trend.length >= 3) ...[
+                    const SizedBox(height: 12),
+                    _TrendProjection(entries: trend),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 40),
           ],
@@ -279,6 +323,220 @@ class _TwinLoadingSkeleton extends StatelessWidget {
         ShimmerCard(height: 80),
         ShimmerCard(height: 120),
       ]),
+    );
+  }
+}
+
+// ── Twin Insight Summary (plain-language, educational) ───────────────────────
+
+class _TwinInsightSummary extends StatelessWidget {
+  final DailyTwin twin;
+  const _TwinInsightSummary({required this.twin});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tips = <_InsightTip>[];
+
+    // Completeness
+    if (twin.completenessScore < 50) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedAlert02,
+        color: Colors.orange,
+        text:
+            'You\'ve only logged about half of what your body needs today. Try adding a balanced meal to fill the gaps.',
+      ));
+    } else if (twin.completenessScore >= 80) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        color: Colors.green,
+        text: 'Great job! You\'re covering most of your daily nutrition needs.',
+      ));
+    }
+
+    // Hydration
+    if (twin.hydrationPercent < 50) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedDroplet,
+        color: Colors.blue,
+        text:
+            'Your water intake is low. Staying hydrated helps energy, focus, and digestion.',
+      ));
+    }
+
+    // Top gaps — plain language
+    if (twin.topGaps.isNotEmpty) {
+      final gapNames =
+          twin.topGaps.take(3).map((g) => g.displayName).join(', ');
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedArrowDown01,
+        color: Colors.red.shade400,
+        text:
+            'You\'re running low on $gapNames. Adding leafy greens, nuts, or whole grains can help.',
+      ));
+    }
+
+    // Excessive nutrients
+    if (twin.topExcesses.isNotEmpty) {
+      final exNames =
+          twin.topExcesses.take(2).map((g) => g.displayName).join(', ');
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedArrowUp01,
+        color: Colors.amber.shade700,
+        text:
+            'You\'re getting more $exNames than recommended. Consider balancing your portions.',
+      ));
+    }
+
+    // Macros
+    for (final entry in twin.macros.entries) {
+      if (entry.value.percent > 150) {
+        final name = entry.key[0].toUpperCase() + entry.key.substring(1);
+        tips.add(_InsightTip(
+          icon: HugeIcons.strokeRoundedInformationCircle,
+          color: Colors.amber,
+          text:
+              '$name is well above your daily target. This may add up over time if it continues.',
+        ));
+        break; // Only show one macro warning
+      }
+    }
+
+    if (tips.isEmpty) {
+      tips.add(_InsightTip(
+        icon: HugeIcons.strokeRoundedThumbsUp,
+        color: cs.primary,
+        text: 'Everything looks balanced so far. Keep it up!',
+      ));
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: cs.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'What your body is telling you',
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            ...tips.map((tip) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HugeIcon(icon: tip.icon, size: 18, color: tip.color),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          tip.text,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightTip {
+  final List<List<dynamic>> icon;
+  final Color color;
+  final String text;
+  const _InsightTip(
+      {required this.icon, required this.color, required this.text});
+}
+
+// ── Trend Projection (what happens if this continues) ────────────────────────
+
+class _TrendProjection extends StatelessWidget {
+  final List<TwinTrendEntry> entries;
+  const _TrendProjection({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // Calculate trend direction from recent entries
+    if (entries.length < 3) return const SizedBox.shrink();
+
+    final recent = entries.length > 7 ? entries.sublist(entries.length - 7) : entries;
+    final firstHalf = recent.sublist(0, recent.length ~/ 2);
+    final secondHalf = recent.sublist(recent.length ~/ 2);
+
+    final avgFirst =
+        firstHalf.fold(0.0, (s, e) => s + e.healthScore) / firstHalf.length;
+    final avgSecond =
+        secondHalf.fold(0.0, (s, e) => s + e.healthScore) / secondHalf.length;
+    final delta = avgSecond - avgFirst;
+
+    String message;
+    Color color;
+    List<List<dynamic>> icon;
+
+    if (delta > 3) {
+      message =
+          'Your health score is trending up. If you keep this pace, you\'ll see meaningful improvements within a week.';
+      color = Colors.green;
+      icon = HugeIcons.strokeRoundedArrowUp01;
+    } else if (delta < -3) {
+      message =
+          'Your health score has been dipping lately. Small changes like adding a serving of vegetables or an extra glass of water can turn this around.';
+      color = Colors.red.shade400;
+      icon = HugeIcons.strokeRoundedArrowDown01;
+    } else {
+      message =
+          'Your health score has been steady. To push it higher, try adding variety to your meals or increasing your water intake.';
+      color = Colors.grey;
+      icon = HugeIcons.strokeRoundedArrowRight01;
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: color.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            HugeIcon(icon: icon, size: 20, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'If this trend continues...',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -397,11 +655,11 @@ class _MacroProgressSection extends StatelessWidget {
   final Map<String, MacroStatus> macros;
   const _MacroProgressSection({required this.macros});
 
-  static const _macroMeta = <String, ({IconData icon, Color color, String label})>{
-    'calories': (icon: Icons.local_fire_department_rounded, color: Color(0xFFEF4444), label: 'Calories'),
-    'protein': (icon: Icons.egg_rounded, color: Color(0xFF8B5CF6), label: 'Protein'),
-    'carbs': (icon: Icons.grain_rounded, color: Color(0xFFF59E0B), label: 'Carbs'),
-    'fat': (icon: Icons.water_drop_rounded, color: Color(0xFF3B82F6), label: 'Fat'),
+  static const _macroMeta = <String, ({List<List<dynamic>> icon, Color color, String label})>{
+    'calories': (icon: HugeIcons.strokeRoundedFire, color: Color(0xFFEF4444), label: 'Calories'),
+    'protein': (icon: HugeIcons.strokeRoundedEggs, color: Color(0xFF8B5CF6), label: 'Protein'),
+    'carbs': (icon: HugeIcons.strokeRoundedCorn, color: Color(0xFFF59E0B), label: 'Carbs'),
+    'fat': (icon: HugeIcons.strokeRoundedDroplet, color: Color(0xFF3B82F6), label: 'Fat'),
   };
 
   @override
@@ -435,7 +693,7 @@ class _MacroProgressSection extends StatelessWidget {
 class _MacroRow extends StatelessWidget {
   final String macroKey;
   final MacroStatus status;
-  final ({IconData icon, Color color, String label}) meta;
+  final ({List<List<dynamic>> icon, Color color, String label}) meta;
 
   const _MacroRow({
     required this.macroKey,
@@ -457,7 +715,7 @@ class _MacroRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(meta.icon, size: 16, color: meta.color),
+              HugeIcon(icon: meta.icon, size: 16, color: meta.color),
               const SizedBox(width: 8),
               Text(meta.label, style: text.bodyMedium),
               const Spacer(),
@@ -515,7 +773,7 @@ class _MicronutrientSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.science_rounded, size: 18),
+                HugeIcon(icon: HugeIcons.strokeRoundedTestTube01, size: 18),
                 const SizedBox(width: 8),
                 Text('Micronutrient Status', style: text.titleSmall),
                 const Spacer(),
@@ -606,10 +864,10 @@ class _NutrientGapsList extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(
-              isExcess
-                  ? Icons.warning_amber_rounded
-                  : Icons.trending_down_rounded,
+            HugeIcon(
+              icon: isExcess
+                  ? HugeIcons.strokeRoundedAlert02
+                  : HugeIcons.strokeRoundedChartDecrease,
               size: 18,
               color: isExcess
                   ? const Color(0xFFFF6B00)
@@ -718,7 +976,7 @@ class _HydrationBar extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.water_drop_rounded,
+                HugeIcon(icon: HugeIcons.strokeRoundedDroplet,
                     size: 18, color: Color(0xFF3B82F6)),
                 const SizedBox(width: 8),
                 Text('Hydration', style: text.titleSmall),
@@ -777,7 +1035,7 @@ class _FoodRecommendationsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.restaurant_rounded,
+                HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01,
                     size: 18, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text('Suggested Foods', style: text.titleSmall),
@@ -790,7 +1048,7 @@ class _FoodRecommendationsCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.add_circle_outline_rounded,
+                    HugeIcon(icon: HugeIcons.strokeRoundedAdd01,
                         size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
@@ -798,7 +1056,7 @@ class _FoodRecommendationsCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            rec['food_name']?.toString() ?? rec.toString(),
+                            _friendlyFoodName(rec),
                             style: text.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600),
                           ),
@@ -953,7 +1211,7 @@ class _GoalsTab extends ConsumerWidget {
               bottom: 16,
               child: FloatingActionButton.extended(
                 onPressed: () => _showGoalSetup(context, ref, personId),
-                icon: const Icon(Icons.add_rounded),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
                 label: const Text('Add Goal'),
               ),
             ),
@@ -990,7 +1248,7 @@ class _GoalsEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.flag_rounded,
+            HugeIcon(icon: HugeIcons.strokeRoundedFlag01,
                 size: 64,
                 color: theme.colorScheme.outline.withAlpha(120)),
             const SizedBox(height: 20),
@@ -1019,7 +1277,7 @@ class _GoalsEmptyState extends StatelessWidget {
                   builder: (_) => _GoalSetupSheet(personId: personId),
                 );
               },
-              icon: const Icon(Icons.add_rounded),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01),
               label: const Text('Create Goal'),
             ),
           ],
@@ -1079,25 +1337,25 @@ class _GoalCardState extends State<_GoalCard> {
     }
   }
 
-  IconData get _goalIcon {
+  List<List<dynamic>> get _goalIcon {
     switch (widget.goal.goalType) {
       case 'weight_loss':
       case 'weight_gain':
-        return Icons.monitor_weight_rounded;
+        return HugeIcons.strokeRoundedBodyWeight;
       case 'calories':
-        return Icons.local_fire_department_rounded;
+        return HugeIcons.strokeRoundedFire;
       case 'protein':
-        return Icons.egg_rounded;
+        return HugeIcons.strokeRoundedEggs;
       case 'hydration':
-        return Icons.water_drop_rounded;
+        return HugeIcons.strokeRoundedDroplet;
       case 'exercise':
-        return Icons.fitness_center_rounded;
+        return HugeIcons.strokeRoundedDumbbell01;
       case 'sleep':
-        return Icons.bedtime_rounded;
+        return HugeIcons.strokeRoundedBed;
       case 'nutrient':
-        return Icons.science_rounded;
+        return HugeIcons.strokeRoundedTestTube01;
       default:
-        return Icons.flag_rounded;
+        return HugeIcons.strokeRoundedFlag01;
     }
   }
 
@@ -1121,7 +1379,7 @@ class _GoalCardState extends State<_GoalCard> {
               children: [
                 Row(
                   children: [
-                    Icon(_goalIcon,
+                    HugeIcon(icon: _goalIcon,
                         size: 22, color: theme.colorScheme.primary),
                     const SizedBox(width: 10),
                     Expanded(
@@ -1214,7 +1472,7 @@ class _GoalCardState extends State<_GoalCard> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.lightbulb_outline_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedBulb,
                               size: 16, color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Expanded(
@@ -1239,13 +1497,13 @@ class _GoalCardState extends State<_GoalCard> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
                         children: [
-                          Icon(Icons.arrow_right_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01,
                               size: 16,
                               color: theme.colorScheme.primary),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              rec['text']?.toString() ?? rec.toString(),
+                              _friendlyRecommendation(rec),
                               style: text.bodySmall,
                             ),
                           ),
@@ -1292,7 +1550,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
   // ── Domain-specific goal definitions ──────────────────────────────────────
   static const _categories = <String, _GoalCategory>{
     'weight': _GoalCategory(
-      icon: Icons.monitor_weight_rounded,
+      icon: HugeIcons.strokeRoundedBodyWeight,
       color: Color(0xFFF97316),
       label: 'Weight',
       types: [
@@ -1303,7 +1561,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
       ],
     ),
     'nutrition': _GoalCategory(
-      icon: Icons.restaurant_rounded,
+      icon: HugeIcons.strokeRoundedRestaurant01,
       color: Color(0xFF10B981),
       label: 'Nutrition',
       types: [
@@ -1319,7 +1577,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
       ],
     ),
     'exercise': _GoalCategory(
-      icon: Icons.fitness_center_rounded,
+      icon: HugeIcons.strokeRoundedDumbbell01,
       color: Color(0xFFEF4444),
       label: 'Exercise',
       types: [
@@ -1335,7 +1593,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
       ],
     ),
     'sleep': _GoalCategory(
-      icon: Icons.bedtime_rounded,
+      icon: HugeIcons.strokeRoundedBed,
       color: Color(0xFF8B5CF6),
       label: 'Sleep',
       types: [
@@ -1348,7 +1606,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
       ],
     ),
     'hydration': _GoalCategory(
-      icon: Icons.water_drop_rounded,
+      icon: HugeIcons.strokeRoundedDroplet,
       color: Color(0xFF3B82F6),
       label: 'Hydration',
       types: [
@@ -1358,7 +1616,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
       ],
     ),
     'wellbeing': _GoalCategory(
-      icon: Icons.self_improvement_rounded,
+      icon: HugeIcons.strokeRoundedYoga01,
       color: Color(0xFFF59E0B),
       label: 'Wellbeing',
       types: [
@@ -1512,10 +1770,10 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
                       child: Row(
                         children: [
                           if (selected)
-                            Icon(Icons.check_circle_rounded,
+                            HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                                 color: _categories[_selectedCategory]!.color, size: 22)
                           else
-                            Icon(Icons.radio_button_off_rounded,
+                            HugeIcon(icon: HugeIcons.strokeRoundedCircle,
                                 color: cs.outline, size: 22),
                           const SizedBox(width: 12),
                           Expanded(
@@ -1603,7 +1861,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
               child: ListTile(
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
-                leading: Icon(Icons.calendar_today_rounded,
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedCalendar01,
                     color: cs.primary),
                 title: Text(
                   _targetDate != null
@@ -1613,7 +1871,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
                 ),
                 trailing: _targetDate != null
                     ? IconButton(
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                         onPressed: () =>
                             setState(() => _targetDate = null),
                       )
@@ -1657,7 +1915,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
                       width: 18, height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.check_rounded),
+                  : HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01),
               label: Text(_saving ? 'Saving...' : 'Create Goal'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
@@ -1673,7 +1931,7 @@ class _GoalSetupSheetState extends ConsumerState<_GoalSetupSheet> {
 // ── Helper widgets & data classes for Goal Setup ─────────────────────────────
 
 class _GoalCategory {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
   final String label;
   final List<_GoalTypeDef> types;
@@ -1729,7 +1987,7 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _CategoryChip extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   final bool selected;
@@ -1759,7 +2017,7 @@ class _CategoryChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: selected ? color : cs.onSurfaceVariant),
+            HugeIcon(icon: icon, size: 18, color: selected ? color : cs.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
@@ -1815,7 +2073,7 @@ class _WeeklySummaryTabState extends ConsumerState<_WeeklySummaryTab> {
           return const EmptyState(
             message:
                 'Your first weekly summary will appear\nafter a week of logging.',
-            icon: Icons.calendar_view_week_rounded,
+            icon: HugeIcons.strokeRoundedCalendar01,
           );
         }
         return _WeeklySummaryBody(
@@ -1852,7 +2110,7 @@ class _WeeklySummaryBody extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(Icons.date_range_rounded,
+                HugeIcon(icon: HugeIcons.strokeRoundedCalendar01,
                     color: theme.colorScheme.primary),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1892,7 +2150,7 @@ class _WeeklySummaryBody extends StatelessWidget {
               child: _MetricTile(
                 label: 'Days Logged',
                 value: '${summary.daysLogged}/7',
-                icon: Icons.calendar_today_rounded,
+                icon: HugeIcons.strokeRoundedCalendar01,
                 color: theme.colorScheme.primary,
               ),
             ),
@@ -1901,7 +2159,7 @@ class _WeeklySummaryBody extends StatelessWidget {
               child: _MetricTile(
                 label: 'Avg Score',
                 value: summary.avgHealthScore.round().toString(),
-                icon: Icons.favorite_rounded,
+                icon: HugeIcons.strokeRoundedFavourite,
                 color: _scoreColor(summary.avgHealthScore),
               ),
             ),
@@ -1910,7 +2168,7 @@ class _WeeklySummaryBody extends StatelessWidget {
               child: _MetricTile(
                 label: 'Avg Cal',
                 value: summary.avgDailyCalories.round().toString(),
-                icon: Icons.local_fire_department_rounded,
+                icon: HugeIcons.strokeRoundedFire,
                 color: const Color(0xFFEF4444),
               ),
             ),
@@ -1948,14 +2206,13 @@ class _WeeklySummaryBody extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.link_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedLink01,
                               size: 16,
                               color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              corr['description']?.toString() ??
-                                  corr.toString(),
+                              _friendlyCorrelation(corr),
                               style: text.bodySmall,
                             ),
                           ),
@@ -1999,7 +2256,7 @@ class _WeeklySummaryBody extends StatelessWidget {
         // Previous weeks link
         TextButton.icon(
           onPressed: onShowHistory,
-          icon: const Icon(Icons.history_rounded, size: 18),
+          icon: HugeIcon(icon: HugeIcons.strokeRoundedClock01, size: 18),
           label: const Text('Previous Weeks'),
         ),
         const SizedBox(height: 40),
@@ -2011,7 +2268,7 @@ class _WeeklySummaryBody extends StatelessWidget {
 class _MetricTile extends StatelessWidget {
   final String label;
   final String value;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Color color;
 
   const _MetricTile({
@@ -2031,7 +2288,7 @@ class _MetricTile extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            Icon(icon, size: 20, color: color),
+            HugeIcon(icon: icon, size: 20, color: color),
             const SizedBox(height: 6),
             Text(
               value,
@@ -2102,13 +2359,13 @@ class _DeltaChip extends StatelessWidget {
     final color =
         isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final icon = isPositive
-        ? Icons.arrow_upward_rounded
-        : Icons.arrow_downward_rounded;
+        ? HugeIcons.strokeRoundedArrowUp01
+        : HugeIcons.strokeRoundedArrowDown01;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: color),
+        HugeIcon(icon: icon, size: 14, color: color),
         const SizedBox(width: 2),
         Text(
           v is double ? v.toStringAsFixed(1) : v.toString(),
@@ -2152,7 +2409,7 @@ class _InsightCardState extends State<_InsightCard> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.lightbulb_rounded,
+                    HugeIcon(icon: HugeIcons.strokeRoundedBulb,
                         size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
@@ -2162,10 +2419,10 @@ class _InsightCardState extends State<_InsightCard> {
                     ),
                     if (confidence > 0)
                       _ConfidenceDot(confidence: confidence),
-                    Icon(
-                      _expanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
+                    HugeIcon(
+                      icon: _expanded
+                          ? HugeIcons.strokeRoundedArrowUp01
+                          : HugeIcons.strokeRoundedArrowDown01,
                       size: 18,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -2248,9 +2505,7 @@ class _RecommendationTile extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  rec['text']?.toString() ??
-                      rec['description']?.toString() ??
-                      rec.toString(),
+                  _friendlyRecommendation(rec),
                   style: text.bodySmall,
                 ),
               ),
@@ -2327,7 +2582,7 @@ class _WeeklyHistoryView extends ConsumerWidget {
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedArrowLeft01, size: 20),
                 onPressed: onBack,
               ),
               Text('Previous Weeks', style: text.titleSmall),
@@ -2351,7 +2606,7 @@ class _WeeklyHistoryView extends ConsumerWidget {
               if (weeks.isEmpty) {
                 return const EmptyState(
                   message: 'No weekly summaries yet.',
-                  icon: Icons.history_rounded,
+                  icon: HugeIcons.strokeRoundedClock01,
                 );
               }
               return ListView.builder(
@@ -2385,8 +2640,7 @@ class _WeeklyHistoryView extends ConsumerWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        trailing: const Icon(
-                            Icons.chevron_right_rounded, size: 20),
+                        trailing: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20),
                         onTap: () => _showWeekDetail(context, w),
                       ),
                     ),
@@ -2475,15 +2729,15 @@ Color _scoreColor(double? score) {
   return const Color(0xFF10B981);
 }
 
-const _dimensionMeta = <String, ({IconData icon, String label})>{
-  'nutrient_adequacy': (icon: Icons.restaurant_rounded, label: 'Nutrient Adequacy'),
-  'hydration': (icon: Icons.water_drop_rounded, label: 'Hydration'),
-  'macro_balance': (icon: Icons.pie_chart_rounded, label: 'Macro Balance'),
-  'sleep': (icon: Icons.bedtime_rounded, label: 'Sleep'),
-  'exercise': (icon: Icons.fitness_center_rounded, label: 'Exercise'),
-  'consistency': (icon: Icons.event_available_rounded, label: 'Consistency'),
-  'weight_stability': (icon: Icons.monitor_weight_rounded, label: 'Weight Stability'),
-  'vitals': (icon: Icons.favorite_rounded, label: 'Vitals'),
+const _dimensionMeta = <String, ({List<List<dynamic>> icon, String label})>{
+  'nutrient_adequacy': (icon: HugeIcons.strokeRoundedRestaurant01, label: 'Nutrient Adequacy'),
+  'hydration': (icon: HugeIcons.strokeRoundedDroplet, label: 'Hydration'),
+  'macro_balance': (icon: HugeIcons.strokeRoundedPieChart, label: 'Macro Balance'),
+  'sleep': (icon: HugeIcons.strokeRoundedBed, label: 'Sleep'),
+  'exercise': (icon: HugeIcons.strokeRoundedDumbbell01, label: 'Exercise'),
+  'consistency': (icon: HugeIcons.strokeRoundedCalendar01, label: 'Consistency'),
+  'weight_stability': (icon: HugeIcons.strokeRoundedBodyWeight, label: 'Weight Stability'),
+  'vitals': (icon: HugeIcons.strokeRoundedFavourite, label: 'Vitals'),
 };
 
 String _prettify(String key) =>
@@ -2500,7 +2754,7 @@ class _ScoreRingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox(
       height: 240,
-      child: Center(child: CircularProgressIndicator()),
+      child: const ThemedSpinner(),
     );
   }
 }
@@ -2571,7 +2825,7 @@ class _ScoreRingSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.data_usage_rounded,
+              HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01,
                   size: 16, color: theme.colorScheme.primary),
               const SizedBox(width: 6),
               Text(
@@ -2665,7 +2919,7 @@ class _DimensionBreakdown extends StatelessWidget {
           const EmptyState(
             message:
                 'No dimension data yet.\nLog more health data to see your scores.',
-            icon: Icons.insights_rounded,
+            icon: HugeIcons.strokeRoundedIdea01,
           ),
         ],
       );
@@ -2709,7 +2963,7 @@ class _DimensionRow extends StatelessWidget {
     final theme = Theme.of(context);
     final text = theme.textTheme;
     final meta = _dimensionMeta[dimensionKey];
-    final icon = meta?.icon ?? Icons.category_rounded;
+    final icon = meta?.icon ?? HugeIcons.strokeRoundedMenu01;
     final label = meta?.label ?? _prettify(dimensionKey);
     final score = dim.score;
     final color = _scoreColor(score);
@@ -2721,7 +2975,7 @@ class _DimensionRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: color),
+            HugeIcon(icon: icon, size: 20, color: color),
             const SizedBox(width: 12),
             Expanded(
               flex: 3,
@@ -2902,7 +3156,7 @@ class _AlertsSection extends ConsumerWidget {
               padding: const EdgeInsets.all(24),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
+                  HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                       color: Color(0xFF10B981), size: 32),
                   const SizedBox(width: 16),
                   Expanded(
@@ -3002,7 +3256,7 @@ class _AlertCardState extends ConsumerState<_AlertCard> {
                         ),
                         if (!_dismissing)
                           IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 18),
+                            icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, size: 18),
                             onPressed: _dismiss,
                             visualDensity: VisualDensity.compact,
                             tooltip: 'Dismiss',
@@ -3034,10 +3288,10 @@ class _AlertCardState extends ConsumerState<_AlertCard> {
                             setState(() => _expanded = !_expanded),
                         child: Row(
                           children: [
-                            Icon(
-                              _expanded
-                                  ? Icons.expand_less_rounded
-                                  : Icons.expand_more_rounded,
+                            HugeIcon(
+                              icon: _expanded
+                                  ? HugeIcons.strokeRoundedArrowUp01
+                                  : HugeIcons.strokeRoundedArrowDown01,
                               size: 18,
                               color: theme.colorScheme.primary,
                             ),
@@ -3111,7 +3365,7 @@ class _ScoreTrendSection extends StatelessWidget {
     final text = theme.textTheme;
 
     String direction = 'stable';
-    IconData directionIcon = Icons.trending_flat_rounded;
+    List<List<dynamic>> directionIcon = HugeIcons.strokeRoundedMinusSign;
     Color directionColor = const Color(0xFFF59E0B);
 
     if (history.length >= 2) {
@@ -3131,11 +3385,11 @@ class _ScoreTrendSection extends StatelessWidget {
         final olderAvg = older.reduce((a, b) => a + b) / older.length;
         if (recentAvg - olderAvg > 3) {
           direction = 'improving';
-          directionIcon = Icons.trending_up_rounded;
+          directionIcon = HugeIcons.strokeRoundedChartIncrease;
           directionColor = const Color(0xFF10B981);
         } else if (olderAvg - recentAvg > 3) {
           direction = 'declining';
-          directionIcon = Icons.trending_down_rounded;
+          directionIcon = HugeIcons.strokeRoundedChartDecrease;
           directionColor = const Color(0xFFEF4444);
         }
       }
@@ -3148,7 +3402,7 @@ class _ScoreTrendSection extends StatelessWidget {
           children: [
             Text('30-Day Trend', style: text.titleMedium),
             const Spacer(),
-            Icon(directionIcon, color: directionColor, size: 20),
+            HugeIcon(icon: directionIcon, color: directionColor, size: 20),
             const SizedBox(width: 4),
             Text(
               direction,
@@ -3303,7 +3557,7 @@ class _RiskProfileCard extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.warning_amber_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedAlert02,
                               size: 16, color: Color(0xFFF59E0B)),
                           const SizedBox(width: 8),
                           Expanded(
@@ -3336,8 +3590,7 @@ class _RiskProfileCard extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Row(
                         children: [
-                          const Icon(
-                              Icons.check_circle_outline_rounded,
+                          HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01,
                               size: 16,
                               color: Color(0xFF10B981)),
                           const SizedBox(width: 8),
@@ -3395,7 +3648,7 @@ class _ClinicalReportButton extends ConsumerWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.description_rounded,
+                    HugeIcon(icon: HugeIcons.strokeRoundedFile01,
                         color: Colors.white, size: 22),
                     const SizedBox(width: 12),
                     Text(
@@ -3417,7 +3670,7 @@ class _ClinicalReportButton extends ConsumerWidget {
           height: 48,
           child: OutlinedButton.icon(
             onPressed: () => _downloadPdf(context, ref),
-            icon: const Icon(Icons.picture_as_pdf_rounded),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedFile01),
             label: const Text('Download PDF Report'),
             style: OutlinedButton.styleFrom(
               shape: RoundedRectangleBorder(
@@ -3514,14 +3767,14 @@ class _ClinicalReportPreview extends ConsumerWidget {
         title: const Text('Clinical Report'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded),
+            icon: HugeIcon(icon: HugeIcons.strokeRoundedFile01),
             tooltip: 'Download PDF',
             onPressed: () => _downloadPdf(context, ref),
           ),
         ],
       ),
       body: reportAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ThemedSpinner(),
         error: (e, _) => Center(
           child: FriendlyError(
             error: e,
@@ -3544,7 +3797,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
               ),
             _ReportSection(
               title: 'Demographics',
-              icon: Icons.person_rounded,
+              icon: HugeIcons.strokeRoundedUser,
               child: report.demographics.isEmpty
                   ? const Text('No demographic data.')
                   : Column(
@@ -3558,7 +3811,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
             ),
             _ReportSection(
               title: 'Executive Summary',
-              icon: Icons.summarize_rounded,
+              icon: HugeIcons.strokeRoundedNote01,
               initiallyExpanded: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3595,7 +3848,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
             ),
             _ReportSection(
               title: 'Nutrient Analysis',
-              icon: Icons.science_rounded,
+              icon: HugeIcons.strokeRoundedTestTube01,
               child: report.nutrientSummary.isEmpty
                   ? const Text('No nutrient data available.')
                   : Column(
@@ -3609,7 +3862,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
             ),
             _ReportSection(
               title: 'Risk Assessment',
-              icon: Icons.shield_rounded,
+              icon: HugeIcons.strokeRoundedShield01,
               child: report.riskFlags.isEmpty
                   ? const Text('No risk flags identified.')
                   : Column(
@@ -3628,7 +3881,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
                             crossAxisAlignment:
                                 CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.flag_rounded,
+                              HugeIcon(icon: HugeIcons.strokeRoundedFlag01,
                                   size: 16, color: color),
                               const SizedBox(width: 8),
                               Expanded(
@@ -3646,7 +3899,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
             ),
             _ReportSection(
               title: 'Recommended Labs',
-              icon: Icons.biotech_rounded,
+              icon: HugeIcons.strokeRoundedMicroscope,
               child: report.recommendedLabs.isEmpty
                   ? const Text('No labs recommended at this time.')
                   : Column(
@@ -3696,7 +3949,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
             ),
             _ReportSection(
               title: 'Questions for Your Doctor',
-              icon: Icons.help_outline_rounded,
+              icon: HugeIcons.strokeRoundedHelpCircle,
               child: report.doctorQuestions.isEmpty
                   ? const Text('No questions generated.')
                   : Column(
@@ -3749,7 +4002,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.picture_as_pdf_rounded,
+                        HugeIcon(icon: HugeIcons.strokeRoundedFile01,
                             color: Colors.white),
                         const SizedBox(width: 12),
                         Text(
@@ -3801,7 +4054,7 @@ class _ClinicalReportPreview extends ConsumerWidget {
 
 class _ReportSection extends StatelessWidget {
   final String title;
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final Widget child;
   final bool initiallyExpanded;
 
@@ -3825,7 +4078,7 @@ class _ReportSection extends StatelessWidget {
             tilePadding: const EdgeInsets.symmetric(horizontal: 16),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             leading:
-                Icon(icon, color: theme.colorScheme.primary, size: 22),
+                HugeIcon(icon: icon, color: theme.colorScheme.primary, size: 22),
             title: Text(
               title,
               style: theme.textTheme.titleSmall

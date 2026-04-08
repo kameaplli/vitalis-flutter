@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/dashboard_card_config_provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// Bottom sheet to customize which dashboard cards are visible and their order.
 /// Supports drag-to-reorder and toggle on/off — like Android quick settings.
@@ -51,7 +52,7 @@ class DashboardCustomizeSheet extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 8, 4),
               child: Row(
                 children: [
-                  Icon(Icons.dashboard_customize_rounded, color: cs.primary, size: 22),
+                  HugeIcon(icon: HugeIcons.strokeRoundedDashboardBrowsing, color: cs.primary, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -70,7 +71,7 @@ class DashboardCustomizeSheet extends ConsumerWidget {
                     child: const Text('Reset'),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close_rounded, color: cs.onSurfaceVariant, size: 20),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedCancel01, color: cs.onSurfaceVariant, size: 20),
                     onPressed: () => Navigator.pop(context),
                     visualDensity: VisualDensity.compact,
                   ),
@@ -216,7 +217,7 @@ class _CardConfigTile extends StatelessWidget {
                 index: index,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Icon(Icons.drag_handle_rounded,
+                  child: HugeIcon(icon: HugeIcons.strokeRoundedMenu01,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.4), size: 20),
                 ),
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 /// "What-if" simulator card.
 /// Shows how avoiding a trigger or improving a factor would change predicted itch.
@@ -20,13 +21,13 @@ class WhatIfScenario {
   final String label;
   final String description;
   final double predictedItch;
-  final IconData icon;
+  final List<List<dynamic>> icon;
 
   const WhatIfScenario({
     required this.label,
     required this.description,
     required this.predictedItch,
-    this.icon = Icons.lightbulb_outline,
+    this.icon = HugeIcons.strokeRoundedBulb,
   });
 }
 
@@ -49,7 +50,7 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.show_chart, size: 20),
+              HugeIcon(icon: HugeIcons.strokeRoundedChartLineData01, size: 20),
               const SizedBox(width: 8),
               const Text('Current avg itch: ', style: TextStyle(fontSize: 13)),
               Text(widget.currentAvgItch.toStringAsFixed(1),
@@ -88,7 +89,7 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
               ),
               child: Row(
                 children: [
-                  Icon(s.icon, size: 20, color: cs.primary),
+                  HugeIcon(icon: s.icon, size: 20, color: cs.primary),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -110,7 +111,7 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
                                 style: TextStyle(fontSize: 12, color: Colors.grey.shade500,
                                     decoration: TextDecoration.lineThrough)),
                             const SizedBox(width: 4),
-                            Icon(Icons.arrow_forward, size: 12, color: Colors.grey.shade400),
+                            HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 12, color: Colors.grey.shade400),
                             const SizedBox(width: 4),
                             Text(s.predictedItch.toStringAsFixed(1),
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
@@ -127,7 +128,7 @@ class _WhatIfSimulatorState extends State<WhatIfSimulator> {
                       ],
                     ),
                   ] else
-                    Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+                    HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, color: Colors.grey.shade400, size: 20),
                 ],
               ),
             ),

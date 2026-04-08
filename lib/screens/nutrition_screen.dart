@@ -22,6 +22,7 @@ import 'nutrition/recent_meals.dart';
 import 'nutrition/food_item_tile.dart';
 import 'nutrition/food_search_sheet.dart';
 import '../widgets/medical_disclaimer.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 // Re-export FoodSearchSheet so existing imports continue to work
 export 'nutrition/food_search_sheet.dart' show FoodSearchSheet;
@@ -73,7 +74,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                       ? const SizedBox(
                           width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Icon(isEditMode ? Icons.check : Icons.restaurant),
+                      : HugeIcon(icon: isEditMode ? HugeIcons.strokeRoundedCheckmarkCircle01 : HugeIcons.strokeRoundedRestaurant01, size: 20),
                   label: Text(
                     isEditMode ? 'Update Meal' : 'Log Meal (${nutrition.selectedFoods.length})',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
@@ -102,7 +103,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
-                      Icon(Icons.search, color: colorScheme.onSurfaceVariant, size: 22),
+                      HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: colorScheme.onSurfaceVariant, size: 22),
                       const SizedBox(width: 12),
                       Text('Search food...',
                           style: TextStyle(
@@ -121,7 +122,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
               children: [
                 Expanded(
                   child: _BigEntryCard(
-                    icon: Icons.qr_code_scanner,
+                    icon: HugeIcons.strokeRoundedQrCode,
                     label: 'Barcode',
                     color: Colors.orange,
                     onTap: () => _showBarcodeScan(context),
@@ -130,7 +131,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _BigEntryCard(
-                    icon: Icons.camera_alt_outlined,
+                    icon: HugeIcons.strokeRoundedCamera01,
                     label: 'Label',
                     color: Colors.green,
                     onTap: () => _showLabelScanOptions(context),
@@ -139,7 +140,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _BigEntryCard(
-                    icon: Icons.restaurant,
+                    icon: HugeIcons.strokeRoundedRestaurant01,
                     label: 'Photo AI',
                     color: Colors.teal,
                     onTap: () => _showPhotoFoodRecognition(context),
@@ -148,7 +149,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _BigEntryCard(
-                    icon: Icons.mic,
+                    icon: HugeIcons.strokeRoundedMic01,
                     label: 'Voice',
                     color: Colors.purple,
                     onTap: () {
@@ -218,7 +219,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                       style: Theme.of(context).textTheme.titleMedium),
                   TextButton.icon(
                     onPressed: () => _showFoodSearch(context),
-                    icon: const Icon(Icons.add, size: 16),
+                    icon: HugeIcon(icon: HugeIcons.strokeRoundedAdd01, size: 16),
                     label: const Text('Add More'),
                   ),
                 ],
@@ -244,7 +245,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(children: [
-                  Icon(Icons.restaurant_outlined, size: 40,
+                  HugeIcon(icon: HugeIcons.strokeRoundedRestaurant01, size: 40,
                       color: colorScheme.outlineVariant),
                   const SizedBox(height: 8),
                   Text('Tap an option above to add food',
@@ -295,7 +296,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       messenger.showSnackBar(
         const SnackBar(
           content: Row(children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.white, size: 20),
             SizedBox(width: 8),
             Text('Meal logged!'),
           ]),
@@ -317,7 +318,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Row(children: [
-          if (ok) const Icon(Icons.check_circle, color: Colors.white, size: 20),
+          if (ok) HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.white, size: 20),
           if (ok) const SizedBox(width: 8),
           Text(ok ? 'Entry updated!' : 'Failed to save'),
         ]),
@@ -367,12 +368,12 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
               title: const Text('Take Photo'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedImage01),
               title: const Text('Choose from Gallery'),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
@@ -501,7 +502,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                   SnackBar(
                     content: Row(
                       children: [
-                        const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                        HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text('${selected.where((s) => s).length} foods added!'),
                       ],
@@ -529,7 +530,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedCamera01),
               title: const Text('Take Photo'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -537,7 +538,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedImage01),
               title: const Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -665,7 +666,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
 // ─── Big entry method card ────────────────────────────────────────────────────
 
 class _BigEntryCard extends StatelessWidget {
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
@@ -698,7 +699,7 @@ class _BigEntryCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: HugeIcon(icon: icon, color: color, size: 24),
               ),
               const SizedBox(height: 8),
               Text(label, style: TextStyle(

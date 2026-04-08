@@ -137,24 +137,31 @@ class PendingMeal {
 class MealSyncState {
   final List<PendingMeal> pendingMeals;
   final Map<String, String> failedMeals; // tempId → error message
+  final List<PendingMeal> failedMealData; // actual meal data for display + retry
 
   const MealSyncState({
     this.pendingMeals = const [],
     this.failedMeals = const {},
+    this.failedMealData = const [],
   });
 
   MealSyncState copyWith({
     List<PendingMeal>? pendingMeals,
     Map<String, String>? failedMeals,
+    List<PendingMeal>? failedMealData,
   }) =>
       MealSyncState(
         pendingMeals: pendingMeals ?? this.pendingMeals,
         failedMeals: failedMeals ?? this.failedMeals,
+        failedMealData: failedMealData ?? this.failedMealData,
       );
 
   /// Get local NutritionEntry objects for merging with server entries.
-  List<NutritionEntry> get localEntries =>
-      pendingMeals.map((m) => m.toLocalEntry()).toList();
+  /// Includes both pending AND failed meals so they remain visible in history.
+  List<NutritionEntry> get localEntries => [
+        ...pendingMeals.map((m) => m.toLocalEntry()),
+        ...failedMealData.map((m) => m.toLocalEntry()),
+      ];
 
   bool get hasPending => pendingMeals.isNotEmpty;
   bool get hasFailures => failedMeals.isNotEmpty;
@@ -165,6 +172,7 @@ class MealSyncState {
 class MealSyncNotifier extends StateNotifier<MealSyncState> {
   final Ref _ref;
   static const _storageKey = 'meal_sync_queue';
+  static const _failedStorageKey = 'meal_sync_failed';
   // Retry intervals: 1 min, 3 min, 5 min
   static const _retryDelays = [
     Duration(minutes: 1),
@@ -183,15 +191,38 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
   Future<void> _loadFromDisk() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Load pending meals
       final raw = prefs.getString(_storageKey);
-      if (raw == null) return;
-      final list = (jsonDecode(raw) as List<dynamic>)
-          .map((e) => PendingMeal.fromJson(e as Map<String, dynamic>))
-          .toList();
-      if (list.isNotEmpty) {
-        state = state.copyWith(pendingMeals: list);
+      final pendingList = raw != null
+          ? (jsonDecode(raw) as List<dynamic>)
+              .map((e) => PendingMeal.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : <PendingMeal>[];
+
+      // Load failed meals
+      final failedRaw = prefs.getString(_failedStorageKey);
+      final failedList = failedRaw != null
+          ? (jsonDecode(failedRaw) as List<dynamic>)
+              .map((e) => PendingMeal.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : <PendingMeal>[];
+
+      // Rebuild failedMeals map from failedMealData
+      final failedMap = <String, String>{};
+      for (final m in failedList) {
+        failedMap[m.tempId] =
+            m.error ?? 'Failed to sync meal. Tap retry or log again.';
+      }
+
+      if (pendingList.isNotEmpty || failedList.isNotEmpty) {
+        state = state.copyWith(
+          pendingMeals: pendingList,
+          failedMealData: failedList,
+          failedMeals: failedMap,
+        );
         // Resume syncing for any pending meals
-        for (final meal in list) {
+        for (final meal in pendingList) {
           if (meal.status != MealSyncStatus.failed) {
             _syncToBackend(meal.tempId);
           }
@@ -203,12 +234,24 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
   Future<void> _saveToDisk() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Save pending meals
       if (state.pendingMeals.isEmpty) {
         await prefs.remove(_storageKey);
       } else {
         await prefs.setString(
           _storageKey,
           jsonEncode(state.pendingMeals.map((m) => m.toJson()).toList()),
+        );
+      }
+
+      // Save failed meals
+      if (state.failedMealData.isEmpty) {
+        await prefs.remove(_failedStorageKey);
+      } else {
+        await prefs.setString(
+          _failedStorageKey,
+          jsonEncode(state.failedMealData.map((m) => m.toJson()).toList()),
         );
       }
     } catch (_) {}
@@ -298,12 +341,13 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
       );
       _saveToDisk();
 
-      // Invalidate server providers to fetch fresh data (replaces temp entry)
-      _ref.invalidate(nutritionEntriesProvider);
+      // Clear caches first, then invalidate providers to force fresh network fetch
       final today = DateTime.now().toIso8601String().substring(0, 10);
+      await AppCache.clearDashboard(syncedMeal.personId, date: today);
+      AppCache.clearAnalytics();
+      _ref.invalidate(nutritionEntriesProvider);
       _ref.invalidate(dashboardProvider((syncedMeal.personId, today)));
       _ref.invalidate(nutritionAnalyticsProvider);
-      AppCache.clearAnalytics();
     } catch (e) {
       if (!mounted) return;
 
@@ -331,15 +375,20 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
           if (mounted) _syncToBackend(tempId);
         });
       } else {
-        // All retries exhausted — mark failed and notify user
+        // All retries exhausted — preserve meal data for display + retry
+        final failedMeal = current.copyWith(
+          status: MealSyncStatus.failed,
+          error: 'Failed to sync after 3 retries.',
+        );
         state = state.copyWith(
           pendingMeals:
               state.pendingMeals.where((m) => m.tempId != tempId).toList(),
           failedMeals: {
             ...state.failedMeals,
             tempId:
-                'Failed to sync meal after 3 retries. Please log it again.',
+                'Failed to sync meal after 3 retries. Tap retry or log again.',
           },
+          failedMealData: [...state.failedMealData, failedMeal],
         );
         _saveToDisk();
       }
@@ -347,8 +396,16 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
   }
 
   /// Retry a specific failed sync (user tapped retry).
-  void retryMeal(String tempId, PendingMeal meal) {
-    final restored = meal.copyWith(
+  void retryMeal(String tempId, [PendingMeal? meal]) {
+    // Find the meal from failedMealData if not provided
+    final mealToRetry = meal ??
+        state.failedMealData.cast<PendingMeal?>().firstWhere(
+              (m) => m?.tempId == tempId,
+              orElse: () => null,
+            );
+    if (mealToRetry == null) return;
+
+    final restored = mealToRetry.copyWith(
       attempt: 0,
       status: MealSyncStatus.pending,
       error: null,
@@ -356,16 +413,21 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
     state = state.copyWith(
       pendingMeals: [...state.pendingMeals, restored],
       failedMeals: Map.of(state.failedMeals)..remove(tempId),
+      failedMealData:
+          state.failedMealData.where((m) => m.tempId != tempId).toList(),
     );
     _saveToDisk();
     _syncToBackend(tempId);
   }
 
-  /// Dismiss a failure notification.
+  /// Dismiss a failure notification and remove the failed meal data.
   void dismissFailure(String tempId) {
     state = state.copyWith(
       failedMeals: Map.of(state.failedMeals)..remove(tempId),
+      failedMealData:
+          state.failedMealData.where((m) => m.tempId != tempId).toList(),
     );
+    _saveToDisk();
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import '../providers/auth_provider.dart';
@@ -20,6 +21,7 @@ import '../core/icon_theme.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/achievement_badges.dart';
 import '../widgets/medical_disclaimer.dart';
+import '../widgets/themed_spinner.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -99,7 +101,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (user == null) return const Scaffold(body: const ThemedSpinner());
 
     final avatarUrl = user.avatarUrl != null
         ? ApiConstants.resolveUrl(user.avatarUrl)
@@ -157,7 +159,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             color: Theme.of(context).colorScheme.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: ExcludeSemantics(child: Icon(Icons.camera_alt, size: 18, color: Theme.of(context).colorScheme.onPrimary)),
+                          child: ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedCamera01, size: 18, color: Theme.of(context).colorScheme.onPrimary)),
                         ),
                       ),
                     ),
@@ -170,18 +172,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             if (_editing) ...[
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: Icon(Icons.person_outline)),
+                decoration: const InputDecoration(labelText: 'Full Name', prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 24)),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _ageCtrl,
-                decoration: const InputDecoration(labelText: 'Age', prefixIcon: Icon(Icons.cake_outlined)),
+                decoration: const InputDecoration(labelText: 'Age', prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedBirthdayCake, size: 24)),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _gender,
-                decoration: const InputDecoration(labelText: 'Gender', prefixIcon: Icon(Icons.wc)),
+                decoration: const InputDecoration(labelText: 'Gender', prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedUserGroup, size: 24)),
                 items: const [
                   DropdownMenuItem(value: 'male', child: Text('Male')),
                   DropdownMenuItem(value: 'female', child: Text('Female')),
@@ -194,7 +196,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 controller: _heightCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Height (cm)',
-                  prefixIcon: Icon(Icons.height),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedRuler, size: 24),
                   suffixText: 'cm',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -202,14 +204,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               if (_gender != 'male') ...[
                 const SizedBox(height: 16),
                 SwitchListTile(
-                  secondary: const Icon(Icons.pregnant_woman),
+                  secondary: HugeIcon(icon: HugeIcons.strokeRoundedBaby01, size: 24),
                   title: const Text('Pregnant'),
                   subtitle: const Text('Adjusts your nutritional reference values'),
                   value: _isPregnant,
                   onChanged: (v) => setState(() => _isPregnant = v),
                 ),
                 SwitchListTile(
-                  secondary: const Icon(Icons.child_friendly),
+                  secondary: HugeIcon(icon: HugeIcons.strokeRoundedBabyBottle, size: 24),
                   title: const Text('Lactating'),
                   subtitle: const Text('Adjusts your nutritional reference values'),
                   value: _isLactating,
@@ -218,42 +220,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ] else ...[
               ListTile(
-                leading: const Icon(Icons.person_outline),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 24),
                 title: const Text('Name'),
                 trailing: Text(user.name),
               ),
               ListTile(
-                leading: const Icon(Icons.email_outlined),
+                leading: HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 24),
                 title: const Text('Email'),
                 trailing: Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
               ),
               if (user.age != null)
                 ListTile(
-                  leading: const Icon(Icons.cake_outlined),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedBirthdayCake, size: 24),
                   title: const Text('Age'),
                   trailing: Text('${user.age}'),
                 ),
               if (user.gender != null)
                 ListTile(
-                  leading: const Icon(Icons.wc),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedUserGroup, size: 24),
                   title: const Text('Gender'),
                   trailing: Text(user.gender!),
                 ),
               if (user.height != null)
                 ListTile(
-                  leading: const Icon(Icons.height),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedRuler, size: 24),
                   title: const Text('Height'),
                   trailing: Text('${user.height!.toStringAsFixed(0)} cm'),
                 ),
               if (user.isPregnant)
                 const ListTile(
-                  leading: Icon(Icons.pregnant_woman),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedBaby01, size: 24),
                   title: Text('Pregnant'),
                   trailing: Text('Yes'),
                 ),
               if (user.isLactating)
                 const ListTile(
-                  leading: Icon(Icons.child_friendly),
+                  leading: HugeIcon(icon: HugeIcons.strokeRoundedBabyBottle, size: 24),
                   title: Text('Lactating'),
                   trailing: Text('Yes'),
                 ),
@@ -262,7 +264,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             // Biometric login toggle
             if (_biometricAvailable)
               SwitchListTile(
-                secondary: const Icon(Icons.fingerprint),
+                secondary: HugeIcon(icon: HugeIcons.strokeRoundedFingerPrint, size: 24),
                 title: const Text('Biometric login'),
                 subtitle: Text(_biometricEnabled
                     ? 'Fingerprint / Face ID active'
@@ -271,17 +273,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onChanged: _toggleBiometric,
               ),
             ListTile(
-              leading: const Icon(Icons.notifications_outlined),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 24),
               title: const Text('Notification preferences'),
               subtitle: const Text('Meals, hydration, supplements, eczema alerts'),
-              trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+              trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
               onTap: () => GoRouter.of(context).push('/notifications'),
             ),
             ListTile(
-              leading: const Icon(Icons.dashboard_customize_outlined),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedDashboardCircleEdit, size: 24),
               title: const Text('Customize Dashboard'),
               subtitle: const Text('Choose which cards to show and their order'),
-              trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+              trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
               onTap: () => DashboardCustomizeSheet.show(context),
             ),
             _VoiceLocaleSetting(),
@@ -294,7 +296,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const ExcludeSemantics(child: Divider(height: 32)),
             // Sign out
             ListTile(
-              leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedLogout01, size: 24, color: Theme.of(context).colorScheme.error),
               title: Text('Sign out', style: TextStyle(color: Theme.of(context).colorScheme.error)),
               onTap: () async {
                 final confirm = await showDialog<bool>(
@@ -319,7 +321,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete_forever, color: Theme.of(context).colorScheme.error),
+              leading: HugeIcon(icon: HugeIcons.strokeRoundedDelete01, size: 24, color: Theme.of(context).colorScheme.error),
               title: Text('Delete Account', style: TextStyle(color: Theme.of(context).colorScheme.error)),
               subtitle: const Text('Permanently delete your account and all data'),
               onTap: () => _showDeleteAccountDialog(context),
@@ -331,7 +333,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 Text('Family Members', style: Theme.of(context).textTheme.titleMedium),
                 IconButton(
-                  icon: const Icon(Icons.person_add_outlined),
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedUserAdd01, size: 24),
                   tooltip: 'Add family member',
                   onPressed: () => _showAddChildDialog(context),
                 ),
@@ -370,12 +372,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedEdit01, size: 20),
                         tooltip: 'Edit ${child.name}',
                         onPressed: () => _showEditChildDialog(context, child),
                       ),
                       IconButton(
-                        icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.error),
+                        icon: HugeIcon(icon: HugeIcons.strokeRoundedRemoveCircle, size: 20, color: Theme.of(context).colorScheme.error),
                         tooltip: 'Remove ${child.name}',
                         onPressed: () => _deleteChild(child.id),
                       ),
@@ -521,7 +523,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 controller: emailCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Email (for reminders)',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 24),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
@@ -602,7 +604,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ? CachedNetworkImageProvider(ApiConstants.resolveUrl(child.avatarUrl)) as ImageProvider
                               : null),
                       child: pendingImagePath != null
-                          ? Icon(Icons.check_circle, size: 32, color: Theme.of(context).colorScheme.primary)
+                          ? HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, size: 32, color: Theme.of(context).colorScheme.primary)
                           : (child.avatarUrl == null
                               ? Text(child.name[0].toUpperCase(), style: const TextStyle(fontSize: 28))
                               : null),
@@ -610,7 +612,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle),
-                      child: Icon(Icons.camera_alt, size: 14, color: Theme.of(context).colorScheme.onPrimary),
+                      child: HugeIcon(icon: HugeIcons.strokeRoundedCamera01, size: 14, color: Theme.of(context).colorScheme.onPrimary),
                     ),
                   ],
                 ),
@@ -643,7 +645,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 controller: emailCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Email (for reminders)',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedMail01, size: 24),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
@@ -718,7 +720,7 @@ class _DarkModeToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = ref.watch(darkModeProvider);
     return SwitchListTile(
-      secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
+      secondary: HugeIcon(icon: isDark ? HugeIcons.strokeRoundedMoon02 : HugeIcons.strokeRoundedSun01, size: 24),
       title: const Text('Dark mode'),
       subtitle: Text(isDark ? 'Dark theme active' : 'Light theme active'),
       value: isDark,
@@ -732,10 +734,10 @@ class _ThemePicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(themeProvider);
     return ListTile(
-      leading: Icon(current.icon),
+      leading: HugeIcon(icon: current.icon),
       title: const Text('App theme'),
       subtitle: Text(current.label),
-      trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+      trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
       onTap: () {
         showModalBottomSheet(
           context: context,
@@ -752,7 +754,7 @@ class _ThemePicker extends ConsumerWidget {
                       value: skin,
                       groupValue: current,
                       title: Text(skin.label),
-                      secondary: Icon(skin.icon),
+                      secondary: HugeIcon(icon: skin.icon),
                       onChanged: (v) {
                         if (v != null) {
                           ref.read(themeProvider.notifier).setSkin(v);
@@ -779,7 +781,7 @@ class _IconThemePicker extends ConsumerWidget {
       leading: icons.heart.build(),
       title: const Text('Icon style'),
       subtitle: Text(current.label),
-      trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+      trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
       onTap: () {
         showModalBottomSheet(
           context: context,
@@ -825,7 +827,7 @@ class _AchievementsSection extends ConsumerWidget {
         Text('Achievements', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         asyncData.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const ThemedSpinner(),
           error: (e, _) => Text('Could not load achievements', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           data: (data) => AchievementBadgesWidget(
             badges: data.badges,
@@ -846,10 +848,10 @@ class _VoiceLocaleSetting extends ConsumerWidget {
     final label = voiceLocaleOptions[currentLocale] ?? currentLocale;
 
     return ListTile(
-      leading: const Icon(Icons.mic),
+      leading: HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 24),
       title: const Text('Voice language'),
       subtitle: Text(label),
-      trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+      trailing: const ExcludeSemantics(child: HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, size: 20)),
       onTap: () => _showLocalePicker(context, ref, currentLocale),
     );
   }
