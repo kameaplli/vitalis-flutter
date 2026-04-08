@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'constants.dart';
 import 'secure_storage.dart';
@@ -12,8 +13,8 @@ class ApiClient {
   ApiClient._internal() {
     dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
       headers: {'Content-Type': 'application/json'},
     ));
 
@@ -23,10 +24,14 @@ class ApiClient {
     // 2. Retry interceptor — survives Railway cold starts
     dio.interceptors.add(_RetryInterceptor(dio));
 
-    // 3. Auth + 401 handling
+    // 3. Auth + proactive token refresh + 401 handling
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await getToken();
+        var token = await getToken();
+        // Proactive refresh: if token expires within 10 minutes, refresh now
+        if (token != null && _tokenExpiresWithin(token, const Duration(minutes: 10))) {
+          token = await _silentRefresh() ?? token;
+        }
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
@@ -66,6 +71,42 @@ class ApiClient {
   Future<void> saveToken(String token) => SecureStorage.saveToken(token);
   Future<String?> getToken()           => SecureStorage.getToken();
   Future<void> clearToken()            => SecureStorage.clearToken();
+
+  /// Decode JWT payload without verification to check expiry client-side.
+  static bool _tokenExpiresWithin(String token, Duration threshold) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = parts[1];
+      // JWT base64url — add padding
+      final normalized = base64Url.normalize(payload);
+      final decoded = json.decode(utf8.decode(base64Url.decode(normalized)));
+      final exp = decoded['exp'] as int?;
+      if (exp == null) return false;
+      final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      return expiry.difference(DateTime.now()) < threshold;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Attempt to refresh the access token using the stored refresh token.
+  static Future<String?> _silentRefresh() async {
+    final refreshToken = await SecureStorage.getRefreshToken();
+    if (refreshToken == null) return null;
+    try {
+      final refreshDio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
+      final res = await refreshDio.post(
+        ApiConstants.tokenRefresh,
+        data: {'refresh_token': refreshToken},
+      );
+      final newToken = res.data['access_token'] as String;
+      await SecureStorage.saveToken(newToken);
+      return newToken;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 final apiClient = ApiClient();
