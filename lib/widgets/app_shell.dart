@@ -124,8 +124,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       // Refresh dashboard + hydration data so notification-logged water shows up
       final person = ref.read(selectedPersonProvider);
       final today = DateTime.now().toIso8601String().substring(0, 10);
+      ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
       ref.invalidate(todayHydrationProvider(person));
       ref.invalidate(dashboardProvider((person, today)));
+      ref.invalidate(familySnapshotProvider);
     }
     BackgroundService.checkFlareRisk();
     BackgroundService.checkSocialNotifications();
@@ -140,8 +142,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (hydrationLogged && mounted) {
       final person = ref.read(selectedPersonProvider);
       final today = DateTime.now().toIso8601String().substring(0, 10);
+      ref.invalidate(hydrationHistoryProvider('${person}_1_$today'));
       ref.invalidate(todayHydrationProvider(person));
       ref.invalidate(dashboardProvider((person, today)));
+      ref.invalidate(familySnapshotProvider);
     }
   }
 
