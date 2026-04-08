@@ -346,8 +346,10 @@ class NotificationService {
   };
 
   /// Persist a pending action to SharedPreferences so it survives app restarts.
+  /// NOTE: Only writes to disk — loadPersistedActions() will load into memory.
+  /// This prevents the double-add bug where the action would exist in both
+  /// pendingActions (in-memory) and SharedPreferences, causing duplicate processing.
   static Future<void> _persistAction(String action) async {
-    pendingActions.add(action);
     try {
       final prefs = await SharedPreferences.getInstance();
       final existing = prefs.getStringList(_pendingActionsKey) ?? [];
