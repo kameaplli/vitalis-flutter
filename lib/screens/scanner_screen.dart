@@ -94,6 +94,42 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     });
   }
 
+  /// Pick a barcode image from gallery and analyze it for barcodes.
+  Future<void> _pickBarcodeFromGallery() async {
+    final picker = ImagePicker();
+    final XFile? file = await picker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+    if (!mounted) return;
+
+    // Use MobileScannerController to analyze the image for barcodes
+    try {
+      final result = await _cameraCtrl?.analyzeImage(file.path);
+      if (result != null && result.barcodes.isNotEmpty) {
+        final code = result.barcodes.first.rawValue;
+        if (code != null && mounted) {
+          setState(() {
+            _scanned = true;
+            _detectedBarcode = code;
+            _barcodeCtrl.text = code;
+          });
+          _lookupBarcode(code);
+          return;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No barcode found in image — try a clearer photo')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not analyze image for barcodes')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,9 +226,20 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                 const Text('Point camera at barcode',
                     style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => setState(() => _useCamera = false),
-                  child: const Text('Enter manually instead'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _pickBarcodeFromGallery,
+                      icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 18),
+                      label: const Text('From Gallery'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () => setState(() => _useCamera = false),
+                      child: const Text('Enter manually'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -454,11 +501,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           const SizedBox(height: 12),
 
           if (barcode == null && !showLabelBadge) ...[
-            TextFormField(
-              controller: _barcodeCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Barcode (optional)',
-                  prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedQrCode)),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _barcodeCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Barcode (optional)',
+                        prefixIcon: HugeIcon(icon: HugeIcons.strokeRoundedQrCode)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Scan barcode from gallery image',
+                  onPressed: _pickBarcodeFromGallery,
+                  icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, size: 22),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
           ],
