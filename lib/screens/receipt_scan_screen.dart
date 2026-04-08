@@ -61,14 +61,24 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   Future<void> _pickImage(ImageSource source) async {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    final xFile = await _picker.pickImage(
-      source:    source,
-      imageQuality: 85,
-      maxWidth:  2400,
-      maxHeight: 3200,
-    );
+    XFile? xFile;
+    try {
+      xFile = await _picker.pickImage(
+        source:    source,
+        imageQuality: 85,
+        maxWidth:  2400,
+        maxHeight: 3200,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not access ${source == ImageSource.camera ? 'camera' : 'gallery'}: $e')),
+        );
+      }
+      return;
+    }
     if (xFile == null) return;
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     // Try to launch cropper for camera captures so user can trim to receipt
     // boundaries. If cropper fails (some devices), fall back to original image.
@@ -94,14 +104,23 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         if (cropped != null) {
           finalPath = cropped.path;
         }
-        // If cropped == null (user cancelled or cropper failed), use original
       } catch (_) {
         // Cropper failed — use original camera image as-is
       }
     }
+    if (!mounted) return;
+
+    // Verify file exists before using it
+    final file = File(finalPath);
+    if (!file.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image file not found — please try again')),
+      );
+      return;
+    }
 
     setState(() {
-      _image       = File(finalPath);
+      _image       = file;
       _pollStatus  = null;
       _doneReceipt = null;
     });
@@ -113,25 +132,31 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     if (_image == null) return;
     setState(() => _uploading = true);
     try {
+      // Read bytes into memory first — prevents file-deletion race conditions
+      final bytes = await _image!.readAsBytes();
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(_image!.path,
-            filename: 'receipt.jpg'),
+        'file': MultipartFile.fromBytes(bytes, filename: 'receipt.jpg'),
       });
       final res = await apiClient.dio.post(
         ApiConstants.groceryReceipts,
         data: formData,
+        options: Options(
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 90),
+        ),
       );
       final id = res.data['receipt_id'] as String;
+      if (!mounted) return;
       setState(() {
         _pollStatus = 'pending';
         _uploading  = false;
       });
       _startPolling(id);
-    } on DioException catch (e) {
-      setState(() => _uploading = false);
+    } catch (e) {
       if (mounted) {
+        setState(() => _uploading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: ${e.message}')),
+          SnackBar(content: Text('Upload failed: ${e is DioException ? e.message : e}')),
         );
       }
     }
@@ -201,16 +226,27 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (!mounted) return;
       setState(() => _bulkItems[i].status = 'uploading');
       try {
+        final file = File(_bulkItems[i].path);
+        if (!file.existsSync()) throw Exception('File no longer exists');
+        final bytes = await file.readAsBytes();
         final formData = FormData.fromMap({
-          'file': await MultipartFile.fromFile(
-              _bulkItems[i].path, filename: 'receipt.jpg'),
+          'file': MultipartFile.fromBytes(bytes, filename: 'receipt_$i.jpg'),
         });
-        await apiClient.dio.post(ApiConstants.groceryReceipts, data: formData);
+        await apiClient.dio.post(
+          ApiConstants.groceryReceipts,
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 90),
+          ),
+        );
+        if (!mounted) return;
         setState(() {
           _bulkItems[i].status = 'done';
           _bulkDone++;
         });
       } catch (e) {
+        if (!mounted) return;
         setState(() {
           _bulkItems[i].status = 'failed';
           _bulkItems[i].error  = e.toString();
