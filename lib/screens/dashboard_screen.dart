@@ -23,7 +23,6 @@ import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
 import '../widgets/help_tooltip.dart';
-import '../widgets/qorehealth_icon.dart';
 import '../widgets/wearable_summary_card.dart';
 import '../widgets/dashboard_customize_sheet.dart';
 import '../providers/dashboard_card_config_provider.dart';

@@ -1,5 +1,3 @@
-import 'package:flutter/widgets.dart';
-import 'package:flutter/material.dart' show Icons;
 import 'package:hugeicons/hugeicons.dart';
 
 class GroupChat {
