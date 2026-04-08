@@ -282,11 +282,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     updated[idx] = msg.copyWith(reactions: newReactions);
     state = state.copyWith(messages: updated);
 
-    // Background API call
-    apiClient.dio.post(
+    // Background API call — fire and forget with revert on failure
+    unawaited(apiClient.dio.post(
       '${ApiConstants.groupChatMessages(_groupId)}/$messageId/react',
       data: {'emoji': emoji},
-    ).catchError((_) {
+    ).then((_) {}, onError: (_) {
       // Revert on failure
       if (mounted) {
         final revertIdx = state.messages.indexWhere((m) => m.id == messageId);
@@ -296,7 +296,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           state = state.copyWith(messages: reverted);
         }
       }
-    });
+    }));
   }
 
   /// Pin or unpin a message (admin-only).
