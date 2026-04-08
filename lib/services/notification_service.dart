@@ -346,8 +346,10 @@ class NotificationService {
   };
 
   /// Persist a pending action to SharedPreferences so it survives app restarts.
+  /// NOTE: Only writes to disk — loadPersistedActions() will load into memory.
+  /// This prevents the double-add bug where the action would exist in both
+  /// pendingActions (in-memory) and SharedPreferences, causing duplicate processing.
   static Future<void> _persistAction(String action) async {
-    pendingActions.add(action);
     try {
       final prefs = await SharedPreferences.getInstance();
       final existing = prefs.getStringList(_pendingActionsKey) ?? [];
@@ -404,9 +406,22 @@ class NotificationService {
 
   // ── Schedule All Notifications ─────────────────────────────────────────────
 
+  static bool _scheduling = false;
+
   /// Re-schedule all notifications based on current preferences.
   /// Call after login, after prefs change, or on app open.
+  /// Guarded against concurrent runs to prevent duplicate scheduling.
   static Future<void> scheduleAll() async {
+    if (_scheduling) return;
+    _scheduling = true;
+    try {
+      await _scheduleAllInner();
+    } finally {
+      _scheduling = false;
+    }
+  }
+
+  static Future<void> _scheduleAllInner() async {
     if (!_initialized) await init();
 
     // Verify notification permission is granted
