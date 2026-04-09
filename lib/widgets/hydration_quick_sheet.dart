@@ -88,37 +88,41 @@ class _HydrationQuickSheetState extends ConsumerState<HydrationQuickSheet> {
 
   Future<void> _showCustomDialog() async {
     final ctrl = TextEditingController();
-    final ml = await showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Custom Amount'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Amount (ml)',
-            suffixText: 'ml',
-          ),
-          autofocus: true,
-          onSubmitted: (v) {
-            final parsed = int.tryParse(v.trim());
-            Navigator.pop(ctx, parsed);
-          },
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final v = int.tryParse(ctrl.text.trim());
-              Navigator.pop(ctx, v);
+    try {
+      final ml = await showDialog<int>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Custom Amount'),
+          content: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Amount (ml)',
+              suffixText: 'ml',
+            ),
+            autofocus: true,
+            onSubmitted: (v) {
+              final parsed = int.tryParse(v.trim());
+              Navigator.pop(ctx, parsed);
             },
-            child: const Text('Log'),
           ),
-        ],
-      ),
-    );
-    if (ml != null && ml > 0) _logAmount(ml);
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final v = int.tryParse(ctrl.text.trim());
+                Navigator.pop(ctx, v);
+              },
+              child: const Text('Log'),
+            ),
+          ],
+        ),
+      );
+      if (ml != null && ml > 0) _logAmount(ml);
+    } finally {
+      ctrl.dispose();
+    }
   }
 
   @override

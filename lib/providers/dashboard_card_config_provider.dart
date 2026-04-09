@@ -182,8 +182,13 @@ class DashboardCardConfigNotifier extends StateNotifier<DashboardCardConfig> {
     _load();
   }
 
+  SharedPreferences? _prefs;
+
+  Future<SharedPreferences> get _sharedPrefs async =>
+      _prefs ??= await SharedPreferences.getInstance();
+
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _sharedPrefs;
     final json = prefs.getString(_prefsKey);
     if (json != null) {
       state = DashboardCardConfig.fromJson(json);
@@ -191,7 +196,7 @@ class DashboardCardConfigNotifier extends StateNotifier<DashboardCardConfig> {
   }
 
   Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _sharedPrefs;
     await prefs.setString(_prefsKey, state.toJson());
   }
 
