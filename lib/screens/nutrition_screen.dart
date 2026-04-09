@@ -22,6 +22,7 @@ import 'nutrition/recent_meals.dart';
 import 'nutrition/food_item_tile.dart';
 import 'nutrition/food_search_sheet.dart';
 import 'nutrition/yesterday_meals.dart';
+import 'nutrition/thali_templates.dart';
 import '../widgets/medical_disclaimer.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -55,6 +56,35 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for macro validation warnings from background sync
+    ref.listen<MealSyncState>(mealSyncProvider, (prev, next) {
+      if (next.recentWarnings.isNotEmpty &&
+          (prev == null || prev.recentWarnings != next.recentWarnings)) {
+        final message = next.recentWarnings.join('\n');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(message)),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.amber.shade800,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'DISMISS',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+        ref.read(mealSyncProvider.notifier).clearWarnings();
+      }
+    });
+
     final nutrition = ref.watch(nutritionProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final isEditMode = nutrition.editEntryId != null;
@@ -182,6 +212,13 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
             ),
             const SizedBox(height: 10),
 
+            // ── Quick-create text input ──────────────────────────────
+            _QuickCreateInput(
+              mealType: nutrition.mealType,
+              onMealsReady: (meals) => _showQuickCreateResults(meals),
+            ),
+            const SizedBox(height: 10),
+
             // ── Secondary: Barcode, Label, Photo AI ───────────────────
             Row(
               children: [
@@ -238,6 +275,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
 
             // ── Yesterday's meals (copy meal) ──────────────────────────────────
             const YesterdayMealsSection(),
+
+            // ── Indian thali templates ──────────────────────────────────────────
+            const ThaliTemplatesSection(),
 
             // ── Meal suggestions for selected meal type ───────────────────────
             MealSuggestionsSection(mealType: nutrition.mealType),
@@ -702,6 +742,206 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         );
       }
     }
+  }
+
+  /// Handle parsed meals from quick-create text input (same format as voice).
+  void _showQuickCreateResults(List<Map<String, dynamic>> meals) {
+    if (meals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not parse any foods from that description')),
+      );
+      return;
+    }
+
+    // Flatten all items from all meals into selected foods
+    final selectedFoods = <SelectedFood>[];
+    String? mealType;
+    for (final meal in meals) {
+      mealType ??= meal['meal_type'] as String?;
+      final items = meal['items'] as List<dynamic>? ?? [];
+      for (final item in items) {
+        final m = item as Map<String, dynamic>;
+        final foodName = m['food_name'] as String? ?? 'Unknown';
+        final grams = (m['grams'] as num?)?.toDouble() ?? 100;
+        final calories = (m['calories'] as num?)?.toDouble() ?? 0;
+        final protein = (m['protein'] as num?)?.toDouble() ?? 0;
+        final carbs = (m['carbs'] as num?)?.toDouble() ?? 0;
+        final fat = (m['fat'] as num?)?.toDouble() ?? 0;
+        final foodId = m['food_id'] as String? ??
+            'qc_${foodName.hashCode}_${DateTime.now().millisecondsSinceEpoch}';
+
+        // Derive per-100g values
+        final calPer100g = grams > 0 ? calories / grams * 100 : 0.0;
+        final proteinPer100g = grams > 0 ? protein / grams * 100 : 0.0;
+        final carbsPer100g = grams > 0 ? carbs / grams * 100 : 0.0;
+        final fatPer100g = grams > 0 ? fat / grams * 100 : 0.0;
+
+        final food = FoodItem(
+          id: foodId,
+          name: foodName,
+          cal: calPer100g,
+          protein: proteinPer100g,
+          carbs: carbsPer100g,
+          fat: fatPer100g,
+          servingSize: grams,
+          emoji: m['emoji'] as String?,
+        );
+        selectedFoods.add(SelectedFood(food: food, grams: grams));
+      }
+    }
+
+    if (selectedFoods.isNotEmpty) {
+      HapticFeedback.mediumImpact();
+      ref.read(nutritionProvider.notifier).loadRecentMeal(
+            selectedFoods,
+            mealType ?? ref.read(nutritionProvider).mealType,
+          );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(children: [
+            const HugeIcon(
+                icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+                color: Colors.white,
+                size: 20),
+            const SizedBox(width: 8),
+            Text('${selectedFoods.length} foods parsed — tap Log Meal to save'),
+          ]),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+}
+
+// ─── Big entry method card ────────────────────────────────────────────────────
+
+// ─── Quick-create text input ──────────────────────────────────────────────────
+
+class _QuickCreateInput extends StatefulWidget {
+  final String mealType;
+  final void Function(List<Map<String, dynamic>> meals) onMealsReady;
+
+  const _QuickCreateInput({
+    required this.mealType,
+    required this.onMealsReady,
+  });
+
+  @override
+  State<_QuickCreateInput> createState() => _QuickCreateInputState();
+}
+
+class _QuickCreateInputState extends State<_QuickCreateInput> {
+  final _controller = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await apiClient.dio.post(
+        ApiConstants.quickCreate,
+        data: {
+          'description': text,
+          'meal_type': widget.mealType,
+        },
+      );
+
+      if (!mounted) return;
+
+      final meals = (res.data['meals'] as List<dynamic>?)
+              ?.cast<Map<String, dynamic>>() ??
+          [];
+
+      _controller.clear();
+      widget.onMealsReady(meals);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Quick create failed: ${e is DioException ? (e.response?.data?['detail'] ?? e.message) : e}',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Material(
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            HugeIcon(
+              icon: HugeIcons.strokeRoundedEdit02,
+              color: cs.onSurfaceVariant,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                enabled: !_isLoading,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _submit(),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurface,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Type a meal: dal rice pickle...',
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+            if (_isLoading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              IconButton(
+                onPressed: _submit,
+                icon: HugeIcon(
+                  icon: HugeIcons.strokeRoundedSent,
+                  color: cs.primary,
+                  size: 22,
+                ),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Parse meal',
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

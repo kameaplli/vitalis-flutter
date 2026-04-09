@@ -138,22 +138,26 @@ class MealSyncState {
   final List<PendingMeal> pendingMeals;
   final Map<String, String> failedMeals; // tempId → error message
   final List<PendingMeal> failedMealData; // actual meal data for display + retry
+  final List<String> recentWarnings; // macro validation warnings from last sync
 
   const MealSyncState({
     this.pendingMeals = const [],
     this.failedMeals = const {},
     this.failedMealData = const [],
+    this.recentWarnings = const [],
   });
 
   MealSyncState copyWith({
     List<PendingMeal>? pendingMeals,
     Map<String, String>? failedMeals,
     List<PendingMeal>? failedMealData,
+    List<String>? recentWarnings,
   }) =>
       MealSyncState(
         pendingMeals: pendingMeals ?? this.pendingMeals,
         failedMeals: failedMeals ?? this.failedMeals,
         failedMealData: failedMealData ?? this.failedMealData,
+        recentWarnings: recentWarnings ?? this.recentWarnings,
       );
 
   /// Get local NutritionEntry objects for merging with server entries.
@@ -318,7 +322,7 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
         queryParams['family_member_id'] = meal.forChild;
       }
 
-      await apiClient.dio.post(
+      final response = await apiClient.dio.post(
         ApiConstants.nutritionLog,
         data: {
           'meal_type': meal.mealType,
@@ -328,6 +332,16 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
           'foods': meal.foodsPayload,
         },
       );
+
+      // Surface macro validation warnings (non-blocking)
+      final responseData = response.data as Map<String, dynamic>?;
+      final warnings = (responseData?['warnings'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+      if (warnings.isNotEmpty && mounted) {
+        state = state.copyWith(recentWarnings: warnings);
+      }
 
       // Success — remove from pending queue
       if (!mounted) return;
@@ -418,6 +432,11 @@ class MealSyncNotifier extends StateNotifier<MealSyncState> {
     );
     _saveToDisk();
     _syncToBackend(tempId);
+  }
+
+  /// Clear macro validation warnings (after UI has shown them).
+  void clearWarnings() {
+    state = state.copyWith(recentWarnings: []);
   }
 
   /// Dismiss a failure notification and remove the failed meal data.
