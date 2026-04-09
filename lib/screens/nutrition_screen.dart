@@ -21,6 +21,7 @@ import 'nutrition/meal_suggestions.dart';
 import 'nutrition/recent_meals.dart';
 import 'nutrition/food_item_tile.dart';
 import 'nutrition/food_search_sheet.dart';
+import 'nutrition/yesterday_meals.dart';
 import '../widgets/medical_disclaimer.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -117,7 +118,71 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ── Entry methods: 4 bigger cards ────────────────────────────
+            // ── Primary: Voice entry ───────────────────────────────────
+            Material(
+              color: Colors.purple.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                onTap: () {
+                  final personId = ref.read(selectedPersonProvider);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => VoiceMealSheet(
+                      personId: personId,
+                      onLogged: () {
+                        ref.invalidate(nutritionProvider);
+                        ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
+                        ref.invalidate(nutritionEntriesProvider);
+                        ref.invalidate(nutritionAnalyticsProvider);
+                        AppCache.clearAnalytics();
+                      },
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const HugeIcon(icon: HugeIcons.strokeRoundedMic01, color: Colors.purple, size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tell me what you ate',
+                                style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                )),
+                            const SizedBox(height: 2),
+                            Text('Just speak naturally \u2014 works with Indian foods too',
+                                style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurfaceVariant,
+                                )),
+                          ],
+                        ),
+                      ),
+                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, color: Colors.purple.withValues(alpha: 0.6), size: 22),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // ── Secondary: Barcode, Label, Photo AI ───────────────────
             Row(
               children: [
                 Expanded(
@@ -146,32 +211,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                     onTap: () => _showPhotoFoodRecognition(context),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _BigEntryCard(
-                    icon: HugeIcons.strokeRoundedMic01,
-                    label: 'Voice',
-                    color: Colors.purple,
-                    onTap: () {
-                      final personId = ref.read(selectedPersonProvider);
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => VoiceMealSheet(
-                          personId: personId,
-                          onLogged: () {
-                            ref.invalidate(nutritionProvider);
-                            ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
-                            ref.invalidate(nutritionEntriesProvider);
-                            ref.invalidate(nutritionAnalyticsProvider);
-                            AppCache.clearAnalytics();
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
               ],
             ),
 
@@ -196,6 +235,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
             ),
 
             const SizedBox(height: 12),
+
+            // ── Yesterday's meals (copy meal) ──────────────────────────────────
+            const YesterdayMealsSection(),
 
             // ── Meal suggestions for selected meal type ───────────────────────
             MealSuggestionsSection(mealType: nutrition.mealType),
