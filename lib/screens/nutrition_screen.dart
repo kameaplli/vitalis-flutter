@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core/api_client.dart';
 import '../core/app_cache.dart';
 import '../core/constants.dart';
+import '../models/dashboard_data.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/nutrition_provider.dart';
 import '../providers/meal_sync_provider.dart';
@@ -123,6 +124,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Contextual health nudge ───────────────────────────────────
+            const _NutritionNudge(),
+
             // ── Full-width search bar ─────────────────────────────────────
             Material(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -375,18 +379,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       ref.read(nutritionProvider.notifier).setMealType(mealType);
 
       HapticFeedback.heavyImpact();
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Row(children: [
-            HugeIcon(icon: HugeIcons.strokeRoundedCheckmarkCircle01, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text('Meal logged!'),
-          ]),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      _showMealCelebration(context);
       return;
     }
 
@@ -416,6 +409,17 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       AppCache.clearAnalytics();
       context.pop();
     }
+  }
+
+  /// Show a brief micro-celebration overlay when a meal is logged.
+  void _showMealCelebration(BuildContext context) {
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _MealCelebrationOverlay(
+        onDismiss: () => entry.remove(),
+      ),
+    );
+    Overlay.of(context).insert(entry);
   }
 
   void _showFoodSearch(BuildContext context) {
@@ -945,6 +949,123 @@ class _QuickCreateInputState extends State<_QuickCreateInput> {
   }
 }
 
+// ─── Nutrition nudge banner ───────────────────────────────────────────────────
+
+class _NutritionNudge extends ConsumerStatefulWidget {
+  const _NutritionNudge();
+
+  @override
+  ConsumerState<_NutritionNudge> createState() => _NutritionNudgeState();
+}
+
+class _NutritionNudgeState extends ConsumerState<_NutritionNudge> {
+  bool _dismissed = false;
+
+  /// Pick the single most relevant nudge based on today's dashboard data.
+  _NudgeInfo? _pickNudge(DashboardData data) {
+    final hour = TimeOfDay.now().hour;
+
+    // Priority 1: no meals logged and it's past 10am
+    if (data.mealsCount == 0 && hour > 10) {
+      return _NudgeInfo(
+        message: "You haven't logged any meals today — let's fix that!",
+        icon: HugeIcons.strokeRoundedRestaurant01,
+        color: Colors.amber,
+      );
+    }
+
+    // Priority 2: low hydration past early afternoon
+    if (data.todayWater < 1000 && hour > 13) {
+      return _NudgeInfo(
+        message: 'Don\'t forget to hydrate — only ${data.todayWater.toInt()}ml logged so far',
+        icon: HugeIcons.strokeRoundedDroplet,
+        color: Colors.blue,
+      );
+    }
+
+    // Priority 3: low protein past noon
+    if (data.todayProtein < 30 && hour > 12) {
+      return _NudgeInfo(
+        message: 'You\'re low on protein today — try adding eggs or paneer',
+        icon: HugeIcons.strokeRoundedAlert02,
+        color: Colors.amber,
+      );
+    }
+
+    // Priority 4: near calorie target (positive reinforcement)
+    if (data.todayCalories > 1800 && data.todayCalories < 2200) {
+      return _NudgeInfo(
+        message: 'Great job! You\'ve hit your calorie target',
+        icon: HugeIcons.strokeRoundedCheckmarkCircle01,
+        color: Colors.green,
+      );
+    }
+
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return const SizedBox.shrink();
+
+    final personId = ref.watch(selectedPersonProvider);
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final dashAsync = ref.watch(dashboardProvider((personId, today)));
+
+    return dashAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (data) {
+        final nudge = _pickNudge(data);
+        if (nudge == null) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Material(
+            color: nudge.color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  HugeIcon(icon: nudge.icon, color: nudge.color, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      nudge.message,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => setState(() => _dismissed = true),
+                    child: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NudgeInfo {
+  final String message;
+  final List<List<dynamic>> icon;
+  final Color color;
+  const _NudgeInfo({required this.message, required this.icon, required this.color});
+}
+
 // ─── Big entry method card ────────────────────────────────────────────────────
 
 class _BigEntryCard extends StatelessWidget {
@@ -989,6 +1110,126 @@ class _BigEntryCard extends StatelessWidget {
                 color: cs.onSurface,
               )),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Micro-celebration overlay ────────────────────────────────────────────────
+
+class _MealCelebrationOverlay extends StatefulWidget {
+  final VoidCallback onDismiss;
+  const _MealCelebrationOverlay({required this.onDismiss});
+
+  @override
+  State<_MealCelebrationOverlay> createState() =>
+      _MealCelebrationOverlayState();
+}
+
+class _MealCelebrationOverlayState extends State<_MealCelebrationOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scaleAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    // 0..0.2 = scale up with bounce; 0.2..0.8 = hold; 0.8..1.0 = fade out
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 30,
+      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 50),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.8)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 20,
+      ),
+    ]).animate(_ctrl);
+
+    _fadeAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 20,
+      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 50),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 30,
+      ),
+    ]).animate(_ctrl);
+
+    _ctrl.forward();
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        widget.onDismiss();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnim.value,
+                child: Transform.scale(
+                  scale: _scaleAnim.value,
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.green.shade600,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      color: Colors.white, size: 48),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Meal logged!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

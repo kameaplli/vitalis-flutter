@@ -36,6 +36,7 @@ class ApiConstants {
   // Dashboard
   static const String dashboard = '/api/dashboard';
   static const String dashboardFamily = '/api/dashboard/family';
+  static const String dashboardPersonalBests = '/api/dashboard/personal-bests';
   static const String welcome = '/api/welcome';
 
   // Foods
