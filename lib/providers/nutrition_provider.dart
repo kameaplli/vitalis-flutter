@@ -29,7 +29,7 @@ class SelectedFood {
 /// Infer meal type from the current time of day.
 String inferMealType() {
   final hour = DateTime.now().hour;
-  if (hour < 11) return 'breakfast';
+  if (hour < 10) return 'breakfast';
   if (hour < 14) return 'lunch';
   if (hour < 17) return 'snack';
   return 'dinner';

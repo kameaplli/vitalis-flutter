@@ -19,6 +19,7 @@ import '../providers/grocery_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../widgets/friendly_error.dart';
 import '../widgets/shimmer_placeholder.dart';
+import '../widgets/skeleton_loader.dart';
 import '../providers/selected_person_provider.dart';
 import 'insights_screen.dart';
 import '../widgets/medical_disclaimer.dart';
@@ -26,6 +27,7 @@ import '../widgets/help_tooltip.dart';
 import '../widgets/wearable_summary_card.dart';
 import '../widgets/dashboard_customize_sheet.dart';
 import '../providers/dashboard_card_config_provider.dart';
+import '../widgets/hydration_quick_sheet.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -250,18 +252,7 @@ class _PersonDashboardPageState extends ConsumerState<_PersonDashboardPage> {
           Expanded(
             child: dashAsync.when(
               skipLoadingOnReload: true,
-              loading: () => ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 12),
-            ShimmerCard(height: 48, margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6)),  // quick actions
-            ShimmerCard(height: 100),  // stat cards
-            ShimmerCard(height: 100),  // stat cards row 2
-            ShimmerCard(height: 60),   // hydration
-            ShimmerCard(height: 120),  // macros
-            ShimmerCard(height: 80),   // health score
-          ],
-        ),
+              loading: () => const SkeletonDashboard(),
               error: (e, _) => _HomeError(
                 error: e,
                 onRetry: () => widget.onRefresh(widget.personId),
@@ -377,6 +368,9 @@ class _HomeBody extends ConsumerStatefulWidget {
 }
 
 class _HomeBodyState extends ConsumerState<_HomeBody> {
+  /// Which tile type is currently expanded (null = none).
+  DashboardCardType? _expandedTile;
+
   String get _dayLabel => widget.isToday
       ? "Today's"
       : "${DateFormat('MMM d').format(widget.selectedDate)} –";
@@ -488,6 +482,37 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     DashboardData data,
     AsyncValue<double> hydrationAsync,
   ) {
+    final isExpanded = _expandedTile == type;
+
+    void onTap() {
+      // Water tile opens the hydration quick-add bottom sheet
+      if (type == DashboardCardType.water) {
+        HydrationQuickSheet.show(context);
+        return;
+      }
+      setState(() {
+        _expandedTile = isExpanded ? null : type;
+      });
+      HapticFeedback.selectionClick();
+    }
+
+    // Build expanded detail content per tile type
+    Widget? expandedContent;
+    if (isExpanded) {
+      expandedContent = switch (type) {
+        DashboardCardType.calories => _CaloriesDetail(data: data),
+        DashboardCardType.weight => _WeightDetail(data: data),
+        DashboardCardType.meals => _MealsDetail(data: data),
+        DashboardCardType.steps => _StepsDetail(data: data),
+        DashboardCardType.sleep => _SleepDetail(data: data),
+        DashboardCardType.heartRate => _HeartRateDetail(data: data),
+        DashboardCardType.spo2 => _Spo2Detail(data: data),
+        DashboardCardType.exercise => _ExerciseDetail(data: data),
+        DashboardCardType.distance => _DistanceDetail(data: data),
+        _ => null,
+      };
+    }
+
     return switch (type) {
       DashboardCardType.calories => _StatCard(
         label: 'Calories', icon: HugeIcons.strokeRoundedFire,
@@ -496,20 +521,22 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         weekAvg: '${data.weekAvgCalories.toStringAsFixed(0)} kcal',
         prevAvg: data.prevWeekAvgCalories.toStringAsFixed(0),
         up: data.weekAvgCalories >= data.prevWeekAvgCalories,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.weight => _StatCard(
         label: 'Weight', icon: HugeIcons.strokeRoundedWeightScale,
         color: Colors.purple,
         todayValue: data.currentWeight != null
-            ? data.currentWeight!.toStringAsFixed(1) : '—',
+            ? data.currentWeight!.toStringAsFixed(1) : '---',
         todayUnit: data.currentWeight != null ? 'kg' : '',
         weekAvg: data.weightChange != null
             ? '${data.weightChange! >= 0 ? '+' : ''}${data.weightChange!.toStringAsFixed(1)} kg'
             : 'No prev entry',
         prevAvg: data.previousWeight != null
-            ? '${data.previousWeight!.toStringAsFixed(1)} kg' : '—',
+            ? '${data.previousWeight!.toStringAsFixed(1)} kg' : '---',
         up: (data.weightChange ?? 0) <= 0,
         showTrend: data.weightChange != null,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.meals => _StatCard(
         label: widget.isToday ? 'Meals Today' : 'Meals', icon: HugeIcons.strokeRoundedRestaurant01,
@@ -518,58 +545,65 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         weekAvg: '${data.weekAvgMeals.toStringAsFixed(1)}/day (7d)',
         prevAvg: '${data.prevWeekAvgMeals.toStringAsFixed(1)}/day',
         up: data.weekAvgMeals >= data.prevWeekAvgMeals,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.water => _HydrationStatCard(
         hydrationAsync: hydrationAsync,
         weekAvg: data.weekAvgWater,
         prevAvg: data.prevWeekAvgWater,
+        onTap: onTap,
       ),
       DashboardCardType.steps => _StatCard(
         label: 'Steps', icon: HugeIcons.strokeRoundedDumbbell01,
         color: const Color(0xFF22C55E),
-        todayValue: data.todaySteps != null ? _formatNumber(data.todaySteps!) : '—',
+        todayValue: data.todaySteps != null ? _formatNumber(data.todaySteps!) : '---',
         todayUnit: '',
         weekAvg: data.todayActiveCalories != null
             ? '${data.todayActiveCalories!.toStringAsFixed(0)} active kcal'
             : 'No data',
         prevAvg: '', up: true,
         showTrend: false,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.sleep => _StatCard(
         label: 'Sleep', icon: HugeIcons.strokeRoundedBed,
         color: const Color(0xFF6366F1),
         todayValue: data.todaySleepMins != null
-            ? _formatSleepHours(data.todaySleepMins!) : '—',
+            ? _formatSleepHours(data.todaySleepMins!) : '---',
         todayUnit: data.todaySleepMins != null ? 'hrs' : '',
         weekAvg: '', prevAvg: '', up: true,
         showTrend: false,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.heartRate => _StatCard(
         label: 'Heart Rate', icon: HugeIcons.strokeRoundedFavourite,
         color: Colors.red,
         todayValue: data.todayHeartRate != null
-            ? data.todayHeartRate!.toStringAsFixed(0) : '—',
+            ? data.todayHeartRate!.toStringAsFixed(0) : '---',
         todayUnit: data.todayHeartRate != null ? 'bpm' : '',
         weekAvg: '', prevAvg: '', up: true,
         showTrend: false,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.spo2 => _StatCard(
         label: 'SpO2', icon: HugeIcons.strokeRoundedBlood,
         color: const Color(0xFF0EA5E9),
         todayValue: data.todaySpo2 != null
-            ? data.todaySpo2!.toStringAsFixed(0) : '—',
+            ? data.todaySpo2!.toStringAsFixed(0) : '---',
         todayUnit: data.todaySpo2 != null ? '%' : '',
         weekAvg: '', prevAvg: '', up: true,
         showTrend: false,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.exercise => _StatCard(
         label: 'Exercise', icon: HugeIcons.strokeRoundedDumbbell01,
         color: const Color(0xFFF59E0B),
         todayValue: data.todayActiveCalories != null
-            ? data.todayActiveCalories!.toStringAsFixed(0) : '—',
+            ? data.todayActiveCalories!.toStringAsFixed(0) : '---',
         todayUnit: data.todayActiveCalories != null ? 'kcal' : '',
         weekAvg: 'Active calories', prevAvg: '', up: true,
         showTrend: false,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       DashboardCardType.distance => _StatCard(
         label: 'Distance', icon: HugeIcons.strokeRoundedRuler,
@@ -578,12 +612,13 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
             ? (data.todayDistance! >= 1000
                 ? '${(data.todayDistance! / 1000).toStringAsFixed(1)}'
                 : data.todayDistance!.toStringAsFixed(0))
-            : '—',
+            : '---',
         todayUnit: data.todayDistance != null
             ? (data.todayDistance! >= 1000 ? 'km' : 'm')
             : '',
         weekAvg: '', prevAvg: '', up: true,
         showTrend: false,
+        isExpanded: isExpanded, onTap: onTap, expandedContent: expandedContent,
       ),
       _ => const SizedBox.shrink(), // Non-small tiles shouldn't reach here
     };
@@ -615,6 +650,11 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           : const SizedBox.shrink(),
       DashboardCardType.insights => _InsightsCard(insights: data.insights),
       DashboardCardType.grocerySnapshot => _GrocerySnapshot(groceryAsync: groceryAsync),
+      DashboardCardType.dailyProgress => _DailyProgressRings(
+        data: data,
+        hydrationAsync: hydrationAsync,
+      ),
+      DashboardCardType.personalBests => const SizedBox.shrink(), // TODO: implement
       _ => const SizedBox.shrink(), // Small tiles shouldn't reach here
     };
 
@@ -716,18 +756,20 @@ class _HydrationStatCard extends StatelessWidget {
   final AsyncValue<double> hydrationAsync;
   final double weekAvg;
   final double prevAvg;
+  final VoidCallback? onTap;
   const _HydrationStatCard({
     required this.hydrationAsync,
     required this.weekAvg,
     required this.prevAvg,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final todayL = hydrationAsync.when(
       data: (ml) => (ml / 1000).toStringAsFixed(1),
-      loading: () => '…',
-      error: (_, __) => '—',
+      loading: () => '...',
+      error: (_, __) => '---',
     );
     return _StatCard(
       label: 'Water',
@@ -738,6 +780,8 @@ class _HydrationStatCard extends StatelessWidget {
       weekAvg: '${(weekAvg / 1000).toStringAsFixed(1)} L (7d avg)',
       prevAvg: '${(prevAvg / 1000).toStringAsFixed(1)} L',
       up: weekAvg >= prevAvg,
+      onTap: onTap,
+      tapHint: 'Tap to quick-add water',
     );
   }
 }
@@ -1764,73 +1808,368 @@ class _StatCard extends StatelessWidget {
   final bool up, showTrend;
   final List<List<dynamic>> icon;
   final Color color;
+  final bool isExpanded;
+  final VoidCallback? onTap;
+  final Widget? expandedContent;
+  final String? tapHint;
 
   const _StatCard({
     required this.label,    required this.icon,     required this.color,
     required this.todayValue, required this.todayUnit,
     required this.weekAvg,  required this.prevAvg,  required this.up,
     this.showTrend = true,
+    this.isExpanded = false,
+    this.onTap,
+    this.expandedContent,
+    this.tapHint,
   });
 
   @override
   Widget build(BuildContext context) {
+    final compactContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          HugeIcon(icon: icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label.toUpperCase(),
+                style: TextStyle(
+                    fontSize: 11, color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8),
+                overflow: TextOverflow.ellipsis),
+          ),
+          if (onTap != null)
+            Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+        ]),
+        const SizedBox(height: 6),
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic, children: [
+          Text(todayValue,
+              style: TextStyle(
+                  fontSize: 26, fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5, color: color)),
+          if (todayUnit.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            Text(todayUnit,
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade500)),
+          ],
+        ]),
+        const SizedBox(height: 6),
+        Text('7d avg: $weekAvg',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                color: Colors.grey.shade500),
+            overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 3),
+        if (showTrend)
+          Row(children: [
+            HugeIcon(icon: up ? HugeIcons.strokeRoundedChartIncrease : HugeIcons.strokeRoundedChartDecrease,
+                size: 14, color: up ? Colors.green : Colors.red),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('Prev: $prevAvg',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade500),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ]),
+        if (tapHint != null && !isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(tapHint!,
+                style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.6),
+                    fontStyle: FontStyle.italic)),
+          ),
+      ],
+    );
+
     return Semantics(
       label: '$label: $todayValue $todayUnit. 7-day average: $weekAvg.${showTrend ? ' Trend ${up ? 'up' : 'down'}, previous: $prevAvg.' : ''}',
       child: ExcludeSemantics(
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  HugeIcon(icon: icon, color: color, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(label.toUpperCase(),
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ]),
-                const SizedBox(height: 6),
-                Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic, children: [
-                  Text(todayValue,
-                      style: TextStyle(
-                          fontSize: 26, fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5, color: color)),
-                  if (todayUnit.isNotEmpty) ...[
-                    const SizedBox(width: 4),
-                    Text(todayUnit,
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade500)),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    compactContent,
+                    if (isExpanded && expandedContent != null) ...[
+                      Divider(height: 16, color: color.withValues(alpha: 0.2)),
+                      expandedContent!,
+                    ],
                   ],
-                ]),
-                const SizedBox(height: 6),
-                Text('7d avg: $weekAvg',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade500),
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 3),
-                if (showTrend)
-                  Row(children: [
-                    HugeIcon(icon: up ? HugeIcons.strokeRoundedChartIncrease : HugeIcons.strokeRoundedChartDecrease,
-                        size: 14, color: up ? Colors.green : Colors.red),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text('Prev: $prevAvg',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade500),
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                  ]),
-              ],
+                ),
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Expandable detail widgets for stat tiles ────────────────────────────────
+
+class _CaloriesDetail extends StatelessWidget {
+  final DashboardData data;
+  const _CaloriesDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCal = data.todayCalories;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Macro Breakdown',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700)),
+        const SizedBox(height: 8),
+        _MacroRow('Protein', data.todayProtein, 'g', Colors.blue.shade600),
+        const SizedBox(height: 4),
+        _MacroRow('Carbs', data.todayCarbs, 'g', Colors.amber.shade700),
+        const SizedBox(height: 4),
+        _MacroRow('Fat', data.todayFat, 'g', Colors.red.shade400),
+        const SizedBox(height: 8),
+        if (totalCal > 0)
+          Text(
+            'P ${((data.todayProtein * 4 / totalCal) * 100).toStringAsFixed(0)}%  '
+            'C ${((data.todayCarbs * 4 / totalCal) * 100).toStringAsFixed(0)}%  '
+            'F ${((data.todayFat * 9 / totalCal) * 100).toStringAsFixed(0)}%',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500),
+          ),
+      ],
+    );
+  }
+}
+
+class _MacroRow extends StatelessWidget {
+  final String label;
+  final double value;
+  final String unit;
+  final Color color;
+  const _MacroRow(this.label, this.value, this.unit, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(width: 8, height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 6),
+      Expanded(child: Text(label,
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600))),
+      Text('${value.toStringAsFixed(1)} $unit',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: Colors.grey.shade800)),
+    ]);
+  }
+}
+
+class _WeightDetail extends StatelessWidget {
+  final DashboardData data;
+  const _WeightDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final w = data.currentWeight;
+    // Rough BMI estimate (assume avg height 170cm if not available)
+    String bmiStr = '---';
+    if (w != null) {
+      // BMI = weight / (height_m)^2
+      // We use 1.7m as fallback
+      final bmi = w / (1.7 * 1.7);
+      bmiStr = bmi.toStringAsFixed(1);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DetailRow('BMI (est.)', bmiStr),
+        if (data.weightChange != null)
+          _DetailRow('Change',
+              '${data.weightChange! >= 0 ? '+' : ''}${data.weightChange!.toStringAsFixed(1)} kg'),
+        if (data.previousWeight != null)
+          _DetailRow('Previous', '${data.previousWeight!.toStringAsFixed(1)} kg'),
+      ],
+    );
+  }
+}
+
+class _MealsDetail extends StatelessWidget {
+  final DashboardData data;
+  const _MealsDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final dist = data.mealDistribution;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final entry in [
+          ('Breakfast', dist['breakfast'] ?? 0),
+          ('Lunch', dist['lunch'] ?? 0),
+          ('Dinner', dist['dinner'] ?? 0),
+          ('Snack', dist['snack'] ?? 0),
+        ])
+          if (entry.$2 > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: _DetailRow(entry.$1, '${entry.$2}'),
+            ),
+        if (data.todayCalories > 0)
+          _DetailRow('Total kcal', data.todayCalories.toStringAsFixed(0)),
+      ],
+    );
+  }
+}
+
+class _StepsDetail extends StatelessWidget {
+  final DashboardData data;
+  const _StepsDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (data.todayActiveCalories != null)
+          _DetailRow('Active cal', '${data.todayActiveCalories!.toStringAsFixed(0)} kcal'),
+        if (data.todayDistance != null)
+          _DetailRow('Distance', data.todayDistance! >= 1000
+              ? '${(data.todayDistance! / 1000).toStringAsFixed(1)} km'
+              : '${data.todayDistance!.toStringAsFixed(0)} m'),
+      ],
+    );
+  }
+}
+
+class _SleepDetail extends StatelessWidget {
+  final DashboardData data;
+  const _SleepDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.todaySleepMins == null) {
+      return const Text('No sleep data recorded',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
+    }
+    final mins = data.todaySleepMins!;
+    final h = (mins / 60).floor();
+    final m = (mins % 60).round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DetailRow('Duration', '${h}h ${m}m'),
+        _DetailRow('Quality', mins >= 420 ? 'Good (7+ hrs)' : 'Below target'),
+      ],
+    );
+  }
+}
+
+class _HeartRateDetail extends StatelessWidget {
+  final DashboardData data;
+  const _HeartRateDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.todayHeartRate == null) {
+      return const Text('No heart rate data',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
+    }
+    final hr = data.todayHeartRate!;
+    String zone = 'Normal';
+    if (hr < 60) zone = 'Low (bradycardia)';
+    if (hr > 100) zone = 'Elevated';
+    return _DetailRow('Zone', zone);
+  }
+}
+
+class _Spo2Detail extends StatelessWidget {
+  final DashboardData data;
+  const _Spo2Detail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.todaySpo2 == null) {
+      return const Text('No SpO2 data',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
+    }
+    final spo2 = data.todaySpo2!;
+    String status = 'Normal';
+    if (spo2 < 95) status = 'Below normal';
+    if (spo2 < 90) status = 'Low - seek advice';
+    return _DetailRow('Status', status);
+  }
+}
+
+class _ExerciseDetail extends StatelessWidget {
+  final DashboardData data;
+  const _ExerciseDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (data.todayActiveCalories != null)
+          _DetailRow('Active kcal', data.todayActiveCalories!.toStringAsFixed(0)),
+        if (data.todaySteps != null)
+          _DetailRow('Steps', '${data.todaySteps}'),
+      ],
+    );
+  }
+}
+
+class _DistanceDetail extends StatelessWidget {
+  final DashboardData data;
+  const _DistanceDetail({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    if (data.todayDistance == null) {
+      return const Text('No distance data',
+          style: TextStyle(fontSize: 12, color: Colors.grey));
+    }
+    final d = data.todayDistance!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DetailRow('Meters', d.toStringAsFixed(0)),
+        if (d >= 1000)
+          _DetailRow('Kilometers', (d / 1000).toStringAsFixed(2)),
+      ],
+    );
+  }
+}
+
+/// Reusable row for expanded detail sections.
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DetailRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+          Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+              color: Colors.grey.shade800)),
+        ],
       ),
     );
   }
@@ -2198,6 +2537,264 @@ class _IntakeRow extends StatelessWidget {
 
 // ── Flare risk snapshot on dashboard ─────────────────────────────────────────
 
+// ── Daily Progress Rings (Apple Watch style) ─────────────────────────────────
+
+class _DailyProgressRings extends StatefulWidget {
+  final DashboardData data;
+  final AsyncValue<double> hydrationAsync;
+
+  const _DailyProgressRings({
+    required this.data,
+    required this.hydrationAsync,
+  });
+
+  @override
+  State<_DailyProgressRings> createState() => _DailyProgressRingsState();
+}
+
+class _DailyProgressRingsState extends State<_DailyProgressRings>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animCtrl;
+  late final Animation<double> _animValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _animValue = CurvedAnimation(
+      parent: _animCtrl,
+      curve: Curves.easeOutCubic,
+    );
+    _animCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final calories = widget.data.todayCalories;
+    const calorieTarget = 2000.0;
+    final calorieProgress = (calories / calorieTarget).clamp(0.0, 1.0);
+
+    final hydrationMl = widget.hydrationAsync.whenOrNull(data: (ml) => ml) ?? widget.data.todayWater;
+    const hydrationTarget = 2000.0;
+    final hydrationProgress = (hydrationMl / hydrationTarget).clamp(0.0, 1.0);
+
+    final meals = widget.data.mealsCount;
+    const mealTarget = 3;
+    final mealProgress = (meals / mealTarget).clamp(0.0, 1.0);
+
+    const ringOrange = Color(0xFFFF9500);
+    const ringBlue = Color(0xFF0A84FF);
+    const ringGreen = Color(0xFF30D158);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Rings on the left
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: AnimatedBuilder(
+                animation: _animValue,
+                builder: (_, __) => CustomPaint(
+                  size: const Size(120, 120),
+                  painter: _ProgressRingsPainter(
+                    calorieProgress: calorieProgress * _animValue.value,
+                    hydrationProgress: hydrationProgress * _animValue.value,
+                    mealProgress: mealProgress * _animValue.value,
+                    calorieColor: ringOrange,
+                    hydrationColor: ringBlue,
+                    mealColor: ringGreen,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // Stats on the right
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Daily Progress',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          )),
+                  const SizedBox(height: 12),
+                  _RingStat(
+                    color: ringOrange,
+                    label: 'Calories',
+                    current: '${calories.toStringAsFixed(0)}',
+                    target: '${calorieTarget.toStringAsFixed(0)} kcal',
+                    percent: (calorieProgress * 100).toStringAsFixed(0),
+                  ),
+                  const SizedBox(height: 8),
+                  _RingStat(
+                    color: ringBlue,
+                    label: 'Hydration',
+                    current: '${hydrationMl.toStringAsFixed(0)}',
+                    target: '${hydrationTarget.toStringAsFixed(0)} ml',
+                    percent: (hydrationProgress * 100).toStringAsFixed(0),
+                  ),
+                  const SizedBox(height: 8),
+                  _RingStat(
+                    color: ringGreen,
+                    label: 'Meals',
+                    current: '$meals',
+                    target: '$mealTarget meals',
+                    percent: (mealProgress * 100).toStringAsFixed(0),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RingStat extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String current;
+  final String target;
+  final String percent;
+
+  const _RingStat({
+    required this.color,
+    required this.label,
+    required this.current,
+    required this.target,
+    required this.percent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
+                  )),
+              Text('$current / $target',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  )),
+            ],
+          ),
+        ),
+        Text('$percent%',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
+            )),
+      ],
+    );
+  }
+}
+
+class _ProgressRingsPainter extends CustomPainter {
+  final double calorieProgress;
+  final double hydrationProgress;
+  final double mealProgress;
+  final Color calorieColor;
+  final Color hydrationColor;
+  final Color mealColor;
+
+  _ProgressRingsPainter({
+    required this.calorieProgress,
+    required this.hydrationProgress,
+    required this.mealProgress,
+    required this.calorieColor,
+    required this.hydrationColor,
+    required this.mealColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const strokeWidth = 10.0;
+    const gap = 4.0;
+    const startAngle = -pi / 2; // 12 o'clock
+
+    // Outer ring — Calories
+    final outerRadius = (size.width / 2) - strokeWidth / 2;
+    _drawRing(canvas, center, outerRadius, strokeWidth, calorieColor,
+        calorieProgress, startAngle);
+
+    // Middle ring — Hydration
+    final middleRadius = outerRadius - strokeWidth - gap;
+    _drawRing(canvas, center, middleRadius, strokeWidth, hydrationColor,
+        hydrationProgress, startAngle);
+
+    // Inner ring — Meals
+    final innerRadius = middleRadius - strokeWidth - gap;
+    _drawRing(canvas, center, innerRadius, strokeWidth, mealColor,
+        mealProgress, startAngle);
+  }
+
+  void _drawRing(Canvas canvas, Offset center, double radius,
+      double strokeWidth, Color color, double progress, double startAngle) {
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Background ring at 15% opacity
+    final bgPaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, 0, 2 * pi, false, bgPaint);
+
+    // Progress ring
+    if (progress > 0) {
+      final fgPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+      final sweepAngle = 2 * pi * progress;
+      canvas.drawArc(rect, startAngle, sweepAngle, false, fgPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ProgressRingsPainter old) =>
+      old.calorieProgress != calorieProgress ||
+      old.hydrationProgress != hydrationProgress ||
+      old.mealProgress != mealProgress;
+}
+
+// ── Flare risk snapshot on dashboard ─────────────────────────────────────────
+
 class _FlareRiskSnapshot extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2288,6 +2885,157 @@ class _FlareRiskSnapshot extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ── Personal Bests card ──────────────────────────────────────────────────────
+
+class _PersonalBestsCard extends ConsumerStatefulWidget {
+  final String person;
+  const _PersonalBestsCard({required this.person});
+
+  @override
+  ConsumerState<_PersonalBestsCard> createState() => _PersonalBestsCardState();
+}
+
+class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
+    with SingleTickerProviderStateMixin {
+  List<Map<String, dynamic>> _bests = [];
+  bool _loading = true;
+  late final AnimationController _scaleCtrl;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _scaleAnim = CurvedAnimation(parent: _scaleCtrl, curve: Curves.elasticOut);
+    _fetch();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PersonalBestsCard old) {
+    super.didUpdateWidget(old);
+    if (old.person != widget.person) _fetch();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final dateStr = DateTime.now().toIso8601String().substring(0, 10);
+      final resp = await apiClient.dio.get(
+        ApiConstants.dashboardPersonalBests,
+        queryParameters: {'person': widget.person, 'date': dateStr},
+      );
+      if (!mounted) return;
+      final data = resp.data as Map<String, dynamic>;
+      final bests = (data['bests'] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
+      setState(() {
+        _bests = bests;
+        _loading = false;
+      });
+      if (bests.isNotEmpty) {
+        _scaleCtrl.forward(from: 0);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _bests.isEmpty) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+    const goldAccent = Color(0xFFF59E0B);
+    const goldBg = Color(0xFFFFFBEB);
+
+    return ScaleTransition(
+      scale: _scaleAnim,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Container(
+          decoration: BoxDecoration(
+            color: goldBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: goldAccent.withValues(alpha: 0.3)),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('\uD83C\uDFC6', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Personal Bests',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF92400E),
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: _bests.map((b) {
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: goldAccent.withValues(alpha: 0.25)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: goldAccent.withValues(alpha: 0.08),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(b['emoji'] ?? '',
+                            style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            b['message'] ?? '',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

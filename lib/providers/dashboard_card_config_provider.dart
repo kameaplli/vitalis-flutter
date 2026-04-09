@@ -29,7 +29,9 @@ enum DashboardCardType {
   flareRisk('Eczema Flare Risk', 'AI-predicted flare probability', 'flare_risk', false, false),
   topFoods('Top Foods', 'Top calorie sources this week', 'top_foods', false, false),
   insights('Insights', 'Personalized wellness tips', 'insights', false, false),
-  grocerySnapshot('Grocery Snapshot', 'Monthly spending overview', 'grocery_snapshot', false, false);
+  grocerySnapshot('Grocery Snapshot', 'Monthly spending overview', 'grocery_snapshot', false, false),
+  dailyProgress('Daily Progress', 'Rings showing nutrition, hydration & meals', 'daily_progress', true, false),
+  personalBests('Personal Bests', 'Your recent records & achievements', 'personal_bests', true, false);
 
   final String displayName;
   final String description;
@@ -61,6 +63,8 @@ enum DashboardCardType {
     DashboardCardType.topFoods => '\uD83C\uDF54',
     DashboardCardType.insights => '\uD83D\uDCA1',
     DashboardCardType.grocerySnapshot => '\uD83D\uDED2',
+    DashboardCardType.dailyProgress => '\uD83C\uDF00',
+    DashboardCardType.personalBests => '\uD83C\uDFC5',
   };
 }
 
