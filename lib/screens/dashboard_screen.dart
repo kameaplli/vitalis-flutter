@@ -839,29 +839,33 @@ class _HydrationQuickLogState extends ConsumerState<_HydrationQuickLog> {
 
   Future<void> _logCustom() async {
     final ctrl = TextEditingController();
-    final ml = await showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Log Water'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Amount (ml)', suffixText: 'ml'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              final v = int.tryParse(ctrl.text.trim());
-              Navigator.pop(ctx, v);
-            },
-            child: const Text('Log'),
+    try {
+      final ml = await showDialog<int>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Log Water'),
+          content: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Amount (ml)', suffixText: 'ml'),
+            autofocus: true,
           ),
-        ],
-      ),
-    );
-    if (ml != null && ml > 0) _log(ml);
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final v = int.tryParse(ctrl.text.trim());
+                Navigator.pop(ctx, v);
+              },
+              child: const Text('Log'),
+            ),
+          ],
+        ),
+      );
+      if (ml != null && ml > 0) _log(ml);
+    } finally {
+      ctrl.dispose();
+    }
   }
 
   @override
@@ -1258,11 +1262,13 @@ class _WelcomeScreenState extends ConsumerState<_WelcomeScreen>
       child: Stack(
         children: [
           // ── Floating orbs (onboarding style — clean, subtle) ──
-          ExcludeSemantics(child: AnimatedBuilder(
-            animation: _orbCtrl,
-            builder: (_, __) => CustomPaint(
-              size: screenSize,
-              painter: _WelcomeOrbsPainter(_orbCtrl.value, accent),
+          ExcludeSemantics(child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _orbCtrl,
+              builder: (_, __) => CustomPaint(
+                size: screenSize,
+                painter: _WelcomeOrbsPainter(_orbCtrl.value, accent),
+              ),
             ),
           )),
 
@@ -1758,7 +1764,7 @@ class _WelcomeOrbsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_WelcomeOrbsPainter old) => true;
+  bool shouldRepaint(_WelcomeOrbsPainter old) => old.t != t || old.accent != accent;
 }
 
 
@@ -2605,17 +2611,19 @@ class _DailyProgressRingsState extends State<_DailyProgressRings>
             SizedBox(
               width: 120,
               height: 120,
-              child: AnimatedBuilder(
-                animation: _animValue,
-                builder: (_, __) => CustomPaint(
-                  size: const Size(120, 120),
-                  painter: _ProgressRingsPainter(
-                    calorieProgress: calorieProgress * _animValue.value,
-                    hydrationProgress: hydrationProgress * _animValue.value,
-                    mealProgress: mealProgress * _animValue.value,
-                    calorieColor: ringOrange,
-                    hydrationColor: ringBlue,
-                    mealColor: ringGreen,
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _animValue,
+                  builder: (_, __) => CustomPaint(
+                    size: const Size(120, 120),
+                    painter: _ProgressRingsPainter(
+                      calorieProgress: calorieProgress * _animValue.value,
+                      hydrationProgress: hydrationProgress * _animValue.value,
+                      mealProgress: mealProgress * _animValue.value,
+                      calorieColor: ringOrange,
+                      hydrationColor: ringBlue,
+                      mealColor: ringGreen,
+                    ),
                   ),
                 ),
               ),
