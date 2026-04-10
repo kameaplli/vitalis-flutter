@@ -245,7 +245,21 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               _SoloTopBar(user: user),
             if (!isOnline)
               _OfflineBanner(onRetry: () => ref.read(connectivityProvider.notifier).refresh()),
-            Expanded(child: widget.child),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey(location),
+                  child: widget.child,
+                ),
+              ),
+            ),
           ],
         ),
       ),
