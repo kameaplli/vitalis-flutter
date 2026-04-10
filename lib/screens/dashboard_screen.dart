@@ -2968,101 +2968,223 @@ class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
     if (_loading) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
-    const goldAccent = Color(0xFFF59E0B);
-    const goldBg = Color(0xFFFFFBEB);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Theme-aware colors with strong contrast
+    final headerColor = isDark ? const Color(0xFFFFCA28) : const Color(0xFFE65100);
+    final labelColor = cs.onSurfaceVariant;
 
     return ScaleTransition(
       scale: _bests.isNotEmpty ? _scaleAnim : kAlwaysCompleteAnimation,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Container(
-          decoration: BoxDecoration(
-            color: goldBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: goldAccent.withValues(alpha: 0.3)),
-          ),
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header
               Row(
                 children: [
                   const Text('\uD83C\uDFC6', style: TextStyle(fontSize: 18)),
                   const SizedBox(width: 8),
-                  Text(
-                    'Personal Bests',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF92400E),
-                        ),
+                  Expanded(
+                    child: Text(
+                      'Personal Bests',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: headerColor,
+                          ),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               if (_bests.isEmpty)
                 Text(
                   'Log meals & water today to start tracking your bests!',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF92400E).withValues(alpha: 0.7),
-                  ),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: labelColor),
                 )
               else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: _bests.map((b) {
-                    final isNew = b['is_new'] == true;
-                    return Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isNew ? const Color(0xFFFEF3C7) : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isNew
-                              ? goldAccent.withValues(alpha: 0.5)
-                              : goldAccent.withValues(alpha: 0.2),
+                // 2-column grid of stat cards
+                LayoutBuilder(builder: (context, constraints) {
+                  final crossCount = constraints.maxWidth > 320 ? 2 : 1;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _bests.map((b) {
+                      final isNew = b['is_new'] == true;
+                      final width = crossCount == 2
+                          ? (constraints.maxWidth - 8) / 2
+                          : constraints.maxWidth;
+                      return SizedBox(
+                        width: width,
+                        child: _BestStatTile(
+                          emoji: b['emoji'] as String? ?? '',
+                          message: b['message'] as String? ?? '',
+                          value: b['value'],
+                          unit: b['unit'] as String? ?? '',
+                          isNew: isNew,
+                          isDark: isDark,
+                          cs: cs,
                         ),
-                        boxShadow: isNew
-                            ? [
-                                BoxShadow(
-                                  color: goldAccent.withValues(alpha: 0.15),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(b['emoji'] ?? '',
-                              style: const TextStyle(fontSize: 14)),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              b['message'] ?? '',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isNew ? FontWeight.w700 : FontWeight.w500,
-                                color: isNew
-                                    ? const Color(0xFF92400E)
-                                    : cs.onSurface.withValues(alpha: 0.8),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
+                      );
+                    }).toList(),
+                  );
+                }),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _BestStatTile extends StatelessWidget {
+  final String emoji;
+  final String message;
+  final dynamic value;
+  final String unit;
+  final bool isNew;
+  final bool isDark;
+  final ColorScheme cs;
+
+  const _BestStatTile({
+    required this.emoji,
+    required this.message,
+    required this.value,
+    required this.unit,
+    required this.isNew,
+    required this.isDark,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Record cards: warm amber tint. Normal cards: surface variant.
+    final cardBg = isNew
+        ? (isDark ? const Color(0xFF2D2518) : const Color(0xFFFFF8E1))
+        : cs.surfaceContainerHighest;
+    final borderColor = isNew
+        ? (isDark ? const Color(0xFFB8860B) : const Color(0xFFFFD54F))
+        : cs.outlineVariant;
+    final valueColor = isNew
+        ? (isDark ? const Color(0xFFFFD54F) : const Color(0xFFBF360C))
+        : cs.onSurface;
+    final labelColor = cs.onSurfaceVariant;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: isNew ? 1.5 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top row: emoji + category label + optional NEW badge
+          Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _categoryLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: labelColor,
+                    letterSpacing: 0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isNew)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF3E2723) : const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'NEW',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Big stat value
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                _formattedValue,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: valueColor,
+                  letterSpacing: -0.5,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: labelColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Description line
+          Text(
+            _shortMessage,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: labelColor,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String get _formattedValue {
+    if (value is num) {
+      final v = (value as num).toDouble();
+      return v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+    }
+    return value?.toString() ?? '—';
+  }
+
+  String get _categoryLabel {
+    // Extract a short category from the message
+    final msg = message.toLowerCase();
+    if (msg.contains('hydration')) return 'HYDRATION';
+    if (msg.contains('streak')) return 'STREAK';
+    if (msg.contains('balance') || msg.contains('macro')) return 'MACRO BALANCE';
+    if (msg.contains('protein')) return 'PROTEIN';
+    return 'ACHIEVEMENT';
+  }
+
+  String get _shortMessage {
+    // Keep just the key info — strip redundant parts
+    if (isNew) return message;
+    // For current standings, the message IS the description
+    return message;
   }
 }
