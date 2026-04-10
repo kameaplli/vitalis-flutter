@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../core/api_client.dart';
 import '../core/constants.dart';
 import 'help_tooltip.dart';
@@ -30,12 +31,16 @@ enum _VoiceState { idle, recording, processing, confirmed, error }
 class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     with SingleTickerProviderStateMixin {
   final _recorder = AudioRecorder();
+  final _speech = stt.SpeechToText();
   var _state = _VoiceState.idle;
   String _errorMsg = '';
   String _transcript = '';
+  String _liveTranscript = ''; // Real-time transcript while speaking
 
   // Recording state
   bool _recorderReady = false;
+  bool _sttAvailable = false;
+  bool _usingStt = false; // true = on-device STT, false = audio upload fallback
   String? _audioPath;
   Duration _recordDuration = Duration.zero;
   Timer? _durationTimer;
@@ -64,6 +69,17 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   }
 
   Future<void> _initRecorder() async {
+    // Try on-device STT first (much faster — no audio upload needed)
+    try {
+      _sttAvailable = await _speech.initialize(
+        onError: (_) {},
+        onStatus: (_) {},
+      );
+    } catch (_) {
+      _sttAvailable = false;
+    }
+
+    // Audio recorder as fallback
     final hasPermission = await _recorder.hasPermission();
     if (mounted) {
       setState(() => _recorderReady = hasPermission);
@@ -71,7 +87,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   }
 
   Future<void> _startRecording() async {
-    if (!_recorderReady) {
+    if (!_recorderReady && !_sttAvailable) {
       setState(() {
         _state = _VoiceState.error;
         _errorMsg = 'Microphone permission denied. Please enable it in Settings.';
@@ -79,6 +95,49 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       return;
     }
 
+    _liveTranscript = '';
+    _recordDuration = Duration.zero;
+
+    // Duration timer
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _state == _VoiceState.recording) {
+        setState(() => _recordDuration += const Duration(seconds: 1));
+      }
+    });
+
+    // Primary: On-device STT (real-time transcript, no audio upload needed)
+    if (_sttAvailable) {
+      _usingStt = true;
+      try {
+        await _speech.listen(
+          onResult: (result) {
+            if (mounted) {
+              setState(() => _liveTranscript = result.recognizedWords);
+            }
+          },
+          listenFor: const Duration(seconds: 60),
+          pauseFor: const Duration(seconds: 3),
+          listenOptions: stt.SpeechListenOptions(
+            partialResults: true,
+            cancelOnError: false,
+          ),
+        );
+        setState(() => _state = _VoiceState.recording);
+      } catch (e) {
+        // STT failed to start — fall back to audio recording
+        _usingStt = false;
+        _sttAvailable = false;
+        await _startAudioRecording();
+      }
+      return;
+    }
+
+    // Fallback: Audio recording (uploads to server for Whisper transcription)
+    _usingStt = false;
+    await _startAudioRecording();
+  }
+
+  Future<void> _startAudioRecording() async {
     try {
       final dir = await getTemporaryDirectory();
       final path = '${dir.path}/voice_meal_${DateTime.now().millisecondsSinceEpoch}.m4a';
@@ -94,14 +153,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       );
 
       _audioPath = path;
-      _recordDuration = Duration.zero;
-
-      // Duration timer
-      _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted && _state == _VoiceState.recording) {
-          setState(() => _recordDuration += const Duration(seconds: 1));
-        }
-      });
 
       // Amplitude polling for visual feedback
       _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 150), (_) async {
@@ -110,7 +161,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           final amp = await _recorder.getAmplitude();
           if (mounted) {
             setState(() {
-              // Normalize: amp.current is typically -160 to 0 dB
               _currentAmplitude = ((amp.current + 50) / 50).clamp(0.0, 1.0);
             });
           }
@@ -130,6 +180,23 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     _durationTimer?.cancel();
     _amplitudeTimer?.cancel();
 
+    // ── Path A: On-device STT — send text only (fast, ~2-3s) ──
+    if (_usingStt) {
+      await _speech.stop();
+      final transcript = _liveTranscript.trim();
+      if (transcript.isEmpty) {
+        setState(() {
+          _state = _VoiceState.error;
+          _errorMsg = 'No speech detected. Please speak clearly and try again.';
+        });
+        return;
+      }
+      setState(() => _state = _VoiceState.processing);
+      await _processText(transcript);
+      return;
+    }
+
+    // ── Path B: Audio upload fallback (slower, ~6-10s) ──
     try {
       final path = await _recorder.stop();
       if (path == null || path.isEmpty) {
@@ -151,7 +218,6 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
 
       setState(() => _state = _VoiceState.processing);
 
-      // Upload audio to backend for Whisper transcription + Gemini parsing
       final now = DateTime.now();
       final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
@@ -201,11 +267,9 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         });
       }
 
-      // Clean up audio file
       try { file.deleteSync(); } catch (_) {}
 
     } on DioException catch (e) {
-      // Show real error for debugging
       final status = e.response?.statusCode;
       final body = e.response?.data;
       String detail = '';
@@ -296,9 +360,9 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
   void dispose() {
     _durationTimer?.cancel();
     _amplitudeTimer?.cancel();
+    _speech.stop();
     _recorder.dispose();
     _pulseCtrl.dispose();
-    // Clean up any leftover audio file
     if (_audioPath != null) {
       try { File(_audioPath!).deleteSync(); } catch (_) {}
     }
@@ -478,73 +542,101 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
     final seconds = (_recordDuration.inSeconds % 60).toString().padLeft(2, '0');
 
     return Column(children: [
-      const SizedBox(height: 20),
-      // Pulsing mic with amplitude indicator
-      AnimatedBuilder(
-        animation: _pulseAnim,
-        builder: (_, __) {
-          final ampScale = 1.0 + (_currentAmplitude * 0.3);
-          return Transform.scale(
-            scale: _pulseAnim.value * ampScale * 0.85,
-            child: Container(
-              width: 100, height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.red,
-                boxShadow: [BoxShadow(
-                  color: Colors.red.withValues(alpha: 0.3 + _currentAmplitude * 0.3),
-                  blurRadius: 20 + _currentAmplitude * 20,
-                  spreadRadius: 5 + _currentAmplitude * 10,
-                )],
-              ),
-              child: HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 48, color: Colors.white),
-            ),
-          );
-        },
-      ),
       const SizedBox(height: 16),
-      Text('Recording...', style: tt.titleMedium?.copyWith(
+      // Pulsing mic
+      ScaleTransition(
+        scale: _pulseAnim,
+        child: Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.red,
+            boxShadow: [BoxShadow(
+              color: Colors.red.withValues(alpha: 0.3),
+              blurRadius: 20,
+              spreadRadius: 5,
+            )],
+          ),
+          child: HugeIcon(icon: HugeIcons.strokeRoundedMic01, size: 40, color: Colors.white),
+        ),
+      ),
+      const SizedBox(height: 12),
+      Text('Listening...', style: tt.titleMedium?.copyWith(
         fontWeight: FontWeight.bold, color: Colors.red,
       )),
       const SizedBox(height: 4),
-      // Duration display
       Text(
         '$minutes:$seconds',
-        style: tt.headlineMedium?.copyWith(
+        style: tt.headlineSmall?.copyWith(
           fontWeight: FontWeight.w700,
           color: Colors.red,
           fontFeatures: [const FontFeature.tabularFigures()],
         ),
       ),
-      const SizedBox(height: 4),
-      Text(
-        'Describe your full meal — tap Done when finished',
-        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-      ),
 
-      // Amplitude visualizer
-      const SizedBox(height: 16),
-      SizedBox(
-        height: 40,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(20, (i) {
-            final barHeight = 8.0 + (_currentAmplitude * 32.0 * ((i % 3 == 0) ? 1.0 : 0.6));
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              width: 4,
-              height: barHeight,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.4 + _currentAmplitude * 0.6),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            );
-          }),
+      // ── Live transcript (shown only when using on-device STT) ──
+      if (_usingStt && _liveTranscript.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                HugeIcon(icon: HugeIcons.strokeRoundedTextCheck, size: 14, color: cs.primary),
+                const SizedBox(width: 6),
+                Text('Live transcript', style: tt.labelSmall?.copyWith(
+                  color: cs.primary, fontWeight: FontWeight.w600,
+                )),
+              ]),
+              const SizedBox(height: 6),
+              Text(_liveTranscript, style: tt.bodyMedium?.copyWith(
+                fontStyle: FontStyle.italic,
+              )),
+            ],
+          ),
         ),
-      ),
+      ] else if (!_usingStt) ...[
+        const SizedBox(height: 8),
+        Text(
+          'Describe your full meal — tap Done when finished',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        // Amplitude visualizer for audio mode
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 32,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(20, (i) {
+              final barHeight = 8.0 + (_currentAmplitude * 24.0 * ((i % 3 == 0) ? 1.0 : 0.6));
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                width: 4,
+                height: barHeight,
+                margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.4 + _currentAmplitude * 0.6),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              );
+            }),
+          ),
+        ),
+      ] else ...[
+        const SizedBox(height: 8),
+        Text(
+          'Speak naturally — your words appear here',
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      ],
 
-      const SizedBox(height: 24),
+      const SizedBox(height: 20),
 
       // Done button
       SizedBox(
@@ -562,7 +654,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
         onPressed: () {
           _durationTimer?.cancel();
           _amplitudeTimer?.cancel();
-          _recorder.stop();
+          if (_usingStt) _speech.stop(); else _recorder.stop();
           setState(() => _state = _VoiceState.idle);
         },
         child: const Text('Cancel'),
@@ -575,10 +667,20 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
       const SizedBox(height: 40),
       CircularProgressIndicator(color: cs.primary),
       const SizedBox(height: 24),
-      Text('Transcribing & parsing...', style: tt.titleMedium),
+      Text('Identifying foods...', style: tt.titleMedium),
       const SizedBox(height: 8),
+      if (_liveTranscript.isNotEmpty || _transcript.isNotEmpty) ...[
+        Text(
+          '"${_liveTranscript.isNotEmpty ? _liveTranscript : _transcript}"',
+          style: tt.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant, fontStyle: FontStyle.italic,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+      ],
       Text(
-        'Whisper AI is transcribing your voice,\nthen Gemini will identify the foods',
+        'Matching foods in your database...',
         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         textAlign: TextAlign.center,
       ),
