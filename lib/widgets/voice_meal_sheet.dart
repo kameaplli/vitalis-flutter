@@ -1094,7 +1094,7 @@ class _VoiceMealSheetState extends ConsumerState<VoiceMealSheet>
           'transcript': text,
           'current_time': timeStr,
         },
-        options: Options(receiveTimeout: const Duration(seconds: 60)),
+        options: Options(receiveTimeout: const Duration(seconds: 15)),
       );
 
       final data = res.data as Map<String, dynamic>;
