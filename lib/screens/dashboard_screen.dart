@@ -3002,21 +3002,27 @@ class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
                 spacing: 8,
                 runSpacing: 6,
                 children: _bests.map((b) {
+                  final isNew = b['is_new'] == true;
                   return Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isNew ? const Color(0xFFFEF3C7) : Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border:
-                          Border.all(color: goldAccent.withValues(alpha: 0.25)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: goldAccent.withValues(alpha: 0.08),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                      border: Border.all(
+                        color: isNew
+                            ? goldAccent.withValues(alpha: 0.5)
+                            : goldAccent.withValues(alpha: 0.2),
+                      ),
+                      boxShadow: isNew
+                          ? [
+                              BoxShadow(
+                                color: goldAccent.withValues(alpha: 0.15),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -3029,8 +3035,10 @@ class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
                             b['message'] ?? '',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: cs.onSurface,
+                              fontWeight: isNew ? FontWeight.w700 : FontWeight.w500,
+                              color: isNew
+                                  ? const Color(0xFF92400E)
+                                  : cs.onSurface.withValues(alpha: 0.8),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
