@@ -168,6 +168,15 @@ class AppTheme {
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _FadeScaleTransitionBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: _FadeScaleTransitionBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: _FadeScaleTransitionBuilder(),
+        },
+      ),
     );
   }
 
@@ -177,4 +186,28 @@ class AppTheme {
   static ThemeData get sunsetTheme => forSkin(AppSkin.sunset);
   static ThemeData get oceanTheme => forSkin(AppSkin.ocean);
   static ThemeData get lavenderTheme => forSkin(AppSkin.lavender);
+}
+
+/// Fade + subtle scale page transition (Material 3 style, 300ms).
+class _FadeScaleTransitionBuilder extends PageTransitionsBuilder {
+  const _FadeScaleTransitionBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.96, end: 1.0).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        ),
+        child: child,
+      ),
+    );
+  }
 }

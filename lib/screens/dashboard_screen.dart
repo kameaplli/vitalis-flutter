@@ -28,6 +28,7 @@ import '../widgets/wearable_summary_card.dart';
 import '../widgets/dashboard_customize_sheet.dart';
 import '../providers/dashboard_card_config_provider.dart';
 import '../widgets/hydration_quick_sheet.dart';
+import '../widgets/animated_entrance.dart';
 
 // ── Home screen (merged Dashboard + Analytics) ────────────────────────────────
 
@@ -388,8 +389,10 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
     // Adjacent small tiles are grouped into a single 2-column grid sliver.
     final slivers = <Widget>[];
     var i = 0;
+    var sectionIndex = 0;
     while (i < visibleCards.length) {
       final type = visibleCards[i];
+      final delay = Duration(milliseconds: 60 * sectionIndex);
       if (type.isSmallTile) {
         // Collect consecutive small tiles
         final smallRun = <DashboardCardType>[];
@@ -398,14 +401,21 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
           i++;
         }
         slivers.add(SliverToBoxAdapter(
-          child: _buildSmallTileGrid(smallRun, data, hydrationAsync),
+          child: AnimatedEntrance(
+            delay: delay,
+            child: _buildSmallTileGrid(smallRun, data, hydrationAsync),
+          ),
         ));
       } else {
         slivers.add(SliverToBoxAdapter(
-          child: _buildFullWidthCard(type, data, person, groceryAsync, hydrationAsync),
+          child: AnimatedEntrance(
+            delay: delay,
+            child: _buildFullWidthCard(type, data, person, groceryAsync, hydrationAsync),
+          ),
         ));
         i++;
       }
+      sectionIndex++;
     }
 
     return CustomScrollView(
@@ -724,11 +734,10 @@ class _QuickActionsBar extends StatelessWidget {
       child: Semantics(
         button: true,
         label: label,
-        child: Material(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            onTap: onTap,
+        child: PressableScale(
+          onTap: onTap,
+          child: Material(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
