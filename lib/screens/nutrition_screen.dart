@@ -15,7 +15,6 @@ import '../providers/food_provider.dart';
 import '../providers/selected_person_provider.dart';
 import '../providers/nutrition_analytics_provider.dart';
 import '../models/food_item.dart';
-import '../widgets/voice_meal_sheet.dart';
 // ─── Extracted widget imports ─────────────────────────────────────────────────
 import 'nutrition/barcode_scan_sheet.dart';
 import 'nutrition/meal_suggestions.dart';
@@ -127,7 +126,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
             // ── Contextual health nudge ───────────────────────────────────
             const _NutritionNudge(),
 
-            // ── Full-width search bar ─────────────────────────────────────
+            // ── Smart search bar with scan shortcuts ──────────────────────
             Material(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
@@ -135,80 +134,23 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 onTap: () => _showFoodSearch(context),
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.only(left: 16, right: 6, top: 6, bottom: 6),
                   child: Row(
                     children: [
-                      HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: colorScheme.onSurfaceVariant, size: 22),
-                      const SizedBox(width: 12),
-                      Text('Search food...',
-                          style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500,
-                            color: colorScheme.onSurfaceVariant,
-                          )),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ── Primary: Voice entry ───────────────────────────────────
-            Material(
-              color: Colors.purple.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              child: InkWell(
-                onTap: () {
-                  final personId = ref.read(selectedPersonProvider);
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => VoiceMealSheet(
-                      personId: personId,
-                      onLogged: () {
-                        ref.invalidate(nutritionProvider);
-                        ref.invalidate(dashboardProvider((personId, DateTime.now().toIso8601String().substring(0, 10))));
-                        ref.invalidate(nutritionEntriesProvider);
-                        ref.invalidate(nutritionAnalyticsProvider);
-                        AppCache.clearAnalytics();
-                      },
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const HugeIcon(icon: HugeIcons.strokeRoundedMic01, color: Colors.purple, size: 28),
-                      ),
-                      const SizedBox(width: 16),
+                      HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: colorScheme.onSurfaceVariant, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Tell me what you ate',
-                                style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w700,
-                                  color: colorScheme.onSurface,
-                                )),
-                            const SizedBox(height: 2),
-                            Text('Just speak naturally \u2014 works with Indian foods too',
-                                style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w500,
-                                  color: colorScheme.onSurfaceVariant,
-                                )),
-                          ],
-                        ),
+                        child: Text('Search food...',
+                            style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500,
+                              color: colorScheme.onSurfaceVariant,
+                            )),
                       ),
-                      HugeIcon(icon: HugeIcons.strokeRoundedArrowRight01, color: Colors.purple.withValues(alpha: 0.6), size: 22),
+                      _ScanPill(icon: HugeIcons.strokeRoundedQrCode, label: 'Scan', color: Colors.orange, onTap: () => _showBarcodeScan(context)),
+                      const SizedBox(width: 4),
+                      _ScanPill(icon: HugeIcons.strokeRoundedCamera01, label: 'Photo', color: Colors.teal, onTap: () => _showPhotoFoodRecognition(context)),
+                      const SizedBox(width: 4),
+                      _ScanPill(icon: HugeIcons.strokeRoundedTextCheck, label: 'Label', color: Colors.green, onTap: () => _showLabelScanOptions(context)),
                     ],
                   ),
                 ),
@@ -221,41 +163,8 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
               mealType: nutrition.mealType,
               onMealsReady: (meals) => _showQuickCreateResults(meals),
             ),
-            const SizedBox(height: 10),
 
-            // ── Secondary: Barcode, Label, Photo AI ───────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: _BigEntryCard(
-                    icon: HugeIcons.strokeRoundedQrCode,
-                    label: 'Barcode',
-                    color: Colors.orange,
-                    onTap: () => _showBarcodeScan(context),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _BigEntryCard(
-                    icon: HugeIcons.strokeRoundedCamera01,
-                    label: 'Label',
-                    color: Colors.green,
-                    onTap: () => _showLabelScanOptions(context),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _BigEntryCard(
-                    icon: HugeIcons.strokeRoundedRestaurant01,
-                    label: 'Photo AI',
-                    color: Colors.teal,
-                    onTap: () => _showPhotoFoodRecognition(context),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // ── Meal type + time row ───────────────────────────────────────
             Row(
@@ -277,24 +186,10 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
 
             const SizedBox(height: 12),
 
-            // ── Yesterday's meals (copy meal) ──────────────────────────────────
-            const YesterdayMealsSection(),
+            // ── Quick-add section (tabbed — shows one carousel at a time) ────
+            _QuickAddTabs(mealType: nutrition.mealType),
 
-            // ── Indian thali templates ──────────────────────────────────────────
-            const ThaliTemplatesSection(),
-
-            // ── Meal suggestions for selected meal type ───────────────────────
-            MealSuggestionsSection(mealType: nutrition.mealType),
-
-            const SizedBox(height: 8),
-
-            // ── Recent meals carousel ────────────────────────────────────────
-            const RecentMealsSection(),
-
-            const SizedBox(height: 16),
-
-            // ── Frequent individual foods ─────────────────────────────────────
-            const FrequentFoodsSection(),
+            const SizedBox(height: 12),
 
             // ── Selected foods ───────────────────────────────────────────────
             if (nutrition.selectedFoods.isNotEmpty) ...[
@@ -1066,15 +961,15 @@ class _NudgeInfo {
   const _NudgeInfo({required this.message, required this.icon, required this.color});
 }
 
-// ─── Big entry method card ────────────────────────────────────────────────────
+// ── Compact scan pill (inside search bar) ────────────────────────────────────
 
-class _BigEntryCard extends StatelessWidget {
+class _ScanPill extends StatelessWidget {
   final List<List<dynamic>> icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
 
-  const _BigEntryCard({
+  const _ScanPill({
     required this.icon,
     required this.label,
     required this.color,
@@ -1083,36 +978,87 @@ class _BigEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(16),
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: HugeIcon(icon: icon, color: color, size: 24),
-              ),
-              const SizedBox(height: 8),
+              HugeIcon(icon: icon, color: color, size: 16),
+              const SizedBox(width: 4),
               Text(label, style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700,
-                color: cs.onSurface,
+                fontSize: 11, fontWeight: FontWeight.w700, color: color,
               )),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Tabbed quick-add section (one carousel at a time) ────────────────────────
+
+class _QuickAddTabs extends StatefulWidget {
+  final String mealType;
+  const _QuickAddTabs({required this.mealType});
+
+  @override
+  State<_QuickAddTabs> createState() => _QuickAddTabsState();
+}
+
+class _QuickAddTabsState extends State<_QuickAddTabs> {
+  int _selectedTab = 0;
+
+  static const _tabs = ['Recent', 'Frequent', 'Yesterday', 'Templates', 'Suggestions'];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Tab chips ──
+        SizedBox(
+          height: 36,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _tabs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 6),
+            itemBuilder: (_, i) => ChoiceChip(
+              label: Text(_tabs[i], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              selected: _selectedTab == i,
+              onSelected: (_) => setState(() => _selectedTab = i),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              showCheckmark: false,
+              side: _selectedTab == i ? null : BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // ── Content area (one section at a time) ──
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          switchInCurve: Curves.easeOut,
+          child: KeyedSubtree(
+            key: ValueKey(_selectedTab),
+            child: switch (_selectedTab) {
+              0 => const RecentMealsSection(),
+              1 => const FrequentFoodsSection(),
+              2 => const YesterdayMealsSection(),
+              3 => const ThaliTemplatesSection(),
+              4 => MealSuggestionsSection(mealType: widget.mealType),
+              _ => const SizedBox.shrink(),
+            },
+          ),
+        ),
+      ],
     );
   }
 }
