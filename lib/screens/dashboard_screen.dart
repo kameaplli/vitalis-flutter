@@ -2951,7 +2951,8 @@ class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
       if (bests.isNotEmpty) {
         _scaleCtrl.forward(from: 0);
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PersonalBests] fetch error: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -2964,14 +2965,14 @@ class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
 
   @override
   Widget build(BuildContext context) {
-    if (_loading || _bests.isEmpty) return const SizedBox.shrink();
+    if (_loading) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;
     const goldAccent = Color(0xFFF59E0B);
     const goldBg = Color(0xFFFFFBEB);
 
     return ScaleTransition(
-      scale: _scaleAnim,
+      scale: _bests.isNotEmpty ? _scaleAnim : kAlwaysCompleteAnimation,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Container(
@@ -2998,56 +2999,66 @@ class _PersonalBestsCardState extends ConsumerState<_PersonalBestsCard>
                 ],
               ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: _bests.map((b) {
-                  final isNew = b['is_new'] == true;
-                  return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isNew ? const Color(0xFFFEF3C7) : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isNew
-                            ? goldAccent.withValues(alpha: 0.5)
-                            : goldAccent.withValues(alpha: 0.2),
-                      ),
-                      boxShadow: isNew
-                          ? [
-                              BoxShadow(
-                                color: goldAccent.withValues(alpha: 0.15),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(b['emoji'] ?? '',
-                            style: const TextStyle(fontSize: 14)),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            b['message'] ?? '',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isNew ? FontWeight.w700 : FontWeight.w500,
-                              color: isNew
-                                  ? const Color(0xFF92400E)
-                                  : cs.onSurface.withValues(alpha: 0.8),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+              if (_bests.isEmpty)
+                Text(
+                  'Log meals & water today to start tracking your bests!',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF92400E).withValues(alpha: 0.7),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _bests.map((b) {
+                    final isNew = b['is_new'] == true;
+                    return Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isNew ? const Color(0xFFFEF3C7) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isNew
+                              ? goldAccent.withValues(alpha: 0.5)
+                              : goldAccent.withValues(alpha: 0.2),
                         ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+                        boxShadow: isNew
+                            ? [
+                                BoxShadow(
+                                  color: goldAccent.withValues(alpha: 0.15),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(b['emoji'] ?? '',
+                              style: const TextStyle(fontSize: 14)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              b['message'] ?? '',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isNew ? FontWeight.w700 : FontWeight.w500,
+                                color: isNew
+                                    ? const Color(0xFF92400E)
+                                    : cs.onSurface.withValues(alpha: 0.8),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
             ],
           ),
         ),
