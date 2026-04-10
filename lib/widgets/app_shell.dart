@@ -351,14 +351,14 @@ class _BottomNavWithGenie extends StatelessWidget {
             ),
           ],
         ),
-        // Center voice button overlay (glowing + at same height as other nav icons)
+        // Center mic button overlay — voice logging, always accessible
         Positioned(
-          top: 2,
+          top: -6,
           child: GestureDetector(
             onTap: onGenieTap,
             child: Container(
-              width: 52,
-              height: 52,
+              width: 58,
+              height: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -368,17 +368,17 @@ class _BottomNavWithGenie extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: cs.primary.withValues(alpha: 0.45),
-                    blurRadius: 16,
-                    spreadRadius: 1,
+                    color: cs.primary.withValues(alpha: 0.5),
+                    blurRadius: 18,
+                    spreadRadius: 2,
                   ),
                 ],
+                border: Border.all(
+                  color: cs.surface,
+                  width: 3,
+                ),
               ),
-              child: HugeIcon(icon: 
-                HugeIcons.strokeRoundedAdd01,
-                size: 32,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.mic_rounded, size: 30, color: Colors.white),
             ),
           ),
         ),
