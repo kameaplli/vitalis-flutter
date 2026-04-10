@@ -654,7 +654,7 @@ class _HomeBodyState extends ConsumerState<_HomeBody> {
         data: data,
         hydrationAsync: hydrationAsync,
       ),
-      DashboardCardType.personalBests => const SizedBox.shrink(), // TODO: implement
+      DashboardCardType.personalBests => _PersonalBestsCard(person: person),
       _ => const SizedBox.shrink(), // Small tiles shouldn't reach here
     };
 
